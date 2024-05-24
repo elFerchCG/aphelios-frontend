@@ -1,0 +1,119 @@
+/*Estilos para el header*/
+.tittle {
+    color: #003DB6;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 25px;
+    text-align: center;
+    font-weight: bold;
+    padding-bottom: 0%;
+}
+
+.header{
+    background-color: #ffe600;
+    display: flex;
+    justify-content: center;
+    height: auto;
+    top: auto;
+    bottom:auto;
+    left:auto;
+    width: 100%; 
+	left: 0; 
+	top: 0; 
+	position: fixed; 
+}
+
+.header .toggle-btn{
+    justify-content: left;
+}
+
+.toggle-btn{
+    margin: 0%;
+    padding: 0%;
+}
+
+
+#sidebar{
+    position: fixed;
+    width: 250px;
+    height: 100%;
+    background-color: #ffe600;
+    left: -250px;
+    transition: all 200ms;
+}
+
+#sidebar ul li{
+    font-family: Arial, Helvetica, sans-serif;
+    color: #003DB6;
+    text-align: justify;
+    list-style: none;
+    padding: 15px 20px;
+}
+
+.logo{
+    display: block;
+    margin: 0 auto;
+}
+
+#sidebar .toggle-btn{
+    position: absolute;
+    left: 260px;
+    top: -10px;
+    cursor: pointer;
+}
+
+#sidebar .toggle-btn span{
+    display: block;
+    width: 45px;
+    text-align: center;
+    padding-top: 10px;
+    font-size: 45px;
+    margin-left: 8px;
+    position: absolute;
+}
+
+#sidebar .close{
+    font-size: 25px;
+    display: block;
+    text-align: right;
+    color: #003DB6;
+    width: auto;
+    cursor: pointer;
+}
+
+#sidebar.active{
+    left: 0;
+}
+
+
+.menu{
+    color: #003DB6;
+}
+
+a{
+    outline: none;
+    text-decoration: none;
+    color: #003DB6;
+  }
+  
+a:hover {
+    opacity: 0.8;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    padding: 10px 20px;
+    background-color: #003DB6;
+  }
+  
+a:link, a:visited, a:active {
+    text-decoration:none;
+  }
+
+.boton-h{
+    visibility: none;
+}
+  
+body{
+    background-color: white;
+}
+/*Final de los estilos para el header*/
