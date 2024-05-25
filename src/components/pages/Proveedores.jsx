@@ -1,44 +1,55 @@
 import React from 'react'
 import DataTable from 'react-data-table-component'
+import { RegistroProveedor } from '../pages/RegistroProveedor';
+
 
 export const Proveedores = () => {
 
     const columns = [
         {
             name: 'ID',
-            selector: row => row.id
+            selector: row => row.id,
+            sortable: true
         },
         {
             name: 'Mes',
-            selector: row => row.mes
+            selector: row => row.mes,
+            sortable: true
         },
         {
             name: 'Año',
-            selector: row => row.año
+            selector: row => row.año,
+            sortable: true
         },
         {
             name: 'Día',
-            selector: row => row.dia
+            selector: row => row.dia,
+            sortable: true
         },
         {
             name: 'Pedido',
-            selector: row => row.pedido
+            selector: row => row.pedido,
+            sortable: true
         },
         {
             name: 'Cantidad',
-            selector: row => row.cantidad
+            selector: row => row.cantidad,
+            sortable: true
         },
         {
             name: 'Encargado',
-            selector: row => row.encargado
+            selector: row => row.encargado,
+            sortable: true
         },
         {
             name: 'Proveedor',
-            selector: row => row.proveedor
+            selector: row => row.proveedor,
+            sortable: true
         },
         {
             name: 'Estatus',
-            selector: row => row.estatus
+            selector: row => row.estatus,
+            sortable: true
         },
         {
             name: 'Visualizar',
@@ -68,16 +79,18 @@ const data = [
 
   return (
     <body>
-        <div>
+        <div className='layoutP'>
             <h1>Proveedores</h1>
             <input type='search'  /> 
             <input type='button' value="Buscar" />
-            <input type='button' className='agregarO' value='Agregar orden' />
+            <button className='agregarO' >Agregar Proveedor</button> 
         </div>
     <section>
         <DataTable
             columns={columns}
             data={data}
+            fixedHeader
+            pagination
         ></DataTable>
     </section>
     </body>

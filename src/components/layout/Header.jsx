@@ -23,7 +23,7 @@ const Header = () => {
     <div>
          <header className="header">
     <div className="superior-bar">
-        <p className="tittle">Mercado Libre</p>
+        <p className="tittle">Aphelios</p>
     </div> 
     
     <div id="sidebar" className="sidebar" >
@@ -35,12 +35,9 @@ const Header = () => {
                 <span id="close" className="close">&#x2715;</span>
     </div>
       <nav>
-        <li className="logo"> <img src={""} alt="logo"/> </li>
         <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/inicio">Inicio</NavLink></li>
-        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/empleados">Empleados</NavLink></li>
-        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/reseñas">Reseñas</NavLink></li>
-        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/preguntas">Preguntas</NavLink></li>
-        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/categorias">Categorias</NavLink></li>
+        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/proveedores">Proveedores</NavLink></li>
+        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/registroU">Usuarios</NavLink></li>
       </nav>
       </ul>
     </div>

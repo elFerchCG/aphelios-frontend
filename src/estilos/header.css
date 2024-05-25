@@ -1,6 +1,13 @@
 /*Estilos para el header*/
+.logo {
+    margin-top: 1px;
+    margin-bottom: 1px;
+    width: 300px;
+    height: 50px;
+}
+
 .tittle {
-    color: #003DB6;
+    color: #ffffff;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 25px;
     text-align: center;
@@ -9,7 +16,7 @@
 }
 
 .header{
-    background-color: #ffe600;
+    background-color: #282d88;
     display: flex;
     justify-content: center;
     height: auto;
@@ -36,22 +43,17 @@
     position: fixed;
     width: 250px;
     height: 100%;
-    background-color: #ffe600;
+    background-color: #282d88;
     left: -250px;
     transition: all 200ms;
 }
 
 #sidebar ul li{
     font-family: Arial, Helvetica, sans-serif;
-    color: #003DB6;
+    color: #ffffff;
     text-align: justify;
     list-style: none;
     padding: 15px 20px;
-}
-
-.logo{
-    display: block;
-    margin: 0 auto;
 }
 
 #sidebar .toggle-btn{
@@ -75,7 +77,7 @@
     font-size: 25px;
     display: block;
     text-align: right;
-    color: #003DB6;
+    color: #ffffff;
     width: auto;
     cursor: pointer;
 }
@@ -86,13 +88,13 @@
 
 
 .menu{
-    color: #003DB6;
+    color: #ffffff;
 }
 
 a{
     outline: none;
     text-decoration: none;
-    color: #003DB6;
+    color: #ffffff;
   }
   
 a:hover {
@@ -102,7 +104,7 @@ a:hover {
     border-radius: 5px;
     cursor: pointer;
     padding: 10px 20px;
-    background-color: #003DB6;
+    background-color: #282d88;
   }
   
 a:link, a:visited, a:active {
