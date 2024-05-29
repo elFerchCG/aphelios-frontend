@@ -2,7 +2,7 @@ import React from 'react'
 
 export const Login = () => {
     return (
-        <body>
+        <div>
             <div className='layout'>
                 <header className='header'>
                     <h1>Iniciar Sesión</h1>
@@ -17,6 +17,6 @@ export const Login = () => {
                     <h3>¿Olvidaste tu contraseña?</h3>
                 </div>
             </div>
-        </body>
+        </div>
     )
 }

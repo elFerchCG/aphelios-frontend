@@ -1,7 +1,6 @@
 import React from 'react'
 import DataTable from 'react-data-table-component'
-import { RegistroProveedor } from '../pages/RegistroProveedor';
-
+import { Link } from 'react-router-dom';
 
 export const Proveedores = () => {
 
@@ -12,43 +11,18 @@ export const Proveedores = () => {
             sortable: true
         },
         {
-            name: 'Mes',
-            selector: row => row.mes,
+            name: 'Razon social',
+            selector: row => row.id,
             sortable: true
         },
         {
-            name: 'Año',
-            selector: row => row.año,
+            name: 'Telefono',
+            selector: row => row.id,
             sortable: true
         },
         {
-            name: 'Día',
-            selector: row => row.dia,
-            sortable: true
-        },
-        {
-            name: 'Pedido',
-            selector: row => row.pedido,
-            sortable: true
-        },
-        {
-            name: 'Cantidad',
-            selector: row => row.cantidad,
-            sortable: true
-        },
-        {
-            name: 'Encargado',
-            selector: row => row.encargado,
-            sortable: true
-        },
-        {
-            name: 'Proveedor',
-            selector: row => row.proveedor,
-            sortable: true
-        },
-        {
-            name: 'Estatus',
-            selector: row => row.estatus,
+            name: 'Domicilio',
+            selector: row => row.id,
             sortable: true
         },
         {
@@ -61,38 +35,42 @@ export const Proveedores = () => {
         }
     ];
 
-const data = [
-    {
-        id: 1,
-        mes: 'Enero',
-        año: 1996,
-        dia: 22,
-        pedido: 'Cigueñal vortx 300',
-        cantidad: 30,
-        encargado: 'Abraham Salvador',
-        proveedor: 'Vame',
-        estatus: 'Activo',
-        visualizar: 'No',
-        eliminar: 'No'
-    }
-];
+    const data = [
+        {
+            id: 1,
+            mes: 'Enero',
+            año: 1996,
+            dia: 22,
+            pedido: 'Cigueñal vortx 300',
+            cantidad: 30,
+            encargado: 'Abraham Salvador',
+            proveedor: 'Vame',
+            estatus: 'Activo',
+            visualizar: 'No',
+            eliminar: 'No'
+        }
+    ];
 
-  return (
-    <body>
-        <div className='layoutP'>
-            <h1>Proveedores</h1>
-            <input type='search'  /> 
-            <input type='button' value="Buscar" />
-            <button className='agregarO' >Agregar Proveedor</button> 
+    return (
+        <div>
+            <div className='layoutP'>
+                <h1>Proveedores</h1>
+                <input type='search' />
+                <input type='button' value="Buscar" />
+                <Link to="/registroproveedor">
+                    <button type="button">
+                        Agregar Proveedor
+                    </button>
+                </Link>
+            </div>
+            <section>
+                <DataTable
+                    columns={columns}
+                    data={data}
+                    fixedHeader
+                    pagination
+                ></DataTable>
+            </section>
         </div>
-    <section>
-        <DataTable
-            columns={columns}
-            data={data}
-            fixedHeader
-            pagination
-        ></DataTable>
-    </section>
-    </body>
-  )
+    )
 }

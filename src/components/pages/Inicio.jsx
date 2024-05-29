@@ -2,7 +2,7 @@ import React from 'react'
 
 export const Inicio = () => {
   return (
-    <body>
+    <div>
       <h2>Bienvenido: </h2>
       <h2>Datos del usuario</h2>
       <section className="contenido">
@@ -10,7 +10,7 @@ export const Inicio = () => {
         <h5>Correo: </h5>
         <h5>Telefono: </h5>
       </section>
-    </body>
+    </div>
 
   )
 }

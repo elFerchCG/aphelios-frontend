@@ -2,7 +2,7 @@ import React from 'react'
 
 export const RegistroU = () => {
   return (
-    <body>
+    <div>
         <section className='registros'>
             <h1 className='r'>Registro</h1>
             <h5 className='n'>Nombre</h5>
@@ -15,6 +15,6 @@ export const RegistroU = () => {
             <input className='itel' placeholder='Introduce un numero telefonico' />
             <button className='bR'>Registrar</button>
         </section>
-    </body>
+    </div>
   )
 }
