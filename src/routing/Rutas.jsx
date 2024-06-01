@@ -3,9 +3,10 @@ import Header  from '../components/layout/Header';
 import { Routes, Route, BrowserRouter } from 'react-router-dom';
 import { Inicio } from '../components/pages/Inicio';
 import { Login } from '../components/pages/Login';
-import { RegistroU } from '../components/pages/RegistroU';
-import { Proveedores } from '../components/pages/Proveedores';
-import { RegistroProveedor } from '../components/pages/RegistroProveedor';
+import { RegistroU } from '../components/pages/Usuarios/RegistroU';
+import { Proveedores } from '../components/pages/Proveedores/Proveedores';
+import { RegistroProveedor } from '../components/pages/Proveedores/RegistroProveedor';
+import { Usuarios } from '../components/pages/Usuarios/Usuarios';
 
 const Rutas = () => {
     return (
@@ -20,6 +21,7 @@ const Rutas = () => {
                         <Route path='/registrou' element={<RegistroU />} />
                         <Route path='/proveedores' element={<Proveedores />} />
                         <Route path='/registroproveedor' element={<RegistroProveedor />} />
+                        <Route path='/usuarios' element={<Usuarios />} />
                         <Route path='*' element={
                             <div>
                                 <h1>Error 404</h1>

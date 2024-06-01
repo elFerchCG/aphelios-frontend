@@ -5,7 +5,7 @@ export const Inicio = () => {
     <div>
       <h2>Bienvenido: </h2>
       <h2>Datos del usuario</h2>
-      <section className="contenido">
+      <section className="contenidoInicio">
         <h5>Nombre completo: </h5>
         <h5>Correo: </h5>
         <h5>Telefono: </h5>
