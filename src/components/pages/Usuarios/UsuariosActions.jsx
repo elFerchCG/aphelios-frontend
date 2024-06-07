@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { Preview, Delete } from '@mui/icons-material'
 import Modal from '@mui/material/Modal';
 
+
 const style = {
     position: 'absolute',
     top: '50%',
@@ -17,8 +18,7 @@ const style = {
 };
 
 
-const ProveedoresActions = () => {
-
+const UsuariosActions = () => {
     const [open, setOpen] = useState(false);
     const handleOpen = () => {
       setOpen(true);
@@ -35,7 +35,7 @@ const ProveedoresActions = () => {
                     <Modal
                         open={open}
                         onClose={handleClose}
-                        aria-labelledby="Detalles proveedor"  
+                        aria-labelledby="Detalles usuario"  
                     >
                         <Box 
                             sx={{
@@ -49,7 +49,7 @@ const ProveedoresActions = () => {
                     </Modal>
                 </IconButton>
             </Tooltip>
-            <Tooltip title='Eliminar proveedor'>
+            <Tooltip title='Eliminar usuario'>
                 <IconButton onClick={() => { }}>
                     <Delete />
                 </IconButton>
@@ -58,4 +58,4 @@ const ProveedoresActions = () => {
     )
 };
 
-export default ProveedoresActions;
+export default UsuariosActions

@@ -9,17 +9,17 @@ export const ProveedoresTable = () => {
         { field: 'razon_social', headerName: 'Razón social', width: 170 },
         { field: 'rfc', headerName: 'RFC', width: 150 },
         { field: 'correo', headerName: 'Correo', width: 250 },
-        { field: 'status', headerName: 'Estado', type: 'number', width: 100 },
-        { field: 'actions', headerName: 'Actions', type: 'actions', width: 150, renderCell: (params) => (
-            <ProveedoresActions {...{ params }} />
+        { field: 'status', headerName: 'Estado', width: 100 },
+        { field: 'actions', headerName: 'Actions', type: 'actions', width: 150, renderCell: () => (
+            <ProveedoresActions />
         ),
      },
      
     ];
     
     const rows = [
-        { id_proveedor: 1, razon_social: 'Masuda', rfc: 'RAFC2614879', correo: 'ejemplo@hotmail.com', status: 2 },
-        { id_proveedor: 2, razon_social: 'Vame', rfc: 'VAMS8987897', correo: 'ejemplo@hotmail.com', status: 1 },
+        { id_proveedor: 1, razon_social: 'Masuda', rfc: 'RAFC2614879', correo: 'ejemplo@hotmail.com', status: 'Activo' },
+        { id_proveedor: 2, razon_social: 'Vame', rfc: 'VAMS8987897', correo: 'ejemplo@hotmail.com', status: 'Inactivo' },
     ];
 
     return (
