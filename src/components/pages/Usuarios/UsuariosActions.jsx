@@ -1,61 +1,75 @@
-import { Box, IconButton, Tooltip, TextField} from '@mui/material'
-import React, { useState } from 'react'
-import { Preview, Delete } from '@mui/icons-material'
-import Modal from '@mui/material/Modal';
+import * as React from 'react';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
 
-const style = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 800,
-    height: 400,
-    bgcolor: 'background.paper',
-    border: '2px solid #000',
-    boxShadow: 24,
-    p: 4,
-};
+export default function UsuariosActions(props) {
 
+    const { openUsuariosActions, setOpenUsuariosActions } = props;
 
-const UsuariosActions = () => {
-    const [open, setOpen] = useState(false);
-    const handleOpen = () => {
-      setOpen(true);
-    };
     const handleClose = () => {
-      setOpen(false);
+        setOpenUsuariosActions(false);
     };
+
 
     return (
-        <Box>
-            <Tooltip title='Ver detalles'>
-                <IconButton onClick={handleOpen}>
-                    <Preview />
-                    <Modal
-                        open={open}
-                        onClose={handleClose}
-                        aria-labelledby="Detalles usuario"  
-                    >
-                        <Box 
-                            sx={{
-                                ...style
-                            }}
-                          >
-                            <TextField id="outlined-basic" label="Outlined" variant="outlined" sx={{width: 600}} /><br/>
-                            <TextField id="filled-basic" label="Filled" variant="filled" sx={{width: 600}} /><br/>
-                            <TextField id="standard-basic" label="Standard" variant="standard" sx={{width: 600}} /><br/>
-                        </Box>
-                    </Modal>
-                </IconButton>
-            </Tooltip>
-            <Tooltip title='Eliminar usuario'>
-                <IconButton onClick={() => { }}>
-                    <Delete />
-                </IconButton>
-            </Tooltip>
-        </Box>
-    )
-};
-
-export default UsuariosActions
+        <Dialog
+      open={openUsuariosActions}
+      onClose={handleClose}
+      >
+        <DialogTitle>Detalles Usuario</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Se muestran todos los datos del usuario
+          </DialogContentText>
+          <TextField
+            autoFocus
+            required
+            margin="dense"
+            id="nombre"
+            name="nombre"
+            label="Nombre"
+            type="text"
+            fullWidth
+            variant="standard"
+          />
+          <TextField
+            margin="dense"
+            id="password"
+            name="password"
+            label="Contraseña"
+            type="password"
+            fullWidth
+            variant="standard"
+          />
+          <TextField
+            margin="dense"
+            id="rol"
+            name="rol"
+            label="Rol"
+            type="text"
+            fullWidth
+            variant="standard"
+          />
+          <TextField
+            margin="dense"
+            id="permissions"
+            name="permissions"
+            label="Permisos"
+            type="text"
+            fullWidth
+            variant="standard"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenUsuariosActions(false)}>Cancelar</Button>
+          <Button type="submit">Guardar</Button>
+        </DialogActions>
+      </Dialog>
+    );
+}

@@ -1,6 +1,12 @@
-import React from 'react';
-import { DataGrid } from '@mui/x-data-grid';
+import React, { useState } from 'react';
+import { DataGrid, GridActionsCellItem, GridDeleteIcon } from '@mui/x-data-grid';
 import UsuariosActions from './UsuariosActions';
+import { Preview } from '@mui/icons-material';
+
+
+export const UsuariosTable = () => {
+
+    const [openUsuariosActions, setOpenUsuariosActions] = useState(false)
 
 const columns = [
     { field: 'id_usuario', headerName: 'ID', width: 10 },
@@ -10,9 +16,18 @@ const columns = [
     { field: 'permissions', headerName: 'Permisos', width: 170 },
     { field: 'status', headerName: 'Estado', width: 100 },
     {
-        field: 'actions', headerName: 'Actions', type: 'actions', width: 150, renderCell: () => (
-            <UsuariosActions />
-        ),
+        field: 'actions', headerName: 'Actions', type: 'actions', width: 150, getActions: (params) => [
+            <GridActionsCellItem
+              icon={<Preview />}
+              label="Ver detalles"
+              onClick={() => setOpenUsuariosActions(true)}
+            />,
+            <GridActionsCellItem
+            icon={<GridDeleteIcon />}
+            label="Eliminar Usuario"
+            onClick={""}    
+          />,
+        ],
     },
 ];
 
@@ -21,7 +36,7 @@ const rows = [
     { id_usuario: 2, nombre: 'Abraham Salvador', password: '666999', rol: 'Planeación', permissions: 'Empleado', status: 'Inactivo' },
 ];
 
-export const UsuariosTable = () => {
+
     return (
         <div className='contenido'  >
             <div id='contenidoUsuarios' style={{ height: 600, width: '70%' }}>
@@ -38,6 +53,12 @@ export const UsuariosTable = () => {
                     checkboxSelection
                 />
             </div>
+            <UsuariosActions
+            openUsuariosActions = {openUsuariosActions}
+            setOpenUsuariosActions = {setOpenUsuariosActions}
+            >
+
+            </UsuariosActions>
         </div>
     );
 }

@@ -1,61 +1,66 @@
-import { Box, IconButton, Tooltip, TextField} from '@mui/material'
-import React, { useState } from 'react'
-import { Preview, Delete } from '@mui/icons-material'
-import Modal from '@mui/material/Modal';
+import * as React from 'react';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
-const style = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 800,
-    height: 400,
-    bgcolor: 'background.paper',
-    border: '2px solid #000',
-    boxShadow: 24,
-    p: 4,
-};
+export default function ProveedoresActions(props) {
 
-
-const ProveedoresActions = () => {
-
-    const [open, setOpen] = useState(false);
-    const handleOpen = () => {
-      setOpen(true);
-    };
+    const { openProveedoresActions, setOpenProveedoresActions } = props;
+    
     const handleClose = () => {
-      setOpen(false);
+        setOpenProveedoresActions(false);
     };
+
 
     return (
-        <Box>
-            <Tooltip title='Ver detalles'>
-                <IconButton onClick={handleOpen}>
-                    <Preview />
-                    <Modal
-                        open={open}
-                        onClose={handleClose}
-                        aria-labelledby="Detalles proveedor"  
-                    >
-                        <Box 
-                            sx={{
-                                ...style
-                            }}
-                          >
-                            <TextField id="outlined-basic" label="Outlined" variant="outlined" sx={{width: 600}} /><br/>
-                            <TextField id="filled-basic" label="Filled" variant="filled" sx={{width: 600}} /><br/>
-                            <TextField id="standard-basic" label="Standard" variant="standard" sx={{width: 600}} /><br/>
-                        </Box>
-                    </Modal>
-                </IconButton>
-            </Tooltip>
-            <Tooltip title='Eliminar proveedor'>
-                <IconButton onClick={() => { }}>
-                    <Delete />
-                </IconButton>
-            </Tooltip>
-        </Box>
-    )
-};
-
-export default ProveedoresActions;
+        <Dialog
+      open={openProveedoresActions}
+      onClose={handleClose}
+      >
+        <DialogTitle>Detalles del proveedor</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Se muestran todos los datos del proveedor
+          </DialogContentText>
+          <TextField
+            autoFocus
+            required
+            margin="dense"
+            id="razon_social"
+            name="razon social"
+            label="Razón social"
+            type="text"
+            fullWidth
+            variant="standard"
+          />
+          
+          <TextField
+            margin="dense"
+            id="rfc"
+            name="rfc"
+            label="RFC"
+            type="text"
+            fullWidth
+            variant="standard"
+          />
+          <TextField
+            margin="dense"
+            id="email"
+            name="email"
+            label="Correo electronico"
+            type="text"
+            fullWidth
+            variant="standard"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenProveedoresActions(false)}>Cancelar</Button>
+          <Button type="submit">Guardar</Button>
+        </DialogActions>
+      </Dialog>
+    );
+}

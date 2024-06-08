@@ -38,6 +38,7 @@ const Header = () => {
         <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/inicio">Inicio</NavLink></li>
         <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/proveedores">Proveedores</NavLink></li>
         <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/usuarios">Usuarios</NavLink></li>
+        <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/ventas">Ventas</NavLink></li>
       </nav>
       </ul>
     </div>

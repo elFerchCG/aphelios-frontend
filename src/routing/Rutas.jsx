@@ -5,6 +5,7 @@ import { Inicio } from '../components/pages/Inicio';
 import { Login } from '../components/pages/Login';
 import { Proveedores } from '../components/pages/Proveedores/Proveedores';
 import { Usuarios } from '../components/pages/Usuarios/Usuarios';
+import { Ventas } from '../ventas/Ventas';
 
 const Rutas = () => {
     return (
@@ -18,6 +19,7 @@ const Rutas = () => {
                         <Route path="/inicio" element={<Inicio />} />
                         <Route path='/proveedores' element={<Proveedores />} />
                         <Route path='/usuarios' element={<Usuarios />} />
+                        <Route path='/ventas' element={<Ventas />} />
                         <Route path='*' element={
                             <div>
                                 <h1>Error 404</h1>
