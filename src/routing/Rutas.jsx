@@ -1,14 +1,16 @@
 import React from 'react';
 import Header  from '../components/layout/Header';
 import { Routes, Route, BrowserRouter } from 'react-router-dom';
-import { Inicio } from '../components/pages/Inicio';
-import { Login } from '../components/pages/Login';
 import { Proveedores } from '../components/pages/Proveedores/Proveedores';
 import { Usuarios } from '../components/pages/Usuarios/Usuarios';
-import { Ventas } from '../ventas/Ventas';
+import Login from '../components/login/Login';
+import Transacciones from '../components/pages/Inventarios/Transacciones/Transacciones';
+import Localidades from '../components/pages/Inventarios/Localidades/Localidades';
+import Bodegas from '../components/pages/Inventarios/Bodegas/Bodegas';
+import Ventas from '../components/pages/Ventas/Ventas';
 
 const Rutas = () => {
-    return (
+    return ( 
         <div>
             <BrowserRouter>
                 <Header />
@@ -16,10 +18,12 @@ const Rutas = () => {
                     <Routes>
                         <Route path='/' element={<Login />} />
                         <Route path="/login" element={<Login />} />
-                        <Route path="/inicio" element={<Inicio />} />
                         <Route path='/proveedores' element={<Proveedores />} />
                         <Route path='/usuarios' element={<Usuarios />} />
-                        <Route path='/ventas' element={<Ventas />} />
+                        <Route path='/ventas' element={<Ventas /> } />
+                        <Route path='/transacciones' element={<Transacciones /> } />
+                        <Route path='/localidades' element={<Localidades />} />
+                        <Route path='/bodegas' element={<Bodegas />} />
                         <Route path='*' element={
                             <div>
                                 <h1>Error 404</h1>

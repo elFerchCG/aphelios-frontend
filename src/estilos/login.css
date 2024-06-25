@@ -1,0 +1,14 @@
+.cuerpoLogin {
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#titulo {
+    width: 30%;
+    margin: 0%;
+    margin-inline-start: 17%;
+    padding: 0;
+    color: blue;
+    text-align: left;
+}
