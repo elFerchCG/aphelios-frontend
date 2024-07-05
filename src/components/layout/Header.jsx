@@ -25,6 +25,12 @@ const Header = () => {
     setIsOpen(!isOpen);
   };
 
+  const [isOpenI, setIsOpenI] = useState(false);
+
+  const toggleMenuI = () => {
+    setIsOpenI(!isOpenI);
+  };
+
   return (
     <div>
       <header className="header">
@@ -42,20 +48,42 @@ const Header = () => {
             </div>
             <nav>
               <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/inicio">Inicio</NavLink></li>
-              <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/proveedores">Proveedores</NavLink></li>
-              <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/usuarios">Usuarios</NavLink></li>
               <li onClick={close1} className='enlace' id='enlace'> <NavLink to="/ventas">Ventas</NavLink></li>
-              
-                <button className="dropdown-toggle" onClick={toggleMenu}>
-                  Inventarios
-                </button>
-                {isOpen && (
-                  <div className="dropdown-menu">
-                    <NavLink to="/transacciones"  className="dropdown-item" onClick={toggleMenu}>Transacciones</NavLink>
-                    <NavLink to="/bodegas"  className="dropdown-item" onClick={toggleMenu}>Bodegas</NavLink>
-                    <NavLink to="/localidades"  className="dropdown-item" onClick={toggleMenu}>Localidades</NavLink>
-                  </div>
-                )}   
+              <button className="dropdown-toggle" onClick={toggleMenuI}>
+                Inventarios
+              </button>
+              {isOpenI && (
+                <div className="dropdown-menu">
+                  <NavLink to="/existencias" className="dropdown-item" onClick={toggleMenuI}>Existencias</NavLink>
+                  <NavLink to="/transaccionesInventario" className="dropdown-item" onClick={toggleMenuI}>Movimientos de inventarios</NavLink>
+                  <NavLink to="/ordenBodega" className="dropdown-item" onClick={toggleMenuI}>Ordenes de bodega</NavLink>
+                </div>
+              )}
+              <p></p>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <br></br>
+              <button className="dropdown-toggle" onClick={toggleMenu}>
+                Configuracion
+              </button>
+              {isOpen && (
+                <div className="dropdown-menu">
+                  <NavLink to="/bodegas" className="dropdown-item" onClick={toggleMenu}>Bodegas</NavLink>
+                  <NavLink to="/ubicaciones" className="dropdown-item" onClick={toggleMenu}>Ubicaciones</NavLink>
+                  <NavLink to="/transacciones" className="dropdown-item" onClick={toggleMenu}>Tipo De Movimientos</NavLink>
+                  <NavLink to="/proveedores" className="dropdown-item" onClick={toggleMenu}>Proveedores</NavLink>
+                  <NavLink to="/usuarios" className="dropdown-item" onClick={toggleMenu}>Usuarios</NavLink>
+                </div>
+              )}
+
             </nav>
           </ul>
         </div>

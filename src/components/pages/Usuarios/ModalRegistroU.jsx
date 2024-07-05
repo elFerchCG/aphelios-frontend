@@ -8,18 +8,21 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 
 
-const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU}) => {
+const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU }) => {
 
 
-  const [data, setData] = React.useState({
+  const estadoInicial = {
     nombre: "",
     password: "",
     rol: "",
     permisos: "",
     estado: ""
-  });
+  };
+
+  const [data, setData] = React.useState(estadoInicial);
 
   const handleClose = () => {
     setOpenModalRegistroU(false);
@@ -63,6 +66,10 @@ const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU}) => {
     handleClose();
   };
 
+  const handleReset = () => {
+    setData(estadoInicial);
+  };
+
   return (
     <Dialog
       open={openModalRegistroU}
@@ -98,17 +105,22 @@ const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU}) => {
             value={data.password}
             onChange={handleChange}
           />
-          <TextField
-            margin="dense"
-            id="rol"
-            name="rol"
-            label="Rol"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={data.rol}
-            onChange={handleChange}
-          />
+          <FormControl fullWidth margin='dense' variant='standard'>
+            <InputLabel id="rol-label">Rol</InputLabel>
+            <Select
+              labelId="rol-label"
+              id="rol"
+              name="rol"
+              value={data.rol}
+              onChange={handleChange}
+            >
+              <MenuItem value="Marketing">Marketing</MenuItem>
+              <MenuItem value="Administrador">Administrador</MenuItem>
+              <MenuItem value="Producción">Producción</MenuItem>
+              <MenuItem value="Planeación">Planeación</MenuItem>
+              <MenuItem value="Almacén">Almacén</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             margin="dense"
             id="permisos"
@@ -119,23 +131,24 @@ const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU}) => {
             variant="standard"
             value={data.permisos}
             onChange={handleChange}
-
           />
-          <TextField
-            margin="dense"
-            id="estado"
-            name="estado"
-            label="Estado"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={data.estado}
-            onChange={handleChange}
-
-          />
+          <FormControl fullWidth margin='dense' variant='standard'>
+            <InputLabel id="estado-label">Estado</InputLabel>
+            <Select
+              labelId="estado-label"
+              id="estado"
+              name="estado"
+              value={data.estado}
+              onChange={handleChange}
+            >
+              <MenuItem value="Activo">Activo</MenuItem>
+              <MenuItem value="Inactivo">Inactivo</MenuItem>
+            </Select>
+          </FormControl>
         </form>
       </DialogContent>
       <DialogActions>
+        <Button onClick={handleReset}>Borrar</Button>
         <Button onClick={() => setOpenModalRegistroU(false)}>Cancelar</Button>
         <Button type='submit' onClick={handleSubmit}>Guardar</Button>
       </DialogActions>

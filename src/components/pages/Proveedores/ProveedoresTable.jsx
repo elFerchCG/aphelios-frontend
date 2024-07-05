@@ -1,9 +1,11 @@
-import { Preview } from '@mui/icons-material';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import { DataGrid, GridDeleteIcon, GridActionsCellItem } from '@mui/x-data-grid';
 import React, { useEffect, useState } from 'react'
 import ProveedoresActions from './ProveedoresActions';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { Tooltip } from '@mui/material';
+
 
 
 export const ProveedoresTable = () => {
@@ -14,7 +16,7 @@ export const ProveedoresTable = () => {
     const [openProveedoresActions, setOpenProveedoresActions] = useState(false)
 
     const columns = [
-        { field: 'id_proveedor', headerName: 'ID', width: 10 },
+        { field: 'id_proveedor', headerName: 'Folio', width: 10 },
         { field: 'razon_social', headerName: 'Razón social', width: 250 },
         { field: 'rfc', headerName: 'RFC', width: 180 },
         { field: 'correo', headerName: 'Correo', width: 280 },
@@ -22,16 +24,19 @@ export const ProveedoresTable = () => {
         { field: 'sku_proveedor', headerName: 'SKU', width: 100},
         {
             field: 'actions', headerName: 'Actions', type: 'actions', width: 150, getActions: (params) => [
+                <Tooltip title='Ver detalles' >
                 <GridActionsCellItem
-                    icon={<Preview />}
-                    label="Ver detalles"
+                    icon={<EditNoteIcon />}
+                    sx={{ color: 'green' }}
                     onClick={() => handleOpen(params.row)}
-                />,
+                />
+                </Tooltip>,
+                <Tooltip title='Eliminar proveedor'>
                 <GridActionsCellItem
                     icon={<GridDeleteIcon />}
-                    label="Eliminar Proveedor"
+                    sx={{ color: 'red' }}
                     onClick={(e) => deleteProveedor(params.row.id_proveedor, e)}
-                />,
+                /></Tooltip>,
             ],
 
         },
@@ -115,7 +120,6 @@ export const ProveedoresTable = () => {
                             },
                         }}
                         pageSizeOptions={[10, 20]}
-                        checkboxSelection
                     />
                 )}
            </div>

@@ -9,9 +9,10 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 
 
-const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selectedUser, handleClose}) => {
+const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selectedUser, handleClose }) => {
     const [formData, setFormData] = useState({
         id_usuario: '',
         nombre: '',
@@ -58,7 +59,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
         try {
             e.preventDefault();
             console.log("Datos enviados:", formData);
-            const response = await axios.put(`http://localhost:3304/usuarios/${selectedUser.id_usuario}`, formData) 
+            const response = await axios.put(`http://localhost:3304/usuarios/${selectedUser.id_usuario}`, formData)
             setFormData(response);
             Swal.fire({
                 title: 'Éxito!',
@@ -109,17 +110,22 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                         value={formData.password}
                         onChange={handleChange}
                     />
-                    <TextField
-                        margin="dense"
-                        id="rol"
-                        name="rol"
-                        label="Rol"
-                        type="text"
-                        fullWidth
-                        variant="standard"
-                        value={formData.rol}
-                        onChange={handleChange}
-                    />
+                    <FormControl fullWidth margin='dense' variant='standard'>
+                        <InputLabel id="rol-label">Rol</InputLabel>
+                        <Select
+                            labelId="rol-label"
+                            id="rol"
+                            name="rol"
+                            value={formData.rol}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value="Marketing">Marketing</MenuItem>
+                            <MenuItem value="Administrador">Administrador</MenuItem>
+                            <MenuItem value="Producción">Producción</MenuItem>
+                            <MenuItem value="Planeación">Planeación</MenuItem>
+                            <MenuItem value="Almacén">Almacén</MenuItem>
+                        </Select>
+                    </FormControl>
                     <TextField
                         margin="dense"
                         id="permisos"
@@ -131,17 +137,19 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                         value={formData.permisos}
                         onChange={handleChange}
                     />
-                    <TextField
-                        margin="dense"
-                        id="estado"
-                        name="estado"
-                        label="Estado"
-                        type="text"
-                        fullWidth
-                        variant="standard"
-                        value={formData.estado}
-                        onChange={handleChange}
-                    />
+                    <FormControl fullWidth margin='dense' variant='standard'>
+                        <InputLabel id="estado-label">Estado</InputLabel>
+                        <Select
+                            labelId="estado-label"
+                            id="estado"
+                            name="estado"
+                            value={formData.estado}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value="Activo">Activo</MenuItem>
+                            <MenuItem value="Inactivo">Inactivo</MenuItem>
+                        </Select>
+                    </FormControl>
                 </form>
             </DialogContent>
             <DialogActions>
@@ -149,7 +157,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                 <Button type="submit" onClick={handleSave}>Guardar</Button>
             </DialogActions>
         </Dialog>
-    ); 
+    );
 };
 
 export default UsuariosActions;

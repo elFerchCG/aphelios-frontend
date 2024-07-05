@@ -1,33 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react'
 import { DataGrid, GridActionsCellItem, GridDeleteIcon } from '@mui/x-data-grid';
-import UsuariosActions from './UsuariosActions';
+import { Preview } from '@mui/icons-material';
+import { useState } from 'react';
+import DetalleLineas from '../Lineas/DetalleLineas';
+import { getLineas } from '../../../actions/getUsers';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { getUsers } from '../../actions/getUsers';
+import { useEffect } from 'react';
 import { Tooltip } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 
 
-
-export const UsuariosTable = () => {
+const DataGridL = () => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [refresh, setRefresh] = useState(false);
 
-    const url = 'http://localhost:3304/usuarios';
+    const url = 'http://localhost:3304/inventario/lineasOrden';
 
-    const [selectedUser, setSelectedUser] = useState(null);
-    const [openUsuariosActions, setOpenUsuariosActions] = useState(false);
+    const [selectedLinea, setSelectedLinea] = useState(null);
+    const [openDetalleLinea, setOpenDetalleLinea] = useState(false);
+
 
     const columns = [
-        { field: 'id_usuario', headerName: 'Folio', width: 10 },
-        { field: 'nombre', headerName: 'Nombre', width: 200 },
-        { field: 'rol', headerName: 'Rol', width: 150 },
-        { field: 'permisos', headerName: 'Permisos', width: 170 },
-        { field: 'estado', headerName: 'Estado', width: 100 },
+        { field: 'id', headerName: 'Folio', type: 'number', width: 50 },
+        { field: 'orden_id', headerName: 'Orden', width: 250 },
+        { field: 'producto_id', headerName: 'Producto', width: 200 },
+        { field: 'cantidad', headerName: 'Cantidad', type: 'id', width: 200 },
+        { field: 'confirmacion_salida', headerName: 'Confirmacion de salida', width: 200 },
+        { field: 'confirmacion_entrada', headerName: 'Confirmacion de entrada', width: 200 },
         {
-            field: 'actions', headerName: 'Actions', type: 'actions', width: 150, getActions: (params) => [
+            field: 'actions', headerName: 'Acciones', type: 'actions', width: 150, getActions: (params) => [
                 <Tooltip title='Ver detalles' >
                 <GridActionsCellItem
                     icon={<EditNoteIcon />}
@@ -35,11 +39,11 @@ export const UsuariosTable = () => {
                     onClick={() => handleOpen(params.row)}
                 />
                 </Tooltip>,
-                <Tooltip title='Eliminar usuario'>
+                <Tooltip title='Eliminar traspaso'>
                     <GridActionsCellItem
                     icon={<GridDeleteIcon />}
                     sx={{ color: 'red' }}
-                    onClick={(e) => deleteUser(params.row.id_usuario, e)}
+                    onClick={(e) => deleteLinea(params.row.id, e)}
                 /></Tooltip>,
             ],
         },
@@ -47,7 +51,7 @@ export const UsuariosTable = () => {
 
     const fetchData = async () => {
         setLoading(true);
-        const result = await getUsers(url);
+        const result = await getLineas(url);
         setData(result.data);
         setError(result.error);
         setLoading(false);
@@ -57,17 +61,17 @@ export const UsuariosTable = () => {
         fetchData();
     }, [refresh]);
 
-    const handleOpen = (user) => {
-        setSelectedUser(user);
-        setOpenUsuariosActions(true);
+    const handleOpen = (linea) => {
+        setSelectedLinea(linea);
+        setOpenDetalleLinea(true);
     };
 
     const handleClose = () => {
-        setOpenUsuariosActions(false);
-        setSelectedUser(null);
+        setOpenDetalleLinea(false);
+        setSelectedLinea(null);
     };
 
-    const deleteUser = (id_usuario, e) => {
+    const deleteLinea = (id, e) => {
         e.preventDefault();
 
         Swal.fire({
@@ -80,11 +84,11 @@ export const UsuariosTable = () => {
             confirmButtonText: 'Sí, eliminarlo'
         }).then((result) => {
             if (result.isConfirmed) {
-                axios.delete(`http://localhost:3304/usuarios/${id_usuario}`)
+                axios.delete(`http://localhost:3304/inventario/lineasOrden/${id}`)
                     .then(response => {
                         Swal.fire({
                             title: '¡Eliminado!',
-                            text: 'Tu usuario ha sido eliminado.',
+                            text: 'El traspaso ha sido eliminado.',
                             icon: 'success'
                         });
                         setRefresh(!refresh);
@@ -93,9 +97,9 @@ export const UsuariosTable = () => {
                         Swal.fire({
                             icon: 'error',
                             title: 'Oops...',
-                            text: 'Hubo un error al eliminar el usuario.'
+                            text: 'Hubo un error al eliminar el traspaso.'
                         });
-                        console.error('Error al eliminar usuario:', error);
+                        console.error('Error al eliminar el traspaso:', error);
                     });
             }
         });
@@ -108,7 +112,7 @@ export const UsuariosTable = () => {
                 <DataGrid
                     rows={data}
                     columns={columns}
-                    getRowId={(row) => row.id_usuario}
+                    getRowId={(row) => row.id}
                     initialState={{
                         pagination: {
                             paginationModel: { page: 0, pageSize: 20 },
@@ -118,14 +122,14 @@ export const UsuariosTable = () => {
                     checkboxSelection
                 />
             </div>
-            <UsuariosActions
-                openUsuariosActions={openUsuariosActions}
-                setOpenUsuariosActions={setOpenUsuariosActions}
-                selectedUser={selectedUser}
+            <DetalleLineas
+                openDetalleLinea={openDetalleLinea}
+                setOpenDetalleLinea={setOpenDetalleLinea}
                 handleClose={handleClose}
-            >
-            </UsuariosActions>
+                selectedLinea={selectedLinea}
+            ></DetalleLineas>
         </div>
+    )
+}
 
-    );
-} 
+export default DataGridL;

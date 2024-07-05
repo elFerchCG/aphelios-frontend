@@ -8,6 +8,10 @@ import Transacciones from '../components/pages/Inventarios/Transacciones/Transac
 import Localidades from '../components/pages/Inventarios/Localidades/Localidades';
 import Bodegas from '../components/pages/Inventarios/Bodegas/Bodegas';
 import Ventas from '../components/pages/Ventas/Ventas';
+import Existencias from '../components/pages/Inventarios/Existencias/Existencias';
+import Lineas from '../components/pages/Inventarios/Lineas/Lineas';
+import OrdenB from '../components/pages/Inventarios/OrdenBodegas/OrdenB';
+import TransaccionesI from '../components/pages/Inventarios/TransaccionesInventarios/TransaccionesI';
 
 const Rutas = () => {
     return ( 
@@ -22,8 +26,12 @@ const Rutas = () => {
                         <Route path='/usuarios' element={<Usuarios />} />
                         <Route path='/ventas' element={<Ventas /> } />
                         <Route path='/transacciones' element={<Transacciones /> } />
-                        <Route path='/localidades' element={<Localidades />} />
+                        <Route path='/ubicaciones' element={<Localidades />} />
                         <Route path='/bodegas' element={<Bodegas />} />
+                        <Route path='/existencias' element={<Existencias />} />
+                        <Route path='/traspasos' element={<Lineas />} />
+                        <Route path='/ordenBodega' element={<OrdenB />} />
+                        <Route path='/transaccionesInventario' element={<TransaccionesI />} />
                         <Route path='*' element={
                             <div>
                                 <h1>Error 404</h1>
