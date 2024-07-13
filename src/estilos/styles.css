@@ -12,7 +12,7 @@
     align-items: start;
 
     display: grid;
-    grid-template-columns: repeat(12, 102px);
+    grid-template-columns: repeat(13, 102px);
     grid-template-rows: repeat(10, 32px);
 }
 

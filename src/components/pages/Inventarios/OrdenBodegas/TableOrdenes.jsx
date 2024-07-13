@@ -25,8 +25,11 @@ const TableOrdenes = () => {
     const [ubicacionSalidaHabilitada, setUbicacionSalidaHabilitada] = useState(false);
     const [existenciaProducto, setExistenciaProducto] = useState([]);
     const [ubicacionProducto, setUbicacionProducto] = useState([]);
-    const [productoId, setProductoId] = useState('');
+    const [productoId, setProductoId] = useState([]);
+    const [productoSku, setProductoSku] = useState([]);
     const [searchResults, setSearchResults] = useState([]);
+    const [ubicaciones, setUbicaciones] = useState([]);
+    const [selectedUbicacion, setSelectedUbicacion] = useState('')
 
     useEffect(() => {
         const fetchBodegas = async () => {
@@ -53,47 +56,53 @@ const TableOrdenes = () => {
         fetchBodegas();
     }, []);
 
-    const fetchordenId = async () => {
+    // const fetchordenId = async () => {
+    //     try {
+    //         const response = await axios.get('http://localhost:3304/productos/MLM841742986/existencias');
+    //         const data = response.data;
+    //         console.log('Response:', response.data);
+    //         setIdActual(data.orden_id + 1);
+    //     } catch (error) {
+    //         console.error('Error fetching orden_id:', error);
+    //     }
+    // };
+
+    // useEffect(() => {
+    //     fetchordenId();
+    // }, []);
+
+    const fetchExistencias = async () => {
         try {
-            const response = await axios.get('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas');
-            const data = response.data;
-            console.log('Response:', response.data);
-            setIdActual(data.orden_id + 1);
-        } catch (error) {
-            console.error('Error fetching orden_id:', error);
-        }
-    };
-
-    useEffect(() => {
-        fetchordenId();
-    }, []);
-
-    const fetchProductos = async () => {
-        try {
-            const response = await axios.get();
-        } catch {
-
-        }
-    }
-
-    const fetchExistencias = async (productoId) => {
-        try {
-            const response = await axios.get(`http://localhost:3304/inventario/existencias/${productoId}/existencias`);
+            const response = await axios.get(`http://localhost:3304/productos/${productoId}/existencias`);
             const data = response.data; //En esta parte accedemos a los datos consultados
+            console.log("Existencias", response.data)
+            if (Array.isArray(data)) {
+                setUbicaciones(data.localidad_descripcion); // Asegúrate de que `data` es un array
+            } else if (data && Array.isArray(data.localidad_descripcion)) {
+                setUbicaciones(data.localidad_descripcion); // Asume que `localidad_descripcion` es un array
+            } else {
+                console.error("La estructura de los datos no es la esperada:", data);
+            }
             setExistenciaProducto(data.cantidad);
-
-            setUbicacionEntrada(data.localidad_descripcion);
-            setUbicacionSalida(data.localidad_descripcion);
         } catch (error) {
-            console.error('Error fetching existencias:', error);
+            console.log("Error al obtener el arreglo", error);
         }
     };
 
-    const handleSelectProductoChange = (e) => {
-        const productoId = e.target.value;
-        setSelectedProductoId(productoId);
-        setProductoId(productoId); // Asegurarse de actualizar el estado de productoId
-        fetchExistencias(productoId); // Actualizar las existencias al cambiar de producto
+    const handleUbicacionSelect = (e) => {
+        const ubicacion = ubicaciones.find(ubic => ubic.id === parseInt(e.target.value));
+        if (ubicacion) {
+            setSelectedUbicacion(ubicacion.localidad);
+            setExistenciaProducto(ubicacion.cantidad);
+        }
+    };
+
+    const handleMlmSearch = (e) => {
+        setProductos(e.target.value);
+    };
+
+    const handleSearch = () => {
+        fetchExistencias(productoId);
     };
 
     const handleSelectBodegaChange = (e) => {
@@ -207,11 +216,11 @@ const TableOrdenes = () => {
     return (
         <div>
             <div className='container'>
-                <IconButton className='bCrearO'  sx={{ color: 'green' }} onClick={handleConfirmOrder}>
+                <IconButton className='bCrearO' sx={{ color: 'green' }} onClick={handleConfirmOrder}>
                     <AddTaskIcon >
-                    <Tooltip title='Crear Orden'>
-                        Crear Orden
-                    </Tooltip>
+                        <Tooltip title='Crear Orden'>
+                            Crear Orden
+                        </Tooltip>
                     </AddTaskIcon>
                 </IconButton>
                 <IconButton className='bConfirmar' sx={{ color: 'green' }} >
@@ -282,32 +291,26 @@ const TableOrdenes = () => {
                     ))}
                 </select>
 
-                <label className='item11'>SKU:</label>
+                <label className='item11'>MLM:</label>
                 <input
                     className='item12'
                     type='text'
+                    value={productoId}
+                    onChange={(e) => setProductoId(e.target.value)}
                     placeholder='Ingrese el SKU'
                 />
-                <select
-                    className='item18'
-                    value={productoId}
-                    onChange={handleSelectProductoChange}>
-                    <option value=''>Seleccione...</option>
-                    {productos.map(producto => (
-                        <option key={producto.id} value={producto.id}>
-                            {producto.id}
-                        </option>
-                    ))}
-                </select>
+                <button onClick={fetchExistencias}>Buscar</button>
                 <label className='item9'>Ubicación salida:</label>
                 <select
                     className='item10'
                     disabled={!ubicacionSalidaHabilitada}
+                    onChange={handleUbicacionSelect}
+                    value={selectedUbicacion}
                 >
                     <option value=''>Seleccione...</option>
-                    {ubicacionSalida.map((ubicacion) => (
+                    {ubicaciones.map((ubicacion) => (
                         <option key={ubicacion.id} value={ubicacion.id}>
-                            {ubicacion.localidad_descripcion}
+                            {ubicacion.localidad}
                         </option>
                     ))}
                 </select>
