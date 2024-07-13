@@ -12,6 +12,7 @@ import Existencias from '../components/pages/Inventarios/Existencias/Existencias
 import Lineas from '../components/pages/Inventarios/Lineas/Lineas';
 import OrdenB from '../components/pages/Inventarios/OrdenBodegas/OrdenB';
 import TransaccionesI from '../components/pages/Inventarios/TransaccionesInventarios/TransaccionesI';
+import OrdenesRegistradas from '../components/pages/Inventarios/OrdenBodegas/OrdenesRegistradas';
 
 const Rutas = () => {
     return ( 
@@ -32,6 +33,7 @@ const Rutas = () => {
                         <Route path='/traspasos' element={<Lineas />} />
                         <Route path='/ordenBodega' element={<OrdenB />} />
                         <Route path='/transaccionesInventario' element={<TransaccionesI />} />
+                        <Route path='/ordenesregistradas' element={<OrdenesRegistradas />} />
                         <Route path='*' element={
                             <div>
                                 <h1>Error 404</h1>

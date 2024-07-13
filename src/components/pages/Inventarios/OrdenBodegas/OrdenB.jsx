@@ -44,6 +44,8 @@ export const OrdenB = () => {
       <ModalRegistroO
       openModalRegistroO={openModalRegistroO}
       setOpenModalRegistroO={setOpenModalRegistroO}
+      data={data}
+      fetchData={fetchData}
       ></ModalRegistroO>
     </div>
   )

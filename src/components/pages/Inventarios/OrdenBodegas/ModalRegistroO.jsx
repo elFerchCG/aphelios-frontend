@@ -9,17 +9,17 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
-import { format } from 'date-fns';
+//import { format } from 'date-fns';
 
 
-const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO }) => {
+const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO, fetchData }) => {
 
   const estadoInicial = {
     fecha: "",
     tipo_transaccion_id: 0,
     localidad_salida_id: 0,
     localidad_entrada_id: 0,
-    estatus: "",
+    estatus: ""
 
   };
 
@@ -35,7 +35,7 @@ const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO }) => {
     const { name, value } = e.target;
     setData((prevState) => ({
       ...prevState,
-      [name]: name === 'fecha' ? format(new Date(value), 'YYYY-MM-DD') : value,
+      [name]: value
     }));
   };
 
@@ -48,10 +48,11 @@ const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO }) => {
 
 
   const handleSubmit = async (e) => {
+    e.preventDefault();
+
     try {
-      e.preventDefault();
       console.log(data);
-      const response = await axios.post("http://localhost:3304/inventario/ordenBodegas", {
+      const response = await axios.post("http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas", {
         fecha: data.fecha,
         tipo_transaccion_id: data.tipo_transaccion_id,
         localidad_salida_id: data.localidad_salida_id,
@@ -59,22 +60,26 @@ const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO }) => {
         estatus: data.estatus,
         lineas: lineas
       });
+      console.log("registros", response.data)
       setData(estadoInicial);
       setLineas([{ producto_id: "", cantidad: 0, confirmacion_salida: false, confirmacion_entrada: false }]);
+      
       //Mostrar alerta exito
       Swal.fire({
         title: 'Éxito!',
         text: 'Se registro con exito la orden!!!',
         icon: 'success'
       });
+      fetchData();
     } catch (error) {
       Swal.fire({
         icon: "error",
         title: "Oops...",
         text: "Hubo un error al registrar la orden"
       });
+    } finally {
+      handleClose();
     }
-    handleClose();
   };
 
   const handleReset = () => {
@@ -115,9 +120,6 @@ const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO }) => {
             variant="standard"
             value={data.fecha}
             onChange={handleChange}
-            InputLabelProps={{
-              shrink: true,
-            }}
           />
           <TextField
             required

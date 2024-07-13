@@ -91,5 +91,16 @@ const getUbicacionesBodega = async (url2) => {
     }        
 };
 
+const getOrdenesLineas = async (url2) => {
+    try {
+        const response = await axios.get(url2);
+        return { data: response.data, error: null };
+    } catch (error) {
+        return { data: null, error};
+    }        
+};
+
+
 export { getUsers, getVentas, getBodegas, getTransacciones, 
-    getLocalidades, getExistencias, getLineas, getOrdenB, getTransaccionesI, getUbicacionesBodega };
+    getLocalidades, getExistencias, getLineas, getOrdenB, 
+    getTransaccionesI, getUbicacionesBodega, getOrdenesLineas };

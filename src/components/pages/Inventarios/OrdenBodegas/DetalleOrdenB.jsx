@@ -1,204 +1,80 @@
 import { useState, useEffect } from 'react';
-import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
-import Swal from 'sweetalert2';
-import { IconButton, InputAdornment } from '@mui/material';
-import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
+import { Dialog, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 
 
-const DetalleLocalidades = ({ openDetalleOrden, setOpenDetalleOrden, handleClose, selectedOrden, fetchData }) => {
+const DetalleLocalidades = ({ openDetalleOrden, setOpenDetalleOrden, handleClose, selectedOrden }) => {
 
-    const [formData, setFormData] = useState({
-        id: "",
-        fecha: "",
-        tipo_transaccion_id: 0,
-        localidad_salida_id: 0,
-        localidad_entrada_id: 0,
-        estatus: "",
-    });
+    const [formData, setFormData] = useState([]);
 
     useEffect(() => {
-        if (selectedOrden) {
-            setFormData({
-                id: selectedOrden.id || '',
-                fecha: selectedOrden.fecha || '',
-                tipo_transaccion_id: selectedOrden.tipo_transaccion_id || '',
-                localidad_salida_id: selectedOrden.localidad_salida_id || '',
-                localidad_entrada_id: selectedOrden.localidad_entrada_id || '',
-                estatus: selectedOrden.estatus || ''
-            });
-        }
-    }, [selectedOrden]);
+        const fetchOrdenes = async () => {
+            try {
+                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas`);
+                setFormData(response.data);
+                console.log("datos", response.data.orden.lineas)
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        };
 
-    useEffect(() => {
-        if (openDetalleOrden && selectedOrden) {
-            setFormData({
-                fecha: selectedOrden.fecha || '',
-                tipo_transaccion_id: selectedOrden.tipo_transaccion_id || '',
-                localidad_salida_id: selectedOrden.localidad_salida_id || '',
-                localidad_entrada_id: selectedOrden.localidad_entrada_id || '',
-                estatus: selectedOrden.estatus || ''
-            });
-        }
-    }, [openDetalleOrden, selectedOrden]);
+        fetchOrdenes();
+    }, []);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prevData) => ({
-            ...prevData,
-            [name]: value
-        }));
-    };
+    const columns = [
+        { field: 'id', headerName: 'ID', width: 90 },
+        { field: 'fecha', headerName: 'Fecha', width: 150, },
+        { field: 'tipo_transaccion_id', headerName: 'Tipo Transacción ID', width: 150 },
+        { field: 'localidad_salida_id', headerName: 'Localidad Salida ID', width: 150 },
+        { field: 'localidad_entrada_id', headerName: 'Localidad Entrada ID', width: 150 },
+        { field: 'estatus', headerName: 'Estatus', width: 150 },
+        { field: 'producto_id', headerName: 'Producto ID', width: 150 },
+        { field: 'cantidad', headerName: 'Cantidad', width: 150 },
+        { field: 'confirmacion_salida', headerName: 'Confirmación Salida', width: 150 },
+        { field: 'confirmacion_entrada', headerName: 'Confirmación Entrada', width: 150 }
+    ];
 
-    const handleSave = async (e) => {
-        try {
-            e.preventDefault();
-            console.log("Datos enviados:", formData);
-            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas/${selectedOrden.id}`, formData)
-            setFormData(response);
-            Swal.fire({
-                title: 'Éxito!',
-                text: 'Orden actualizada correctamente!!!',
-                icon: 'success'
-            });
-        } catch (error) {
-            Swal.fire({
-                icon: "error",
-                title: "Oops...",
-                text: "Hubo un error"
-            });
-        }
-        handleClose();
-    };
+    const rows = formData.flatMap((orden) => orden.lineas.map((linea) =>  ({
+        id: orden.orden_id,
+        fecha: orden.fecha,
+        tipo_transaccion_id: orden.tipo_transaccion_id,
+        localidad_salida_id: orden.localidad_salida_id,
+        localidad_entrada_id: orden.localidad_entrada_id,
+        estatus: orden.estatus,
+        producto_id: linea.producto_id,
+        cantidad: linea.cantidad,
+        confirmacion_salida: linea.confirmacion_salida ? 'Sí' : 'No',
+        confirmacion_entrada: linea.confirmacion_entrada ? 'Sí' : 'No'
+    })));
 
-    const handleButtonClick = () => {
-
-        console.log("Botón clickeado!");
-    };
 
     return (
         <Dialog
             open={openDetalleOrden}
             onClose={handleClose}
         >
-            <DialogTitle>Detalles de Orden</DialogTitle>
+            <DialogTitle> Detalles de las ordenes y sus lineas</DialogTitle>
             <DialogContent>
                 <DialogContentText>
-                    Se muestran todos los datos de la orden seleccionada
+                    Se muestran todos los detalles de la orden
                 </DialogContentText>
-                <form onSubmit={handleSave}>
-                    <TextField
-                        autoFocus
-                        required
-                        margin="dense"
-                        id="fecha"
-                        name="fecha"
-                        label="Fecha"
-                        type="date"
-                        fullWidth
-                        variant="standard"
-                        value={formData.fecha}
-                        onChange={handleChange}
-                    />
-                    <TextField
-                        required
-                        margin="dense"
-                        id="tipo_transaccion_id"
-                        name="tipo_transaccion_id"
-                        label="Tipo de transacción"
-                        type="number"
-                        fullWidth
-                        variant="standard"
-                        value={formData.tipo_transaccion_id}
-                        onChange={handleChange}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position='end'>
-                                    <IconButton
-                                        aria-label='Buscar transacción'
-                                        onClick={handleButtonClick}
-                                    >
-                                        <Button>Buscar</Button>
-                                    </IconButton>
-                                </InputAdornment>
-                            )
-                        }}
-                    />
-                    <TextField
-                        required
-                        margin="dense"
-                        id="localidad_salida_id"
-                        name="localidad_salida_id"
-                        label="Localidad de salida"
-                        type="number"
-                        fullWidth
-                        variant="standard"
-                        value={formData.localidad_salida_id}
-                        onChange={handleChange}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position='end'>
-                                    <IconButton
-                                        aria-label='Buscar localidad de salida'
-                                        onClick={handleButtonClick}
-                                    >
-                                        <Button>Buscar</Button>
-                                    </IconButton>
-                                </InputAdornment>
-                            )
-                        }}
-                    />
-                    <TextField
-                        required
-                        margin="dense"
-                        id="localidad_entrada_id"
-                        name="localidad_entrada_id"
-                        label="Localidad de entrada"
-                        type="number"
-                        fullWidth
-                        variant="standard"
-                        value={formData.localidad_entrada_id}
-                        onChange={handleChange}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position='end'>
-                                    <IconButton
-                                        aria-label='Buscar localidad de entrada'
-                                        onClick={handleButtonClick}
-                                    >
-                                        <Button>Buscar</Button>
-                                    </IconButton>
-                                </InputAdornment>
-                            )
-                        }}
-                    />
-                    <FormControl fullWidth margin='dense' variant='standard'>
-                        <InputLabel id="estatus-label">Estado</InputLabel>
-                        <Select
-                            labelId="estatus-label"
-                            id="estatus"
-                            name="estatus"
-                            value={formData.estatus}
-                            onChange={handleChange}
-                        >
-                            <MenuItem value="Activo">Activo</MenuItem>
-                            <MenuItem value="Inactivo">Inactivo</MenuItem>
-                        </Select>
-                    </FormControl>
-                </form>
+                <div className='contenido'>
+                    <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
+                        <DataGrid
+                            rows={rows}
+                            columns={columns}
+                            getRowId={(row) => row.id}
+                            pageSize={10}
+                            rowsPerPageOptions={[10, 20, 50]}
+                            checkboxSelection
+                        />
+                    </div>
+                </div>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={handleClose}>Cerrar</Button>
-                <Button type="submit" onClick={handleSave}>Guardar</Button>
-            </DialogActions>
         </Dialog>
-    )
+
+    );
 }
 
 export default DetalleLocalidades;
