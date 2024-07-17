@@ -6,6 +6,18 @@ import AddTaskIcon from '@mui/icons-material/AddTask';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 
+const getCurrentDateTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 const TableOrdenes = () => {
     const [bodegas, setBodegas] = useState([]);
     const [productos, setProductos] = useState([]);
@@ -24,12 +36,20 @@ const TableOrdenes = () => {
     const [ubicacionEntradaHabilitada, setUbicacionEntradaHabilitada] = useState(false);
     const [ubicacionSalidaHabilitada, setUbicacionSalidaHabilitada] = useState(false);
     const [existenciaProducto, setExistenciaProducto] = useState([]);
-    const [ubicacionProducto, setUbicacionProducto] = useState([]);
-    const [productoId, setProductoId] = useState([]);
-    const [productoSku, setProductoSku] = useState([]);
-    const [searchResults, setSearchResults] = useState([]);
+    const [productoId, setProductoId] = useState('');
     const [ubicaciones, setUbicaciones] = useState([]);
-    const [selectedUbicacion, setSelectedUbicacion] = useState('')
+    const [selectedUbicacion, setSelectedUbicacion] = useState('');
+    const [cantidad, setCantidad] = useState('');
+
+    const [dateTime, setDateTime] = useState(getCurrentDateTime());
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setDateTime(getCurrentDateTime());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const fetchBodegas = async () => {
@@ -44,65 +64,43 @@ const TableOrdenes = () => {
         const fetchTipoTraspaso = async () => {
             try {
                 const response = await axios.get('http://localhost:3304/inventario/tipoTransaccion');
-                console.log('Datos de traspasos:', response.data); // Log de los datos de traspasos
                 setTraspasos(response.data);
             } catch (error) {
                 console.error('Error fetching tipo de traspaso:', error);
             }
         };
 
-
         fetchTipoTraspaso();
         fetchBodegas();
     }, []);
 
-    // const fetchordenId = async () => {
-    //     try {
-    //         const response = await axios.get('http://localhost:3304/productos/MLM841742986/existencias');
-    //         const data = response.data;
-    //         console.log('Response:', response.data);
-    //         setIdActual(data.orden_id + 1);
-    //     } catch (error) {
-    //         console.error('Error fetching orden_id:', error);
-    //     }
-    // };
 
-    // useEffect(() => {
-    //     fetchordenId();
-    // }, []);
+
 
     const fetchExistencias = async () => {
         try {
             const response = await axios.get(`http://localhost:3304/productos/${productoId}/existencias`);
-            const data = response.data; //En esta parte accedemos a los datos consultados
-            console.log("Existencias", response.data)
-            if (Array.isArray(data)) {
-                setUbicaciones(data.localidad_descripcion); // Asegúrate de que `data` es un array
-            } else if (data && Array.isArray(data.localidad_descripcion)) {
-                setUbicaciones(data.localidad_descripcion); // Asume que `localidad_descripcion` es un array
+            const data = response.data;
+
+            console.log("Existencias", data);
+            if (data && data.data) {
+                setUbicaciones(data.data);
+                setExistenciaProducto(data.data.length ? data.data[0].cantidad : '');
             } else {
-                console.error("La estructura de los datos no es la esperada:", data);
+                setUbicaciones([]);
+                setExistenciaProducto('');
             }
-            setExistenciaProducto(data.cantidad);
         } catch (error) {
             console.log("Error al obtener el arreglo", error);
         }
     };
 
     const handleUbicacionSelect = (e) => {
-        const ubicacion = ubicaciones.find(ubic => ubic.id === parseInt(e.target.value));
-        if (ubicacion) {
-            setSelectedUbicacion(ubicacion.localidad);
-            setExistenciaProducto(ubicacion.cantidad);
-        }
-    };
-
-    const handleMlmSearch = (e) => {
-        setProductos(e.target.value);
+        setSelectedUbicacion(e.target.value);
     };
 
     const handleSearch = () => {
-        fetchExistencias(productoId);
+        fetchExistencias();
     };
 
     const handleSelectBodegaChange = (e) => {
@@ -111,34 +109,30 @@ const TableOrdenes = () => {
     };
 
     const handleSelectedTraspasoChange = (e) => {
-        const traspasoId = parseInt(e.target.value); // Asegurarnos de que sea un número
+        const traspasoId = parseInt(e.target.value);
         setSelectedTraspasoId(traspasoId);
-        console.log('Tipo de Traspaso seleccionado:', traspasoId);
 
         const tipoTraspasoSeleccionado = traspasos.find(traspaso => traspaso.id === traspasoId);
-        console.log('Tipo de Traspaso encontrado:', tipoTraspasoSeleccionado);
-
         if (tipoTraspasoSeleccionado) {
             setTipoTraspasoSeleccionado(tipoTraspasoSeleccionado);
-            console.log('Categoria del Traspaso seleccionado:', tipoTraspasoSeleccionado.categoria);
 
-            if (tipoTraspasoSeleccionado.categoria === 'Entrada' || tipoTraspasoSeleccionado.categoria === 'Conteo ciclico') {
+            if (tipoTraspasoSeleccionado.categoria === 'entrada' || tipoTraspasoSeleccionado.categoria === 'conteo ciclico') {
                 setBodegaEntradaHabilitada(true);
                 setUbicacionEntradaHabilitada(true);
                 setBodegaSalidaHabilitada(false);
                 setUbicacionSalidaHabilitada(false);
-            } else if (tipoTraspasoSeleccionado.categoria === 'Salida') {
+            } else if (tipoTraspasoSeleccionado.categoria === 'salida') {
                 setBodegaEntradaHabilitada(false);
                 setUbicacionEntradaHabilitada(false);
                 setBodegaSalidaHabilitada(true);
                 setUbicacionSalidaHabilitada(true);
-            } else if (tipoTraspasoSeleccionado.categoria === 'Transferencia') {
+            } else if (tipoTraspasoSeleccionado.categoria === 'transferencia') {
                 setBodegaEntradaHabilitada(true);
                 setUbicacionEntradaHabilitada(true);
                 setBodegaSalidaHabilitada(true);
                 setUbicacionSalidaHabilitada(true);
             }
-        }
+        } 
     };
 
     // const handleAddRow = () => {
@@ -161,37 +155,41 @@ const TableOrdenes = () => {
     //     setInputValue(''); // Limpiar el valor del input después de agregar la fila
     // };
 
-    const handleDeleteClick = (id) => () => {
-        setRows((prevRows) => prevRows.filter((row) => row.id !== id));
-    };
+    // const handleDeleteClick = (id) => () => {
+    //     setRows((prevRows) => prevRows.filter((row) => row.id !== id));
+    // };
 
-    const processRowUpdate = (updatedRow) => {
-        setRows((prevRows) =>
-            prevRows.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-        );
-        return updatedRow;
-    };
+    // const processRowUpdate = (updatedRow) => {
+    //     setRows((prevRows) =>
+    //         prevRows.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+    //     );
+    //     return updatedRow;
+    // };
 
     const handleConfirmOrder = async () => {
+        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
         const data = {
-            fecha: "2024-07-05",
+            fecha_abierto: dateTime,
             tipo_transaccion_id: selectedTraspasoId,
+            localidad_salida_id: parseInt(selectedUbicacion),
+          //  localidad_entrada_id: parseInt(selectedUbicacion),
             estatus: "Abierto",
-            lineas: rows.map(row => ({
-                producto_id: row.producto_id,
-                cantidad: row.cantidad
-            }))
+            lineas: [{
+                producto_id: productoId,
+                cantidad: parseInt(inputValue),
+            }]
         };
 
         try {
             await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas', data);
-            console.log("Datos enviados", data);
             alert('Orden confirmada exitosamente');
         } catch (error) {
             console.error('Error confirmando la orden:', error);
             alert('Error confirmando la orden');
         }
     };
+
+
 
     const columns = [
         { field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100 },
@@ -206,7 +204,7 @@ const TableOrdenes = () => {
                     <GridActionsCellItem
                         icon={<GridDeleteIcon />}
                         sx={{ color: 'red' }}
-                        onClick={handleDeleteClick(params.id)}
+                        // onClick={handleDeleteClick(params.id)}
                     />
                 </Tooltip>
             ]
@@ -299,29 +297,31 @@ const TableOrdenes = () => {
                     onChange={(e) => setProductoId(e.target.value)}
                     placeholder='Ingrese el SKU'
                 />
-                <button onClick={fetchExistencias}>Buscar</button>
+                <button onClick={handleSearch}>Buscar</button>
                 <label className='item9'>Ubicación salida:</label>
                 <select
                     className='item10'
                     disabled={!ubicacionSalidaHabilitada}
-                    onChange={handleUbicacionSelect}
                     value={selectedUbicacion}
+                    onChange={handleUbicacionSelect}
                 >
                     <option value=''>Seleccione...</option>
-                    {ubicaciones.map((ubicacion) => (
-                        <option key={ubicacion.id} value={ubicacion.id}>
-                            {ubicacion.localidad}
+                    {ubicaciones.map((ubic, index) => (
+                        <option key={index} value={ubic.localidad_id}>
+                            {ubic.localidad_descripcion}
                         </option>
                     ))}
                 </select>
                 <label className='item7'>Ubicación entrada:</label>
                 <select className='item8'
                     disabled={!ubicacionEntradaHabilitada}
+                    value={selectedUbicacion}
+                    onChange={handleUbicacionSelect}
                 >
                     <option value=''>Seleccione...</option>
-                    {ubicacionEntrada.map((ubicacion) => (
-                        <option key={ubicacion.id} value={ubicacion.id}>
-                            {ubicacion.localidad_descripcion}
+                    {ubicaciones.map((ubic, index) => (
+                        <option key={index} value={ubic.localidad_id}>
+                            {ubic.localidad_descripcion}
                         </option>
                     ))}
                 </select>
@@ -338,7 +338,7 @@ const TableOrdenes = () => {
                         rows={rows}
                         columns={columns}
                         pageSize={5}
-                        processRowUpdate={processRowUpdate}
+                        // processRowUpdate={processRowUpdate}
                     />
 
                 </div>
