@@ -6,7 +6,7 @@ const OrdenesRegistradas = () => {
 
 
   return (
-    <div className='encabezado'>
+    <div >
       <TableOrdenes />
     </div>
   )

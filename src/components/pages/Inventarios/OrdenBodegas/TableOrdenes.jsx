@@ -1,7 +1,7 @@
 import { DataGrid, GridActionsCellItem, GridDeleteIcon } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import AddTaskIcon from '@mui/icons-material/AddTask';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
@@ -23,7 +23,8 @@ const TableOrdenes = () => {
     const [productos, setProductos] = useState([]);
     const [traspasos, setTraspasos] = useState([]);
     const [selectedProductoId, setSelectedProductoId] = useState('');
-    const [selectedBodegaId, setSelectedBodegaId] = useState('');
+    const [selectedBodegaSalida, setSelectedBodegaSalida] = useState('');
+    const [selectedBodegaEntrada, setSelectedBodegaEntrada] = useState('');
     const [selectedTraspasoId, setSelectedTraspasoId] = useState('');
     const [inputValue, setInputValue] = useState('');
     const [rows, setRows] = useState([]);
@@ -38,8 +39,16 @@ const TableOrdenes = () => {
     const [existenciaProducto, setExistenciaProducto] = useState([]);
     const [productoId, setProductoId] = useState('');
     const [ubicaciones, setUbicaciones] = useState([]);
-    const [selectedUbicacion, setSelectedUbicacion] = useState('');
+    const [selectedUbicacionEntrada, setSelectedUbicacionEntrada] = useState('');
+    const [selectedUbicacionSalida, setSelectedUbicacionSalida] = useState('');
     const [cantidad, setCantidad] = useState('');
+    const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
+    const [habilitarBuscador, setHabilitarBuscador] = useState(false);
+    const [habilitarExistencias, setHabilitarExistencias] = useState(false);
+    const [habilitarCantidad, setHabilitarCantidad] = useState(false);
+    const [categoria, setCategoria] = useState('');
+    const [errorMessage, setErrorMessage] = useState(''); // Estado para manejar los mensajes de error
+    const [comentario, setComentario] = useState('');
 
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
 
@@ -70,12 +79,21 @@ const TableOrdenes = () => {
             }
         };
 
+        const fetchUbicaciones = async () => {
+            try {
+                const response = await axios.get('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/localidadesActivas');
+                const data = response.data;
+                setUbicacionEntrada(data);
+                console.log("Localidades activas:", data);
+            } catch (error) {
+                console.log("Error al obtener las localidades", error);
+            }
+        }
+
+        fetchUbicaciones();
         fetchTipoTraspaso();
         fetchBodegas();
     }, []);
-
-
-
 
     const fetchExistencias = async () => {
         try {
@@ -84,10 +102,29 @@ const TableOrdenes = () => {
 
             console.log("Existencias", data);
             if (data && data.data) {
-                setUbicaciones(data.data);
-                setExistenciaProducto(data.data.length ? data.data[0].cantidad : '');
+                const agrupadas = data.data.reduce((acc, item) => {
+                    const existing = acc.find(ubic => ubic.localidad_id === item.localidad_id);
+                    if (existing) {
+                        existing.cantidad += item.cantidad;
+                    } else {
+                        acc.push({ ...item });
+                    }
+                    return acc;
+                }, []);
+
+                setUbicaciones(agrupadas);
+
+                if (agrupadas.length > 0) {
+                    const primeraUbicacion = agrupadas[0];
+                    setSelectedUbicacionSalida(primeraUbicacion.localidad_id);
+                    setExistenciaProducto(primeraUbicacion.cantidad);
+                } else {
+                    setSelectedUbicacionSalida('');
+                    setExistenciaProducto('');
+                }
             } else {
                 setUbicaciones([]);
+                setSelectedUbicacionSalida('');
                 setExistenciaProducto('');
             }
         } catch (error) {
@@ -95,18 +132,60 @@ const TableOrdenes = () => {
         }
     };
 
-    const handleUbicacionSelect = (e) => {
-        setSelectedUbicacion(e.target.value);
+    const handleUbicacionSelectSalida = (e) => {
+        const selectedId = parseInt(e.target.value, 10); //selectedId sea un número
+        setSelectedUbicacionSalida(selectedId);
+
+        const selectedUbicacion = ubicaciones.find(ubic => ubic.localidad_id === selectedId);
+        setExistenciaProducto(selectedUbicacion ? selectedUbicacion.cantidad : '');
+    };
+
+    const handleUbicacionSelectEntrada = (e) => {
+        const selectedIdEntrada = parseInt(e.target.value, 10);
+        setSelectedUbicacionEntrada(selectedIdEntrada);
+
+        const selectedUbicacion = ubicacionEntrada.find(ubicacion => ubicacion.id === selectedIdEntrada);
+        setExistenciaProducto(selectedUbicacion ? selectedUbicacion.cantidad : '');
     };
 
     const handleSearch = () => {
         fetchExistencias();
+        if (bodegaSalidaHabilitada === true) {
+            setUbicacionSalidaHabilitada(true);
+            setHabilitarCantidad(true);
+        } else if (bodegaEntradaHabilitada === true) {
+            setUbicacionEntradaHabilitada(true);
+            setHabilitarCantidad(true);
+        }
     };
 
-    const handleSelectBodegaChange = (e) => {
+    const handleSelectBodegaSalida = (e) => {
         const bodegaId = e.target.value;
-        setSelectedBodegaId(bodegaId);
+        setSelectedBodegaSalida(bodegaId);
+        setHabilitarBuscador(true);
+    }
+
+    const handleSelectBodegaEntrada = (e) => {
+        const bodegaId = e.target.value;
+        setSelectedBodegaEntrada(bodegaId);
+        setHabilitarBuscador(true);
     };
+
+    const handleHabilitarTraspaso = () => {
+        setHabilitarTraspaso(true);
+    }
+
+    const handleHabilitarBuscador = () => {
+        setHabilitarBuscador(true);
+    }
+
+    const handleHabilitarExistencias = () => {
+        setHabilitarExistencias(true);
+    }
+
+    const handleHabilitarCantidad = () => {
+        setHabilitarCantidad(true);
+    }
 
     const handleSelectedTraspasoChange = (e) => {
         const traspasoId = parseInt(e.target.value);
@@ -115,25 +194,22 @@ const TableOrdenes = () => {
         const tipoTraspasoSeleccionado = traspasos.find(traspaso => traspaso.id === traspasoId);
         if (tipoTraspasoSeleccionado) {
             setTipoTraspasoSeleccionado(tipoTraspasoSeleccionado);
+            setCategoria(tipoTraspasoSeleccionado.categoria);
 
             if (tipoTraspasoSeleccionado.categoria === 'entrada' || tipoTraspasoSeleccionado.categoria === 'conteo ciclico') {
                 setBodegaEntradaHabilitada(true);
-                setUbicacionEntradaHabilitada(true);
                 setBodegaSalidaHabilitada(false);
-                setUbicacionSalidaHabilitada(false);
             } else if (tipoTraspasoSeleccionado.categoria === 'salida') {
                 setBodegaEntradaHabilitada(false);
-                setUbicacionEntradaHabilitada(false);
                 setBodegaSalidaHabilitada(true);
-                setUbicacionSalidaHabilitada(true);
             } else if (tipoTraspasoSeleccionado.categoria === 'transferencia') {
                 setBodegaEntradaHabilitada(true);
-                setUbicacionEntradaHabilitada(true);
                 setBodegaSalidaHabilitada(true);
-                setUbicacionSalidaHabilitada(true);
             }
-        } 
+        }
     };
+
+
 
     // const handleAddRow = () => {
     //     const selectedBodega = bodegas.find(bodega => bodega.id === parseInt(selectedBodegaId));
@@ -166,19 +242,28 @@ const TableOrdenes = () => {
     //     return updatedRow;
     // };
 
-    const handleConfirmOrder = async () => {
+    const handleGenerarOrder = async () => {
         const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const parseOrNull = (value) => {
+            const parsedValue = parseInt(value);
+            return isNaN(parsedValue) ? null : parsedValue;
+        };
         const data = {
             fecha_abierto: dateTime,
             tipo_transaccion_id: selectedTraspasoId,
-            localidad_salida_id: parseInt(selectedUbicacion),
-          //  localidad_entrada_id: parseInt(selectedUbicacion),
-            estatus: "Abierto",
+            localidad_entrada_id: parseOrNull(selectedUbicacionEntrada),
+            estatus: "abierto",
             lineas: [{
                 producto_id: productoId,
                 cantidad: parseInt(inputValue),
+                comentario: comentario,
             }]
         };
+
+        // Solo agrega localidad_salida_id si el select está habilitado
+        if (ubicacionSalidaHabilitada) {
+            data.localidad_salida_id = parseOrNull(selectedUbicacionSalida);
+        }
 
         try {
             await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas', data);
@@ -189,6 +274,30 @@ const TableOrdenes = () => {
         }
     };
 
+    const handleInputChange = (event) => {
+        setIdActual(event.target.value);
+    };
+
+    const handleConfirmarOrden = async () => {
+        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const data = {
+            fecha_confirmada: dateTime,
+        };
+
+        try {
+            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/confirmar/${idActual}`, data);
+            alert('Orden confirmada exitosamente');
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const errorMsg = error.response.data.message.messageText || 'Error desconocido';
+                setErrorMessage(errorMsg);
+                alert(errorMsg);
+            } else {
+                console.error('Error confirmando la orden:', error);
+                alert('Error confirmando la orden');
+            }
+        }
+    }
 
 
     const columns = [
@@ -204,7 +313,7 @@ const TableOrdenes = () => {
                     <GridActionsCellItem
                         icon={<GridDeleteIcon />}
                         sx={{ color: 'red' }}
-                        // onClick={handleDeleteClick(params.id)}
+                    // onClick={handleDeleteClick(params.id)}
                     />
                 </Tooltip>
             ]
@@ -214,25 +323,38 @@ const TableOrdenes = () => {
     return (
         <div>
             <div className='container'>
-                <IconButton className='bCrearO' sx={{ color: 'green' }} onClick={handleConfirmOrder}>
-                    <AddTaskIcon >
+                <div className='oder-controls'>
+                    <IconButton sx={{ color: 'orange' }} onClick={handleGenerarOrder}>
                         <Tooltip title='Crear Orden'>
-                            Crear Orden
+                            <AddTaskIcon sx={{ fontSize: 40 }} />
                         </Tooltip>
-                    </AddTaskIcon>
-                </IconButton>
-                <IconButton className='bConfirmar' sx={{ color: 'green' }} >
-                    <DoneAllIcon ></DoneAllIcon>
-                    <Tooltip title='Confirmar Todo'>
-                    </Tooltip>
-                </IconButton>
-                <IconButton className='bProcesar' sx={{ color: 'green' }} >
-                    <FactCheckIcon ></FactCheckIcon>
-                    <Tooltip title='Procesar'>
-                    </Tooltip>
-                </IconButton>
+                        <Typography >
+                            Crear Orden
+                        </Typography>
+                    </IconButton>
+                </div>
+                <div className='confirmar-all'>
+                    <IconButton sx={{ color: 'blue' }} onClick={() => handleConfirmarOrden(idActual)}>
+                        <Tooltip title='Confirmar todo'>
+                            <DoneAllIcon sx={{ fontSize: 40 }} />
+                        </Tooltip>
+                        <Typography >
+                            Confirmar Todo
+                        </Typography>
+                    </IconButton>
+                </div>
+                <div className='procesar-all'>
+                    <IconButton sx={{ color: 'green' }} >
+                        <Tooltip title='Procesar'>
+                            <FactCheckIcon sx={{ fontSize: 40 }} />
+                        </Tooltip>
+                        <Typography >
+                            Procesar Orden
+                        </Typography>
+                    </IconButton>
+                </div>
                 <label className='item1'>Folio:</label>
-                <input className='item2' value={idActual} readOnly></input>
+                <input className='item2' value={idActual} onChange={handleInputChange}></input>
                 <label className='ordenesT' >Ordenes:</label>
                 <select
                     className='selectO'
@@ -242,12 +364,15 @@ const TableOrdenes = () => {
                     <option value=''>Seleccione...</option>
 
                 </select>
+                <button className='buttonOrden' onClick={handleHabilitarTraspaso}>Crear orden nueva</button>
                 <label className='item5' htmlFor='tipoSelect'>Tipo de movimiento:</label>
-                <select className='item6'
+                <select
+                    className='item6'
                     label='tipoSelect'
                     id='tipoSelect'
                     value={selectedTraspasoId}
                     onChange={handleSelectedTraspasoChange}
+                    disabled={!habilitarTraspaso}
                 >
                     <option value=''>Seleccione...</option>
                     {traspasos.map((traspaso) => (
@@ -256,14 +381,17 @@ const TableOrdenes = () => {
                         </option>
                     ))}
                 </select>
-                <label className='categoriaM'></label>
+                <label className='categoria-label'>Categoria:</label>
+                <label className='categoriaM'>{categoria}</label>
+                <label className='descripcion'>Descripción:</label>
+                <input className='input-descr' disabled={!habilitarTraspaso} value={comentario} onChange={(e) => setComentario(e.target.value)}></input>
                 <label className='labelB' htmlFor='bodegaSelect'>Bodega de salida:</label>
                 <select
                     className='selectB'
                     label='bodegaSelect'
                     id='bodegaSelect'
-                    value={selectedBodegaId}
-                    onChange={handleSelectBodegaChange}
+                    value={selectedBodegaSalida}
+                    onChange={handleSelectBodegaSalida}
                     disabled={!bodegaSalidaHabilitada}
                 >
                     <option value=''>Seleccione...</option>
@@ -277,9 +405,9 @@ const TableOrdenes = () => {
                 <select className='item4'
                     label='bodegaSelect'
                     id='bodegaSelect'
-                    value={selectedBodegaId}
-                    onChange={handleSelectBodegaChange}
+                    value={selectedBodegaEntrada}
                     disabled={!bodegaEntradaHabilitada}
+                    onChange={handleSelectBodegaEntrada}
                 >
                     <option value=''>Seleccione...</option>
                     {bodegas.map((bodega) => (
@@ -293,17 +421,18 @@ const TableOrdenes = () => {
                 <input
                     className='item12'
                     type='text'
+                    disabled={!habilitarBuscador}
                     value={productoId}
                     onChange={(e) => setProductoId(e.target.value)}
-                    placeholder='Ingrese el SKU'
+                    placeholder='Ingrese el MLM'
                 />
-                <button onClick={handleSearch}>Buscar</button>
+                <button className='bBuscar' disabled={!habilitarBuscador} onClick={handleSearch}>Buscar</button>
                 <label className='item9'>Ubicación salida:</label>
                 <select
                     className='item10'
                     disabled={!ubicacionSalidaHabilitada}
-                    value={selectedUbicacion}
-                    onChange={handleUbicacionSelect}
+                    value={selectedUbicacionSalida}
+                    onChange={handleUbicacionSelectSalida}
                 >
                     <option value=''>Seleccione...</option>
                     {ubicaciones.map((ubic, index) => (
@@ -315,30 +444,30 @@ const TableOrdenes = () => {
                 <label className='item7'>Ubicación entrada:</label>
                 <select className='item8'
                     disabled={!ubicacionEntradaHabilitada}
-                    value={selectedUbicacion}
-                    onChange={handleUbicacionSelect}
+                    value={selectedUbicacionEntrada}
+                    onChange={handleUbicacionSelectEntrada}
                 >
                     <option value=''>Seleccione...</option>
-                    {ubicaciones.map((ubic, index) => (
-                        <option key={index} value={ubic.localidad_id}>
-                            {ubic.localidad_descripcion}
+                    {ubicacionEntrada.map((ubicacion, index) => (
+                        <option key={index} value={ubicacion.id}>
+                            {ubicacion.descripcion}
                         </option>
                     ))}
                 </select>
                 <label className='item14'>Existencias Origen:</label>
-                <input className='item15' value={existenciaProducto}></input>
+                <input className='item15' disabled={!habilitarExistencias} value={existenciaProducto} readOnly></input>
                 <label className='item16'>Cantidad:</label>
-                <input className='item17' value={inputValue} onChange={(e) => setInputValue(e.target.value)}></input>
+                <input className='item17' disabled={!habilitarCantidad} value={inputValue} onChange={(e) => setInputValue(e.target.value)}></input>
 
                 <button className='item13' >Agregar Fila</button>
             </div>
-            <div className='contenido'>
-                <div id='contenidoUsuarios' style={{ height: 500, width: '82%' }}>
+            <div >
+                <div className='DataG' style={{ height: 500, width: '82%' }}>
                     <DataGrid
                         rows={rows}
                         columns={columns}
                         pageSize={5}
-                        // processRowUpdate={processRowUpdate}
+                    // processRowUpdate={processRowUpdate}
                     />
 
                 </div>
