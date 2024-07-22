@@ -209,8 +209,6 @@ const TableOrdenes = () => {
         }
     };
 
-
-
     // const handleAddRow = () => {
     //     const selectedBodega = bodegas.find(bodega => bodega.id === parseInt(selectedBodegaId));
     //     const selectedProducto = productos.find(producto => producto.id === parseInt(selectedProductoId));
@@ -242,6 +240,18 @@ const TableOrdenes = () => {
     //     return updatedRow;
     // };
 
+    const clearFormat = () => {
+        setComentario('');
+        setSelectedTraspasoId('');
+        setSelectedBodegaEntrada('');
+        setSelectedBodegaSalida('');
+        setProductoId('');
+        setSelectedUbicacionEntrada('');
+        setSelectedUbicacionSalida('');
+        setExistenciaProducto('');
+        setInputValue('');
+    }
+
     const handleGenerarOrder = async () => {
         const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
         const parseOrNull = (value) => {
@@ -267,7 +277,8 @@ const TableOrdenes = () => {
 
         try {
             await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas', data);
-            alert('Orden confirmada exitosamente');
+            clearFormat();
+            alert('Orden confirmada exitosamente');            
         } catch (error) {
             console.error('Error confirmando la orden:', error);
             alert('Error confirmando la orden');
