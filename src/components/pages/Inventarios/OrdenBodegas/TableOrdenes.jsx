@@ -23,6 +23,7 @@ const TableOrdenes = () => {
     const [productos, setProductos] = useState([]);
     const [traspasos, setTraspasos] = useState([]);
     const [selectedProductoId, setSelectedProductoId] = useState('');
+    const [selectedBodegaId, setSelectedBodeId] = useState('');
     const [selectedBodegaSalida, setSelectedBodegaSalida] = useState('');
     const [selectedBodegaEntrada, setSelectedBodegaEntrada] = useState('');
     const [selectedTraspasoId, setSelectedTraspasoId] = useState('');
@@ -30,7 +31,6 @@ const TableOrdenes = () => {
     const [rows, setRows] = useState([]);
     const [idActual, setIdActual] = useState("");
     const [ubicacionEntrada, setUbicacionEntrada] = useState([]);
-    const [ubicacionSalida, setUbicacionSalida] = useState([]);
     const [tipoTraspasoSeleccionado, setTipoTraspasoSeleccionado] = useState(null);
     const [bodegaEntradaHabilitada, setBodegaEntradaHabilitada] = useState(false);
     const [bodegaSalidaHabilitada, setBodegaSalidaHabilitada] = useState(false);
@@ -41,14 +41,17 @@ const TableOrdenes = () => {
     const [ubicaciones, setUbicaciones] = useState([]);
     const [selectedUbicacionEntrada, setSelectedUbicacionEntrada] = useState('');
     const [selectedUbicacionSalida, setSelectedUbicacionSalida] = useState('');
-    const [cantidad, setCantidad] = useState('');
     const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
     const [habilitarBuscador, setHabilitarBuscador] = useState(false);
     const [habilitarExistencias, setHabilitarExistencias] = useState(false);
     const [habilitarCantidad, setHabilitarCantidad] = useState(false);
     const [categoria, setCategoria] = useState('');
     const [errorMessage, setErrorMessage] = useState(''); // Estado para manejar los mensajes de error
-    const [comentario, setComentario] = useState('');
+    const [descripcion, setDescripcion] = useState('');
+    const [checkboxState, setCheckboxState] = useState({
+        checkbox1: false,
+        checkbox2: false,
+    })
 
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
 
@@ -59,7 +62,7 @@ const TableOrdenes = () => {
 
         return () => clearInterval(timer);
     }, []);
-
+ 
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
@@ -97,28 +100,31 @@ const TableOrdenes = () => {
 
     const fetchExistencias = async () => {
         try {
-            const response = await axios.get(`http://localhost:3304/productos/${productoId}/existencias`);
-            const data = response.data;
+            if (bodegaSalidaHabilitada === true) {
+                const response = await axios.get(`http://localhost:3304/productos/${productoId}/existencias`);
+                const data = response.data;
 
-            console.log("Existencias", data);
-            if (data && data.data) {
-                const agrupadas = data.data.reduce((acc, item) => {
-                    const existing = acc.find(ubic => ubic.localidad_id === item.localidad_id);
-                    if (existing) {
-                        existing.cantidad += item.cantidad;
-                    } else {
-                        acc.push({ ...item });
+                console.log("Existencias", data);
+                if (data && data.data) {
+                    const agrupadas = data.data.reduce((acc, item) => {
+                        const existing = acc.find(ubic => ubic.localidad_id === item.localidad_id);
+                        if (existing) {
+                            existing.cantidad += item.cantidad;
+                        } else {
+                            acc.push({ ...item });
+                        }
+                        return acc;
+                    }, []);
+
+                    setUbicaciones(agrupadas);
+
+                    if (agrupadas.length > 0) {
+                        const primeraUbicacion = agrupadas[0];
+                        setSelectedUbicacionSalida(primeraUbicacion.localidad_id);
+                        setExistenciaProducto(primeraUbicacion.cantidad);
                     }
-                    return acc;
-                }, []);
-
-                setUbicaciones(agrupadas);
-
-                if (agrupadas.length > 0) {
-                    const primeraUbicacion = agrupadas[0];
-                    setSelectedUbicacionSalida(primeraUbicacion.localidad_id);
-                    setExistenciaProducto(primeraUbicacion.cantidad);
-                } else {
+                }
+                else {
                     setSelectedUbicacionSalida('');
                     setExistenciaProducto('');
                 }
@@ -132,20 +138,22 @@ const TableOrdenes = () => {
         }
     };
 
+    const handleInputChange = (event) => {
+        setIdActual(event.target.value);
+    };
+
     const handleUbicacionSelectSalida = (e) => {
         const selectedId = parseInt(e.target.value, 10); //selectedId sea un número
         setSelectedUbicacionSalida(selectedId);
 
-        const selectedUbicacion = ubicaciones.find(ubic => ubic.localidad_id === selectedId);
-        setExistenciaProducto(selectedUbicacion ? selectedUbicacion.cantidad : '');
+        const selectedUbicacionSalidaTemp = ubicaciones.find(ubic => ubic.localidad_id === selectedId);
+        setExistenciaProducto(selectedUbicacionSalidaTemp ? selectedUbicacionSalidaTemp.cantidad : '');
     };
 
     const handleUbicacionSelectEntrada = (e) => {
         const selectedIdEntrada = parseInt(e.target.value, 10);
         setSelectedUbicacionEntrada(selectedIdEntrada);
 
-        const selectedUbicacion = ubicacionEntrada.find(ubicacion => ubicacion.id === selectedIdEntrada);
-        setExistenciaProducto(selectedUbicacion ? selectedUbicacion.cantidad : '');
     };
 
     const handleSearch = () => {
@@ -175,18 +183,6 @@ const TableOrdenes = () => {
         setHabilitarTraspaso(true);
     }
 
-    const handleHabilitarBuscador = () => {
-        setHabilitarBuscador(true);
-    }
-
-    const handleHabilitarExistencias = () => {
-        setHabilitarExistencias(true);
-    }
-
-    const handleHabilitarCantidad = () => {
-        setHabilitarCantidad(true);
-    }
-
     const handleSelectedTraspasoChange = (e) => {
         const traspasoId = parseInt(e.target.value);
         setSelectedTraspasoId(traspasoId);
@@ -209,39 +205,19 @@ const TableOrdenes = () => {
         }
     };
 
-    // const handleAddRow = () => {
-    //     const selectedBodega = bodegas.find(bodega => bodega.id === parseInt(selectedBodegaId));
-    //     const selectedProducto = productos.find(producto => producto.id === parseInt(selectedProductoId));
+    const handleDeleteClick = (id) => () => {
+        setRows((prevRows) => prevRows.filter((row) => row.id !== id));
+    };
 
-    //     const newRow = {
-    //         id: rows.length + 1, // Asigna un ID único
-    //         cantidad: inputValue,
-    //         producto_id: selectedProducto ? selectedProducto.id : '', // ID del producto seleccionado
-    //         sku: selectedProducto ? selectedProducto.sku : '',
-    //         producto_title: selectedProducto ? selectedProducto.title : '',
-    //         bodega_id: selectedBodega ? selectedBodegaId : '',
-    //         bodega_nombre: selectedBodega ? selectedBodega.Nombre : '', // Nombre de la bodega seleccionada
-    //         localidad_origen: '',
-    //         localidad_salida: ''
-    //     };
-
-    //     setRows((prevRows) => [...prevRows, newRow]);
-    //     setInputValue(''); // Limpiar el valor del input después de agregar la fila
-    // };
-
-    // const handleDeleteClick = (id) => () => {
-    //     setRows((prevRows) => prevRows.filter((row) => row.id !== id));
-    // };
-
-    // const processRowUpdate = (updatedRow) => {
-    //     setRows((prevRows) =>
-    //         prevRows.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-    //     );
-    //     return updatedRow;
-    // };
+    const processRowUpdate = (updatedRow) => {
+        setRows((prevRows) =>
+            prevRows.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+        );
+        return updatedRow;
+    };
 
     const clearFormat = () => {
-        setComentario('');
+        setDescripcion('');
         setSelectedTraspasoId('');
         setSelectedBodegaEntrada('');
         setSelectedBodegaSalida('');
@@ -261,32 +237,91 @@ const TableOrdenes = () => {
         const data = {
             fecha_abierto: dateTime,
             tipo_transaccion_id: selectedTraspasoId,
-            localidad_entrada_id: parseOrNull(selectedUbicacionEntrada),
+            bodega_salida_id: parseOrNull(selectedBodegaSalida),
+            bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
             estatus: "abierto",
-            lineas: [{
-                producto_id: productoId,
-                cantidad: parseInt(inputValue),
-                comentario: comentario,
-            }]
+            descripcion: descripcion
         };
 
         // Solo agrega localidad_salida_id si el select está habilitado
-        if (ubicacionSalidaHabilitada) {
-            data.localidad_salida_id = parseOrNull(selectedUbicacionSalida);
-        }
+        // if (ubicacionSalidaHabilitada) {
+        //     data.localidad_salida_id = parseOrNull(selectedUbicacionSalida);
+        // }
 
         try {
-            await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas', data);
+            await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden', data);
             clearFormat();
-            alert('Orden confirmada exitosamente');            
+            alert('Orden generada exitosamente');
         } catch (error) {
-            console.error('Error confirmando la orden:', error);
-            alert('Error confirmando la orden');
+            console.error('Error generando la orden:', error);
+            alert('Error generando la orden');
         }
+        setDescripcion('');
+        setSelectedTraspasoId('');
+        setSelectedBodegaSalida('');
+        setSelectedBodegaEntrada('');
     };
 
-    const handleInputChange = (event) => {
-        setIdActual(event.target.value);
+    const handleAddRow = () => {
+
+        if (parseInt(inputValue) > parseInt(existenciaProducto)) {
+            alert('La cantidad no puede ser mayor que las existencias disponibles.');
+            return;
+        }
+
+        const parseOrNull = (value) => {
+            const parsedValue = parseInt(value);
+            return isNaN(parsedValue) ? null : parsedValue;
+        };
+
+        const selectedUbicacionSalidaDescripcion = ubicaciones.find(ubic => ubic.localidad_id === selectedUbicacionSalida)?.localidad_descripcion || '';
+        const selectedUbicacionEntradaDescripcion = ubicacionEntrada.find(ubicacion => ubicacion.id === selectedUbicacionEntrada)?.descripcion || '';
+
+        const newRow = {
+            id: rows.length + 1, // Asigna un ID único
+            cantidad: inputValue,
+            producto_id: productoId, // ID del producto seleccionado,
+            existencias: existenciaProducto,
+            localidad_entrada: selectedUbicacionEntradaDescripcion,
+            localidad_salida: selectedUbicacionSalidaDescripcion,
+        };
+
+        setRows((prevRows) => [...prevRows, newRow]);
+
+        const lineasData = {
+            lineas: [{
+                producto_id: productoId,
+                cantidad: parseInt(inputValue),
+                localidad_salida_id: parseOrNull(selectedUbicacionSalida),
+                localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
+            }]
+        };
+
+        const enviarLineas = async (ordenId) => {
+            try {
+                console.log("Estas son las lineas", lineasData);
+                const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log('Respuesta del servidor:', response.data);
+                alert('Las líneas de la orden de bodega fueron registradas con éxito');
+            } catch (error) {
+                console.error('Error al enviar las líneas de la orden de bodega:', error.response ? error.response.data : error.message);
+                alert('Error al enviar las líneas de la orden de bodega');
+            }
+        };
+
+        // Llamar a la función con el ID de la orden correspondiente
+        const ordenId = idActual; // Cambia esto por el ID de la orden real
+        enviarLineas(ordenId);
+
+        setProductoId(''); 
+        setSelectedUbicacionSalida('');
+        setSelectedUbicacionEntrada('');
+        setExistenciaProducto('');
+        setInputValue('');
     };
 
     const handleConfirmarOrden = async () => {
@@ -310,11 +345,49 @@ const TableOrdenes = () => {
         }
     }
 
+    const handleProcesarOrden = async () => {
+        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const data = {
+            fecha_procesada: dateTime,
+        };
+
+        try {
+            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/procesar/${idActual}`, data);
+            alert('Orden procesada exitosamente');
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const errorMsg = error.response.data.message.messageText || 'Error desconocido';
+                setErrorMessage(errorMsg);
+                alert(errorMsg);
+            } else {
+                console.error('Error procesando la orden:', error);
+                alert('Error procesando la orden');
+            }
+        }
+    }
+
+    const handleCheckboxChange = (checkboxName) => {
+        if (checkboxName === 'checkbox1') {
+            setHabilitarTraspaso(false);
+            setCheckboxState({
+                checkbox1: true,
+                checkbox2: false,
+            });
+        }
+        else if (checkboxName === 'checkbox2') {
+            setHabilitarTraspaso(true);
+            setCheckboxState({
+                checkbox1: false,
+                checkbox2: true,
+            });
+
+        }
+    };
 
     const columns = [
         { field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100 },
-        { field: 'sku', headerName: 'SKU', width: 150 },
-        { field: 'localidad_origen', headerName: 'Ubicación Origen', width: 150 },
+        { field: 'producto_id', headerName: 'MLM', width: 150 },
+        { field: 'localidad_entrada', headerName: 'Ubicación Origen', width: 150 },
         { field: 'existencias', headerName: 'Existencias de origen', width: 150 },
         { field: 'localidad_salida', headerName: 'Ubicación Salida', width: 150 },
         { field: 'producto_title', headerName: 'Descripción', width: 420 },
@@ -324,7 +397,7 @@ const TableOrdenes = () => {
                     <GridActionsCellItem
                         icon={<GridDeleteIcon />}
                         sx={{ color: 'red' }}
-                    // onClick={handleDeleteClick(params.id)}
+                        onClick={handleDeleteClick(params.id)}
                     />
                 </Tooltip>
             ]
@@ -334,28 +407,26 @@ const TableOrdenes = () => {
     return (
         <div>
             <div className='container'>
-                <div className='oder-controls'>
-                    <IconButton sx={{ color: 'orange' }} onClick={handleGenerarOrder}>
-                        <Tooltip title='Crear Orden'>
-                            <AddTaskIcon sx={{ fontSize: 40 }} />
-                        </Tooltip>
-                        <Typography >
-                            Crear Orden
-                        </Typography>
-                    </IconButton>
-                </div>
                 <div className='confirmar-all'>
-                    <IconButton sx={{ color: 'blue' }} onClick={() => handleConfirmarOrden(idActual)}>
-                        <Tooltip title='Confirmar todo'>
+                <IconButton sx={{ color: 'green' }} onClick={handleGenerarOrder}>
+                        <Tooltip title='Generar Orden'>
                             <DoneAllIcon sx={{ fontSize: 40 }} />
                         </Tooltip>
                         <Typography >
-                            Confirmar Todo
+                            Generar Orden
+                        </Typography>
+                    </IconButton>
+                    <IconButton sx={{ color: 'blue' }} onClick={handleConfirmarOrden}>
+                        <Tooltip title='Confirmar Orden'>
+                            <DoneAllIcon sx={{ fontSize: 40 }} />
+                        </Tooltip>
+                        <Typography >
+                            Confirmar Orden
                         </Typography>
                     </IconButton>
                 </div>
                 <div className='procesar-all'>
-                    <IconButton sx={{ color: 'green' }} >
+                    <IconButton sx={{ color: 'orange' }} onClick={handleProcesarOrden}>
                         <Tooltip title='Procesar'>
                             <FactCheckIcon sx={{ fontSize: 40 }} />
                         </Tooltip>
@@ -366,36 +437,74 @@ const TableOrdenes = () => {
                 </div>
                 <label className='item1'>Folio:</label>
                 <input className='item2' value={idActual} onChange={handleInputChange}></input>
-                <label className='ordenesT' >Ordenes:</label>
-                <select
-                    className='selectO'
-                    label='tipoOrdenes'
-                    id='tipoOrdenes'
-                >
-                    <option value=''>Seleccione...</option>
+                <h3 className='textBuscar' >Buscar ordenes</h3>
+                <input
+                    className='checkBuscar'
+                    type='checkbox'
+                    checked={checkboxState.checkbox1}
+                    onChange={() => handleCheckboxChange('checkbox1')}
+                />
+                {checkboxState.checkbox1 && (
+                    <>
+                        <label className='ordenesT' >Ordenes:</label>
+                        <select
+                            className='selectO'
+                            label='tipoOrdenes'
+                            id='tipoOrdenes'
+                        >
+                            <option value=''>Seleccione...</option>
 
-                </select>
-                <button className='buttonOrden' onClick={handleHabilitarTraspaso}>Crear orden nueva</button>
-                <label className='item5' htmlFor='tipoSelect'>Tipo de movimiento:</label>
-                <select
-                    className='item6'
-                    label='tipoSelect'
-                    id='tipoSelect'
-                    value={selectedTraspasoId}
-                    onChange={handleSelectedTraspasoChange}
-                    disabled={!habilitarTraspaso}
-                >
-                    <option value=''>Seleccione...</option>
-                    {traspasos.map((traspaso) => (
-                        <option key={traspaso.id} value={traspaso.id}>
-                            {traspaso.descripcion}
-                        </option>
-                    ))}
-                </select>
+                        </select>
+                        <label className='descripcion'>Descripción:</label>
+                        <input className='input-descr' disabled={!habilitarTraspaso} value={descripcion} onChange={(e) => setDescripcion(e.target.value)}></input>
+                        <label className='item5' htmlFor='tipoSelect'>Tipo de movimiento:</label>
+                        <select
+                            className='item6'
+                            label='tipoSelect'
+                            id='tipoSelect'
+                            value={selectedTraspasoId}
+                            onChange={handleSelectedTraspasoChange}
+                            disabled={!habilitarTraspaso}
+                        >
+                            <option value=''>Seleccione...</option>
+                            {traspasos.map((traspaso) => (
+                                <option key={traspaso.id} value={traspaso.id}>
+                                    {traspaso.descripcion}
+                                </option>
+                            ))}
+                        </select>
+                    </>
+                )}
+                <h3 className='textOrden'>Orden nueva</h3>
+                <input
+                    className='checkNuevaOrden'
+                    type='checkbox'
+                    checked={checkboxState.checkbox2}
+                    onChange={() => handleCheckboxChange('checkbox2')}
+                />
+                {checkboxState.checkbox2 && (
+                    <>
+                        <label className='descripcion'>Descripción:</label>
+                        <input className='input-descr' disabled={!habilitarTraspaso} value={descripcion} onChange={(e) => setDescripcion(e.target.value)}></input>
+                        <label className='item5' htmlFor='tipoSelect'>Tipo de movimiento:</label>
+                        <select
+                            className='item6'
+                            label='tipoSelect'
+                            id='tipoSelect'
+                            value={selectedTraspasoId}
+                            onChange={handleSelectedTraspasoChange}
+                            disabled={!habilitarTraspaso}
+                        >
+                            <option value=''>Seleccione...</option>
+                            {traspasos.map((traspaso) => (
+                                <option key={traspaso.id} value={traspaso.id}>
+                                    {traspaso.descripcion}
+                                </option>
+                            ))}
+                        </select></>
+                )}
                 <label className='categoria-label'>Categoria:</label>
                 <label className='categoriaM'>{categoria}</label>
-                <label className='descripcion'>Descripción:</label>
-                <input className='input-descr' disabled={!habilitarTraspaso} value={comentario} onChange={(e) => setComentario(e.target.value)}></input>
                 <label className='labelB' htmlFor='bodegaSelect'>Bodega de salida:</label>
                 <select
                     className='selectB'
@@ -470,7 +579,7 @@ const TableOrdenes = () => {
                 <label className='item16'>Cantidad:</label>
                 <input className='item17' disabled={!habilitarCantidad} value={inputValue} onChange={(e) => setInputValue(e.target.value)}></input>
 
-                <button className='item13' >Agregar Fila</button>
+                <button className='item13' onClick={handleAddRow} >Agregar Fila</button>
             </div>
             <div >
                 <div className='DataG' style={{ height: 500, width: '82%' }}>
@@ -478,7 +587,7 @@ const TableOrdenes = () => {
                         rows={rows}
                         columns={columns}
                         pageSize={5}
-                    // processRowUpdate={processRowUpdate}
+                        processRowUpdate={processRowUpdate}
                     />
 
                 </div>
