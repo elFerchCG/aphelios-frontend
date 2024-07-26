@@ -3,8 +3,6 @@ import TableOrdenes from './TableOrdenes'
 
 const OrdenesRegistradas = () => {
 
-
-
   return (
     <div >
       <TableOrdenes />

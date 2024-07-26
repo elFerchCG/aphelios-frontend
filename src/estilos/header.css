@@ -1,131 +1,54 @@
-/*Estilos para el header*/
-.logo {
-    margin-top: 1px;
-    margin-bottom: 1px;
-    width: 300px;
-    height: 50px;
-}
-
-.tittle {
-    color: #ffffff;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 25px;
-    text-align: center;
-    font-weight: bold;
-    padding-bottom: 0%;
-}
-
 .header {
-    background-color: #282d88;
     display: flex;
-    justify-content: center;
-    height: auto;
-    top: auto;
-    bottom: auto;
-    left: auto;
-    width: 100%;
-    left: 0;
-    top: 0;
-    position: fixed;
-}
-
-.header .toggle-btn {
-    justify-content: left;
-}
-
-.toggle-btn {
-    margin: 0%;
-    padding: 0%;
-}
-
-
-#sidebar {
-    position: fixed;
-    width: 250px;
-    height: 100%;
-    background-color: #282d88;
-    left: -250px;
-    transition: all 200ms;
-}
-
-#sidebar ul li {
-    font-family: Arial, Helvetica, sans-serif;
-    color: #ffffff;
-    text-align: justify;
-    list-style: none;
-    padding: 15px 20px;
-}
-
-#sidebar .toggle-btn {
-    position: absolute;
-    left: 260px;
-    top: -10px;
-    cursor: pointer;
-}
-
-#sidebar .toggle-btn span {
-    display: block;
-    width: 45px;
-    text-align: center;
-    padding-top: 10px;
-    font-size: 45px;
-    margin-left: 8px;
-    position: absolute;
-}
-
-#sidebar .close {
-    font-size: 25px;
-    display: block;
-    text-align: right;
-    color: #ffffff;
-    width: auto;
-    cursor: pointer;
-}
-
-#sidebar.active {
-    left: 0;
-}
-
-
-.menu {
-    color: #ffffff;
-}
-
-a {
-    outline: none;
-    text-decoration: none;
-    color: #ffffff;
-}
-
-.dropdown-menu {
-    display: block;
-    position: absolute;
-    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
-    z-index: 1;
-    min-width: 160px;
-}
-
-.dropdown-item {
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-    
-}
-
-a:hover {
-    opacity: 0.8;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #1e88e5; /* Cambia el color de fondo según sea necesario */
+    padding: 10px 20px;
     color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    padding: 10px 20px;
-}
-
-.dropdown-toggle {
-    padding: 10px 20px;
-    border: none;
-    cursor: pointer;
   }
   
-
-/*Final de los estilos para el header*/
+  .nav {
+    display: flex;
+    align-items: center;
+  }
+  
+  .nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 20px;
+    text-decoration: none;
+    color: white;
+  }
+  
+  .nav-link:hover {
+    color: #b3e5fc; /* Cambia el color al pasar el ratón */
+  }
+  
+  .nav-icon {
+    width: 30px; /* Ajusta el tamaño del icono */
+    height: 30px;
+    margin-bottom: 5px;
+  }
+  
+  .logo-container {
+    flex-grow: 1;
+    text-align: center;
+  }
+  
+  .logo {
+    height: 50px; /* Ajusta el tamaño del logo */
+  }
+  
+  .logout-button {
+    background-color: #0d47a1; /* Cambia el color del botón */
+    border: none;
+    padding: 10px 20px;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+  }
+  
+  .logout-button:hover {
+    background-color: #1565c0; /* Cambia el color al pasar el ratón */
+  }

@@ -1,10 +1,11 @@
 import { DataGrid, GridActionsCellItem, GridDeleteIcon } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, IconButton, Tooltip, Typography } from '@mui/material';
-import AddTaskIcon from '@mui/icons-material/AddTask';
-import DoneAllIcon from '@mui/icons-material/DoneAll';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
+import { Tooltip } from '@mui/material';
+import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
+import generarOrden from '../../../../images/generated order.png'
+import confirmOrden from '../../../../images/confirm.png'
+import processOrden from '../../../../images/process.png'
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -42,12 +43,15 @@ const TableOrdenes = () => {
     const [selectedUbicacionEntrada, setSelectedUbicacionEntrada] = useState('');
     const [selectedUbicacionSalida, setSelectedUbicacionSalida] = useState('');
     const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
+    const [habilitarDescripcion, setHabilitarDescripcion] = useState(false);
     const [habilitarBuscador, setHabilitarBuscador] = useState(false);
     const [habilitarExistencias, setHabilitarExistencias] = useState(false);
     const [habilitarCantidad, setHabilitarCantidad] = useState(false);
     const [categoria, setCategoria] = useState('');
     const [errorMessage, setErrorMessage] = useState(''); // Estado para manejar los mensajes de error
     const [descripcion, setDescripcion] = useState('');
+    const [ordenNuevaId, setOrdenNuevaId] = useState('');
+    // const [ordenes, setOrdenes] = useState([]);
     const [checkboxState, setCheckboxState] = useState({
         checkbox1: false,
         checkbox2: false,
@@ -62,8 +66,27 @@ const TableOrdenes = () => {
 
         return () => clearInterval(timer);
     }, []);
- 
+
     useEffect(() => {
+
+        // const fetchOrdenes = async () => {
+        //     try {
+        //         const response = await axios.get('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/');
+        //         const ordenesData = response.data.data;
+        //         setOrdenes(ordenesData);
+
+        //         if (ordenesData.length > 0) {
+        //             const ultimoId = ordenesData[ordenesData.length - 1].id;
+        //             setOrdenNuevaId(ultimoId + 1);
+        //         } else {
+        //             setOrdenNuevaId(1);
+        //         }
+        //     } catch (error) {
+        //         console.error('Error al obtener las órdenes:', error);
+        //     }
+        // };
+
+
         const fetchBodegas = async () => {
             try {
                 const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas');
@@ -93,10 +116,28 @@ const TableOrdenes = () => {
             }
         }
 
+        // fetchOrdenes();
         fetchUbicaciones();
         fetchTipoTraspaso();
         fetchBodegas();
     }, []);
+
+    // const fetchOrdenes = async () => {
+    //     try {
+    //         const response = await axios.get('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/');
+    //         const ordenesData = response.data.data;
+    //        // setOrdenes(ordenesData);
+
+    //         if (ordenesData.length > 0) {
+    //             const ultimoId = ordenesData[ordenesData.length - 1].id;
+    //             setOrdenNuevaId(ultimoId + 1);
+    //         } else {
+    //             setOrdenNuevaId(1);
+    //         }
+    //     } catch (error) {
+    //         console.error('Error al obtener las órdenes:', error);
+    //     }
+    // };
 
     const fetchExistencias = async () => {
         try {
@@ -158,10 +199,15 @@ const TableOrdenes = () => {
 
     const handleSearch = () => {
         fetchExistencias();
-        if (bodegaSalidaHabilitada === true) {
+        if (bodegaSalidaHabilitada && bodegaEntradaHabilitada) {
+            setUbicacionSalidaHabilitada(true);
+            setUbicacionEntradaHabilitada(true);
+            setHabilitarCantidad(true);
+        } else if (bodegaSalidaHabilitada) {
             setUbicacionSalidaHabilitada(true);
             setHabilitarCantidad(true);
-        } else if (bodegaEntradaHabilitada === true) {
+        }
+        else if (bodegaEntradaHabilitada) {
             setUbicacionEntradaHabilitada(true);
             setHabilitarCantidad(true);
         }
@@ -181,6 +227,10 @@ const TableOrdenes = () => {
 
     const handleHabilitarTraspaso = () => {
         setHabilitarTraspaso(true);
+    }
+
+    const handleHabilitarDescripcion = () => {
+        setHabilitarDescripcion(true);
     }
 
     const handleSelectedTraspasoChange = (e) => {
@@ -216,17 +266,17 @@ const TableOrdenes = () => {
         return updatedRow;
     };
 
-    const clearFormat = () => {
-        setDescripcion('');
-        setSelectedTraspasoId('');
-        setSelectedBodegaEntrada('');
-        setSelectedBodegaSalida('');
-        setProductoId('');
-        setSelectedUbicacionEntrada('');
-        setSelectedUbicacionSalida('');
-        setExistenciaProducto('');
-        setInputValue('');
-    }
+    // const clearFormat = () => {
+    //     setDescripcion('');
+    //     setSelectedTraspasoId('');
+    //     setSelectedBodegaEntrada('');
+    //     setSelectedBodegaSalida('');
+    //     setProductoId('');
+    //     setSelectedUbicacionEntrada('');
+    //     setSelectedUbicacionSalida('');
+    //     setExistenciaProducto('');
+    //     setInputValue('');
+    // }
 
     const handleGenerarOrder = async () => {
         const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -249,17 +299,15 @@ const TableOrdenes = () => {
         // }
 
         try {
-            await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden', data);
-            clearFormat();
+            const response = await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden', data);
+            const { id, mensaje } = response.data;
+            setOrdenNuevaId(id);
+            setHabilitarTraspaso(false);
             alert('Orden generada exitosamente');
         } catch (error) {
             console.error('Error generando la orden:', error);
             alert('Error generando la orden');
         }
-        setDescripcion('');
-        setSelectedTraspasoId('');
-        setSelectedBodegaSalida('');
-        setSelectedBodegaEntrada('');
     };
 
     const handleAddRow = () => {
@@ -317,7 +365,7 @@ const TableOrdenes = () => {
         const ordenId = idActual; // Cambia esto por el ID de la orden real
         enviarLineas(ordenId);
 
-        setProductoId(''); 
+        setProductoId('');
         setSelectedUbicacionSalida('');
         setSelectedUbicacionEntrada('');
         setExistenciaProducto('');
@@ -406,36 +454,22 @@ const TableOrdenes = () => {
 
     return (
         <div>
+            <div className="action-bar">
+                <div className="action-item" onClick={handleGenerarOrder}>
+                    <img src={generarOrden} alt="Generar Orden" className="action-icon" />
+                    <span>Generar orden</span>
+                </div>
+                <div className="action-item" onClick={handleConfirmarOrden}>
+                    <img src={confirmOrden} alt="Confirmar Orden" className="action-icon" />
+                    <span>Confirmar Orden</span>
+                </div>
+                <div className="action-item" onClick={handleProcesarOrden}>
+                    <img src={processOrden} alt="Procesar Orden" className="action-icon" />
+                    <span>Procesar Orden</span>
+                </div>
+            </div>
             <div className='container'>
-                <div className='confirmar-all'>
-                <IconButton sx={{ color: 'green' }} onClick={handleGenerarOrder}>
-                        <Tooltip title='Generar Orden'>
-                            <DoneAllIcon sx={{ fontSize: 40 }} />
-                        </Tooltip>
-                        <Typography >
-                            Generar Orden
-                        </Typography>
-                    </IconButton>
-                    <IconButton sx={{ color: 'blue' }} onClick={handleConfirmarOrden}>
-                        <Tooltip title='Confirmar Orden'>
-                            <DoneAllIcon sx={{ fontSize: 40 }} />
-                        </Tooltip>
-                        <Typography >
-                            Confirmar Orden
-                        </Typography>
-                    </IconButton>
-                </div>
-                <div className='procesar-all'>
-                    <IconButton sx={{ color: 'orange' }} onClick={handleProcesarOrden}>
-                        <Tooltip title='Procesar'>
-                            <FactCheckIcon sx={{ fontSize: 40 }} />
-                        </Tooltip>
-                        <Typography >
-                            Procesar Orden
-                        </Typography>
-                    </IconButton>
-                </div>
-                <label className='item1'>Folio:</label>
+                <label className='item1'>Orden:</label>
                 <input className='item2' value={idActual} onChange={handleInputChange}></input>
                 <h3 className='textBuscar' >Buscar ordenes</h3>
                 <input

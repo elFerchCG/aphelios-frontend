@@ -1,0 +1,28 @@
+.action-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #e0e0e0; /* Cambia el color de fondo según sea necesario */
+  padding: 10px 0;
+  margin: 0;
+  border-bottom: 1px solid #ccc; /* Línea divisoria */
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 20px;
+  text-decoration: none;
+  color: #0d47a1; /* Color del texto */
+}
+
+.action-item:hover {
+  color: #1e88e5; /* Cambia el color al pasar el ratón */
+}
+
+.action-icon {
+  width: 30px; /* Ajusta el tamaño del icono */
+  height: 30px;
+  margin-bottom: 5px;
+}
