@@ -13,13 +13,13 @@ import Lineas from '../components/pages/Inventarios/Lineas/Lineas';
 import OrdenB from '../components/pages/Inventarios/OrdenBodegas/OrdenB';
 import TransaccionesI from '../components/pages/Inventarios/TransaccionesInventarios/TransaccionesI';
 import OrdenesRegistradas from '../components/pages/Inventarios/OrdenBodegas/OrdenesRegistradas';
+import Navegacion from '../components/pages/Navegacion'
 
 const Rutas = () => {
     return ( 
         <div>
             <BrowserRouter>
                 <Header />
-                <section id="content" className="content">
                     <Routes>
                         <Route path='/' element={<Login />} />
                         <Route path="/login" element={<Login />} />
@@ -34,13 +34,13 @@ const Rutas = () => {
                         <Route path='/ordenBodega' element={<OrdenB />} />
                         <Route path='/transaccionesInventario' element={<TransaccionesI />} />
                         <Route path='/ordenesregistradas' element={<OrdenesRegistradas />} />
+                        <Route path='/configuraciones' element={<Navegacion />} />
                         <Route path='*' element={
                             <div>
                                 <h1>Error 404</h1>
                             </div>
                         } />
                     </Routes>
-                </section>
             </BrowserRouter>
         </div>
     )

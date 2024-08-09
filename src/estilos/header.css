@@ -1,54 +1,58 @@
 .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #1e88e5; /* Cambia el color de fondo según sea necesario */
-    padding: 10px 20px;
-    color: white;
-  }
-  
-  .nav {
-    display: flex;
-    align-items: center;
-  }
-  
-  .nav-link {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-right: 20px;
-    text-decoration: none;
-    color: white;
-  }
-  
-  .nav-link:hover {
-    color: #b3e5fc; /* Cambia el color al pasar el ratón */
-  }
-  
-  .nav-icon {
-    width: 30px; /* Ajusta el tamaño del icono */
-    height: 30px;
-    margin-bottom: 5px;
-  }
-  
-  .logo-container {
-    flex-grow: 1;
-    text-align: center;
-  }
-  
-  .logo {
-    height: 50px; /* Ajusta el tamaño del logo */
-  }
-  
-  .logout-button {
-    background-color: #0d47a1; /* Cambia el color del botón */
-    border: none;
-    padding: 10px 20px;
-    color: white;
-    cursor: pointer;
-    border-radius: 5px;
-  }
-  
-  .logout-button:hover {
-    background-color: #1565c0; /* Cambia el color al pasar el ratón */
-  }
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1e88e5; /* Cambia el color de fondo según sea necesario */
+  padding: 10px 20px;
+  color: white;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+}
+
+.nav-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 20px;
+  text-decoration: none;
+  color: white;
+}
+
+.nav-link:hover {
+  color: #b3e5fc; /* Cambia el color al pasar el ratón */
+}
+
+.nav-icon {
+  width: 30px; /* Ajusta el tamaño del icono */
+  height: 30px;
+  margin-bottom: 5px;
+}
+
+.logo-container {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.logo {
+  height: 50px; /* Ajusta el tamaño del logo */
+}
+
+.logout-button {
+  background-color: #0d47a1; /* Cambia el color del botón */
+  border: none;
+  padding: 10px 20px;
+  color: white;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.logout-button:hover {
+  background-color: #1565c0; /* Cambia el color al pasar el ratón */
+}

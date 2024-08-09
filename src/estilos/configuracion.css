@@ -1,0 +1,29 @@
+.content {
+    display: flex;
+    margin: auto;
+    margin-top: 150px;
+    margin-bottom: 250px;
+    justify-content: left;
+    align-items: left;
+    width: 400px;
+    height: auto;
+    flex-wrap: wrap;
+    border: 3px solid purple;
+}
+
+.nav-config {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-decoration: none;
+}
+
+.nav-icon-config {
+    width: 60px; /* Ajusta el tamaño del icono */
+    height: 60px;
+    margin-bottom: 5px;
+    justify-content: center;
+}

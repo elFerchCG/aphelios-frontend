@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import '../../estilos/header.css'; // Importar el archivo CSS
-import logo from '../../images/APHELIOS.svg'
+import logo from '../../images/APHELIOS negro.png'
 import inicio from '../../images/hogar.svg'
 import envio from '../../images/shipment.svg'
 import monedas from '../../images/money.png'
@@ -28,17 +28,18 @@ const Header = () => {
           <img src={inventario} alt="Inventario" className="nav-icon" />
           <span>Inventario</span>
         </NavLink>
-        <NavLink to="/bodegas" className="nav-link">
+        <NavLink to="/configuraciones" className="nav-link">
           <img src={configuracion} alt="Configuracion" className="nav-icon" />
           <span>Configuracion</span>
         </NavLink>
       </nav>
       <div className="logo-container">
-        <img src={logo} alt='logo' className="logo" />
+        <img src={logo} alt="logo" className="logo" />
       </div>
       <button className="logout-button">Cerrar sesión</button>
     </header>
   );
 };
+
 
 export default Header;
