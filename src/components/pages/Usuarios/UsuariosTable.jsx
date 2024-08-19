@@ -23,7 +23,7 @@ export const UsuariosTable = () => {
     const columns = [
         { field: 'id_usuario', headerName: 'Folio', width: 10 },
         { field: 'nombre', headerName: 'Nombre', width: 200 },
-        { field: 'rol', headerName: 'Rol', width: 150 },
+        { field: 'rol_id', headerName: 'Rol', width: 150 },
         { field: 'permisos', headerName: 'Permisos', width: 170 },
         { field: 'estado', headerName: 'Estado', width: 100 },
         {
@@ -105,7 +105,7 @@ export const UsuariosTable = () => {
     return (
         <div className='contenido'  >
             <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
-                <DataGrid
+                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                     rows={data}
                     columns={columns}
                     getRowId={(row) => row.id_usuario}

@@ -1,11 +1,16 @@
-.action-bar {
+.gestorOrdenes {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between; /* Espacio entre los grupos de acciones */
   align-items: center;
-  background-color: #e0e0e0; /* Cambia el color de fondo según sea necesario */
-  padding: 10px 0;
-  margin: 0;
-  border-bottom: 1px solid #ccc; /* Línea divisoria */
+  background-color: #e0e0e0;
+  padding: 10px; /* Añadir un poco de padding */
+  border-bottom: 1px solid #ccc;
+  font-family: "Montserrat", sans-serif;
+}
+
+.left-actions, .right-actions {
+  display: flex;
+  align-items: center;
 }
 
 .action-item {
@@ -14,16 +19,8 @@
   align-items: center;
   margin: 0 20px;
   text-decoration: none;
-  color: #0d47a1; /* Color del texto */
-}
-
-.items-right {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-left: auto;
-  text-decoration: none;
   color: #0d47a1;
+  font-size: small;
 }
 
 .action-item:hover {
@@ -31,7 +28,7 @@
 }
 
 .action-icon {
-  width: 30px; /* Ajusta el tamaño del icono */
-  height: 30px;
+  width: 20px; /* Ajusta el tamaño del icono */
+  height: 20px;
   margin-bottom: 5px;
 }

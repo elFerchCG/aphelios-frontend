@@ -109,7 +109,7 @@ const DataGridL = () => {
     return (
         <div className='contenido'  >
             <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
-                <DataGrid
+                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                     rows={data}
                     columns={columns}
                     getRowId={(row) => row.id}

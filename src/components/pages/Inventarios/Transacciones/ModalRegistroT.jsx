@@ -100,10 +100,10 @@ const ModalRegistroT = ({ openModalRegistroT, setOpenModalRegistroT, fetchData }
               value={data.categoria}
               onChange={handleChange}
             >
-              <MenuItem value="Entrada">Entrada</MenuItem>
-              <MenuItem value="Salida">Salida</MenuItem>
-              <MenuItem value="Transferencia">Transferencia</MenuItem>
-              <MenuItem value="Conteo ciclico">Conteo ciclico</MenuItem>
+              <MenuItem value="entrada">Entrada</MenuItem>
+              <MenuItem value="salida">Salida</MenuItem>
+              <MenuItem value="transferencia">Transferencia</MenuItem>
+              <MenuItem value="conteo ciclico">Conteo ciclico</MenuItem>
             </Select>
           </FormControl>
           <TextField

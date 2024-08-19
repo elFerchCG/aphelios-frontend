@@ -10,32 +10,50 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [estatusFilter, setEstatusFilter] = useState('');
+    const [searchTerm, setSearchTerm] = useState(''); // Nuevo estado para el término de búsqueda
 
     const handleCloseModal = () => {
+        setSearchTerm('');
         setOpenModal(false);
     };
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/`);
-                if (response.data.ok) {
-                    const formattedData = response.data.data.map(row => ({
-                        ...row,
-                        fecha_abierto: formatISO(new Date(row.fecha_abierto), { representation: 'date' })
-                    }))
-                    setOrders(formattedData);
-                    setFilteredOrders(formattedData);
-                    console.log("Órdenes obtenidas:", response.data.data);
+        if (openModal) {
+            const fetchOrders = async () => {
+                const token = localStorage.getItem('token');
+                try {
+                    const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (response.data.ok) {
+                        const formattedData = response.data.data.map(row => ({
+                            ...row,
+                            fecha_abierto: formatISO(new Date(row.fecha_abierto), { representation: 'date' })
+                        }))
+                        setOrders(formattedData);
+                        setFilteredOrders(formattedData);
+                        console.log("Órdenes obtenidas:", response.data.data);
+                    }
+                } catch (error) {
+                    console.error("Error al obtener las órdenes", error);
+                    alert('No hay ordenes registradas');
                 }
-            } catch (error) {
-                console.error("Error al obtener las órdenes", error);
-                alert('Ocurrió un error al obtener las órdenes');
-            }
-        };
-        fetchOrders();
-    }, []);
+            };
+            fetchOrders();
+        }
+    }, [openModal]);
 
+    useEffect(() => {
+        const filtered = filteredOrders.filter(order => 
+            order.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.id.toString().includes(searchTerm) ||
+            order.estatus.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.fecha_abierto.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredOrders(filtered);
+    }, [searchTerm]);
 
     const handleRowClick = (params) => {
         const selectedOrderId = params.row.id;
@@ -52,18 +70,16 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
         setEstatusFilter(estatus);
 
         if (estatus === "") {
-            // Si se selecciona "Todos los estatus", muestra todas las órdenes
             setFilteredOrders(orders);
         } else {
-            // Filtra por estatus
-            const filtered = orders.filter(order => order.estatus === estatus);
+            const filtered = filteredOrders.filter(order => order.estatus === estatus);
             setFilteredOrders(filtered);
         }
     }
 
     const handleDateFilterChange = () => {
         if (startDate && endDate) {
-            const filtered = orders.filter(order => {
+            const filtered = filteredOrders.filter(order => {
                 const orderDate = new Date(order.fecha_abierto);
                 return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
             });
@@ -72,21 +88,10 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
     };
 
     const columns = [
-        { field: 'id', headerName: 'ID', width: 90 },
+        { field: 'id', headerName: 'Folio', width: 90 },
         { field: 'descripcion', headerName: 'Descripción', width: 300 },
         { field: 'estatus', headerName: 'Estatus', width: 150 },
-        { field: 'fecha_abierto', headerName: 'Fecha', width: 200 },
-        // { field: 'actions', 
-        //   headerName: 'Acciones', 
-        //   type: 'actions', 
-        //   width: 150,
-        //   getActions: (params) => {
-
-        //   }
-
-
-        // }
-        // Agrega más columnas según tus necesidades
+        { field: 'fecha_abierto', headerName: 'Fecha', width: 200 }
     ];
 
     return (
@@ -96,7 +101,13 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
                 aria-labelledby="modal-title"
                 aria-describedby="modal-description"
             >
-                <Box sx={{ width: 1200, height: 600, bgcolor: 'background.paper', padding: 2, margin: 'auto', marginTop: '5%' }}>
+                <Box sx={{
+                    width: 1200, height: 600,
+                    bgcolor: 'background.paper',
+                    padding: 2, margin: 'auto',
+                    marginTop: '5%', borderRadius: '40px',
+                    fontFamily: "Montserrat",
+                }}>
                     <div style={{ display: 'flex', gap: '16px', margin: '16px 0' }}>
                         <select value={estatusFilter} onChange={handleFilterChange}>
                             <option value="">Todas las ordenes</option>
@@ -118,8 +129,14 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
                             Filtrar
                         </Button>
                     </div>
+                    <input
+                        type='text'
+                        placeholder='Buscar ordenes'
+                        value={searchTerm} // Se conecta con el estado searchTerm
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                     <h2 id="modal-title">Órdenes Disponibles</h2>
-                    <DataGrid style={{ height: 400, width: 1000 }}
+                    <DataGrid style={{ height: 400, width: 1000, fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={filteredOrders}
                         columns={columns}
                         pageSize={5}

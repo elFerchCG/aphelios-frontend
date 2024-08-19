@@ -17,7 +17,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
         id_usuario: '',
         nombre: '',
         password: '',
-        rol: '',
+        rol_id: '',
         permisos: '',
         estado: ''
     });
@@ -28,7 +28,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                 id_usuario: selectedUser.id_usuario || '',
                 nombre: selectedUser.nombre || '',
                 password: selectedUser.password || '',
-                rol: selectedUser.rol || '',
+                rol_id: selectedUser.rol_id || '',
                 permisos: selectedUser.permisos || '',
                 estado: selectedUser.estado || ''
             });
@@ -40,7 +40,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
             setFormData({
                 nombre: selectedUser.nombre || '',
                 password: selectedUser.password || '',
-                rol: selectedUser.rol || '',
+                rol_id: selectedUser.rol_id || '',
                 permisos: selectedUser.permisos || '',
                 estado: selectedUser.estado || ''
             });
@@ -81,9 +81,9 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
             open={openUsuariosActions}
             onClose={handleClose}
         >
-            <DialogTitle>Detalles Usuario</DialogTitle>
+            <DialogTitle style={{ fontFamily: "Montserrat", fontWeight: "bold" }}>Detalles Usuario</DialogTitle>
             <DialogContent>
-                <DialogContentText>
+                <DialogContentText style={{ fontFamily: "Montserrat" }}>
                     Se muestran todos los datos del usuario
                 </DialogContentText>
                 <form onSubmit={handleSave}>
@@ -114,16 +114,20 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                         <InputLabel id="rol-label">Rol</InputLabel>
                         <Select
                             labelId="rol-label"
-                            id="rol"
-                            name="rol"
-                            value={formData.rol}
+                            id="rol_id"
+                            name="rol_id"
+                            value={formData.rol_id}
                             onChange={handleChange}
                         >
-                            <MenuItem value="Marketing">Marketing</MenuItem>
-                            <MenuItem value="Administrador">Administrador</MenuItem>
-                            <MenuItem value="Producción">Producción</MenuItem>
-                            <MenuItem value="Planeación">Planeación</MenuItem>
-                            <MenuItem value="Almacén">Almacén</MenuItem>
+                            <MenuItem value={1}>Administrador</MenuItem>
+                            <MenuItem value={2}>Super Usuario</MenuItem>
+                            <MenuItem value={3}>Jefe Planeacion</MenuItem>
+                            <MenuItem value={4}>Jefe Almacen</MenuItem>
+                            <MenuItem value={5}>Empleado Almacen</MenuItem>
+                            <MenuItem value={6}>Jefe Marketing</MenuItem>
+                            <MenuItem value={7}>Empleado Marketing</MenuItem>
+                            <MenuItem value={8}>Jefe Produccion</MenuItem>
+                            <MenuItem value={9}>Empleado Produccion</MenuItem>
                         </Select>
                     </FormControl>
                     <TextField

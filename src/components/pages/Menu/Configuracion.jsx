@@ -1,11 +1,11 @@
 import React from 'react'
-import '../../estilos/configuracion.css'
-import usuarios from '../../images/seguidores.png'
-import proveedores from '../../images/proveedor.png'
-import inventario from '../../images/inventario.png'
-import bodegas from '../../images/almacen.png'
-import transacciones from '../../images/traspaso.png'
-import movimientos from '../../images/movimientos.png'
+import '../../../estilos/configuracion.css'
+import usuarios from '../../../images/seguidores.png'
+import proveedores from '../../../images/proveedor.png'
+import inventario from '../../../images/inventario.png'
+import bodegas from '../../../images/almacen.png'
+import transacciones from '../../../images/traspaso.png'
+import movimientos from '../../../images/movimientos.png'
 
 import { NavLink } from 'react-router-dom'
 

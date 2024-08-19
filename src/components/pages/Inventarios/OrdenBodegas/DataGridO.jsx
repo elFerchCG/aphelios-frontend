@@ -8,7 +8,7 @@ import DetalleOrdenB from '../OrdenBodegas/DetalleOrdenB';
 import { getOrdenB } from '../../../actions/getUsers';
 import { formatISO } from 'date-fns'; // Importar formatISO de date-fns
 
-const DataGridO = () => {
+const DataGridO = ({ fetchData, filter }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -113,11 +113,18 @@ const DataGridO = () => {
         },
     ];
 
+    const filteredRows = data.filter(row =>
+        (row.fecha && row.fecha.toLowerCase().includes(filter.toLowerCase())) ||
+        (row.tipo_transaccion_id && row.tipo_transaccion_id.toLowerCase().includes(filter.toLowerCase())) ||
+        (row.estatus && row.estatus.toLowerCase().includes(filter.toLowerCase()))
+
+    )
+
     return (
         <div className='contenido'>
             <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
                 <DataGrid
-                    rows={data}
+                    rows={filteredRows}
                     columns={columns}
                     getRowId={(row) => row.id}
                     pageSize={10}

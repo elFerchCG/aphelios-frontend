@@ -5,6 +5,11 @@
   background-color: #1e88e5; /* Cambia el color de fondo según sea necesario */
   padding: 10px 20px;
   color: white;
+  font-family: "Montserrat", sans-serif;
+  font-weight: bold;
+  position: relative;
+  height: 80px; /* Establece una altura fija o mínima para el header */
+  box-sizing: border-box;
 }
 
 .nav {
@@ -21,6 +26,24 @@
   color: white;
 }
 
+.person-container {
+  display: flex;
+  align-items: center;
+}
+
+.person-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 20px;
+}
+
+.logo-person {
+  width: 30px; /* Ajusta el tamaño del icono */
+  height: 30px;
+  margin-bottom: 5px;
+}
+
 .nav-link:hover {
   color: #b3e5fc; /* Cambia el color al pasar el ratón */
 }
@@ -35,6 +58,8 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  top: 50%; /* Centra verticalmente el logo */
+  transform: translate(-50%, -50%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -51,6 +76,7 @@
   color: white;
   cursor: pointer;
   border-radius: 5px;
+  font-family: "Montserrat", sans-serif;
 }
 
 .logout-button:hover {

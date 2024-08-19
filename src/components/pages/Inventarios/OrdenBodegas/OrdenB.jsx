@@ -3,12 +3,14 @@ import DataGridO from './DataGridO';
 import { getOrdenB } from '../../../actions/getUsers';
 import { useEffect } from 'react';
 import ModalRegistroO from './ModalRegistroO';
+import FetchOrders from './FetchOrders';
 
 
 export const OrdenB = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const url = 'http://localhost:3304/inventario/ordenBodegas';
 
@@ -32,7 +34,13 @@ export const OrdenB = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Ordenes de Bodegas</h2>
         <div className='cuerpo'>
-          <input id='buscador' placeholder='Buscar orden' /><br />
+          <input 
+          type='text'
+          id='buscador' 
+          placeholder='Buscar orden'
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroO(true)} >Agregar orden</button><p />
         </div>
       </div>
@@ -40,6 +48,7 @@ export const OrdenB = () => {
       data={data}
       setData={setData}
       fetchData={fetchData}
+      filter={filter}
       ></DataGridO>
       <ModalRegistroO
       openModalRegistroO={openModalRegistroO}
@@ -47,6 +56,9 @@ export const OrdenB = () => {
       data={data}
       fetchData={fetchData}
       ></ModalRegistroO>
+      <FetchOrders
+      filter={filter}
+      ></FetchOrders>
     </div>
   )
 }

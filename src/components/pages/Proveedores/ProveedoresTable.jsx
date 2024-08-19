@@ -110,7 +110,7 @@ export const ProveedoresTable = () => {
                 {data.length === 0 ? (
                     <div>No hay datos disponibles.</div>
                 ) : (
-                    <DataGrid
+                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={data}
                         columns={columns}
                         getRowId={(row) => row.id_proveedor}

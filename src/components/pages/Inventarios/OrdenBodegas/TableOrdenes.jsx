@@ -6,12 +6,14 @@ import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png'
 import processOrden from '../../../../images/process.png'
 import revertir from '../../../../images/revertir.png'
-import filter from '../../../../images/filter.png'
 import searchOrden from '../../../../images/search.png'
+import addOrder from '../../../../images/addOrder.png'
 import Swal from 'sweetalert2';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import FetchOrders from './FetchOrders'
+import SendIcon from '@mui/icons-material/Send';
+import { useRef } from 'react';
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -24,6 +26,31 @@ const getCurrentDateTime = () => {
 
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
+
+// // Definir roles y acciones permitidas
+// const rolesConfig = {
+//     superUser: {
+//         bodegasSalida: ['*'], // '*' indica todas las bodegas
+//         bodegasEntrada: ['*'],
+//         traspasos: ['*']
+//     },
+//     administrador: {
+//         bodegasSalida: ['*'],
+//         bodegasEntrada: ['*'],
+//         traspasos: ['*']
+//     },
+//     jefeAlmacen: {
+//         bodegasSalida: ['Almacén Principal', 'Super Market'],
+//         bodegasEntrada: ['Recepción', 'Almacén Principal'],
+//         traspasos: ['salida', 'entrada', 'transferencia']
+//     },
+//     empleadoAlmacen: {
+//         bodegasSalida: ['Almacén Principal', 'Super Market'],
+//         bodegasEntrada: ['Recepción', 'Almacén Principal'],
+//         traspasos: ['transferencia']
+//     }
+// };
+
 
 const TableOrdenes = () => {
     const [selectedOrderId, setSelectedOrderId] = useState(null)
@@ -57,18 +84,21 @@ const TableOrdenes = () => {
     const [enableProcess, setEnableProcess] = useState(false);
     const [enableRevertir, setEnableRevertir] = useState(false);
     const [categoriaTemp, setCategoriaTemp] = useState('');
-    const [selectedOrderCheck, setSelectedOrderCheck] = useState('');
     const [comment, setComment] = useState('');
     const [habilitarComentario, setHabilitarComentario] = useState(false);
     const [openComment, setOpenComment] = useState(false);
     const [selectedComment, setSelectedComment] = useState('');
     const [selectedRow, setSelectedRow] = useState(null);
     const [openModal, setOpenModal] = useState(false);
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const [checkboxState, setCheckboxState] = useState({
-        checkbox1: false,
-        checkbox2: false,
-    })
+    const [idTraspaso, setIdTraspaso] = useState('');
+    const [rolIdTemp, setRolIdTemp] = useState('');
+
+    const bodegaSalidaRef = useRef(null);
+    const bodegaEntradaRef = useRef(null);
+    const descripcionRef = useRef(null);
+    const ubicacionSalidaRef = useRef(null);
+    const ubicacionEntradaRef = useRef(null);
+    const cantidadRef = useRef(null);
 
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
 
@@ -80,11 +110,20 @@ const TableOrdenes = () => {
         return () => clearInterval(timer);
     }, []);
 
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+
     useEffect(() => {
 
         const fetchBodegas = async () => {
+
             try {
-                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas');
+                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
                 setBodegaSalida(response.data);
                 setBodegaEntrada(response.data);
             } catch (error) {
@@ -99,8 +138,20 @@ const TableOrdenes = () => {
 
         const fetchTipoTraspaso = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/tipoTransaccion');
-                setTraspasos(response.data);
+                const response = await axios.get('http://localhost:3304/inventario/tipoTransaccion', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                // Filtrar los resultados que coincidan con el rol_id del usuario logueado
+                const resultadosFiltrados = response.data.filter(item => item.rol_id === user.rol_id);
+
+                if (resultadosFiltrados.length > 0) {
+                    setTraspasos(resultadosFiltrados);
+                } else {
+                    console.log("Sin Movimientos asignados");
+                }
             } catch (error) {
                 if (error.response && error.response.data && error.response.data.message) {
                     const { messageText } = error.response.data.message;
@@ -123,6 +174,10 @@ const TableOrdenes = () => {
         if (selectedUbicacionSalida) {
             setExistenciaProducto(selectedUbicacionSalida.cantidad)
         }
+
+        if (ubicacionSalidaRef.current) {
+            ubicacionSalidaRef.current.classList.remove('error');
+        }
     };
 
     const handleUbicacionSelectEntrada = (e) => {
@@ -134,18 +189,30 @@ const TableOrdenes = () => {
         if (selectedUbicacionEntrada) {
             setExistenciaProductoDestino(selectedUbicacionEntrada.cantidad);
         }
+
+        if (ubicacionEntradaRef.current) {
+            ubicacionEntradaRef.current.classList.remove('error');
+        }
     };
 
     const handleSelectBodegaSalida = (e) => {
         const bodegaId = e.target.value;
         setSelectedBodegaSalida(bodegaId);
         setHabilitarBuscador(true);
+
+        if (bodegaSalidaRef.current) {
+            bodegaSalidaRef.current.classList.remove('error');
+        }
     }
 
     const handleSelectBodegaEntrada = (e) => {
         const bodegaId = e.target.value;
         setSelectedBodegaEntrada(bodegaId);
         setHabilitarBuscador(true);
+
+        if (bodegaEntradaRef.current) {
+            bodegaEntradaRef.current.classList.remove('error');
+        }
     };
 
     const handleSelectedTraspasoChange = (e) => {
@@ -155,6 +222,7 @@ const TableOrdenes = () => {
         const tipoTraspasoSeleccionado = traspasos.find(traspaso => traspaso.id === traspasoId);
         if (tipoTraspasoSeleccionado) {
             setCategoriaTemp(tipoTraspasoSeleccionado.categoria);
+            setIdTraspaso(tipoTraspasoSeleccionado.id);
         }
 
     };
@@ -179,14 +247,70 @@ const TableOrdenes = () => {
     }, [categoriaTemp])
 
     const fetchExistencias = async () => {
+        // Verificar si las refs no son null antes de acceder a classList
+        if (bodegaSalidaRef.current) {
+            bodegaSalidaRef.current.classList.remove('error');
+        }
+        if (bodegaEntradaRef.current) {
+            bodegaEntradaRef.current.classList.remove('error');
+        }
+
+        if (ubicacionSalidaRef.current) {
+            ubicacionSalidaRef.current.classList.remove('error');
+        }
+
+        if (ubicacionEntradaRef.current) {
+            ubicacionEntradaRef.current.classList.remove('error');
+        }
+
+        if (cantidadRef.current) {
+            cantidadRef.current.classList.remove('error');
+        }
+
+        let isValid = true;
+
         try {
             if (categoriaTemp === 'transferencia') {
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodegaSalida/${selectedBodegaSalida}/bodegaEntrada/${selectedBodegaEntrada}/transferencia`);
-                console.log("Estas son las existencias del producto en salida", response.data.data.salida);
-                console.log("Estas son las existencias del producto en entrada", response.data.data.entrada);
+
+                if (!selectedBodegaSalida) {
+                    if (bodegaSalidaRef.current) {
+                        bodegaSalidaRef.current.classList.add('error');
+                    }
+                    isValid = false;
+                }
+                if (!selectedBodegaEntrada) {
+                    if (bodegaEntradaRef.current) {
+                        bodegaEntradaRef.current.classList.add('error');
+                    }
+                    isValid = false;
+                }
+
+                if (!isValid) {
+                    Swal.fire({
+                        title: '¡Faltan datos!',
+                        text: 'Por favor, selecciona ambas bodegas',
+                        icon: 'warning',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                    return;
+                }
+                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodegaSalida/${selectedBodegaSalida}/bodegaEntrada/${selectedBodegaEntrada}/transferencia`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 // Verificar si el producto existe
-                if (!response.data || !response.data.data || response.data.data.length === 0) {
-                    alert('Producto no encontrado');
+                if (response.data.data.salida.length === 0) {
+                    Swal.fire({
+                        title: '!Producto no encontrado!',
+                        text: 'No se encontraron existencias, verifique el producto',
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
                     return; // Salir de la función si el producto no existe
                 }
                 setUbicaciones(response.data.data.salida);
@@ -204,22 +328,29 @@ const TableOrdenes = () => {
                     alert('Tipo de movimiento no válido');
                     return;
                 }
-                console.log("Este es la bodega seleccionada con el nuevo metodo:", bodegaSeleccionada);
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodega/${bodegaSeleccionada}/tipo/${categoriaTemp}/localidades`);
-
+                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodega/${bodegaSeleccionada}/tipo/${categoriaTemp}/localidades`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 // Verificar si el producto existe
                 if (!response.data || !response.data.data || response.data.data.length === 0) {
-                    alert('Producto no encontrado');
+                    Swal.fire({
+                        title: '!Producto no encontrado!',
+                        text: 'No se encontraron existencias, verifique el producto',
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
                     return; // Salir de la función si el producto no existe
                 }
 
                 // Si la bodega de salida está habilitada
                 if (categoriaTemp === 'salida' && response.data.ok) {
-                    console.log("Existencias de salida:", response.data.data);
                     setUbicaciones(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
                 } else if (categoriaTemp === 'entrada' && response.data.ok) {
-                    console.log("Existencias de entrada:", response.data.data);
                     setUbicacionEntrada(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
                 }
@@ -227,11 +358,16 @@ const TableOrdenes = () => {
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
                 const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrio un error al verificar el producto o las existencias');
+                Swal.fire({
+                    title: 'Error',
+                    text: `Error: ${messageText}`,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
-        }
+        };
     };
 
     const handleSearch = () => {
@@ -275,7 +411,14 @@ const TableOrdenes = () => {
 
     const handleGenerarOrder = async () => {
         if (selectedUbicacionSalida && parseInt(inputValue) > parseInt(existenciaProducto)) {
-            alert('La cantidad no puede ser mayor que las existencias disponibles.');
+            Swal.fire({
+                title: '¡Error!',
+                text: 'La cantidad no puede ser mayor que las existencias disponibles.',
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
             return TableOrdenes;
         }
         const handleAddRow = (lineasIds = []) => {
@@ -288,10 +431,11 @@ const TableOrdenes = () => {
                 cantidad: inputValue,
                 producto_id: productoId, // ID del producto seleccionado,
                 producto_title: productoTitle,
-                existencias: existenciaProducto,
-                existencia_origen: existenciaProductoDestino,
+                existencias_origen: existenciaProducto,
+                existencias_destino: existenciaProductoDestino,
                 localidad_entrada: selectedUbicacionEntradaDescripcion,
                 localidad_salida: selectedUbicacionSalidaDescripcion,
+
                 comentario: comment
             };
 
@@ -318,23 +462,120 @@ const TableOrdenes = () => {
             };
 
             const enviarLineas = async (ordenId) => {
+                if (ubicacionSalidaRef.current) {
+                    ubicacionSalidaRef.current.classList.remove('error');
+                }
+                if (ubicacionEntradaRef.current) {
+                    ubicacionEntradaRef.current.classList.remove('error');
+                }
+
+                if (cantidadRef.current) {
+                    cantidadRef.current.classList.remove('error');
+                }
+
+                let isValid = true;
+
                 try {
-                    console.log("Estas son las lineas", lineasData);
+                    if (categoriaTemp === 'transferencia') {
+                        if (!selectedUbicacionSalida) {
+                            if (ubicacionSalidaRef.current) {
+                                ubicacionSalidaRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!selectedUbicacionEntrada) {
+                            if (ubicacionEntradaRef.current) {
+                                ubicacionEntradaRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!inputValue) {
+                            if (cantidadRef.current) {
+                                cantidadRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!isValid) {
+                            Swal.fire({
+                                title: '¡Faltan datos!',
+                                text: 'Por favor, selecciona y rellena todos los campos',
+                                icon: 'warning',
+                                timer: 5000,
+                                showCloseButton: true,
+                                allowEscapeKey: true
+                            });
+                            return;
+                        }
+                    } else if (categoriaTemp === 'salida') {
+                        if (!selectedUbicacionSalida) {
+                            if (ubicacionSalidaRef.current) {
+                                ubicacionSalidaRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!inputValue) {
+                            if (cantidadRef.current) {
+                                cantidadRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!isValid) {
+                            Swal.fire({
+                                title: '¡Faltan datos!',
+                                text: 'Por favor, selecciona y rellena todos los campos',
+                                icon: 'warning',
+                                timer: 5000,
+                                showCloseButton: true,
+                                allowEscapeKey: true
+                            });
+                            return;
+                        }
+                    } else if (categoriaTemp === 'entrada') {
+                        if (!selectedUbicacionEntrada) {
+                            if (ubicacionEntradaRef.current) {
+                                ubicacionEntradaRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!inputValue) {
+                            if (cantidadRef.current) {
+                                cantidadRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!isValid) {
+                            Swal.fire({
+                                title: '¡Faltan datos!',
+                                text: 'Por favor, selecciona y rellena todos los campos',
+                                icon: 'warning',
+                                timer: 5000,
+                                showCloseButton: true,
+                                allowEscapeKey: true
+                            });
+                            return;
+                        }
+                    }
+
                     const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Authorization': `Bearer ${token}`
                         }
                     });
                     if (response.data.ok && response.data.lineasIds) {
                         handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
                     }
-                    console.log('Respuesta del servidor:', response.data);
+
                 } catch (error) {
                     if (error.response && error.response.data && error.response.data.message) {
                         const { messageText } = error.response.data.message;
-                        alert(`Error: ${messageText}`);
-                    } else {
-                        alert('Ocurrio un error al enviar las lineas');
+                        Swal.fire({
+                            title: 'Error',
+                            text: `Error: ${messageText}`,
+                            icon: 'error',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
                     }
                 }
             };
@@ -348,7 +589,7 @@ const TableOrdenes = () => {
 
             const data = {
                 fecha_abierto: dateTime,
-                tipo_transaccion_id: selectedTraspasoId,
+                tipo_transaccion_id: idTraspaso,
                 bodega_salida_id: parseOrNull(selectedBodegaSalida),
                 bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
                 estatus: "abierto",
@@ -364,12 +605,135 @@ const TableOrdenes = () => {
                 ]
             };
 
+            if (descripcionRef.current) {
+                descripcionRef.current.classList.remove('error');
+            }
+
+            if (ubicacionSalidaRef.current) {
+                ubicacionSalidaRef.current.classList.remove('error');
+            }
+            if (ubicacionEntradaRef.current) {
+                ubicacionEntradaRef.current.classList.remove('error');
+            }
+
+            if (cantidadRef.current) {
+                cantidadRef.current.classList.remove('error');
+            }
+
+            let isValid = true;
+
             try {
-                console.log("datos", data);
-                const response = await axios.post('http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden', data);
+                if (!descripcion) {
+                    if (descripcionRef.current) {
+                        descripcionRef.current.classList.add('error');
+                    }
+                    isValid = false;
+                }
+
+                if (!isValid) {
+                    Swal.fire({
+                        title: '¡Faltan datos!',
+                        text: 'Por favor, escribe una descripcion para tu orden',
+                        icon: 'warning',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                    return;
+                }
+
+                if (categoriaTemp === 'transferencia') {
+                    if (!selectedUbicacionSalida) {
+                        if (ubicacionSalidaRef.current) {
+                            ubicacionSalidaRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!selectedUbicacionEntrada) {
+                        if (ubicacionEntradaRef.current) {
+                            ubicacionEntradaRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!inputValue) {
+                        if (cantidadRef.current) {
+                            cantidadRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!isValid) {
+                        Swal.fire({
+                            title: '¡Faltan datos!',
+                            text: 'Por favor, selecciona y rellena todos los campos',
+                            icon: 'warning',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
+                        return;
+                    }
+                } else if (categoriaTemp === 'salida') {
+                    if (!selectedUbicacionSalida) {
+                        if (ubicacionSalidaRef.current) {
+                            ubicacionSalidaRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!inputValue) {
+                        if (cantidadRef.current) {
+                            cantidadRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!isValid) {
+                        Swal.fire({
+                            title: '¡Faltan datos!',
+                            text: 'Por favor, selecciona y rellena todos los campos',
+                            icon: 'warning',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
+                        return;
+                    }
+                } else if (categoriaTemp === 'entrada') {
+                    if (!selectedUbicacionEntrada) {
+                        if (ubicacionEntradaRef.current) {
+                            ubicacionEntradaRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!inputValue) {
+                        if (cantidadRef.current) {
+                            cantidadRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+                    if (!isValid) {
+                        Swal.fire({
+                            title: '¡Faltan datos!',
+                            text: 'Por favor, selecciona y rellena todos los campos',
+                            icon: 'warning',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
+                        return;
+                    }
+                }
+                console.log("movimiento generar orden:", idTraspaso);
+                const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${idTraspaso}`, data, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 if (response.data.ok) {
+                    console.log("este es el response al generar orden:", response);
                     setId(response.data.id);
                     setEstatus(response.data.estatus);
+
+                    // Aquí guarda el rol_id de la bodega en rolIdTemp
+                    // setRolIdTemp(response.data.rol_id || selectedBodegaSalida); // O como estés obteniendo el rol_id
 
                     if (response.data.lineasIds) {
                         handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
@@ -379,15 +743,18 @@ const TableOrdenes = () => {
                 }
             } catch (error) {
                 if (error.response && error.response.data && error.response.data.message) {
-                    const { messageText } = error.response.data.message;
-                    alert(`Error: ${messageText}`);
-                } else {
-                    alert('Ocurrio un error al generar la orden');
+                    const errorMessage = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: errorMessage,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
                 }
             }
-
         }
-
     };
 
     const handleConfirmarOrden = async () => {
@@ -398,11 +765,22 @@ const TableOrdenes = () => {
 
         try {
             console.log("datos", data);
-            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/confirmar/${id}`, data);
+            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/confirmar/${id}`, data, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (response.data.ok) {
                 setId(response.data.id);
                 setEstatus(response.data.estatus);
-                alert('Orden confirmada exitosamente');
+                Swal.fire({
+                    title: '¡Orden confirmada!',
+                    text: 'La orden se confirmo exitosamente!',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
@@ -416,22 +794,38 @@ const TableOrdenes = () => {
 
     const handleRevertirOrden = async () => {
         try {
-            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas//orden/${id}/revertir`);
-            console.log("esto se esta obtendiendo del response de revertir orden:", response);
+            const response = await axios.put(
+                `http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${id}/revertir`,
+                {}, // Este es el cuerpo de la solicitud (si no envías datos, puedes pasar un objeto vacío)
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            console.log("Esto se está obteniendo del response de revertir orden:", response);
             if (response.data.ok) {
                 setId(response.data.id);
                 setEstatus(response.data.estatus);
-                alert('Orden revertida exitosamente');
+                Swal.fire({
+                    title: '¡Orden revertida!',
+                    text: 'La orden se revirtio correctamente!',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
                 const { messageText } = error.response.data.message;
                 alert(`Error: ${messageText}`);
             } else {
-                alert('Ocurrio un error al revertir la orden');
+                alert('Ocurrió un error al revertir la orden');
             }
         }
     }
+
 
     const handleProcesarOrden = async () => {
         const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -441,11 +835,22 @@ const TableOrdenes = () => {
         };
 
         try {
-            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/procesar/${id}`, data);
+            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/procesar/${id}`, data, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (response.data.ok) {
                 setId(response.data.id);
                 setEstatus(response.data.estatus);
-                alert('Orden procesada exitosamente');
+                Swal.fire({
+                    title: '¡Orden procesada!',
+                    text: 'La orden se proceso exitosamente!',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
@@ -470,15 +875,18 @@ const TableOrdenes = () => {
             confirmButtonText: 'Sí, eliminarlo'
         }).then((result) => {
             if (result.isConfirmed) {
-                axios.delete(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`)
-                    .then(response => {
-                        Swal.fire({
-                            title: '¡Eliminado!',
-                            text: 'Tu linea ha sido eliminada.',
-                            icon: 'success'
-                        });
-                        setRows((prevRows) => prevRows.filter((row) => row.id !== id));
-                    })
+                axios.delete(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }).then(response => {
+                    Swal.fire({
+                        title: '¡Eliminado!',
+                        text: 'Tu linea ha sido eliminada.',
+                        icon: 'success'
+                    });
+                    setRows((prevRows) => prevRows.filter((row) => row.id !== id));
+                })
                     .catch(error => {
                         Swal.fire({
                             icon: 'error',
@@ -509,37 +917,49 @@ const TableOrdenes = () => {
         }
     }, [productoId])
 
-    const handleCheckboxChange = (checkboxName) => {
-        if (checkboxName === 'checkbox2') {
-            setRows([]);
-            setHabilitarTraspaso(true);
-            setBodegaSalidaHabilitada(false);
-            setBodegaEntradaHabilitada(false);
-            setHabilitarBuscador(false);
-            setHabilitarComentario(false);
-            setUbicacionSalidaHabilitada(false);
-            setUbicacionEntradaHabilitada(false);
-            setHabilitarCantidad(false);
-            setDescripcion('');
-            setSelectedTraspasoId('');
-            setSelectedBodegaSalida('');
-            setSelectedBodegaEntrada('');
-            setProductoId('');
-            setSelectedUbicacionSalida('');
-            setSelectedUbicacionEntrada('');
-            setExistenciaProducto('');
-            setExistenciaProductoDestino('');
-            setInputValue('');
-            setComment('');
-            setEstatus('');
-            setId('');
-            // Restablece los valores relacionados
-            setCheckboxState((prevState) => ({
-                ...prevState,
-                checkbox2: !prevState.checkbox2,
-                checkbox1: false,
-            }));
+    const handleOrderNew = () => {
+        setRows([]);
+        setHabilitarTraspaso(true);
+        setBodegaSalidaHabilitada(false);
+        setBodegaEntradaHabilitada(false);
+        setHabilitarBuscador(false);
+        setHabilitarComentario(false);
+        setUbicacionSalidaHabilitada(false);
+        setUbicacionEntradaHabilitada(false);
+        setHabilitarCantidad(false);
+        setDescripcion('');
+        setSelectedTraspasoId('');
+        setSelectedBodegaSalida('');
+        setSelectedBodegaEntrada('');
+        setProductoId('');
+        setSelectedUbicacionSalida('');
+        setSelectedUbicacionEntrada('');
+        setExistenciaProducto('');
+        setExistenciaProductoDestino('');
+        setInputValue('');
+        setComment('');
+        setEstatus('');
+        setId('');
+        if (bodegaSalidaRef.current) {
+            bodegaSalidaRef.current.classList.remove('error');
         }
+        if (bodegaEntradaRef.current) {
+            bodegaEntradaRef.current.classList.remove('error');
+        }
+
+        if (ubicacionSalidaRef.current) {
+            ubicacionSalidaRef.current.classList.remove('error');
+        }
+
+        if (ubicacionEntradaRef.current) {
+            ubicacionEntradaRef.current.classList.remove('error');
+        }
+
+        if (cantidadRef.current) {
+            cantidadRef.current.classList.remove('error');
+        }
+
+        let isValid = true;
     };
 
     const handleKeyDown = (e) => {
@@ -553,19 +973,17 @@ const TableOrdenes = () => {
     };
 
     useEffect(() => {
-        if (estatus === 'abierto' || estatus === 'confirmado' || estatus === 'procesado') {
-            setHabilitarTraspaso(false);
-            setCheckboxState((prevState) => ({
-                ...prevState,
-                checkbox2: false,
-                checkbox1: false, // Desmarcar checkbox2
-            }));
-        }
         if (estatus === 'abierto') {
-            setEnableConfirm(true);
+            if (user.rol_id === rolIdTemp) {
+                setEnableConfirm(true);
+                setHabilitarBuscador(true); // Habilita el buscador si los roles coinciden
+            } else {
+                setEnableConfirm(false);
+                setHabilitarBuscador(false); // Inhabilita el buscador si los roles no coinciden
+            }
+            setHabilitarTraspaso(false);
             setEnableProcess(false);
             setEnableRevertir(false);
-            setHabilitarBuscador(true);
             setHabilitarTraspaso(false);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
@@ -574,9 +992,10 @@ const TableOrdenes = () => {
             setUbicacionEntradaHabilitada(false);
             setHabilitarCantidad(false);
         } else if (estatus === 'confirmado') {
+            setHabilitarTraspaso(false);
             setEnableRevertir(true);
             setEnableConfirm(false);
-            setEnableProcess(true);
+            setEnableProcess(user.rol_id === rolIdTemp);
             setHabilitarBuscador(false);
             setUbicacionSalidaHabilitada(false);
             setUbicacionEntradaHabilitada(false);
@@ -585,6 +1004,8 @@ const TableOrdenes = () => {
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
         } else if (estatus === 'procesado') {
+            setEnableConfirm(false);
+            setHabilitarTraspaso(false);
             setEnableProcess(false);
             setEnableRevertir(false);
             setHabilitarBuscador(false);
@@ -599,7 +1020,7 @@ const TableOrdenes = () => {
             setEnableRevertir(false);
             setEnableProcess(false);
         }
-    }, [estatus]);
+    }, [estatus, user.rol_id, rolIdTemp]);
 
     const handleUpdateLinea = (id) => async (e) => {
         e.preventDefault();
@@ -629,6 +1050,10 @@ const TableOrdenes = () => {
                 axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/lineaOrden/${id}`, {
                     cantidad: rowToUpdate.cantidad,
                     comentario: comment,
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
                 })
                     .then(response => {
                         Swal.fire({
@@ -658,6 +1083,10 @@ const TableOrdenes = () => {
     const handleClose = () => setOpenComment(false);
 
     const isCellEditable = () => {
+        if (estatus === 'abierto') {
+            return user.rol_id === rolIdTemp;
+        }
+        // La celda no es editable si el estatus es 'confirmado' o 'procesado'
         return estatus !== 'confirmado' && estatus !== 'procesado';
     };
 
@@ -674,9 +1103,13 @@ const TableOrdenes = () => {
 
     const fetchOrderSelected = async (orderId) => {
         try {
-            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${orderId}`);
+            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${orderId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             let categoriaTemp = '';
-            switch (response.data.data.tipo_transaccion_id) {
+            switch (response.data.data.orden.tipo_transaccion_id) {
                 case 1:
                     categoriaTemp = 'entrada';
                     break;
@@ -691,15 +1124,17 @@ const TableOrdenes = () => {
                 default:
                     categoriaTemp = 'error'; // O cualquier valor por defecto 
             }
-
-            setId(response.data.data.id);
-            setEstatus(response.data.data.estatus);
-            setSelectedBodegaSalida(response.data.data.bodega_salida_id);
-            setDescripcion(response.data.data.descripcion);
-            setSelectedTraspasoId(response.data.data.tipo_transaccion_id);
+            setId(response.data.data.orden.id);
+            setEstatus(response.data.data.orden.estatus);
+            setSelectedBodegaSalida(response.data.data.orden.bodega_salida_id);
+            setSelectedBodegaEntrada(response.data.data.orden.bodega_entrada_id);
+            setRolIdTemp(response.data.data.rol_id.rol_id);
+            setDescripcion(response.data.data.orden.descripcion);
+            setSelectedTraspasoId(response.data.data.orden.tipo_transaccion_id);
             setCategoriaTemp(categoriaTemp);
-            setSelectedBodegaEntrada(response.data.data.bodega_entrada_id);
-            setHabilitarBuscador(true);
+
+            setHabilitarBuscador(user.rol_id === response.data.data.rol_id.rol_id && response.data.data.orden.estatus === 'abierto');
+            setHabilitarComentario(user.rol_id === response.data.data.rol_id.rol_id && response.data.data.orden.estatus === 'abierto');
 
             const dataGridRows = response.data.data.lineas.map((linea) => ({
                 id: linea.id,
@@ -707,7 +1142,10 @@ const TableOrdenes = () => {
                 cantidad: linea.cantidad,
                 comentario: linea.comentario,
                 localidad_salida: linea.localidad_salida_descripcion,
-                localidad_entrada: linea.localidad_entrada_descripcion
+                localidad_entrada: linea.localidad_entrada_descripcion,
+                producto_title: linea.producto_title,
+                existencias_origen: linea.existencias_origen,
+                existencias_destino: linea.existencias_destino
             }));
             handleAddRow(dataGridRows);
         } catch (error) {
@@ -725,9 +1163,9 @@ const TableOrdenes = () => {
         { field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100, cellClassName: 'celdaEditable' },
         { field: 'producto_id', headerName: 'MLM', width: 150 },
         { field: 'localidad_salida', headerName: 'Ubicación Origen', width: 150 },
-        { field: 'existencias', headerName: 'Existencia Origen', type: 'number', width: 130 },
+        { field: 'existencias_origen', headerName: 'Existencia Origen', type: 'number', width: 150 },
         { field: 'localidad_entrada', headerName: 'Ubicación Destino', width: 150 },
-        { field: 'existencia_origen', headerName: 'Existencia Destino', width: 150 },
+        { field: 'existencias_destino', headerName: 'Existencia Destino', width: 150 },
         { field: 'producto_title', headerName: 'Descripción', width: 540 },
         {
             field: 'actions',
@@ -737,6 +1175,8 @@ const TableOrdenes = () => {
             getActions: (params) => {
 
                 if (estatus === 'confirmado' || estatus === 'procesado') {
+                    return [];
+                } else if (user.rol_id !== rolIdTemp && estatus === 'abierto') {
                     return [];
                 }
 
@@ -766,49 +1206,60 @@ const TableOrdenes = () => {
                             label="Delete"
                         />
                     </Tooltip>
-                ].filter(Boolean) // Filtrar valores nulos
+                ].filter(Boolean) // Filtrar valores nulos}
             }
         },
     ];
 
     return (
         <div>
-            <div className="action-bar">
-                <div className="action-item"
-                    onClick={enableConfirm ? handleConfirmarOrden : null}
-                    style={{ opacity: enableConfirm ? 1 : 0.5, cursor: enableConfirm ? 'pointer' : 'not-allowed' }}
-                >
-                    <img src={confirmOrden} alt="Confirmar Orden" className="action-icon" />
-                    <span>Confirmar Orden</span>
+            <div className="gestorOrdenes">
+                <div className="left-actions">
+                    <div className="action-item" onClick={handleOrderNew}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        <img src={addOrder} alt="Orden Nueva" className="action-icon" />
+                        <span>Orden Nueva</span>
+                    </div>
+                    <div className="action-item" onClick={() => setOpenModal(true)}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        <img src={searchOrden} alt="Buscar Orden" className="action-icon" />
+                        <span>Buscar Orden</span>
+                    </div>
                 </div>
-                <div className="action-item"
-                    onClick={enableProcess ? handleProcesarOrden : null}
-                    style={{ opacity: enableProcess ? 1 : 0.5, cursor: enableProcess ? 'pointer' : 'not-allowed' }}
-                >
-                    <img src={processOrden} alt="Procesar Orden" className="action-icon" />
-                    <span>Procesar Orden</span>
-                </div>
-                <div className="items-right"
-                    onClick={enableRevertir ? handleRevertirOrden : null}
-                    style={{ opacity: enableRevertir ? 1 : 0.5, cursor: enableRevertir ? 'pointer' : 'not-allowed' }}
-                >
-                    <img src={revertir} alt="Revertir Orden" className="action-icon" />
-                    <span>Revertir Orden</span>
-                </div>
-                <div className="action-item"
-                    onClick={() => setOpenModal(true)}
-                >
-                    <img src={searchOrden} alt="Buscar Orden" className="action-icon" />
-                    <span>Buscar Orden</span>
+                <div className="right-actions">
+                    <div className="action-item" onClick={enableRevertir ? handleRevertirOrden : null}
+                        style={{ opacity: enableRevertir ? 1 : 0.5, cursor: enableRevertir ? 'pointer' : 'not-allowed' }}
+                    >
+                        <img src={revertir} alt="Revertir Orden" className="action-icon" />
+                        <span>Revertir Orden</span>
+                    </div>
+                    <div className="action-item" onClick={enableConfirm ? handleConfirmarOrden : null}
+                        style={{ opacity: enableConfirm ? 1 : 0.5, cursor: enableConfirm ? 'pointer' : 'not-allowed' }}
+                    >
+                        <img src={confirmOrden} alt="Confirmar Orden" className="action-icon" />
+                        <span>Confirmar Orden</span>
+                    </div>
+                    <div className="action-item" onClick={enableProcess ? handleProcesarOrden : null}
+                        style={{ opacity: enableProcess ? 1 : 0.5, cursor: enableProcess ? 'pointer' : 'not-allowed' }}
+                    >
+                        <img src={processOrden} alt="Procesar Orden" className="action-icon" />
+                        <span>Procesar Orden</span>
+                    </div>
                 </div>
             </div>
             <div className='container'>
                 <label className='item1'>Orden:</label>
                 <input className='item2' value={id} readOnly></input>
-                <label className='status'>Status:</label>
+                <label className='status'>Estatus:</label>
                 <input className='statusValue' value={estatus} readOnly></input>
                 <label className='descripcion'>Descripción:</label>
-                <input className='input-descr' disabled={!habilitarTraspaso} value={descripcion} onChange={(e) => setDescripcion(e.target.value)}></input>
+                <input className='input-descr'
+                    disabled={!habilitarTraspaso}
+                    value={descripcion}
+                    ref={descripcionRef}
+                    onChange={(e) => setDescripcion(e.target.value)}></input>
                 <label className='item5' >Tipo de movimiento:</label>
                 <select
                     className='item6'
@@ -823,38 +1274,13 @@ const TableOrdenes = () => {
                         </option>
                     ))}
                 </select>
-                <h3 className='textOrden'>Orden nueva</h3>
-                <input
-                    className='checkNuevaOrden'
-                    type='checkbox'
-                    checked={checkboxState.checkbox2}
-                    onChange={() => handleCheckboxChange('checkbox2')}
-                />
-                {checkboxState.checkbox2 && (
-                    <>
-                        <label className='descripcion'>Descripción:</label>
-                        <input className='input-descr' disabled={!habilitarTraspaso} value={descripcion} onChange={(e) => setDescripcion(e.target.value)}></input>
-                        <label className='item5'>Tipo de movimiento:</label>
-                        <select
-                            className='item6'
-                            value={selectedTraspasoId}
-                            onChange={handleSelectedTraspasoChange}
-                            disabled={!habilitarTraspaso}
-                        >
-                            <option value="">Seleccione...</option>
-                            {traspasos.map((traspaso) => (
-                                <option key={traspaso.id} value={traspaso.id}>
-                                    {`${traspaso.descripcion} : ${traspaso.categoria}`}
-                                </option>
-                            ))}
-                        </select></>
-                )}
                 <label className='labelB'>Bodega de salida:</label>
                 <select
                     className='selectB'
                     value={selectedBodegaSalida}
                     onChange={handleSelectBodegaSalida}
                     disabled={!bodegaSalidaHabilitada}
+                    ref={bodegaSalidaRef}
                 >
                     <option value="">Seleccione...</option>
                     {bodegaSalida.map((bod) => (
@@ -868,6 +1294,7 @@ const TableOrdenes = () => {
                     value={selectedBodegaEntrada}
                     disabled={!bodegaEntradaHabilitada}
                     onChange={handleSelectBodegaEntrada}
+                    ref={bodegaEntradaRef}
                 >
                     <option value="">Seleccione...</option>
                     {bodegaEntrada.map((bodega) => (
@@ -894,6 +1321,7 @@ const TableOrdenes = () => {
                     disabled={!ubicacionSalidaHabilitada}
                     value={selectedUbicacionSalida}
                     onChange={handleUbicacionSelectSalida}
+                    ref={ubicacionSalidaRef}
                 >
                     <option value="">Seleccione...</option>
                     {ubicaciones
@@ -909,6 +1337,7 @@ const TableOrdenes = () => {
                     disabled={!ubicacionEntradaHabilitada}
                     value={selectedUbicacionEntrada}
                     onChange={handleUbicacionSelectEntrada}
+                    ref={ubicacionEntradaRef}
                 >
                     <option value="">Seleccione...</option>
                     {ubicacionEntrada
@@ -924,14 +1353,23 @@ const TableOrdenes = () => {
                 <label className='exis-label'>Existencias Destino:</label>
                 <input className='exis-destino' value={existenciaProductoDestino} readOnly></input>
                 <label className='item16'>Cantidad:</label>
-                <input className='item17' disabled={!habilitarCantidad} value={inputValue} onChange={(e) => setInputValue(e.target.value)}></input>
-                <button className='item13' onClick={handleGenerarOrder} >Agregar Fila</button>
+                <input className='item17'
+                    disabled={!habilitarCantidad}
+                    value={inputValue}
+                    ref={cantidadRef}
+                    onChange={(e) => setInputValue(e.target.value)}></input>
+                <Button className='item13'
+                    variant='contained'
+                    endIcon={<SendIcon />}
+                    onClick={handleGenerarOrder}
+                    sx={{ fontSize: '0.8rem', marginTop: 'auto', marginLeft: 'auto', borderRadius: '8px' }}
+                >Agregar Fila</Button>
                 <label className='coment'>Comentario:</label>
                 <input className='comentInput' placeholder='Ingrese un comentario a la linea' value={comment} disabled={!habilitarComentario} onChange={(e) => setComment(e.target.value)}></input>
             </div>
             <div >
                 <div className='DataG' style={{ height: 500, width: 'auto' }}>
-                    <DataGrid
+                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={rows}
                         columns={columns}
                         pageSize={5}

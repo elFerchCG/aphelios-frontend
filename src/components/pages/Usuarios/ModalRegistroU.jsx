@@ -17,7 +17,7 @@ const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU }) => {
   const estadoInicial = {
     nombre: "",
     password: "",
-    rol: "",
+    rol_id: "",
     permisos: "",
     estado: ""
   };
@@ -42,12 +42,12 @@ const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU }) => {
     try {
       e.preventDefault();
       console.log(data);
-      const response = await axios.post("http://localhost:3304/usuarios", {
+      const response = await axios.post("http://localhost:3304/auth/register", {
         nombre: data.nombre,
         password: data.password,
-        rol: data.rol,
         permisos: data.permisos,
-        estado: data.estado
+        estado: data.estado,
+        rol_id: data.rol_id,
       });
       setData(response);
       //Mostrar alerta exito
@@ -109,16 +109,21 @@ const ModalRegistroU = ({ openModalRegistroU, setOpenModalRegistroU }) => {
             <InputLabel id="rol-label">Rol</InputLabel>
             <Select
               labelId="rol-label"
-              id="rol"
-              name="rol"
-              value={data.rol}
+              id="rol_id"
+              name="rol_id"
+              type='number'
+              value={data.rol_id}
               onChange={handleChange}
             >
-              <MenuItem value="Marketing">Marketing</MenuItem>
-              <MenuItem value="Administrador">Administrador</MenuItem>
-              <MenuItem value="Producción">Producción</MenuItem>
-              <MenuItem value="Planeación">Planeación</MenuItem>
-              <MenuItem value="Almacén">Almacén</MenuItem>
+              <MenuItem value={1}>Administrador</MenuItem>
+              <MenuItem value={2}>Super Usuario</MenuItem>
+              <MenuItem value={3}>Jefe Planeacion</MenuItem>
+              <MenuItem value={4}>Jefe Almacen</MenuItem>
+              <MenuItem value={5}>Empleado Almacen</MenuItem>
+              <MenuItem value={6}>Jefe Marketing</MenuItem>
+              <MenuItem value={7}>Empleado Marketing</MenuItem>
+              <MenuItem value={8}>Jefe Produccion</MenuItem>
+              <MenuItem value={9}>Empleado Produccion</MenuItem>
             </Select>
           </FormControl>
           <TextField
