@@ -9,6 +9,7 @@ export const OrdenB = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const url = 'http://localhost:3304/inventario/transacciones';
 
@@ -32,7 +33,11 @@ export const OrdenB = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Transacciones de inventarios</h2>
         <div className='cuerpo'>
-          <input id='buscador' placeholder='Buscar transacción' /><br />
+          <input id='buscador'
+          type='text'
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder='Buscar transacción' /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroT(true)} >Agregar orden</button><p />
         </div>
       </div>
@@ -40,6 +45,7 @@ export const OrdenB = () => {
       data={data}
       setData={setData}
       fetchData={fetchData}
+      filter={filter}
       ></DataGridTInventario>
       <ModalRegistroTI
       openModalRegistroT={openModalRegistroT}

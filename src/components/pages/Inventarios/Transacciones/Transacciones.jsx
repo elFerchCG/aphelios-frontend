@@ -12,6 +12,7 @@ const Transacciones = () => {
   const [openModalRegistroT, setOpenModalRegistroT] = useState(false);
   const [openDetalleTransaccion, setOpenDetalleTransaccion] = useState(false);
   const [selectedTransaccion, setSelectedTransaccion] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const url = 'http://localhost:3304/inventario/tipoTransaccion';
 
@@ -35,7 +36,12 @@ const Transacciones = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Tipos de Transacciones</h2>
         <div className='cuerpo'>
-          <input id='buscador' placeholder='Buscar transacciones' /><br />
+          <input 
+          id='buscador'
+          type='text'
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)} 
+          placeholder='Buscar transacciones' /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroT(true)}>Agregar transaccion</button><p />
         </div>
       </div>
@@ -45,6 +51,7 @@ const Transacciones = () => {
       setSelectedTransaccion={setSelectedTransaccion}
       setOpenDetalleTransaccion={setOpenDetalleTransaccion}
       openDetalleTransaccion={openDetalleTransaccion}
+      filter={filter}
       />
       <ModalRegistroT
       openModalRegistroT={openModalRegistroT}

@@ -1,97 +1,95 @@
+import { Box, Button, Modal } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
+import axios from 'axios';
 import React, { useState, useEffect } from 'react';
 
 
-const DataUbicaciones = () => {
+const DataUbicaciones = ({ open, onClose, bodegaId }) => {
+    const [ubicaciones, setUbicaciones] = useState([]);
+    const [filteredUbicaciones, setFilteredUbicaciones] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
 
-    const [bodegas, setBodegas] = useState([]);
-    const [selectedBodega, setSelectedBodega] = useState('');
-    const [resultados, setResultados] = useState([]);
-
-    // Función para obtener la lista de bodegas
-    const fetchBodegas = async () => {
-        try {
-            const response = await fetch('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setBodegas(data);
-            } else {
-                console.error('Error al obtener las bodegas:', response.statusText);
-            }
-        } catch (error) {
-            console.error('Error al realizar la solicitud:', error);
+    useEffect(() => {
+        if (bodegaId) {
+            fetchUbicaciones(bodegaId);
         }
+    }, [bodegaId]);
+
+    useEffect(() => {
+        if (bodegaId) {
+            const fetchUbicaciones = async () => {
+                try {
+                    const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${bodegaId}/ubicaciones`);
+                    setUbicaciones(response.data);
+                } catch (error) {
+                    console.error("Error fetching ubicaciones:", error);
+                }
+            };
+            fetchUbicaciones();
+        }
+    }, [bodegaId]);
+
+    const fetchUbicaciones = async (bodegaId) => {
+        // Reemplaza con la URL correcta de tu API
+        const response = await fetch(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${bodegaId}/ubicaciones`);
+        const data = await response.json();
+        setUbicaciones(data);
+        setFilteredUbicaciones(data);
     };
 
     useEffect(() => {
-        fetchBodegas();
-    }, []);
+        setFilteredUbicaciones(
+            ubicaciones.filter(ubicacion =>
+                ubicacion.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+        );
+    }, [searchTerm, ubicaciones]);
 
-    // Función para manejar el cambio de selección
-    const handleSelectChange = (e) => {
-        setSelectedBodega(e.target.value);
-    };
-
-
-    // Función para manejar la búsqueda de localidades por bodega
-    const handleSearch = async () => {
-        try {
-            const response = await fetch(`http://localhost:3304/inventario/bodegas_y_localidades/${selectedBodega}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setResultados(data);
-            } else {
-                console.error('Error al obtener los datos:', response.statusText);
-            }
-        } catch (error) {
-            console.error('Error al realizar la solicitud:', error);
-        }
-    };
-
+    const columns = [
+        { field: 'id', headerName: 'Folio', type: 'number', width: 100 },
+        { field: 'descripcion', headerName: 'Descripción', type: 'text', width: 200 }
+    ]
 
     return (
-        <div className='contenido'>
-            <div id='contenidoUsuarios'>
-            <label>
-                Selecciona una Bodega:
-                <select value={selectedBodega} onChange={handleSelectChange}>
-                    <option value="">Seleccione una bodega</option>
-                    {bodegas.map((bodega) => (
-                        <option key={bodega.Nombre} value={bodega.Nombre}>
-                            {bodega.Nombre}
-                        </option>
-                    ))}
-                </select>
-            </label>
-            <button onClick={handleSearch}>Buscar</button>
-
-            <div>
-                <h2>Resultados</h2>
-                {resultados.length > 0 ? (
-                    <ul>
-                        {resultados.map((bodega) => (
-                            <li key={bodega.localidad_id}>
-                                {bodega.bodega_nombre} - {bodega.localidad_descripcion}
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p>No se encontraron resultados.</p>
-                )}
-            </div>
-            </div>
+        <div>
+            <Modal
+                open={open} onClose={onClose}
+                aria-labelledby="modal-title"
+                aria-describedby="modal-description"
+            >
+                <Box sx={{
+                    width: 350, height: 600,
+                    bgcolor: 'background.paper',
+                    padding: 2, margin: 'auto',
+                    marginTop: '5%', borderRadius: '40px',
+                    fontFamily: "Montserrat",
+                }}>
+                    <input
+                        type='text'
+                        placeholder='Buscar ubicaciones'
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <h2 id="modal-title">Ubicaciones Disponibles</h2>
+                    <DataGrid style={{ height: 400, width: 350, fontFamily: "Montserrat", fontWeight: "bold" }}
+                        rows={filteredUbicaciones}
+                        columns={columns}
+                        pageSize={5}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={{
+                            id: true,
+                        }}
+                    />
+                    <Button sx={{ marginTop: '20px', marginLeft: '50%' }}
+                        variant="contained"
+                        onClick={onClose}>
+                        Cerrar
+                    </Button>
+                </Box>
+            </Modal>
         </div>
-
     )
 }
 

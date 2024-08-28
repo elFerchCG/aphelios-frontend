@@ -10,7 +10,7 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [estatusFilter, setEstatusFilter] = useState('');
-    const [searchTerm, setSearchTerm] = useState(''); // Nuevo estado para el término de búsqueda
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleCloseModal = () => {
         setSearchTerm('');
@@ -28,13 +28,14 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
                         }
                     });
                     if (response.data.ok) {
-                        const formattedData = response.data.data.map(row => ({
-                            ...row,
-                            fecha_abierto: formatISO(new Date(row.fecha_abierto), { representation: 'date' })
-                        }))
+                        const formattedData = response.data.data.map(row => {
+                            return {
+                                ...row,
+                                fecha_abierto: formatISO(new Date(row.fecha_abierto), { representation: 'date' })
+                            };
+                        });
                         setOrders(formattedData);
                         setFilteredOrders(formattedData);
-                        console.log("Órdenes obtenidas:", response.data.data);
                     }
                 } catch (error) {
                     console.error("Error al obtener las órdenes", error);
@@ -44,53 +45,65 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
             fetchOrders();
         }
     }, [openModal]);
-
+    
     useEffect(() => {
-        const filtered = filteredOrders.filter(order => 
-            order.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.id.toString().includes(searchTerm) ||
-            order.estatus.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.fecha_abierto.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        // Filtra las órdenes en base al término de búsqueda y otros filtros
+        let filtered = orders;
+
+        // Aplica el filtro de búsqueda
+        if (searchTerm) {
+            filtered = filtered.filter(order => 
+                order.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.id.toString().includes(searchTerm) ||
+                order.estatus.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.fecha_abierto.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                order.categoria.toLowerCase().includes(searchTerm.toLocaleLowerCase()) 
+            );
+        }
+
+        // Aplica el filtro de estatus
+        if (estatusFilter) {
+            filtered = filtered.filter(order => order.estatus === estatusFilter);
+        }
+
+        // Aplica el filtro de fechas
+        if (startDate && endDate) {
+            filtered = filtered.filter(order => {
+                const orderDate = new Date(order.fecha_abierto);
+                return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
+            });
+        }
+
         setFilteredOrders(filtered);
-    }, [searchTerm]);
+    }, [searchTerm, estatusFilter, startDate, endDate, orders]);
 
     const handleRowClick = (params) => {
         const selectedOrderId = params.row.id;
         if (typeof selectedOrder === 'function') {
             selectedOrder(selectedOrderId);
         } else {
-            console.error('onSelectOrder is not a function');
+            console.error('selectedOrder no es una función');
         }
         handleCloseModal();
     };
-
+    
     const handleFilterChange = (e) => {
-        const estatus = e.target.value;
-        setEstatusFilter(estatus);
+        setEstatusFilter(e.target.value);
+    };
 
-        if (estatus === "") {
-            setFilteredOrders(orders);
-        } else {
-            const filtered = filteredOrders.filter(order => order.estatus === estatus);
-            setFilteredOrders(filtered);
-        }
-    }
-
-    const handleDateFilterChange = () => {
-        if (startDate && endDate) {
-            const filtered = filteredOrders.filter(order => {
-                const orderDate = new Date(order.fecha_abierto);
-                return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
-            });
-            setFilteredOrders(filtered);
-        }
+    const resetFilter = () => {
+        setSearchTerm(''); // Limpiar el input de búsqueda
+        setStartDate(''); // Vaciar la fecha de inicio
+        setEndDate(''); // Vaciar la fecha de fin
+        setEstatusFilter(''); // Volver al valor predeterminado en el select
+        setFilteredOrders(orders); // Restablecer los resultados filtrados a todas las órdenes
     };
 
     const columns = [
         { field: 'id', headerName: 'Folio', width: 90 },
         { field: 'descripcion', headerName: 'Descripción', width: 300 },
         { field: 'estatus', headerName: 'Estatus', width: 150 },
+        { field: 'categoria', headerName: 'Tipo de Movimiento', width: 200 },
         { field: 'fecha_abierto', headerName: 'Fecha', width: 200 }
     ];
 
@@ -125,18 +138,18 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
                         />
-                        <Button variant="contained" onClick={handleDateFilterChange}>
-                            Filtrar
+                        <Button variant="contained" onClick={resetFilter}>
+                            Limpiar filtros
                         </Button>
                     </div>
                     <input
                         type='text'
                         placeholder='Buscar ordenes'
-                        value={searchTerm} // Se conecta con el estado searchTerm
+                        value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <h2 id="modal-title">Órdenes Disponibles</h2>
-                    <DataGrid style={{ height: 400, width: 1000, fontFamily: "Montserrat", fontWeight: "bold" }}
+                    <DataGrid style={{ height: 400, width: 'auto', fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={filteredOrders}
                         columns={columns}
                         pageSize={5}

@@ -5,7 +5,6 @@ import ModalRegistroB from './ModalRegistroB';
 import DetalleBodegas from './DetalleBodegas';
 import DataUbicaciones from './DataUbicaciones';
 
-
 export const Bodegas = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,8 +13,7 @@ export const Bodegas = () => {
   const [selectedBodega, setSelectedBodega] = useState(null);
   const [openDetalleBodega, setOpenDetalleBodega] = useState(false);
   const [openUbicaciones, setOpenUbicaciones] = useState(false);
-  const [ubicacionesData, setUbicacionesData] = useState([]);
-
+  const [filter, setFilter] = useState('');
 
   const url = 'http://localhost:3304/inventario/bodegas';
 
@@ -36,7 +34,12 @@ export const Bodegas = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Bodegas</h2>
         <div className='cuerpo'>
-          <input id='buscador' placeholder='Buscar Bodega' /><br />
+          <input 
+          id='buscador' 
+          type='text'
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder='Buscar Bodega' /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroB(true)}>Agregar Bodega</button>
         </div>
       </div>
@@ -49,6 +52,7 @@ export const Bodegas = () => {
         setOpenDetalleBodega={setOpenDetalleBodega}
         openDetalleBodega={openDetalleBodega}
         setOpenUbicaciones={setOpenUbicaciones}
+        filter={filter}
       />
       <ModalRegistroB
         openModalRegistroB={openModalRegistroB}
@@ -64,12 +68,10 @@ export const Bodegas = () => {
         data={data}
         fetchData={fetchData}
       />
-      <DataUbicaciones 
-      openUbicaciones={openUbicaciones}
-      setOpenUbicaciones={setOpenUbicaciones}
-      selectedBodega={selectedBodega}
-      setSelectedBodega={setSelectedBodega}
-      data={ubicacionesData}
+      <DataUbicaciones
+        open={openUbicaciones}
+        onClose={() => setOpenUbicaciones(false)}
+        bodegaId={selectedBodega?.id}
       />
     </div>
   );

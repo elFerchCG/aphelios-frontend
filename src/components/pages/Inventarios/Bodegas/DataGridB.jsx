@@ -5,18 +5,17 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 
 
-const DataGridB = ({data, setSelectedBodega, setOpenDetalleBodega, setOpenUbicaciones }) => {
+const DataGridB = ({ data, setSelectedBodega, setOpenDetalleBodega, setOpenUbicaciones, filter }) => {
 
   const handleOpen = (bodega) => {
     setSelectedBodega(bodega);
     setOpenDetalleBodega(true);
   };
 
-  // const handleBodegaSelected = (bodega) => {
-  //   setSelectedBodega(bodega);
-  //   fetchUbicaciones(bodega.id);
-  //   setOpenUbicaciones(true);
-  // }
+  const handleOpenUbicaciones = (bodega) => {
+    setSelectedBodega(bodega);
+    setOpenUbicaciones(true);
+  };
 
   const columns = [
     { field: 'id', headerName: 'Folio', type: 'number', width: 50 },
@@ -40,18 +39,25 @@ const DataGridB = ({data, setSelectedBodega, setOpenDetalleBodega, setOpenUbicac
           <GridActionsCellItem
             icon={<AddLocationAltIcon />}
             sx={{ color: 'blue' }}
-            // onClick={() => handleBodegaSelected(params.row)}
+            onClick={() => handleOpenUbicaciones(params.row)}
           />
         </Tooltip>,
       ],
     },
   ];
 
+  const filteredRows = data.filter(row =>
+    (row.id && row.id.toString().includes(filter)) ||
+    (row.Nombre && row.Nombre.toLowerCase().includes(filter.toLowerCase())) ||
+    (row.Tipo && row.Tipo.toLowerCase().includes(filter.toLowerCase()))
+
+);
+
   return (
     <div className='contenido'>
       <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
         <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
-          rows={data}
+          rows={filteredRows}
           columns={columns}
           getRowId={(row) => row.id}
           initialState={{

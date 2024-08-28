@@ -8,6 +8,7 @@ const Lineas = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const url = 'http://localhost:3304/inventario/lineasOrden';
 
@@ -32,7 +33,12 @@ const Lineas = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Traspasos</h2>
         <div className='cuerpo'>
-          <input id='buscador' placeholder='Buscar traspasos' /><br />
+          <input 
+          id='buscador' 
+          type='text'
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder='Buscar traspasos' /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroL(true)}>Agregar traspaso</button><p />
         </div>
       </div>
@@ -40,6 +46,7 @@ const Lineas = () => {
       data={data}
       setData={setData}
       fetchData={fetchData}
+      filter={filter}
       ></DataGridL>
       <ModalRegistroL
       openModalRegistroL={openModalRegistroL}

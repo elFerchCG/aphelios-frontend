@@ -4,7 +4,7 @@ import { Tooltip } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 
 
-const DataGridT = ({ data, fetchData, setSelectedTransaccion, openDetalleTransaccion, setOpenDetalleTransaccion }) => {
+const DataGridT = ({ data, fetchData, setSelectedTransaccion, openDetalleTransaccion, setOpenDetalleTransaccion, filter }) => {
 
 const handleOpen = (transaccion) => {
     setSelectedTransaccion(transaccion);
@@ -29,11 +29,18 @@ const handleOpen = (transaccion) => {
         },
     ];
 
+    const filteredRows = data.filter(row =>
+    (row.id && row.id.toString().includes(filter)) ||
+    (row.descripcion && row.descripcion.toLowerCase().includes(filter.toLowerCase())) ||
+    (row.categoria && row.categoria.toLowerCase().includes(filter.toLowerCase())) ||
+    (row.responsable && row.responsable.toLowerCase().includes(filter.toLowerCase()))
+    )
+
     return (
         <div className='contenido'  >
             <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
                 <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
-                    rows={data}
+                    rows={filteredRows}
                     columns={columns}
                     getRowId={(row) => row.id}
                     initialState={{

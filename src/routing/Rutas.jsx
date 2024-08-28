@@ -16,6 +16,8 @@ import OrdenesRegistradas from '../components/pages/Inventarios/OrdenBodegas/Ord
 import Configuracion from '../components/pages/Menu/Configuracion';
 import Inventario from '../components/pages/Menu/Inventario';
 import ProtectedRoute from './ProtectedRoute';
+import Home from '../components/pages/Menu/Home';
+import Envios from '../components/Envios/Envios';
 
 const Rutas = () => {
     return (
@@ -42,6 +44,8 @@ const Rutas = () => {
                     <Route path='/ordenes' element={<OrdenesRegistradas />} />
                     <Route path='/configuraciones' element={<Configuracion />} />
                     <Route path='/inventario' element={<Inventario />} />
+                    <Route path='/home' element={<Home />} />
+                    <Route path='/envios' element={<Envios />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>

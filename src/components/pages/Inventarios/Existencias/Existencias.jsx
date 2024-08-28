@@ -8,6 +8,7 @@ const Existencias = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('');
 
   const url = 'http://localhost:3304/inventario/existencias';
 
@@ -32,7 +33,11 @@ const Existencias = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Existencias</h2>
         <div className='cuerpo'>
-          <input id='buscador' placeholder='Buscar existencias' /><br />
+          <input id='buscador' 
+          type='text'
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder='Buscar existencias' /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroE(true)}>Agregar existencias</button><p />
         </div>
       </div>
@@ -40,6 +45,7 @@ const Existencias = () => {
       data={data}
       setData={setData}
       fetchData={fetchData}
+      filter={filter}
       ></DataGridE>
       <ModalRegistroE
       openModalRegistroE={openModalRegistroE}

@@ -11,7 +11,7 @@ import { Tooltip } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 
 
-const DataGridE = () => {
+const DataGridE = ({ filter }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -46,6 +46,12 @@ const DataGridE = () => {
             ],
         },
     ];
+
+    const filteredRows = data.filter(row => 
+    (row.id && row.id.toString().includes(filter)) ||
+    (row.producto_id && row.producto_id.toLowerCase().includes(filter.toLowerCase())) ||
+    (row.cantidad && row.cantidad.toString().includes(filter))
+    );
 
     const fetchData = async () => {
         setLoading(true);
@@ -108,7 +114,7 @@ const DataGridE = () => {
         <div className='contenido'  >
             <div id='contenidoUsuarios' style={{ height: 500, width: '70%' }}>
                 <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
-                    rows={data}
+                    rows={filteredRows}
                     columns={columns}
                     getRowId={(row) => row.id}
                     initialState={{

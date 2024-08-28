@@ -32,11 +32,11 @@ const Header = () => {
       {location.pathname !== '/login' && isLoggedIn && (
         <>
           <nav className="nav">
-            <NavLink to="/usuarios" className="nav-link">
+            <NavLink to="/home" className="nav-link">
               <img src={inicio} alt="Home" className="nav-icon" />
               <span>Home</span>
             </NavLink>
-            <NavLink to="/proveedores" className="nav-link">
+            <NavLink to="/envios" className="nav-link">
               <img src={envio} alt="Envios" className="nav-icon" />
               <span>Envios</span>
             </NavLink>

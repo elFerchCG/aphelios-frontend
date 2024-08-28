@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
 import { useEffect } from 'react';
 
 
-const DataGridTInventario = () => {
+const DataGridTInventario = ({ filter }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
