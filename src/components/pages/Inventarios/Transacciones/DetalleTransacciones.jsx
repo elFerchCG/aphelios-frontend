@@ -18,7 +18,7 @@ const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccio
         id: '',
         descripcion: '',
         categoria: '',
-        responsable: ''
+        rol_id: ''
     });
 
     useEffect(() => {
@@ -27,7 +27,7 @@ const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccio
                 id: selectedTransaccion.id || '',
                 descripcion: selectedTransaccion.descripcion || '',
                 categoria: selectedTransaccion.categoria || '',
-                responsable: selectedTransaccion.responsable || ''
+                rol_id: selectedTransaccion.rol_id || ''
             });
         }
     }, [selectedTransaccion]);
@@ -141,17 +141,23 @@ const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccio
                             <MenuItem value="conteo ciclico">Conteo ciclico</MenuItem>
                         </Select>
                     </FormControl>
-                    <TextField
-                        margin="dense"
-                        id="responsable"
-                        name="responsable"
-                        label="Responsable"
-                        type="text"
-                        fullWidth
-                        variant="standard"
-                        value={formData.responsable}
-                        onChange={handleChange}
-                    />
+                    <FormControl fullWidth margin='dense' variant='standard'>
+                        <InputLabel id="rol-label">Rol</InputLabel>
+                        <Select
+                            labelId="rol-label"
+                            id="rol_id"
+                            name="rol_id"
+                            value={formData.rol_id}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value={1}>Administrador</MenuItem>
+                            <MenuItem value={2}>Super Usuario</MenuItem>
+                            <MenuItem value={3}>Planeador</MenuItem>
+                            <MenuItem value={4}>Almacenista</MenuItem>
+                            <MenuItem value={5}>Marketing</MenuItem>
+                            <MenuItem value={6}>Producción</MenuItem>
+                        </Select>
+                    </FormControl>
                 </form>
             </DialogContent>
             <DialogActions>

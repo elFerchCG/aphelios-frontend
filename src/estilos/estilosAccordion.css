@@ -1,0 +1,23 @@
+.accordionsContainer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: auto;
+    height: 80%;
+    padding: 10px;
+    margin: 40px auto 10px;
+}
+
+.accordions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+  }
+
+.grafic {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px; /* Añade espacio alrededor de cada gráfico */
+}

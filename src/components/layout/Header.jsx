@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import '../../estilos/header.css'; // Importar el archivo CSS
+import '../../estilos/header.css'; 
 import logo from '../../images/APHELIOS negro.png';
 import inicio from '../../images/hogar.svg';
 import envio from '../../images/shipment.svg';
@@ -23,6 +23,7 @@ const Header = () => {
 
   const response = JSON.parse(localStorage.getItem('user'));
   const user = response ? response.nombre : '';
+  const rolDescripcion = response ? response.rol_descripcion : '';
 
   return (
     <header className="header">
@@ -48,10 +49,12 @@ const Header = () => {
               <img src={inventario} alt="Inventario" className="nav-icon" />
               <span>Inventario</span>
             </NavLink>
+            {['administrador', 'superUser'].includes(rolDescripcion) && (
             <NavLink to="/configuraciones" className="nav-link">
               <img src={configuracion} alt="Configuracion" className="nav-icon" />
               <span>Configuracion</span>
             </NavLink>
+            )}
           </nav>
           <div className="person-container">
             <div className="person-nav">

@@ -9,6 +9,8 @@
     height: auto;
     flex-wrap: wrap;
     border: 3px solid purple;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: bold;
 }
 
 .nav-config {

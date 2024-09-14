@@ -17,7 +17,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
         id_usuario: '',
         nombre: '',
         password: '',
-        rol_id: '',
+        rol: '',
         permisos: '',
         estado: ''
     });
@@ -28,7 +28,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                 id_usuario: selectedUser.id_usuario || '',
                 nombre: selectedUser.nombre || '',
                 password: selectedUser.password || '',
-                rol_id: selectedUser.rol_id || '',
+                rol: selectedUser.rol || '',
                 permisos: selectedUser.permisos || '',
                 estado: selectedUser.estado || ''
             });
@@ -40,7 +40,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
             setFormData({
                 nombre: selectedUser.nombre || '',
                 password: selectedUser.password || '',
-                rol_id: selectedUser.rol_id || '',
+                rol: selectedUser.rol || '',
                 permisos: selectedUser.permisos || '',
                 estado: selectedUser.estado || ''
             });
@@ -59,7 +59,7 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
         try {
             e.preventDefault();
             console.log("Datos enviados:", formData);
-            const response = await axios.put(`http://localhost:3304/usuarios/${selectedUser.id_usuario}`, formData)
+            const response = await axios.put(`http://localhost:3304/usuarios/actualizar/${selectedUser.id_usuario}`, formData)
             setFormData(response);
             Swal.fire({
                 title: 'Éxito!',
@@ -114,20 +114,17 @@ const UsuariosActions = ({ openUsuariosActions, setOpenUsuariosActions, selected
                         <InputLabel id="rol-label">Rol</InputLabel>
                         <Select
                             labelId="rol-label"
-                            id="rol_id"
-                            name="rol_id"
-                            value={formData.rol_id}
+                            id="rol"
+                            name="rol"
+                            value={formData.rol}
                             onChange={handleChange}
                         >
-                            <MenuItem value={1}>Administrador</MenuItem>
-                            <MenuItem value={2}>Super Usuario</MenuItem>
-                            <MenuItem value={3}>Jefe Planeacion</MenuItem>
-                            <MenuItem value={4}>Jefe Almacen</MenuItem>
-                            <MenuItem value={5}>Empleado Almacen</MenuItem>
-                            <MenuItem value={6}>Jefe Marketing</MenuItem>
-                            <MenuItem value={7}>Empleado Marketing</MenuItem>
-                            <MenuItem value={8}>Jefe Produccion</MenuItem>
-                            <MenuItem value={9}>Empleado Produccion</MenuItem>
+                            <MenuItem value={"administrador"}>Administrador</MenuItem>
+                            <MenuItem value={"superUser"}>Super Usuario</MenuItem>
+                            <MenuItem value={"Planeador"}>Planeador</MenuItem>
+                            <MenuItem value={"Almacenista"}>Almacenista</MenuItem>
+                            <MenuItem value={"Marketing"}>Marketing</MenuItem>
+                            <MenuItem value={"Producción"}>Producción</MenuItem>
                         </Select>
                     </FormControl>
                     <TextField

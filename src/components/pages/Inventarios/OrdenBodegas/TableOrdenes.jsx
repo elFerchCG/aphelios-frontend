@@ -1,4 +1,4 @@
-import { DataGrid, GridActionsCellItem, GridDeleteIcon } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Box, Button, Modal, Tooltip } from '@mui/material';
@@ -74,6 +74,8 @@ const TableOrdenes = () => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
     const [isButtonDisabled, setIsButtonDisabled] = useState(true);
+    const [rolMovimiento, setRolMovimiento] = useState('');
+    const [rolIdTempEntrada, setRolIdTempEntrada] = useState('');
 
     const bodegaSalidaRef = useRef(null);
     const bodegaEntradaRef = useRef(null);
@@ -144,6 +146,7 @@ const TableOrdenes = () => {
 
                 if (resultadosFiltrados.length > 0) {
                     setTraspasos(resultadosFiltrados);
+
                 } else {
                     console.log("Sin Movimientos asignados");
                 }
@@ -219,6 +222,8 @@ const TableOrdenes = () => {
         if (tipoTraspasoSeleccionado) {
             setCategoriaTemp(tipoTraspasoSeleccionado.categoria);
             setIdTraspaso(tipoTraspasoSeleccionado.id);
+            setRolMovimiento(tipoTraspasoSeleccionado.rol_id);
+
         }
 
     };
@@ -389,9 +394,6 @@ const TableOrdenes = () => {
     };
 
     const processRowUpdate = async (updatedRow, oldRow) => {
-        console.log('Fila actualizada:', updatedRow);
-        console.log('Fila anterior:', oldRow);
-
         try {
             // Llamar a handleUpdateLinea para realizar la actualización en la base de datos
             await handleUpdateLinea(updatedRow);
@@ -558,9 +560,6 @@ const TableOrdenes = () => {
                             return;
                         }
                     }
-                    console.log("Este es el orderId al enviar lineas", ordenId);
-                    console.log("Este es el rolId al enviar lineas", user.rol_id);
-                    console.log("Este es el rolId de la bodega de la orden:", rolIdTemp)
                     const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
                         headers: {
                             'Authorization': `Bearer ${token}`
@@ -733,21 +732,20 @@ const TableOrdenes = () => {
                 });
                 if (response.data.ok) {
                     let resultRolId;
+                    let resultRolIdEntrada;
                     if (categoriaTemp === 'salida') {
                         // Aquí guarda el rol_id de la bodega en rolIdTemp
                         resultRolId = response.data.rolIdSalida;
-                        console.log("esta es el rol_id de salida", resultRolId);
                     } else if (categoriaTemp === 'entrada') {
-                        resultRolId = response.data.rolIdEntrada;
-                        console.log("esta es el rol_id de entrada", resultRolId);
+                        resultRolIdEntrada = response.data.rolIdEntrada;
                     } else if (categoriaTemp === 'transferencia') {
                         resultRolId = response.data.rolIdSalida;
-                        console.log("esta es el rol_id de transferencias:", resultRolId);
+                        resultRolIdEntrada = response.data.rolIdEntrada;
                     }
                     setRolIdTemp(resultRolId);
+                    setRolIdTempEntrada(resultRolIdEntrada)
                     setIdOrder(response.data.id);
                     setEstatus(response.data.estatus);
-                    console.log('Estos son los campos que se estan incluyendo en el post de orden:', resultRolId, response.data.id, response.data.estatus);
                     if (response.data.lineasIds) {
                         handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
                     } else {
@@ -985,7 +983,6 @@ const TableOrdenes = () => {
     }
 
     const deleteLine = (id) => async (e) => {
-
         e.preventDefault();
 
         Swal.fire({
@@ -1006,7 +1003,6 @@ const TableOrdenes = () => {
                             'Authorization': `Bearer ${token}`
                         }
                     });
-                    console.log("Esta es la orden id del get lineas:", idOrder);
                     fetchOrderSelected(idOrder);
 
                     Swal.fire({
@@ -1100,82 +1096,110 @@ const TableOrdenes = () => {
         handleSearch();
     };
 
+    // const handleKeyDown2 = (e) => {
+    //     if (e.key === 'Enter' || e.key === 'Tab') {
+    //         handleUpdateOrder();
+    //     }
+    // }
+
+    // const handleBlur2 = () => {
+    //     handleUpdateOrder();
+    // }
+
     useEffect(() => {
         if (estatus === 'abierto') {
-            if (user?.rol_id === rolIdTemp) {
+            setHabilitarTraspaso(true);
+            setBodegaSalidaHabilitada(false);
+            setBodegaEntradaHabilitada(false);
+            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada) {
                 setEnableConfirm(true);
-                setHabilitarBuscador(true); // Habilita el buscador si los roles coinciden
-                setIsButtonDisabled(false);
-                setEnableCancel(true);
+            }
+            else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp) {
+                setEnableConfirm(true);
+            }
+            else if (categoriaTemp === 'transferencia' && user?.rol_id === rolIdTemp) {
+                setEnableConfirm(true);
             } else {
                 setEnableConfirm(false);
-                setEnableCancel(false);
-                setHabilitarBuscador(false); // Inhabilita el buscador si los roles no coinciden
-                setIsButtonDisabled(true);
-                setBodegaSalidaHabilitada(false);
-                setBodegaEntradaHabilitada(false);
+                setEnableProcess(false);
             }
-            setIsButtonDisabled(true);
-            setHabilitarTraspaso(false);
-            setEnableProcess(false);
-            setEnableRevertir(false);
-            setHabilitarTraspaso(false);
-            setBodegaSalidaHabilitada(false);
-            setBodegaEntradaHabilitada(false);
-            setHabilitarComentario(false);
-            setUbicacionSalidaHabilitada(false);
-            setUbicacionEntradaHabilitada(false);
-            setHabilitarCantidad(false);
-        } else if (estatus === 'cancelada') {
-            setHabilitarTraspaso(false);
-            setEnableCancel(false);
-            setEnableConfirm(false);
-            setEnableProcess(false);
-            setEnableRevertir(false);
-            setBodegaSalidaHabilitada(false);
-            setBodegaEntradaHabilitada(false);
-            setHabilitarComentario(false);
-        } else if (estatus === 'confirmado') {
-            setIsButtonDisabled(true);
-            setHabilitarTraspaso(false);
-            setEnableRevertir(user.rol_id === rolIdTemp);
-            setEnableConfirm(false);
-            setEnableCancel(false);
-            setEnableProcess(user.rol_id === rolIdTemp);
+            if (user?.rol_id === rolMovimiento) {
+                setHabilitarBuscador(true);
+                setEnableCancel(true);
+            }
+        }
+        if (estatus === 'confirmado') {
             setHabilitarBuscador(false);
-            setUbicacionSalidaHabilitada(false);
-            setUbicacionEntradaHabilitada(false);
-            setHabilitarCantidad(false);
-            setHabilitarComentario(false);
+            setEnableConfirm(false);
+            setHabilitarTraspaso(false);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
-        } else if (estatus === 'procesado') {
-            setIsButtonDisabled(true);
-            setEnableConfirm(false);
-            setEnableCancel(false);
+            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada) {
+                setEnableProcess(true);
+            }
+            else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp) {
+                setEnableProcess(true);
+            }
+            else if (categoriaTemp === 'transferencia' && user?.rol_id === rolIdTempEntrada) {
+                setEnableProcess(true);
+            }
+            if (user?.rol_id === rolMovimiento) {
+                setEnableRevertir(true);
+            }
+        }
+        if (estatus === 'procesado') {
+            setEnableRevertir(false);
+            setEnableProcess(false);
             setHabilitarTraspaso(false);
+            setBodegaSalidaHabilitada(false);
+            setBodegaEntradaHabilitada(false);
+            setHabilitarComentario(false);
+        }
+        if (estatus === 'cancelada') {
+            setHabilitarBuscador(false);
+            setHabilitarTraspaso(false);
+            setEnableCancel(false);
+            setEnableConfirm(false);
             setEnableProcess(false);
             setEnableRevertir(false);
-            setHabilitarBuscador(false);
-            setUbicacionSalidaHabilitada(false);
-            setUbicacionEntradaHabilitada(false);
-            setHabilitarCantidad(false);
-            setHabilitarComentario(false);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
-        } else if (!estatus) {
+            setHabilitarComentario(false);
+        }
+        if (!estatus) {
             setIsButtonDisabled(true);
             setEnableConfirm(false);
             setEnableCancel(false);
             setEnableRevertir(false);
             setEnableProcess(false);
         }
-    }, [estatus, rolIdTemp, user]);
+
+    }, [estatus, rolIdTemp, rolMovimiento, user]);
+
+    const handleUpdateOrder = async () => {
+        try {
+            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`, 
+                {
+                    descripcion: descripcion,
+                },
+                {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                });
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const { messageText } = error.response.data.message;
+                alert(`Error: ${messageText}`);
+            } else {
+                alert('Ocurrio un error al confirmar la orden');
+            }
+        }
+    }
 
     const handleUpdateLinea = async (updatedRow) => {
         const { id, cantidad, producto_id, localidad_salida_id, localidad_entrada_id, comentario } = updatedRow;
-        // Asegúrate de que los datos son correctos
-        console.log('Actualizando línea con los siguientes datos:', { id, cantidad, producto_id, localidad_salida_id, localidad_entrada_id, comentario });
+
         try {
             const updatedFields = {
                 producto_id: producto_id,
@@ -1190,7 +1214,7 @@ const TableOrdenes = () => {
                     'Authorization': `Bearer ${token}`
                 }
             });
-
+            fetchOrderSelected(idOrder);
             Swal.fire({
                 title: '¡Actualizado!',
                 text: 'Tu línea ha sido actualizada.',
@@ -1225,7 +1249,6 @@ const TableOrdenes = () => {
         }
     };
 
-
     const handleOpenComment = (comentario) => {
         setSelectedComment(comentario || 'Sin comentario');
         setOpenComment(true);
@@ -1235,7 +1258,7 @@ const TableOrdenes = () => {
 
     const isCellEditable = () => {
         if (estatus === 'abierto') {
-            return user.rol_id === rolIdTemp;
+            return user.rol_id === rolMovimiento;
         }
         return estatus !== 'confirmado' && estatus !== 'procesado' && estatus !== 'cancelada';
     };
@@ -1268,7 +1291,6 @@ const TableOrdenes = () => {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            console.log('Datos obtenidos:', response.data); // Verifica que los datos sean correctos
             setProductoId('');
             setSelectedUbicacionSalida('');
             setSelectedUbicacionEntrada('');
@@ -1276,20 +1298,20 @@ const TableOrdenes = () => {
             setExistenciaProductoDestino('');
             setInputValue('');
             setComment('');
+            setSelectedBodegaSalida('');
+            setSelectedBodegaEntrada('');
+            setDescripcion('');
+            setSelectedTraspasoId('');
             setIdOrder(response.data.data.orden.id);
             setEstatus(response.data.data.orden.estatus);
             setSelectedBodegaSalida(response.data.data.orden.bodega_salida_id);
             setSelectedBodegaEntrada(response.data.data.orden.bodega_entrada_id);
-            setRolIdTemp(response.data.data.rol_id);
+            setRolIdTemp(response.data.data.rol_id_salida);
+            setRolIdTempEntrada(response.data.data.rol_id_entrada);
             setDescripcion(response.data.data.orden.descripcion);
             setSelectedTraspasoId(response.data.data.orden.tipo_transaccion_id);
             setCategoriaTemp(response.data.data.orden.categoria);
-
-            console.log('Estatus:', response.data.data.orden.estatus);
-            console.log('Rol del usuario:', user.rol_id);
-            console.log('Rol de la orden:', response.data.data.rol_id);
-            console.log('Categoria de la orden:', response.data.data.orden.categoria);
-            console.log('id de la orden:', response.data.data.orden.id);
+            setRolMovimiento(response.data.data.rol_id_tipo_transaccion);
 
             setHabilitarBuscador(user.rol_id === response.data.data.rol_id && response.data.data.orden.estatus === 'abierto');
             setHabilitarComentario(user.rol_id === response.data.data.rol_id && response.data.data.orden.estatus === 'abierto');
@@ -1323,9 +1345,45 @@ const TableOrdenes = () => {
         document.getElementById('file-input').click();
     };
 
+    // Dentro de tu componente
+    const handleBlurComment = async () => {
+        if (habilitarComentario) {
+            // Actualiza la fila seleccionada con el nuevo comentario
+            const updatedRow = { ...selectedRow, comentario: comment };
+            await handleUpdateLinea(updatedRow);
+        }
+    };
+
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
-        { field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100, cellClassName: 'celdaEditable' },
+        { field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100, cellClassName: 'celdaEditable', 
+            renderEditCell: (params) => {
+                return (
+                    <GridEditInputCell
+                        {...params}
+                        type="number"
+                        inputProps={{
+                            min: 0, // Establecer el mínimo permitido en el input
+                        }}
+                        onWheel={(e) => e.target.blur()} // Evitar cambios accidentales con la rueda del mouse
+                    />
+                );
+            },
+            preProcessEditCellProps: (params) => {
+                const { props } = params;
+    
+                // Asegurar que el valor sea al menos 0
+                const value = Math.max(0, props.value);
+    
+                const isValid = /^[0-9]+$/.test(value);
+    
+                return {
+                    ...props,
+                    value, // Forzar el valor a 0 si es menor
+                    error: !isValid,  // Marca la celda con error si la validación falla
+                };
+            }
+         },
         { field: 'producto_id', headerName: 'MLM', width: 150 },
         { field: 'localidad_salida', headerName: 'Ubicación Origen', width: 150 },
         { field: 'existencias_origen', headerName: 'Existencia Origen', type: 'number', width: 150 },
@@ -1358,7 +1416,7 @@ const TableOrdenes = () => {
                             </Tooltip>
                         ) : null,
                     ].filter(Boolean);
-                } else if (user.rol_id !== rolIdTemp && estatus === 'abierto') {
+                } else if (user.rol_id !== rolMovimiento && estatus === 'abierto') {
                     return [
                         params.row.comentario ? (
                             <Tooltip title='Ver comentario' key={`comment-${params.row.id}`}>
@@ -1460,6 +1518,8 @@ const TableOrdenes = () => {
                     disabled={!habilitarTraspaso}
                     value={descripcion}
                     ref={descripcionRef}
+                    // onKeyDown={handleKeyDown2}
+                    // onBlur={handleBlur2}
                     onChange={(e) => setDescripcion(e.target.value)}></input>
                 <label className='item5' >Tipo de movimiento:</label>
                 <select
@@ -1556,8 +1616,16 @@ const TableOrdenes = () => {
                 <input className='item17'
                     disabled={!habilitarCantidad}
                     value={inputValue}
+                    type='text'
                     ref={cantidadRef}
-                    onChange={(e) => setInputValue(e.target.value)}></input>
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        // Expresión regular para permitir solo números y evitar caracteres especiales
+                        const regex = /^[1-9]\d*$/;
+                        if (value === '' || regex.test(value)) {
+                            setInputValue(value);
+                        }
+                    }}></input>
                 <Button className='item13'
                     variant='contained'
                     endIcon={<SendIcon />}
@@ -1566,7 +1634,7 @@ const TableOrdenes = () => {
                     disabled={isButtonDisabled} // Deshabilita el botón según la condición
                 >Agregar Fila</Button>
                 <label className='coment'>Comentario:</label>
-                <input className='comentInput' placeholder='Ingrese un comentario a la linea' value={comment} disabled={!habilitarComentario} onChange={(e) => setComment(e.target.value)}></input>
+                <input className='comentInput' placeholder='Ingrese un comentario a la linea' value={comment} disabled={!habilitarComentario} onChange={(e) => setComment(e.target.value)} onBlur={handleBlurComment}></input>
             </div>
             <div >
                 <div className='DataG' style={{ height: 500, width: 'auto' }}>
@@ -1581,7 +1649,7 @@ const TableOrdenes = () => {
                         onRowClick={handleRowClick}
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
-                            id: true,
+                            id: false,
                             localidad_salida_id: false,
                             localidad_entrada_id: false,
                         }}

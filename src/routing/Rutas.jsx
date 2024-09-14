@@ -18,6 +18,8 @@ import Inventario from '../components/pages/Menu/Inventario';
 import ProtectedRoute from './ProtectedRoute';
 import Home from '../components/pages/Menu/Home';
 import Envios from '../components/Envios/Envios';
+import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/TableOrdenesCompra';
+import AnalisisVentas from '../components/pages/Analisi Ventas/AnalisisVentas';
 
 const Rutas = () => {
     return (
@@ -27,10 +29,14 @@ const Rutas = () => {
                 <Routes>
                     <Route path='/' element={<Login />} />
                     <Route path="/login" element={<Login />} />
-                    <Route path='/proveedores' element={<Proveedores />} />
+                    <Route path='/proveedores' element={
+                        <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
+                            <Proveedores />
+                        </ProtectedRoute>
+                    } />
                     <Route path='/usuarios' element={<Usuarios />} />
                     <Route path='/ventas' element={
-                        <ProtectedRoute allowedRoles={['administrador']}>
+                        <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
                             <Ventas />
                         </ProtectedRoute>
                     } />
@@ -46,6 +52,8 @@ const Rutas = () => {
                     <Route path='/inventario' element={<Inventario />} />
                     <Route path='/home' element={<Home />} />
                     <Route path='/envios' element={<Envios />} />
+                    <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
+                    <Route path='/analisisVentas' element={<AnalisisVentas />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>

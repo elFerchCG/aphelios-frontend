@@ -15,7 +15,8 @@ const handleOpen = (transaccion) => {
         { field: 'id', headerName: 'Folio', width: 50 },
         { field: 'descripcion', headerName: 'Descripción', width: 250 },
         { field: 'categoria', headerName: 'Categoria', width: 200 },
-        { field: 'responsable', headerName: 'Responsable', width: 200 },
+        { field: 'activo', headerName: 'Activo', width: 200 },
+        { field: 'rol_id', headerName: 'Rol', width: 200 },
         {
             field: 'actions', headerName: 'Acciones', type: 'actions', width: 150, getActions: (params) => [
                 <Tooltip title='Ver detalles' >

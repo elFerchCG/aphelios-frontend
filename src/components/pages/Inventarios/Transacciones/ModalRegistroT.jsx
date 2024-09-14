@@ -16,7 +16,7 @@ const ModalRegistroT = ({ openModalRegistroT, setOpenModalRegistroT, fetchData }
   const estadoInicial = {
     descripcion: "",
     categoria: "",
-    responsable: ""
+    rol_id: ""
   };
 
   const [data, setData] = React.useState(estadoInicial);
@@ -46,7 +46,7 @@ const ModalRegistroT = ({ openModalRegistroT, setOpenModalRegistroT, fetchData }
       const response = await axios.post("http://localhost:3304/inventario/tipoTransaccion", {
         descripcion: data.descripcion,
         categoria: data.categoria,
-        responsable: data.responsable
+        rol_id: data.rol_id
       });
       setData(response);
       Swal.fire({
@@ -106,17 +106,23 @@ const ModalRegistroT = ({ openModalRegistroT, setOpenModalRegistroT, fetchData }
               <MenuItem value="conteo ciclico">Conteo ciclico</MenuItem>
             </Select>
           </FormControl>
-          <TextField
-            margin="dense"
-            id="responsable"
-            name="responsable"
-            label="Responsable"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={data.responsable}
-            onChange={handleChange}
-          />
+          <FormControl fullWidth margin='dense' variant='standard'>
+            <InputLabel id="rol-label">Rol</InputLabel>
+            <Select
+              labelId="rol-label"
+              id="rol_id"
+              name="rol_id"
+              value={data.rol_id}
+              onChange={handleChange}
+            >
+              <MenuItem value={1}>Administrador</MenuItem>
+              <MenuItem value={2}>Super Usuario</MenuItem>
+              <MenuItem value={3}>Planeador</MenuItem>
+              <MenuItem value={4}>Almacenista</MenuItem>
+              <MenuItem value={5}>Marketing</MenuItem>
+              <MenuItem value={6}>Producción</MenuItem>
+            </Select>
+          </FormControl>
         </form>
       </DialogContent>
       <DialogActions>
