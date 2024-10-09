@@ -369,6 +369,21 @@ body, html {
     margin-left: 60px;
 }
 
+.cantidadContadaL {
+    grid-column: 8 / 11;
+    grid-row: 3;
+    margin-top: auto;
+    margin-left: 60px;
+}
+
+.cantidadContada {
+    grid-column: 9 / 11;
+    grid-row: 3;
+    margin-top: auto;
+    margin-left: 70px;
+    width: 70px;
+}
+
 .item15 {
     grid-column: 9 / 10;
     grid-row: 3;
@@ -490,6 +505,17 @@ body, html {
     grid-row: 2;
     margin-top: 20px;
 }
+
+.react-datepicker-wrapper {
+    grid-column: 10;
+    grid-row: 2;
+    margin-top: -5px;
+}
+
+.react-datepicker {
+    z-index: 1000; /* Asegúrate de que el calendario esté por encima de otros elementos */
+}
+
 
 .fechaRecibo {
     grid-column: 10;

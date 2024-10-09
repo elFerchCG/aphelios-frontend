@@ -1,7 +1,7 @@
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, Button, Modal, Tooltip } from '@mui/material';
+import { Box, Button, Input, Modal, Tooltip } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png'
 import processOrden from '../../../../images/process.png'
@@ -76,6 +76,7 @@ const TableOrdenes = () => {
     const [isButtonDisabled, setIsButtonDisabled] = useState(true);
     const [rolMovimiento, setRolMovimiento] = useState('');
     const [rolIdTempEntrada, setRolIdTempEntrada] = useState('');
+    const [open, setOpen] = useState(false);
 
     const bodegaSalidaRef = useRef(null);
     const bodegaEntradaRef = useRef(null);
@@ -109,6 +110,26 @@ const TableOrdenes = () => {
         };
     }, []);
 
+    // Estilos del modal
+    const modalStyle = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        borderRadius: 6,
+        boxShadow: 24,
+        p: 4,
+    };
+
+    const handleOpenSearchProducts = () => {
+        if (productoId) {
+            setOpen(true);
+        }
+    }
+
+    const handleCloseSearchProducts = () => setOpen(false);
 
     useEffect(() => {
 
@@ -223,9 +244,7 @@ const TableOrdenes = () => {
             setCategoriaTemp(tipoTraspasoSeleccionado.categoria);
             setIdTraspaso(tipoTraspasoSeleccionado.id);
             setRolMovimiento(tipoTraspasoSeleccionado.rol_id);
-
         }
-
     };
 
     useEffect(() => {
@@ -431,7 +450,7 @@ const TableOrdenes = () => {
 
             const newRow = {
                 id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
-                cantidad: inputValue,
+                cantidad: parseInt(inputValue),
                 producto_id: productoId, // ID del producto seleccionado,
                 producto_title: productoTitle,
                 existencias_origen: existenciaProducto,
@@ -1178,14 +1197,14 @@ const TableOrdenes = () => {
 
     const handleUpdateOrder = async () => {
         try {
-            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`, 
+            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`,
                 {
                     descripcion: descripcion,
                 },
                 {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
                 });
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
@@ -1264,11 +1283,11 @@ const TableOrdenes = () => {
     };
 
 
-    const handleRowClick = (params) => {
-        setSelectedRow(params.row);  // Almacena toda la fila seleccionada en el estado
-        setComment(params.row.comentario || '');  // Obtiene el comentario de la fila o establece un valor por defecto
-        setHabilitarComentario(true);
-    };
+    // const handleRowClick = (params) => {
+    //     setSelectedRow(params.row);  // Almacena toda la fila seleccionada en el estado
+    //     setComment(params.row.comentario || '');  // Obtiene el comentario de la fila o establece un valor por defecto
+    //     setHabilitarComentario(true);
+    // };
 
     const handleOrderSelection = async (orderId) => {
         if (!orderId) {
@@ -1346,17 +1365,25 @@ const TableOrdenes = () => {
     };
 
     // Dentro de tu componente
-    const handleBlurComment = async () => {
-        if (habilitarComentario) {
-            // Actualiza la fila seleccionada con el nuevo comentario
-            const updatedRow = { ...selectedRow, comentario: comment };
-            await handleUpdateLinea(updatedRow);
-        }
-    };
+    // const handleBlurComment = async () => {
+    //     if (habilitarComentario) {
+    //         // Actualiza la fila seleccionada con el nuevo comentario
+    //         const updatedRow = { ...selectedRow, comentario: comment };
+    //         await handleUpdateLinea(updatedRow);
+    //     }
+    // };
+
+    const columnsProducts = [
+        { field: 'producto_id', headerName: 'MLM', type: 'text', flex: 2 },
+        { field: 'producto_title', headerName: 'Titulo', type: 'text', flex: 3 },
+        { field: 'cantidad_ordenada', headerName: 'Existencias', type: 'number', flex: 1, headerAlign: 'center' },
+        { field: 'ubicacion', headerName: 'Ubicación', type: 'text', flex: 1, headerAlign: 'center' }
+    ]
 
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
-        { field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100, cellClassName: 'celdaEditable', 
+        {
+            field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100, cellClassName: 'celdaEditable',
             renderEditCell: (params) => {
                 return (
                     <GridEditInputCell
@@ -1371,19 +1398,19 @@ const TableOrdenes = () => {
             },
             preProcessEditCellProps: (params) => {
                 const { props } = params;
-    
+
                 // Asegurar que el valor sea al menos 0
                 const value = Math.max(0, props.value);
-    
+
                 const isValid = /^[0-9]+$/.test(value);
-    
+
                 return {
                     ...props,
                     value, // Forzar el valor a 0 si es menor
                     error: !isValid,  // Marca la celda con error si la validación falla
                 };
             }
-         },
+        },
         { field: 'producto_id', headerName: 'MLM', width: 150 },
         { field: 'localidad_salida', headerName: 'Ubicación Origen', width: 150 },
         { field: 'existencias_origen', headerName: 'Existencia Origen', type: 'number', width: 150 },
@@ -1508,6 +1535,27 @@ const TableOrdenes = () => {
                     </div>
                 </div>
             </div>
+            {/* Ventana Modal */}
+            <Modal open={open} onClose={handleCloseSearchProducts}>
+                <Box sx={modalStyle}>
+                    <Input 
+                    placeholder='Busqueda de producto'
+                    ></Input>
+                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500}}
+                        rows={rows}
+                        columns={columnsProducts}
+                        pageSize={5}
+                        // processRowUpdate={processRowUpdate}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={{
+
+                        }}
+                    />
+                    <Button onClick={handleCloseSearchProducts} variant="contained" color="primary">Cerrar</Button>
+                </Box>
+            </Modal>
             <div className='container'>
                 <label className='item1'>Orden:</label>
                 <input className='item2' value={idOrder} readOnly></input>
@@ -1569,7 +1617,7 @@ const TableOrdenes = () => {
                     className='item12'
                     type='text'
                     onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
+                    onBlur={handleOpenSearchProducts}
                     disabled={!habilitarBuscador}
                     value={productoId}
                     onChange={(e) => setProductoId(e.target.value)}
@@ -1634,7 +1682,7 @@ const TableOrdenes = () => {
                     disabled={isButtonDisabled} // Deshabilita el botón según la condición
                 >Agregar Fila</Button>
                 <label className='coment'>Comentario:</label>
-                <input className='comentInput' placeholder='Ingrese un comentario a la linea' value={comment} disabled={!habilitarComentario} onChange={(e) => setComment(e.target.value)} onBlur={handleBlurComment}></input>
+                <input className='comentInput' placeholder='Ingrese un comentario a la linea' value={comment} disabled={!habilitarComentario} onChange={(e) => setComment(e.target.value)} ></input>
             </div>
             <div >
                 <div className='DataG' style={{ height: 500, width: 'auto' }}>
@@ -1646,7 +1694,7 @@ const TableOrdenes = () => {
                         showCellVerticalBorder
                         showColumnVerticalBorder
                         getRowId={(row) => row.id}
-                        onRowClick={handleRowClick}
+                        // onRowClick={handleRowClick}
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
                             id: false,

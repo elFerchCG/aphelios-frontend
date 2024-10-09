@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import FetchOrdenesCompra from './FetchOrdenesCompra';
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
 import axios from 'axios';
-import { Box, Button, IconButton, InputAdornment, Modal, TextField, Tooltip } from '@mui/material';
+import { Box, Button, Modal, TextField, Tooltip } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png'
 import processOrden from '../../../../images/process.png'
@@ -14,7 +14,9 @@ import SendIcon from '@mui/icons-material/Send';
 import cancelOrder from '../../../../images/cancel.png'
 import { useRef } from 'react';
 import Swal from 'sweetalert2';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -28,11 +30,19 @@ const getCurrentDateTime = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-const formatFecha = (fecha) => {
-    const date = new Date(fecha);
+const formatFecha = (date) => {
+    if (!date) return null; // Asegúrate de manejar el caso de que no haya fecha
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
-    const day = String(date.getDate() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const formatFechaGet = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
+    const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
 
@@ -47,6 +57,7 @@ const TableOrdenesCompra = () => {
     const [ubicacionEntradaHabilitada, setUbicacionEntradaHabilitada] = useState(false);
     const [bodegasEntrada, setBodegasEntrada] = useState([]);
     const [selectedMovimiento, setSelectedMovimiento] = useState('');
+    const [ubicacionLineas, setUbicacionLineas] = useState('');
     const [movimientos, setMovimientos] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [existenciaProductoDestino, setExistenciaProductoDestino] = useState('');
@@ -70,13 +81,9 @@ const TableOrdenesCompra = () => {
     const [enableRevertir, setEnableRevertir] = useState(false);
     const [enableCancel, setEnableCancel] = useState(false);
     const [habilitarBuscador, setHabilitarBuscador] = useState(false);
-    const [cantidad_ordenada, setCantidad_Ordenada] = useState('');
-    const [cantidad_recibida, setCantidad_recibida] = useState('');
     const [precio, setPrecio] = useState('');
-    const [fecha_recibo, setFecha_Recibo] = useState('');
-    const [ubicacion_compra, setUbicacion_Compra] = useState('');
     const [rolMovimiento, setRolMovimiento] = useState('');
-    const [selectedFechaCompromiso, setSelectedFechaCompromiso] = useState('');
+    const [selectedFechaCompromiso, setSelectedFechaCompromiso] = useState(null);
     const [fechaCompromisoHabilitada, setFechaCompromisoHabilitada] = useState(false);
     const [habilitarPrecio, setHabilitarPrecio] = useState(false);
     const [selectedComment, setSelectedComment] = useState('');
@@ -140,7 +147,7 @@ const TableOrdenesCompra = () => {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                const resultadosFiltrados = response.data.filter(item => item.rol_id === user.rol_id);
+                const resultadosFiltrados = response.data.filter(item => item.rol_id === user.rol_id && item.categoria === 'entrada' && item.conteo === 1);
 
                 if (resultadosFiltrados.length > 0) {
                     setMovimientos(resultadosFiltrados);
@@ -233,9 +240,10 @@ const TableOrdenesCompra = () => {
     };
 
     const handleGenerarOrder = async () => {
-        const handleAddRow = (lineasIds = []) => {
+        const handleAddRow = (lineasIds = [], ubicacionEntradaDescripcionBackend = '') => {
 
             const selectedUbicacionEntradaDescripcion = ubicacionesEntrada.find(ubicacion => ubicacion.id === selectedUbicacionEntrada)?.descripcion || '';
+
 
             const newRow = {
                 id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
@@ -243,13 +251,13 @@ const TableOrdenesCompra = () => {
                 cantidad_recibida: 0,
                 producto_id: producto, // ID del producto seleccionado,
                 producto_title: productoTitle,
-                ubicacion_entrada_descripcion: selectedUbicacionEntradaDescripcion,
+                ubicacion_entrada_descripcion: selectedUbicacionEntradaDescripcion || ubicacionEntradaDescripcionBackend,
                 ubicacion_entrada_id: selectedUbicacionEntrada,
                 back_order: inputValue - 0,
-                fecha_recibo: formatFecha(selectedFechaCompromiso),
+                fecha_recibo: null,
                 fecha_back: formatFecha(selectedFechaCompromiso),
-                precio: precio,
-                precio_factura: precio,
+                precio: parseFloat(precio) || 0,
+                precio_factura: parseFloat(precio) || 0,
                 comentario: comment
             };
 
@@ -269,21 +277,17 @@ const TableOrdenesCompra = () => {
                 lineas: [{
                     producto_id: producto,
                     cantidad_ordenada: parseInt(inputValue),
-                    precio: precio,
-                    fecha_recibo: formatFecha(selectedFechaCompromiso),
+                    precio: parseFloat(precio) || 0,
+                    fecha_recibo: null,
                     back_order: parseInt(inputValue),
-                    fecha_back: formatFecha(selectedFechaCompromiso),
+                    fecha_back: null,
                     comentario: comment,
-                    ubicacion_entrada_id: parseOrNull(selectedUbicacionEntrada),
                     cantidad_recibida: 0,
-                    precio_factura: precio,
+                    precio_factura: parseFloat(precio) || 0,
                 }]
             };
 
             const enviarLineas = async (ordenId) => {
-                if (ubicacionEntradaRef.current) {
-                    ubicacionEntradaRef.current.classList.remove('error');
-                }
 
                 if (cantidadRef.current) {
                     cantidadRef.current.classList.remove('error');
@@ -292,12 +296,6 @@ const TableOrdenesCompra = () => {
                 let isValid = true;
 
                 try {
-                    if (!selectedUbicacionEntrada) {
-                        if (ubicacionEntradaRef.current) {
-                            ubicacionEntradaRef.current.classList.add('error');
-                        }
-                        isValid = false;
-                    }
                     if (!inputValue) {
                         if (cantidadRef.current) {
                             cantidadRef.current.classList.add('error');
@@ -320,9 +318,12 @@ const TableOrdenesCompra = () => {
                             'Authorization': `Bearer ${token}`
                         }
                     });
+                    // Actualiza la ubicación con la descripción recibida del backend
+                    const ubicacionEntradaDescripcionBackend = response.data.data.ubicacionEntradaDescripcion;
 
-                    handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
-
+                    // Actualiza el estado de ubicacionLineas
+                    setUbicacionLineas(ubicacionEntradaDescripcionBackend);
+                    handleAddRow(response.data.data.lineasIds, ubicacionEntradaDescripcionBackend); // Pasar los IDs de las líneas al método de agregar filas
 
                 } catch (error) {
                     if (error.response && error.response.data && error.response.data.message) {
@@ -345,7 +346,6 @@ const TableOrdenesCompra = () => {
 
         } else if (!estatus) {
             //const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
             const data = {
                 descripcion: descripcion,
                 tipo_transaccion_id: idMovimiento,
@@ -357,13 +357,13 @@ const TableOrdenesCompra = () => {
                         producto_id: producto,
                         cantidad_ordenada: parseInt(inputValue),
                         precio: precio,
-                        fecha_recibo: formatFecha(selectedFechaCompromiso),
+                        fecha_recibo: null,
                         back_order: parseInt(inputValue),
                         fecha_back: formatFecha(selectedFechaCompromiso),
                         comentario: comment,
                         ubicacion_entrada_id: parseOrNull(selectedUbicacionEntrada),
                         cantidad_recibida: 0,
-                        precio_factura: precio,
+                        precio_factura: parseFloat(precio) || 0,
                     }
                 ]
             };
@@ -550,16 +550,11 @@ const TableOrdenesCompra = () => {
         }
     };
 
-    const handleFechaCompromiso = (e) => {
-        const selectedFechaCompromiso = e.target.value;
-        setSelectedFechaCompromiso(selectedFechaCompromiso);
-    }
-
     const isCellEditable = () => {
-        if (estatus === 'abierto') {
+        if (estatus === 'confirmado') {
             return user.rol_id === rolMovimiento;
         }
-        return estatus !== 'confirmado' && estatus !== 'procesado' && estatus !== 'cancelada';
+        return estatus !== 'abierto' && estatus !== 'procesado' && estatus !== 'cancelada';
     };
 
     const handleOrderSelection = async (orderId) => {
@@ -610,13 +605,13 @@ const TableOrdenesCompra = () => {
                 cantidad_ordenada: linea.cantidad_ordenada,
                 comentario: linea.comentario,
                 precio: linea.precio,
-                fecha_recibo: formatFecha(linea.fecha_recibo),
+                fecha_recibo: formatFechaGet(linea.fecha_recibo),
                 ubicacion_entrada_descripcion: linea.ubicacion_entrada_descripcion,
                 ubicacion_entrada_id: linea.ubicacion_entrada_id,
                 back_order: linea.back_order,
                 cantidad_recibida: linea.cantidad_recibida,
-                precio_factura: linea.precio_factura,
-                fecha_back: formatFecha(linea.fecha_back),
+                precio_factura: parseFloat(linea.precio_factura) || 0,
+                fecha_back: formatFechaGet(linea.fecha_back),
                 producto_title: linea.producto_title,
 
             }));
@@ -694,21 +689,77 @@ const TableOrdenesCompra = () => {
         }
     }
 
+    const handleCancelOrden = async () => {
+        try {
+            const response = await axios.put(`http://localhost:3304/ordenesCompras/orden/${idOrder}/cancelar`,
+                {},
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+            if (response.data) {
+                // setIdOrder(response.data.ordenId);
+                // setEstatus(response.data.estatus);
+                Swal.fire({
+                    title: '¡Orden cancelada!',
+                    text: 'La orden se cancelo correctamente!',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const { messageText } = error.response.data.message;
+                alert(`Error: ${messageText}`);
+            } else {
+                alert('Ocurrió un error al revertir la orden');
+            }
+        }
+    }
+
+    const handleRevertirOrden = async () => {
+        try {
+            const response = await axios.put(
+                `http://localhost:3304/ordenesCompras/orden/${idOrder}/revertirConfirmacion`,
+                {}, // Este es el cuerpo de la solicitud (si no envías datos, puedes pasar un objeto vacío)
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
+            if (response.data) {
+                setIdOrder(response.data.id);
+                setEstatus(response.data.estatus);
+                Swal.fire({
+                    title: '¡Orden revertida!',
+                    text: 'La orden se revirtio correctamente!',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const { messageText } = error.response.data.message;
+                alert(`Error: ${messageText}`);
+            } else {
+                alert('Ocurrió un error al revertir la orden');
+            }
+        }
+    }
+
     const handleUpdateLinea = async (updatedRow) => {
-        const { id, cantidad_recibida, precio_factura, fecha_back } = updatedRow;
+        const { id, cantidad_recibida, fecha_back } = updatedRow;
 
         try {
-            const formatFechaUpdate = (fecha) => {
-                const date = new Date(fecha);
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
-                const day = String(date.getDate() + 1).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
             const updatedFields = {
                 cantidad_recibida: parseOrNull(cantidad_recibida),
-                precio_factura: parseOrNull(precio_factura),
-                fecha_back: formatFechaUpdate(fecha_back),
+                fecha_back: formatFecha(fecha_back),
             };
 
             const response = await axios.put(`http://localhost:3304/ordenesCompras/lineasOrden/${id}`, updatedFields, {
@@ -717,6 +768,7 @@ const TableOrdenesCompra = () => {
                 }
             });
             fetchOrderSelected(idOrder);
+
             Swal.fire({
                 title: '¡Actualizado!',
                 text: 'Tu línea ha sido actualizada.',
@@ -750,6 +802,7 @@ const TableOrdenesCompra = () => {
             throw error; // Lanzar el error para que pueda ser capturado por processRowUpdate
         }
     };
+
 
     const deleteLine = (id) => async (e) => {
         e.preventDefault();
@@ -795,6 +848,8 @@ const TableOrdenesCompra = () => {
         if (estatus === 'abierto') {
             setHabilitarMovimiento(false);
             setBodegaEntradaHabilitada(false);
+            setEnableRevertir(false);
+            setEnableProcess(false);
             if (user?.rol_id === rolIdTempEntrada) {
                 setEnableConfirm(true);
             } else {
@@ -803,7 +858,6 @@ const TableOrdenesCompra = () => {
             }
             if (user?.rol_id === rolMovimiento) {
                 setHabilitarBuscador(true);
-                setEnableCancel(true);
             }
         }
         if (estatus === 'confirmado') {
@@ -815,10 +869,12 @@ const TableOrdenesCompra = () => {
                 setEnableProcess(true);
             }
             if (user?.rol_id === rolMovimiento) {
+                setEnableCancel(true);
                 setEnableRevertir(true);
             }
         }
         if (estatus === 'procesado') {
+            setEnableCancel(false);
             setEnableRevertir(false);
             setEnableProcess(false);
             setHabilitarMovimiento(false);
@@ -883,6 +939,11 @@ const TableOrdenesCompra = () => {
 
     const handleClose = () => setOpenComment(false);
 
+    // Manejador de cambio para capturar la fecha seleccionada sin desfases
+    const handleFechaCompromiso = (date) => {
+        setSelectedFechaCompromiso(date); // Almacena la fecha como cadena
+    };
+
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
         { field: 'producto_id', headerName: 'Producto', type: 'text', width: 150 },
@@ -890,7 +951,7 @@ const TableOrdenesCompra = () => {
         { field: 'precio', headerName: 'Precio', type: 'float', width: 100 },
         { field: 'cantidad_ordenada', headerName: 'Cantidad', type: 'number', width: 100 },
         { field: 'back_order', headerName: 'Back Order', type: 'number' },
-        { field: 'fecha_recibo', headerName: 'Fecha', width: 150, cellClassName: 'celdaEditable', editable: true, },
+        { field: 'fecha_recibo', headerName: 'Fecha Recibo', width: 150 },
         { field: 'ubicacion_entrada_descripcion', headerName: 'Ubicacion Entrada', type: 'text', width: 150 },
         { field: 'ubicacion_entrada_id', headerName: 'Ubicacion Entrada ID', type: 'number', width: 150 },
         {
@@ -925,32 +986,37 @@ const TableOrdenesCompra = () => {
         {
             field: 'precio_factura',
             headerName: 'Precio Factura',
-            type: 'number',
             width: 150,
             cellClassName: 'celdaEditable',
             editable: true,
-            // Renderizado de la celda en modo edición
-            renderEditCell: (params) => (
-                <TextField
-                    type="text" // Cambiar a "text" para permitir entrada de números con punto decimal
-                    value={params.value ? params.value : ''} // Mostrar el valor actual, vacío si no hay valor
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        // Validar si el valor es un número válido con hasta 4 decimales
-                        if (/^\d+(\.\d{0,4})?$/.test(value)) {
-                            params.api.setEditCellValue({ id: params.id, field: 'precio_factura', value: value });
-                        }
-                    }}
-                    fullWidth
-                />
-            ),
-            // Renderizado de la celda en modo de visualización
-            valueFormatter: (params) => {
-                const value = Number(params.value);
-                // Si el valor es válido, formatearlo con hasta 4 decimales
-                return !isNaN(value) ? value.toFixed(4) : '';
-            }
-        },        
+            renderCell: (params) => {
+                const value = parseFloat(params.value);
+                // Asegúrate de que si el valor es válido, se formatea a 4 decimales
+                return (
+                    <span>{!isNaN(value) ? value.toFixed(4) : ''}</span>
+                );
+            },
+            renderEditCell: (params) => {
+                const formatPrecio = (precio) => {
+                    const value = parseFloat(precio);
+                    return !isNaN(value) ? value.toFixed(4) : '';
+                };
+
+                return (
+                    <TextField
+                        type="text"
+                        value={params.value ? formatPrecio(params.value) : ''}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            if (/^\d+(\.\d{0,4})?$/.test(value)) {
+                                params.api.setEditCellValue({ id: params.id, field: 'precio_factura', value });
+                            }
+                        }}
+                        fullWidth
+                    />
+                );
+            },
+        },
         {
             field: 'fecha_back',
             headerName: 'Fecha Back',
@@ -959,18 +1025,10 @@ const TableOrdenesCompra = () => {
             cellClassName: 'celdaEditable',
             width: 150,
             renderEditCell: (params) => {
-                // Obtener la fecha sin convertirla a UTC
-                const formatFecha = (fecha) => {
-                    const date = new Date(fecha);
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
-                    const day = String(date.getDate() + 1).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                };
                 return (
                     <TextField
                         type="date"
-                        value={params.value ? formatFecha(params.value) : ''}
+                        value={params.value ? formatFechaGet(params.value) : ''}
                         onChange={(e) => {
                             // Mantener la fecha seleccionada sin alterarla
                             params.api.setEditCellValue({ id: params.id, field: 'fecha_back', value: e.target.value });
@@ -1068,13 +1126,13 @@ const TableOrdenesCompra = () => {
         </div> */}
                 </div>
                 <div className="right-actions">
-                    <div className="action-item"
+                    <div className="action-item" onClick={enableCancel ? handleCancelOrden : null}
                         style={{ opacity: enableCancel ? 1 : 0.5, cursor: enableCancel ? 'pointer' : 'not-allowed' }}
                     >
                         <img src={cancelOrder} alt="Cancelar Orden" className="action-icon" />
                         <span>Cancelar Orden</span>
                     </div>
-                    <div className="action-item"
+                    <div className="action-item" onClick={enableRevertir ? handleRevertirOrden : null}
                         style={{ opacity: enableRevertir ? 1 : 0.5, cursor: enableRevertir ? 'pointer' : 'not-allowed' }}
                     >
                         <img src={revertir} alt="Revertir Orden" className="action-icon" />
@@ -1168,13 +1226,15 @@ const TableOrdenesCompra = () => {
                         ))}
                 </select>
                 <label className='fC'>Fecha Compromiso:</label>
-                <input className='fCCalendar'
-                    type='date'
-                    disabled={!fechaCompromisoHabilitada}
-                    value={selectedFechaCompromiso}
-                    ref={fechaCompromisoRef}
+                <DatePicker
+                    className='fCCalendar' 
+                    selected={selectedFechaCompromiso}
                     onChange={handleFechaCompromiso}
-                ></input>
+                    dateFormat="yyyy-MM-dd"
+                    minDate={new Date()}
+                    maxDate={new Date(2024, 11, 31)}
+                    placeholderText='YYYY-MM-DD'
+                />
                 <label className='exis-labelC'>Existencias Destino:</label>
                 <input className='exis-destinoC'
                     value={existenciaProductoDestino} disabled
@@ -1239,6 +1299,7 @@ const TableOrdenesCompra = () => {
                             id: false,
                             ubicacion_entrada_id: false,
                             ubicacion_entrada_descripcion: true,
+                            precio_factura: false,
                         }}
                         isCellEditable={isCellEditable}
                     />

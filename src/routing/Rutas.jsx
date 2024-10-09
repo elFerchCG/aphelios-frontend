@@ -20,6 +20,7 @@ import Home from '../components/pages/Menu/Home';
 import Envios from '../components/Envios/Envios';
 import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/TableOrdenesCompra';
 import AnalisisVentas from '../components/pages/Analisi Ventas/AnalisisVentas';
+import ConteoCiclico from '../components/pages/Inventarios/OrdenBodegas/ConteoCiclico';
 
 const Rutas = () => {
     return (
@@ -54,6 +55,7 @@ const Rutas = () => {
                     <Route path='/envios' element={<Envios />} />
                     <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
                     <Route path='/analisisVentas' element={<AnalisisVentas />} />
+                    <Route path='/conteociclico' element={<ConteoCiclico />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>
