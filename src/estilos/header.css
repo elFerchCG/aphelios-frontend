@@ -10,11 +10,13 @@
   position: relative;
   height: 80px; /* Establece una altura fija o mínima para el header */
   box-sizing: border-box;
+  flex-wrap: wrap;
 }
 
 .nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .nav-link {
@@ -81,4 +83,27 @@
 
 .logout-button:hover {
   background-color: #1565c0; /* Cambia el color al pasar el ratón */
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: center;
+    height: auto;
+  }
+  .nav {
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .nav-link {
+    margin-right: 10px;
+    margin-bottom: 10px;
+  }
+  .logo-container {
+    top: 10px;
+  }
+  .logout-button {
+    width: 100%;
+    padding: 10px;
+  }
 }

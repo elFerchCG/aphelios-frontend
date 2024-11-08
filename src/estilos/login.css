@@ -1,6 +1,47 @@
-.cuerpoLogin {
-    text-align: center;
-    margin-left: auto;
-    margin-right: auto;
+body, html {
+    height: 100%;
+    margin: 0;
 }
 
+.layoutLogin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(0deg, #000000, #011336, #022d5e); /* Fondo en degradado */
+}
+
+.cuerpoLogin {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 260px;
+    padding: 40px;
+    background-color: rgba(255, 255, 255, 0.9); /* Fondo semitransparente */
+    box-shadow: 2px 8px 8px rgba(0, 0, 0, 0.2); /* Sombra alrededor */
+    border-radius: 30px;
+    position: relative;
+    border-color:  black;
+}
+
+.itemLogin {
+    width: 100%;
+    margin-bottom: 50px;
+    margin-top: 30px;
+}
+
+.botonLogin {
+    position: absolute;
+    bottom: -35px; /* Ajusta la posición para que salga un poco */
+    transform: translateY(50%); /* Para centrar verticalmente la mitad del botón */
+    padding: 10px 20px;
+    border-radius: 30px;
+}
+
+.logoAphelios {
+    position: absolute;
+    width: 200px;
+    transform: translateY(50%); /* Para centrar verticalmente la mitad del botón */
+    top: 120px;
+}

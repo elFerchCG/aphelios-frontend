@@ -1,20 +1,22 @@
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, Button, Input, Modal, Tooltip } from '@mui/material';
+import { Box, Button, Input, InputAdornment, Modal, TextField, Tooltip } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
-import confirmOrden from '../../../../images/confirm.png'
-import processOrden from '../../../../images/process.png'
-import revertir from '../../../../images/revertir.png'
-import searchOrden from '../../../../images/search.png'
-import addOrder from '../../../../images/addOrder.png'
+import confirmOrden from '../../../../images/confirm.png';
+import processOrden from '../../../../images/process.png';
+import revertir from '../../../../images/revertir.png';
+import searchOrden from '../../../../images/search.png';
+import addOrder from '../../../../images/addOrder.png';
 import importExcel from '../../../../images/archivo-excel.png';
 import Swal from 'sweetalert2';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RateReviewIcon from '@mui/icons-material/RateReview';
-import FetchOrders from './FetchOrders'
+import FetchOrders from './FetchOrders';
 import SendIcon from '@mui/icons-material/Send';
-import cancelOrder from '../../../../images/cancel.png'
+import cancelOrder from '../../../../images/cancel.png';
+import UpdateIcon from '@mui/icons-material/Update';
+import SearchIcon from '@mui/icons-material/Search';
 import { read, utils } from 'xlsx';
 import { useRef } from 'react';
 
@@ -31,15 +33,19 @@ const getCurrentDateTime = () => {
 };
 
 const TableOrdenes = () => {
-    const [selectedOrderId, setSelectedOrderId] = useState(null)
     const [bodegaSalida, setBodegaSalida] = useState([]);
     const [bodegaEntrada, setBodegaEntrada] = useState([]);
+    const [productoSku, setProductoSku] = useState('');
+    const [productoMlm, setProductoMlm] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState('');
     const [traspasos, setTraspasos] = useState([]);
     const [selectedBodegaSalida, setSelectedBodegaSalida] = useState('');
     const [selectedBodegaEntrada, setSelectedBodegaEntrada] = useState('');
     const [selectedTraspasoId, setSelectedTraspasoId] = useState('');
     const [inputValue, setInputValue] = useState('');
     const [rows, setRows] = useState([]);
+    const [rowsProducts, setRowsProducts] = useState([]);
+    const [selectedRow, setSelectedRow] = useState([]);
     const [ubicacionEntrada, setUbicacionEntrada] = useState([]);
     const [bodegaEntradaHabilitada, setBodegaEntradaHabilitada] = useState(false);
     const [bodegaSalidaHabilitada, setBodegaSalidaHabilitada] = useState(false);
@@ -53,6 +59,7 @@ const TableOrdenes = () => {
     const [selectedUbicacionEntrada, setSelectedUbicacionEntrada] = useState('');
     const [selectedUbicacionSalida, setSelectedUbicacionSalida] = useState('');
     const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
+    const [habilitarDescripcion, setHabilitarDescripcion] = useState(false);
     const [habilitarBuscador, setHabilitarBuscador] = useState(false);
     const [habilitarCantidad, setHabilitarCantidad] = useState(false);
     const [descripcion, setDescripcion] = useState('');
@@ -67,7 +74,6 @@ const TableOrdenes = () => {
     const [habilitarComentario, setHabilitarComentario] = useState(false);
     const [openComment, setOpenComment] = useState(false);
     const [selectedComment, setSelectedComment] = useState('');
-    const [selectedRow, setSelectedRow] = useState(null);
     const [openModal, setOpenModal] = useState(false);
     const [idTraspaso, setIdTraspaso] = useState('');
     const [rolIdTemp, setRolIdTemp] = useState('');
@@ -77,6 +83,8 @@ const TableOrdenes = () => {
     const [rolMovimiento, setRolMovimiento] = useState('');
     const [rolIdTempEntrada, setRolIdTempEntrada] = useState('');
     const [open, setOpen] = useState(false);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const bodegaSalidaRef = useRef(null);
     const bodegaEntradaRef = useRef(null);
@@ -123,33 +131,70 @@ const TableOrdenes = () => {
         p: 4,
     };
 
-    const handleOpenSearchProducts = () => {
-        if (productoId) {
-            setOpen(true);
+    // Función que abre la modal y realiza la búsqueda al hacer clic en el ícono de búsqueda
+    const handleOpenSearchProducts = async () => {
+        if (habilitarBuscador) {
+            setOpen(true);  // Abre la modal después de la búsqueda
         }
-    }
+    };
 
     const handleCloseSearchProducts = () => setOpen(false);
 
     useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const response = await axios.get('http://localhost:3304/buscador/productos/todo');
+                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                    setRowsProducts(response.data);
+                    setFilteredProducts(response.data);
+                } else {
+                    Swal.fire({
+                        title: '!Productos no encontrados!',
+                        text: 'No se encontraron productos',
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            } catch (error) {
+                if (error.response && error.response.data && error.response.data.message) {
+                    const { messageText } = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: `Error: ${messageText}`,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            }
+        }
+        fetchProducts();
+    }, []);
 
+    useEffect(() => {
         const fetchBodegas = async () => {
-
             try {
                 const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-
                 setBodegaSalida(response.data);
                 setBodegaEntrada(response.data);
             } catch (error) {
                 if (error.response && error.response.data && error.response.data.message) {
-                    const { messageText } = error.response.data.message;
-                    alert(`Error: ${messageText}`);
-                } else {
-                    alert('Ocurrio un error al mostrar las bodegas');
+                    const errorMessage = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: errorMessage,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
                 }
             }
         };
@@ -174,10 +219,15 @@ const TableOrdenes = () => {
 
             } catch (error) {
                 if (error.response && error.response.data && error.response.data.message) {
-                    const { messageText } = error.response.data.message;
-                    alert(`Error: ${messageText}`);
-                } else {
-                    alert('Ocurrio un error al mostrar los tipos de movimientos');
+                    const errorMessage = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: errorMessage,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
                 }
             }
         };
@@ -241,6 +291,7 @@ const TableOrdenes = () => {
 
         const tipoTraspasoSeleccionado = traspasos.find(traspaso => traspaso.id === traspasoId);
         if (tipoTraspasoSeleccionado) {
+            setHabilitarDescripcion(true);
             setCategoriaTemp(tipoTraspasoSeleccionado.categoria);
             setIdTraspaso(tipoTraspasoSeleccionado.id);
             setRolMovimiento(tipoTraspasoSeleccionado.rol_id);
@@ -265,7 +316,7 @@ const TableOrdenes = () => {
         }
     }, [categoriaTemp])
 
-    const fetchExistencias = async () => {
+    const fetchExistencias = async (productoId) => {
         // Verificar si las refs no son null antes de acceder a classList
         if (bodegaSalidaRef.current) {
             bodegaSalidaRef.current.classList.remove('error');
@@ -335,6 +386,9 @@ const TableOrdenes = () => {
                 setUbicaciones(response.data.data.salida);
                 setUbicacionEntrada(response.data.data.entrada);
                 setProductoTitle(response.data.data.producto.title);
+                setProductoSku(response.data.data.producto.sku);
+                setProductoId(response.data.data.producto.producto_id);
+                setProductoMlm(response.data.data.producto.inventory_id);
             } else {
 
                 let bodegaSeleccionada;
@@ -369,9 +423,15 @@ const TableOrdenes = () => {
                 if (categoriaTemp === 'salida' && response.data.ok) {
                     setUbicaciones(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
+                    setProductoSku(response.data.data.producto.sku);
+                    setProductoMlm(response.data.data.producto.inventory_id);
+                    setProductoId(response.data.data.producto.producto_id);
                 } else if (categoriaTemp === 'entrada' && response.data.ok) {
                     setUbicacionEntrada(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
+                    setProductoSku(response.data.data.producto.sku);
+                    setProductoMlm(response.data.data.producto.inventory_id);
+                    setProductoId(response.data.data.producto.producto_id);
                 }
             }
         } catch (error) {
@@ -389,26 +449,28 @@ const TableOrdenes = () => {
         };
     };
 
-    const handleSearch = () => {
-        fetchExistencias();
-        setComment('');
-        setIsButtonDisabled(false);
-        if (categoriaTemp === 'transferencia') {
-            setUbicacionSalidaHabilitada(true);
-            setUbicacionEntradaHabilitada(true);
-            setHabilitarCantidad(true);
-            setHabilitarComentario(true);
-        } else if (categoriaTemp === 'salida') {
-            setUbicacionSalidaHabilitada(true);
-            setUbicacionEntradaHabilitada(false);
-            setHabilitarCantidad(true);
-            setHabilitarComentario(true);
-        }
-        else if (categoriaTemp === 'entrada') {
-            setUbicacionEntradaHabilitada(true);
-            setUbicacionSalidaHabilitada(false);
-            setHabilitarCantidad(true);
-            setHabilitarComentario(true);
+    const handleSearch = (productoId) => {
+        if (productoId) {
+            fetchExistencias(productoId);
+            setComment('');
+            setIsButtonDisabled(false);
+            if (categoriaTemp === 'transferencia') {
+                setUbicacionSalidaHabilitada(true);
+                setUbicacionEntradaHabilitada(true);
+                setHabilitarCantidad(true);
+                setHabilitarComentario(true);
+            } else if (categoriaTemp === 'salida') {
+                setUbicacionSalidaHabilitada(true);
+                setUbicacionEntradaHabilitada(false);
+                setHabilitarCantidad(true);
+                setHabilitarComentario(true);
+            }
+            else if (categoriaTemp === 'entrada') {
+                setUbicacionEntradaHabilitada(true);
+                setUbicacionSalidaHabilitada(false);
+                setHabilitarCantidad(true);
+                setHabilitarComentario(true);
+            }
         }
     };
 
@@ -420,9 +482,17 @@ const TableOrdenes = () => {
             // Si todo sale bien, devolver la fila actualizada
             return updatedRow;
         } catch (error) {
-            console.error("Error al actualizar la fila:", error);
-            // Si hay un error, revertir la fila al estado original
-            return oldRow;
+            if (error.response && error.response.data && error.response.data.message) {
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
         }
     };
 
@@ -452,6 +522,8 @@ const TableOrdenes = () => {
                 id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
                 cantidad: parseInt(inputValue),
                 producto_id: productoId, // ID del producto seleccionado,
+                sku: productoSku,
+                inventory_id: productoMlm,
                 producto_title: productoTitle,
                 existencias_origen: existenciaProducto,
                 existencias_destino: existenciaProductoDestino,
@@ -459,12 +531,14 @@ const TableOrdenes = () => {
                 localidad_salida: selectedUbicacionSalidaDescripcion,
                 localidad_entrada_id: selectedUbicacionEntrada,
                 localidad_salida_id: selectedUbicacionSalida,
-                comentario: comment
+                comentario: selectedComment
             };
 
             setRows((prevRows) => [...prevRows, newRow]);
 
             setProductoId('');
+            setProductoSku('');
+            setProductoMlm('');
             setSelectedUbicacionSalida('');
             setSelectedUbicacionEntrada('');
             setExistenciaProducto('');
@@ -479,7 +553,7 @@ const TableOrdenes = () => {
                 lineas: [{
                     producto_id: productoId,
                     cantidad: parseInt(inputValue),
-                    comentario: comment,
+                    comentario: selectedComment,
                     localidad_salida_id: parseOrNull(selectedUbicacionSalida),
                     localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
                 }]
@@ -621,7 +695,7 @@ const TableOrdenes = () => {
                     {
                         producto_id: productoId,
                         cantidad: parseInt(inputValue),
-                        comentario: comment,
+                        comentario: selectedComment,
                         localidad_salida_id: parseOrNull(selectedUbicacionSalida),
                         localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
                     }
@@ -785,7 +859,7 @@ const TableOrdenes = () => {
                 }
             }
         }
-    };
+    }
 
     // const handleImportExcel = async (e) => {
     //     const file = e.target.files[0];
@@ -891,10 +965,15 @@ const TableOrdenes = () => {
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrio un error al confirmar la orden');
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         }
     }
@@ -924,10 +1003,15 @@ const TableOrdenes = () => {
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrió un error al revertir la orden');
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         }
     }
@@ -957,14 +1041,18 @@ const TableOrdenes = () => {
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrió un error al revertir la orden');
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         }
     }
-
 
     const handleProcesarOrden = async () => {
         const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -993,10 +1081,15 @@ const TableOrdenes = () => {
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrio un error al verificar el producto o las existencias');
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         }
     }
@@ -1015,7 +1108,6 @@ const TableOrdenes = () => {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    console.log("Esta es la orden id del delete:", id);
                     // Eliminar la línea en el backend
                     await axios.delete(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`, {
                         headers: {
@@ -1041,24 +1133,20 @@ const TableOrdenes = () => {
         });
     };
 
-
     useEffect(() => {
-        if (productoId === '') {
+        if (productoSku === '') {
             setSelectedUbicacionSalida('');
             setSelectedUbicacionEntrada('');
             setUbicacionSalidaHabilitada(false);
             setUbicacionEntradaHabilitada(false);
             setHabilitarCantidad(false);
-            setHabilitarComentario(false);
             setExistenciaProducto('');
             setExistenciaProductoDestino('');
             setInputValue('');
-            setComment('');
+            setSelectedComment('');
             setIsButtonDisabled(true);
-        } else {
-            console.log("Este es el valor actual del producto buscado:", productoId);
         }
-    }, [productoId])
+    }, [productoSku])
 
     const handleOrderNew = () => {
         setRows([]);
@@ -1070,17 +1158,19 @@ const TableOrdenes = () => {
         setUbicacionSalidaHabilitada(false);
         setUbicacionEntradaHabilitada(false);
         setHabilitarCantidad(false);
+        setHabilitarComentario(false);
         setDescripcion('');
         setSelectedTraspasoId('');
         setSelectedBodegaSalida('');
         setSelectedBodegaEntrada('');
         setProductoId('');
+        setProductoSku('');
         setSelectedUbicacionSalida('');
         setSelectedUbicacionEntrada('');
         setExistenciaProducto('');
         setExistenciaProductoDestino('');
         setInputValue('');
-        setComment('');
+        setSelectedComment('');
         setEstatus('');
         setIdOrder('');
         if (bodegaSalidaRef.current) {
@@ -1105,31 +1195,37 @@ const TableOrdenes = () => {
         let isValid = true;
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' || e.key === 'Tab') {
-            handleSearch();
+    // Función que maneja el evento de presionar Enter en el input
+    const handleKeyDown = async (event) => {
+        if (habilitarBuscador && (event.key === 'Enter' || event.key === 'Tab')) {
+            setSearchTerm(productoSku);
+            setOpen(true);  // Abre la modal después de la búsqueda
         }
-    }
-
-    const handleBlur = () => {
-        handleSearch();
     };
 
-    // const handleKeyDown2 = (e) => {
-    //     if (e.key === 'Enter' || e.key === 'Tab') {
-    //         handleUpdateOrder();
+    // const handleBlur = () => {
+    //     if (productoId) {
+    //         handleSearch();
     //     }
-    // }
+    // };
 
-    // const handleBlur2 = () => {
-    //     handleUpdateOrder();
-    // }
+    const handleProductId = (event) => {
+        const sku = event.target.value;
+        setProductoSku(sku);
+        setSearchTerm(sku);
+    }
 
     useEffect(() => {
         if (estatus === 'abierto') {
-            setHabilitarTraspaso(true);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
+            setEnableRevertir(false);
+            setHabilitarTraspaso(false);
+            if (user?.rol_id === rolMovimiento) {
+                setHabilitarDescripcion(true);
+                setHabilitarBuscador(true);
+                setEnableCancel(true);
+            }
             if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada) {
                 setEnableConfirm(true);
             }
@@ -1142,15 +1238,12 @@ const TableOrdenes = () => {
                 setEnableConfirm(false);
                 setEnableProcess(false);
             }
-            if (user?.rol_id === rolMovimiento) {
-                setHabilitarBuscador(true);
-                setEnableCancel(true);
-            }
         }
         if (estatus === 'confirmado') {
             setHabilitarBuscador(false);
             setEnableConfirm(false);
             setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
             if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada) {
@@ -1170,6 +1263,7 @@ const TableOrdenes = () => {
             setEnableRevertir(false);
             setEnableProcess(false);
             setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
             setHabilitarComentario(false);
@@ -1177,6 +1271,7 @@ const TableOrdenes = () => {
         if (estatus === 'cancelada') {
             setHabilitarBuscador(false);
             setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setEnableCancel(false);
             setEnableConfirm(false);
             setEnableProcess(false);
@@ -1193,31 +1288,44 @@ const TableOrdenes = () => {
             setEnableProcess(false);
         }
 
-    }, [estatus, rolIdTemp, rolMovimiento, user]);
+    }, [estatus, rolIdTemp, rolMovimiento, user, categoriaTemp, rolIdTempEntrada]);
 
     const handleUpdateOrder = async () => {
         try {
-            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`,
-                {
-                    descripcion: descripcion,
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
+            if (descripcion) {
+                const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`,
+                    {
+                        descripcion: descripcion,
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                Swal.fire({
+                    title: '¡Actualizado!',
+                    text: 'Tu descripción ha sido actualizada.',
+                    icon: 'success'
                 });
+                return response.data;
+            }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrio un error al confirmar la orden');
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         }
     }
 
     const handleUpdateLinea = async (updatedRow) => {
-        const { id, cantidad, producto_id, localidad_salida_id, localidad_entrada_id, comentario } = updatedRow;
+        const { id, producto_id, cantidad, localidad_salida_id, localidad_entrada_id, comentario } = updatedRow;
 
         try {
             const updatedFields = {
@@ -1233,47 +1341,55 @@ const TableOrdenes = () => {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
             fetchOrderSelected(idOrder);
             Swal.fire({
                 title: '¡Actualizado!',
                 text: 'Tu línea ha sido actualizada.',
                 icon: 'success'
             });
-
             return response.data;
+
         } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                Swal.fire({
-                    title: 'Error',
-                    text: `Error: ${messageText}`,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-            } else {
-                // Manejo de errores generales
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Ha ocurrido un error inesperado.',
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-            }
+            // Revisamos si la estructura de `error.response.data.message` contiene `messageText`
+            const messageText = error.response?.data?.message?.messageText || 'Ha ocurrido un error inesperado.';
+
+            Swal.fire({
+                title: 'Error',
+                text: messageText,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+
             console.error('Error al actualizar la línea:', error);
             throw error; // Lanzar el error para que pueda ser capturado por processRowUpdate
         }
     };
 
-    const handleOpenComment = (comentario) => {
-        setSelectedComment(comentario || 'Sin comentario');
+    const handleOpenComment = (row) => {
+        setSelectedRow(row);  // Almacena toda la fila seleccionada
+        setSelectedComment(row.comentario || '');  // Inicializa el comentario seleccionado
         setOpenComment(true);
     };
 
+    const handleRowSelectionComment = (params) => {
+        const row = params.row;
+        setSelectedRow(row);
+        setSelectedComment(row.comentario || '');
+        setHabilitarComentario(row.comentario || true);
+    }
+
     const handleClose = () => setOpenComment(false);
+
+    useEffect(() => {
+        if (openComment) {
+            const input = document.getElementById('comment-input');
+            if (input) input.focus();
+        }
+    }, [openComment]);
+
 
     const isCellEditable = () => {
         if (estatus === 'abierto') {
@@ -1281,13 +1397,6 @@ const TableOrdenes = () => {
         }
         return estatus !== 'confirmado' && estatus !== 'procesado' && estatus !== 'cancelada';
     };
-
-
-    // const handleRowClick = (params) => {
-    //     setSelectedRow(params.row);  // Almacena toda la fila seleccionada en el estado
-    //     setComment(params.row.comentario || '');  // Obtiene el comentario de la fila o establece un valor por defecto
-    //     setHabilitarComentario(true);
-    // };
 
     const handleOrderSelection = async (orderId) => {
         if (!orderId) {
@@ -1302,7 +1411,6 @@ const TableOrdenes = () => {
         }
     }
 
-
     const fetchOrderSelected = async (orderId) => {
         try {
             const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${orderId}`, {
@@ -1310,17 +1418,6 @@ const TableOrdenes = () => {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            setProductoId('');
-            setSelectedUbicacionSalida('');
-            setSelectedUbicacionEntrada('');
-            setExistenciaProducto('');
-            setExistenciaProductoDestino('');
-            setInputValue('');
-            setComment('');
-            setSelectedBodegaSalida('');
-            setSelectedBodegaEntrada('');
-            setDescripcion('');
-            setSelectedTraspasoId('');
             setIdOrder(response.data.data.orden.id);
             setEstatus(response.data.data.orden.estatus);
             setSelectedBodegaSalida(response.data.data.orden.bodega_salida_id);
@@ -1332,19 +1429,21 @@ const TableOrdenes = () => {
             setCategoriaTemp(response.data.data.orden.categoria);
             setRolMovimiento(response.data.data.rol_id_tipo_transaccion);
 
-            setHabilitarBuscador(user.rol_id === response.data.data.rol_id && response.data.data.orden.estatus === 'abierto');
-            setHabilitarComentario(user.rol_id === response.data.data.rol_id && response.data.data.orden.estatus === 'abierto');
+            setHabilitarBuscador(user.rol_id === response.data.data.rol_id_tipo_transaccion && response.data.data.orden.estatus === 'abierto');
+          //  setHabilitarComentario(user.rol_id === response.data.data.rol_id_entrada && response.data.data.orden.estatus === 'abierto');
 
             const dataGridRows = response.data.data.lineas.map((linea) => ({
                 id: linea.id,
                 producto_id: linea.producto_id,
+                sku: linea.sku,
+                inventory_id: linea.inventory_id,
+                producto_title: linea.producto_title,
                 cantidad: linea.cantidad,
                 comentario: linea.comentario,
                 localidad_salida: linea.localidad_salida_descripcion,
                 localidad_entrada: linea.localidad_entrada_descripcion,
                 localidad_salida_id: linea.localidad_salida_id,
                 localidad_entrada_id: linea.localidad_entrada_id,
-                producto_title: linea.producto_title,
                 existencias_origen: linea.existencias_origen,
                 existencias_destino: linea.existencias_destino
             }));
@@ -1352,38 +1451,81 @@ const TableOrdenes = () => {
             setRows(dataGridRows);
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const { messageText } = error.response.data.message;
-                alert(`Error: ${messageText}`);
-            } else {
-                alert('Ocurrio un error al verificar el producto o las existencias');
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
             }
         }
     };
 
-    const handleButtonClick = () => {
-        document.getElementById('file-input').click();
-    };
-
-    // Dentro de tu componente
-    // const handleBlurComment = async () => {
-    //     if (habilitarComentario) {
-    //         // Actualiza la fila seleccionada con el nuevo comentario
-    //         const updatedRow = { ...selectedRow, comentario: comment };
-    //         await handleUpdateLinea(updatedRow);
-    //     }
+    // const handleButtonClick = () => {
+    //     document.getElementById('file-input').click();
     // };
 
+    // Función que se llama cuando se selecciona una fila en el DataGrid
+    const handleRowSelection = (params) => {
+        const selectedProductSku = params.row.sku;
+        const selectedProductId = params.row.producto_id; // Captura el ID del producto seleccionado
+
+        setProductoSku(selectedProductSku);
+        setProductoId(selectedProductId); // Actualiza el valor del input
+        handleSearch(selectedProductId);
+        setOpen(false); // Cierra la modal
+    };
+
+    useEffect(() => {
+        // Filtra los productos en base al término de búsqueda
+        let filtered = rowsProducts;
+
+        if (searchTerm) {
+            const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+
+            filtered = filtered.filter(product => {
+                const productMLM = product.id ? product.id.toLowerCase() : '';
+                const productSku = product.sku ? product.sku.toLowerCase() : '';
+                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const productTitle = product.title ? product.title.toLowerCase() : '';
+                const productVariation = product.variation_desc ? product.variation_desc.toLowerCase() : '';
+
+                // Verifica si todas las palabras están en el título
+                const titleMatch = searchWords.every(word => productTitle.includes(word));
+
+                // Verifica si el término de búsqueda está en otras columnas
+                const otherColumnsMatch = (
+                    productMLM.includes(searchTerm.toLowerCase()) ||
+                    productSku.includes(searchTerm.toLowerCase()) ||
+                    productInventoryId.includes(searchTerm.toLowerCase()) ||
+                    productVariation.includes(searchTerm.toLowerCase())
+                );
+
+                // El producto debe coincidir en el título o en alguna de las otras columnas
+                return titleMatch || otherColumnsMatch;
+            });
+        }
+
+        setFilteredProducts(filtered);
+    }, [searchTerm, rowsProducts]);
+
     const columnsProducts = [
-        { field: 'producto_id', headerName: 'MLM', type: 'text', flex: 2 },
-        { field: 'producto_title', headerName: 'Titulo', type: 'text', flex: 3 },
-        { field: 'cantidad_ordenada', headerName: 'Existencias', type: 'number', flex: 1, headerAlign: 'center' },
-        { field: 'ubicacion', headerName: 'Ubicación', type: 'text', flex: 1, headerAlign: 'center' }
+        { field: 'id', headerName: '# De Publicación', type: 'text', flex: 1 },
+        { field: 'producto_id', headerName: 'MLM', type: 'number', flex: 1 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
     ]
 
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
+        { field: 'producto_id', headerName: 'ID', type: 'number', flex: 1 },
         {
-            field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', width: 100, cellClassName: 'celdaEditable',
+            field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', flex: 0.4, cellClassName: 'celdaEditable',
             renderEditCell: (params) => {
                 return (
                     <GridEditInputCell
@@ -1411,26 +1553,25 @@ const TableOrdenes = () => {
                 };
             }
         },
-        { field: 'producto_id', headerName: 'MLM', width: 150 },
-        { field: 'localidad_salida', headerName: 'Ubicación Origen', width: 150 },
-        { field: 'existencias_origen', headerName: 'Existencia Origen', type: 'number', width: 150 },
-        { field: 'localidad_entrada', headerName: 'Ubicación Destino', width: 150 },
+        { field: 'sku', headerName: 'SKU', flex: 1.3 },
+        { field: 'inventory_id', headerName: 'ML', flex: 0.6, headerAlign: 'center' },
+        { field: 'localidad_salida', headerName: 'Ubicación\nOrigen', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'existencias_origen', headerName: 'Existencia\nOrigen', type: 'number', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'localidad_entrada', headerName: 'Ubicación\nDestino', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'localidad_entrada_id', headerName: 'ID ubicación entrada', type: 'number' },
         { field: 'localidad_salida_id', headerName: 'ID ubicación salida', type: 'number' },
-        { field: 'existencias_destino', headerName: 'Existencia Destino', width: 150 },
-        { field: 'producto_title', headerName: 'Descripción', width: 540 },
+        { field: 'existencias_destino', headerName: 'Existencia\nDestino', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'producto_title', headerName: 'Descripción', flex: 2 },
         {
             field: 'actions',
             headerName: 'Acciones',
             type: 'actions',
-            width: 150,
+            flex: 0.4,
             getActions: (params) => {
-
                 if (!params || !params.row) {
                     console.error('Error: params o params.row es null o undefined');
                     return [];
                 }
-
                 if (estatus === 'confirmado' || estatus === 'procesado' || estatus === 'cancelada') {
                     return [
                         params.row.comentario ? (
@@ -1438,7 +1579,7 @@ const TableOrdenes = () => {
                                 <GridActionsCellItem
                                     icon={<RateReviewIcon />}
                                     sx={{ color: 'blue' }}
-                                    onClick={() => handleOpenComment(params.row.comentario)}
+                                    onClick={() => handleOpenComment(params.row)}
                                 />
                             </Tooltip>
                         ) : null,
@@ -1450,20 +1591,19 @@ const TableOrdenes = () => {
                                 <GridActionsCellItem
                                     icon={<RateReviewIcon />}
                                     sx={{ color: 'blue' }}
-                                    onClick={() => handleOpenComment(params.row.comentario)}
+                                    onClick={() => handleOpenComment(params.row)}
                                 />
                             </Tooltip>
                         ) : null,
                     ].filter(Boolean);
                 }
-
                 return [
                     params.row.comentario ? (
                         <Tooltip title='Ver comentario' key={`comment-${params.row.id}`}>
                             <GridActionsCellItem
                                 icon={<RateReviewIcon />}
                                 sx={{ color: 'blue' }}
-                                onClick={() => handleOpenComment(params.row.comentario)}
+                                onClick={() => handleOpenComment(params.row)}
                             />
                         </Tooltip>
                     ) : null,
@@ -1538,40 +1678,81 @@ const TableOrdenes = () => {
             {/* Ventana Modal */}
             <Modal open={open} onClose={handleCloseSearchProducts}>
                 <Box sx={modalStyle}>
-                    <Input 
-                    placeholder='Busqueda de producto'
-                    ></Input>
-                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500}}
-                        rows={rows}
+                    <TextField
+                        label="Buscador..."
+                        color='primary'
+                        focused
+                        sx={{ width: '20rem', marginBottom: '10px' }}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500 }}
+                        rows={filteredProducts}
                         columns={columnsProducts}
                         pageSize={5}
                         // processRowUpdate={processRowUpdate}
                         showCellVerticalBorder
                         showColumnVerticalBorder
+                        onRowClick={handleRowSelection}
+                        getRowId={(row) => row.producto_id}
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
-
+                            producto_id: false
                         }}
                     />
-                    <Button onClick={handleCloseSearchProducts} variant="contained" color="primary">Cerrar</Button>
+                    <Button onClick={handleCloseSearchProducts} variant="contained" color="primary"
+                        sx={{
+                            marginTop: '10px',
+                            marginLeft: '93%'
+                        }}
+                    >Cerrar</Button>
                 </Box>
             </Modal>
             <div className='container'>
                 <label className='item1'>Orden:</label>
                 <input className='item2' value={idOrder} readOnly></input>
                 <label className='status'>Estatus:</label>
-                <input className='statusValue' value={estatus} readOnly></input>
-                <label className='descripcion'>Descripción:</label>
-                <input className='input-descr'
-                    disabled={!habilitarTraspaso}
-                    value={descripcion}
-                    ref={descripcionRef}
-                    // onKeyDown={handleKeyDown2}
-                    // onBlur={handleBlur2}
-                    onChange={(e) => setDescripcion(e.target.value)}></input>
-                <label className='item5' >Tipo de movimiento:</label>
-                <select
+                <input
+                    className="statusValue"
+                    value={estatus}
+                    readOnly={true}  // Cambia a false si quieres habilitar la edición
+                />
+                <label className='item005'>Descripción:</label>
+                <TextField
                     className='item6'
+                    disabled={!habilitarDescripcion}
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <UpdateIcon
+                                    style={{
+                                        cursor: habilitarDescripcion ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                        color: habilitarDescripcion ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                    }}
+                                    onClick={habilitarDescripcion ? handleUpdateOrder : null}  // Desactiva onClick si está deshabilitado
+                                />
+                            </InputAdornment>
+                        ),
+                    }}
+                    style={{
+                        height: '10px', // Altura del TextField completo
+                        marginTop: 20,
+                        marginLeft: 10,
+                    }}
+                    inputProps={{
+                        style: {
+                            height: '10px', // Altura interna del input
+                            padding: '10px', // Padding interno
+                            backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
+                            color: habilitarDescripcion ? 'black' : 'gray',
+                        },
+                    }}
+                />
+                <label className='descripcion' >Tipo de movimiento:</label>
+                <select
+                    className='input-descr'
                     value={selectedTraspasoId}
                     onChange={handleSelectedTraspasoChange}
                     disabled={!habilitarTraspaso}
@@ -1613,15 +1794,44 @@ const TableOrdenes = () => {
                     ))}
                 </select>
                 <label className='item11'>Producto:</label>
-                <input
+                <TextField
                     className='item12'
-                    type='text'
                     onKeyDown={handleKeyDown}
-                    onBlur={handleOpenSearchProducts}
+                    //onBlur={handleBlur}
                     disabled={!habilitarBuscador}
-                    value={productoId}
-                    onChange={(e) => setProductoId(e.target.value)}
-                    placeholder='Ingrese el MLM'
+                    value={productoSku}
+                    onChange={handleProductId}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position='end'>
+                                <SearchIcon
+                                    style={{
+                                        cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                        color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                    }}
+                                    onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
+                                />
+                            </InputAdornment>
+                        ),
+                    }}
+                    InputLabelProps={{
+                        style: {
+                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                        },
+                    }}
+                    style={{
+                        height: '10px', // Altura del TextField completo
+                        marginTop: 20,
+                        marginLeft: 90,
+                    }}
+                    inputProps={{
+                        style: {
+                            height: '10px', // Altura interna del input
+                            padding: '10px', // Padding interno
+                            backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
+                            color: habilitarBuscador ? 'black' : 'gray',
+                        },
+                    }}
                 />
                 <label className='item9'>Ubicación salida:</label>
                 <select
@@ -1682,7 +1892,51 @@ const TableOrdenes = () => {
                     disabled={isButtonDisabled} // Deshabilita el botón según la condición
                 >Agregar Fila</Button>
                 <label className='coment'>Comentario:</label>
-                <input className='comentInput' placeholder='Ingrese un comentario a la linea' value={comment} disabled={!habilitarComentario} onChange={(e) => setComment(e.target.value)} ></input>
+                <TextField
+                    className='comentInput'
+                    placeholder='Ingrese un comentario a la linea'
+                    value={selectedComment}
+                    disabled={!habilitarComentario}
+                    onChange={(e) => setSelectedComment(e.target.value)}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position='end'>
+                                <CheckCircleIcon
+                                    style={{
+                                        cursor: habilitarComentario ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                        color: habilitarComentario ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                    }}
+                                    onClick={habilitarComentario
+                                        ? async () => {
+                                            await handleUpdateLinea({
+                                                ...selectedRow, // Pasamos toda la fila seleccionada
+                                                comentario: selectedComment  // Actualiza el comentario
+                                            });
+                                            setSelectedComment('');
+                                        } : null}  // Desactiva onClick si está deshabilitado
+                                />
+                            </InputAdornment>
+                        ),
+                    }}
+                    InputLabelProps={{
+                        style: {
+                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                        },
+                    }}
+                    style={{
+                        height: '10px', // Altura del TextField completo
+                        marginTop: 0,
+                        marginLeft: 110,
+                    }}
+                    inputProps={{
+                        style: {
+                            height: '10px', // Altura interna del input
+                            padding: '10px', // Padding interno
+                            backgroundColor: habilitarComentario ? 'white' : '#f0f0f0',
+                            color: habilitarComentario ? 'black' : 'gray',
+                        },
+                    }}
+                />
             </div>
             <div >
                 <div className='DataG' style={{ height: 500, width: 'auto' }}>
@@ -1690,26 +1944,66 @@ const TableOrdenes = () => {
                         rows={rows}
                         columns={columns}
                         pageSize={5}
+                        onRowClick={handleRowSelectionComment}
                         processRowUpdate={processRowUpdate}
                         showCellVerticalBorder
                         showColumnVerticalBorder
                         getRowId={(row) => row.id}
-                        // onRowClick={handleRowClick}
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
                             id: false,
+                            producto_id: false,
                             localidad_salida_id: false,
                             localidad_entrada_id: false,
                         }}
                         isCellEditable={isCellEditable}
                     />
-                    <Modal open={openComment} onClose={handleClose}>
-                        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, bgcolor: 'background.paper', border: '2px solid #000', boxShadow: 24, p: 4 }}>
-                            <p>{selectedComment}</p>
-                            <Button variant="contained" onClick={handleClose}>Cerrar</Button>
-                        </Box>
-                    </Modal>
                 </div>
+                <Modal
+                    open={openComment}
+                    onClose={handleClose}
+                    aria-labelledby='modal-title'
+                    aria-describedby='modal-description'
+                    aria-hidden='false'
+                    disableEnforceFocus
+                >
+                    <Box sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: 400,
+                        bgcolor: 'white',
+                        border: '2px solid #000',
+                        boxShadow: 24,
+                        p: 4
+                    }}
+                    >
+                        <TextField
+                            fullWidth
+                            id="comment-input" // Asegura el foco
+                            label="Comentario"
+                            value={selectedComment}
+                            onChange={(e) => setSelectedComment(e.target.value)} // Actualiza el comentario en el estado
+                        />
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={async () => {
+                                await handleUpdateLinea({
+                                    ...selectedRow, // Pasamos toda la fila seleccionada
+                                    comentario: selectedComment  // Actualiza el comentario
+                                });
+                                handleClose();  // Cierra la modal después de actualizar
+                            }}
+                        >
+                            Actualizar Comentario
+                        </Button>
+                        <Button variant="outlined" onClick={handleClose} sx={{ marginLeft: '81px' }}>
+                            Cerrar
+                        </Button>
+                    </Box>
+                </Modal>
                 <FetchOrders
                     selectedOrder={handleOrderSelection}
                     openModal={openModal}

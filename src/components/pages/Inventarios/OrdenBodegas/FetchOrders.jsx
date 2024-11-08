@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Modal, Box } from '@mui/material';
+import { Button, Modal, Box, Select, MenuItem, TextField } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import { formatISO } from 'date-fns';
+import DatePicker from 'react-datepicker';
 
-const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModal }) => {
+import "react-datepicker/dist/react-datepicker.css";
+import "./DatePickerStyles.css"; // Archivo CSS personalizado
+
+const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [startDate, setStartDate] = useState('');
@@ -45,24 +49,24 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
             fetchOrders();
         }
     }, [openModal]);
-    
+
     useEffect(() => {
         // Filtra las órdenes en base al término de búsqueda y otros filtros
         let filtered = orders;
 
         // Aplica el filtro de búsqueda
         if (searchTerm) {
-            filtered = filtered.filter(order => 
+            filtered = filtered.filter(order =>
                 order.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 order.id.toString().includes(searchTerm) ||
                 order.estatus.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.fecha_abierto.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                order.categoria.toLowerCase().includes(searchTerm.toLocaleLowerCase()) 
+                order.fecha_abierto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.categoria.toLowerCase().includes(searchTerm.toLocaleLowerCase())
             );
         }
 
         // Aplica el filtro de estatus
-        if (estatusFilter) {
+        if (estatusFilter !== "") {
             filtered = filtered.filter(order => order.estatus === estatusFilter);
         }
 
@@ -86,9 +90,10 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
         }
         handleCloseModal();
     };
-    
+
     const handleFilterChange = (e) => {
         setEstatusFilter(e.target.value);
+        console.log("Selected Filter:", e.target.value); // Verifica el valor al cambiar
     };
 
     const resetFilter = () => {
@@ -100,11 +105,11 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
     };
 
     const columns = [
-        { field: 'id', headerName: 'Folio', width: 90 },
-        { field: 'descripcion', headerName: 'Descripción', width: 300 },
-        { field: 'estatus', headerName: 'Estatus', width: 150 },
-        { field: 'categoria', headerName: 'Tipo de Movimiento', width: 200 },
-        { field: 'fecha_abierto', headerName: 'Fecha', width: 200 }
+        { field: 'id', headerName: 'Folio', flex: 1 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 3 },
+        { field: 'estatus', headerName: 'Estatus', flex: 1 },
+        { field: 'categoria', headerName: 'Tipo de Movimiento', flex: 1 },
+        { field: 'fecha_abierto', headerName: 'Fecha', flex: 1 }
     ];
 
     return (
@@ -115,51 +120,72 @@ const BuscarOrdenes = ({ selectedOrder, setSelectedOrder, openModal, setOpenModa
                 aria-describedby="modal-description"
             >
                 <Box sx={{
-                    width: 1200, height: 600,
+                    width: 1200, height: 650,
                     bgcolor: 'background.paper',
                     padding: 2, margin: 'auto',
-                    marginTop: '5%', borderRadius: '40px',
+                    marginTop: '30px', borderRadius: '20px',
                     fontFamily: "Montserrat",
                 }}>
-                    <div style={{ display: 'flex', gap: '16px', margin: '16px 0' }}>
-                        <select value={estatusFilter} onChange={handleFilterChange}>
-                            <option value="">Todas las ordenes</option>
-                            <option value="abierto">Ordenes Abiertas</option>
-                            <option value="confirmado">Ordenes Confirmadas</option>
-                            <option value="procesado">Ordenes Procesadas</option>
-                        </select>
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: "10px" }}>
+                        <Select 
+                            value={estatusFilter} 
+                            onChange={handleFilterChange}
+                            displayEmpty
+                            sx={{ width: "200px", height: "41px", padding: "8px", borderRadius: "8px" }}
+                            >
+                            <MenuItem value="">Todas las ordenes</MenuItem>
+                            <MenuItem value="abierto">Ordenes Abiertas</MenuItem>
+                            <MenuItem value="confirmado">Ordenes Confirmadas</MenuItem>
+                            <MenuItem value="procesado">Ordenes Procesadas</MenuItem>
+                        </Select>
+                        <DatePicker
+                            selected={startDate}
+                            onChange={(date) => setStartDate(date)}
+                            dateFormat="yyyy-MM-dd"
+                            minDate={new Date(2024, 0, 1)}
+                            maxDate={new Date()}
+                            placeholderText='fecha inicio'
+                            className="custom-datepicker"
                         />
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
+                        <DatePicker
+                            selected={endDate}
+                            onChange={(date) => setEndDate(date)}
+                            dateFormat="yyyy-MM-dd"
+                            minDate={new Date(2024, 0, 1)}
+                            maxDate={new Date()}
+                            placeholderText='fecha fin'
+                            className="custom-datepicker"
                         />
                         <Button variant="contained" onClick={resetFilter}>
                             Limpiar filtros
                         </Button>
                     </div>
-                    <input
+                    <TextField
+                        variant='standard'
                         type='text'
-                        placeholder='Buscar ordenes'
+                        label='Buscar ordenes'
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        sx={{
+                            width: "300px"
+                        }}
                     />
                     <h2 id="modal-title">Órdenes Disponibles</h2>
                     <DataGrid style={{ height: 400, width: 'auto', fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={filteredOrders}
                         columns={columns}
+                        sortModel={[
+                            {
+                                field: 'id',
+                                sort: 'desc'
+                            }
+                        ]}
                         pageSize={5}
                         showCellVerticalBorder
                         showColumnVerticalBorder
                         onRowClick={handleRowClick}
+                        getRowId={(row) => row.id} // Utiliza idOrden como el id único
                         experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id: true,
-                        }}
                     />
                     <Button sx={{ marginTop: '10px', marginLeft: '92%' }}
                         variant="contained"

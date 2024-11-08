@@ -30,17 +30,6 @@ export const OrdenB = () => {
 
   return (
     <div>
-      <div className='encabezado'>
-        <h2 id='titulo'>Transacciones de inventarios</h2>
-        <div className='cuerpo'>
-          <input id='buscador'
-          type='text'
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder='Buscar transacción' /><br />
-          <button id='button-add-usuario' onClick={() => setOpenModalRegistroT(true)} >Agregar orden</button><p />
-        </div>
-      </div>
       <DataGridTInventario
       data={data}
       setData={setData}

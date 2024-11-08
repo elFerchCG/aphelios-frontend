@@ -6,6 +6,7 @@ import '../../../estilos/estilosAccordion.css'
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { DataGrid } from '@mui/x-data-grid';
+import DatePicker from 'react-datepicker';
 
 
 const formatFecha = (fecha) => {
@@ -91,6 +92,8 @@ const AnalisisVentas = () => {
             }
             try {
                 const response = await axios.post('http://localhost:3304/analisisGraficas/ventas/ultimaSemana', dates);
+                // Verificar la respuesta completa del servidor
+                console.log("Response data del servidor: ", response.data);
                 const result = response.data.map(item => ({
                     fecha_venta: item.fecha_venta,
                     dia_semana: item.dia_semana,
@@ -138,6 +141,7 @@ const AnalisisVentas = () => {
             }
             try {
                 const response = await axios.post('http://localhost:3304/analisisGraficas/ventas/topProductosPorUnidades', dates);
+                console.log("Response data del servidor: ", response.data);
                 const result = response.data.map(item => ({
                     producto_id: item.producto_id,
                     Ventas: item.total_unidades_vendidas,
@@ -165,6 +169,7 @@ const AnalisisVentas = () => {
                     producto_id: item.producto_id,
                     valor_total_ventas: item.valor_total_ventas,
                     porcentaje_acumulado: item.porcentaje_acumulado,
+                    porcentaje_individual: item.porcentaje_individual,
                     tipo: item.tipo
                 }));
                 setRows(result);
@@ -205,6 +210,7 @@ const AnalisisVentas = () => {
         { field: 'producto_id', headerName: 'MLM', type: 'text', flex: 1 },
         { field: 'valor_total_ventas', headerName: 'Ventas', type: 'number', flex: 1, valueFormatter: (value) => (value ? `$${value}` : '') },
         { field: 'porcentaje_acumulado', headerName: 'Porcentaje Acumulado', type: 'number', flex: 1, valueFormatter: (value) => (value ? `%${value}` : '') },
+        { field: 'porcentaje_individual', headerName: 'Porcenta individual', type: 'number', flex: 1 },
         { field: 'tipo', headerName: 'Tipo', type: 'text', flex: 1 }
     ];
 
@@ -222,29 +228,38 @@ const AnalisisVentas = () => {
                                 Top 10 Productos por unidades
                             </AccordionSummary>
                             {/* Select para elegir el producto a filtrar */}
-                            <Input
-                                type='date'
-                                onChange={(e) => setStartDate3(e.target.value)}
-                                value={startDate3}
-                                sx={{ marginRight: 2 }}
+                            <DatePicker
+                                className='customDatePicker'
+                                onChange={(date) => setStartDate3(date)}
+                                selected={startDate3}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha inicio'
+                                portalId="root-portal"
                             />
-                            <Input
-                                type='date'
-                                onChange={(e) => setEndDate3(e.target.value)}
-                                value={endDate3}
-                                sx={{ marginRight: 2 }}
+                            <DatePicker
+                                className='customDatePicker1'
+                                onChange={(date) => setEndDate3(date)}
+                                selected={endDate3}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha fin'
+                                portalId="root-portal"
                             />
                             <Button
                                 variant='contained'
+                                sx={{ marginLeft: 2 }}
                                 onClick={() => exportToExcel(data5, 'Top_Productos_Unidades.xlsx')}>
                                 Exportar datos a Excel
                             </Button>
-                            <BarChart width={1300} height={600} data={data5}
-                            // margin={{ top: 20 }}
-                            >
+                            <BarChart width={1300} height={600} data={data5} layout='vertical'>
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="producto_id" tick={false} />
-                                <YAxis />
+                                <XAxis type="number"
+                                    domain={[0, 'dataMax']} 
+                                     />
+                                <YAxis type='category' dataKey="producto_id" tick={false} />
                                 <Tooltip formatter={(value) => [`Unidades vendidas: ${value}`, null]} />
                                 <Bar dataKey="Ventas" fill='#1e88e5' maxBarSize={50}>
                                 </Bar>
@@ -258,22 +273,29 @@ const AnalisisVentas = () => {
                             >
                                 Ventas por semana
                             </AccordionSummary>
-                            <Input
-                                type='date'
-                                onChange={(e) => setStartDate1(e.target.value)}
-                                value={startDate1}
-                                placeholder='Fecha de inicio'
-                                sx={{ marginRight: 2 }}
+                            <DatePicker
+                                className='customDatePicker'
+                                onChange={(date) => setStartDate1(date)}
+                                selected={startDate1}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha inicio'
+                                portalId="root-portal"
                             />
-                            <Input
-                                type='date'
-                                onChange={(e) => setEndDate1(e.target.value)}
-                                value={endDate1}
-                                placeholder='Fecha final'
-                                sx={{ marginRight: 2 }}
+                            <DatePicker
+                                className='customDatePicker1'
+                                onChange={(date) => setEndDate1(date)}
+                                selected={endDate1}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha fin'
+                                portalId="root-portal"
                             />
                             <Button
                                 variant='contained'
+                                sx={{ marginLeft: 2 }}
                                 onClick={() => exportToExcel(sortedData, 'Ventas_en_semana.xlsx')}>
                                 Exportar datos a Excel
                             </Button>
@@ -282,18 +304,23 @@ const AnalisisVentas = () => {
                                 height={600}
                                 cx="50%" cy="50%"
                                 data={sortedData}
-                                margin={{
-                                    top: 20,
-                                    right: 20,
-                                    left: 20,
-                                    bottom: 5
-                                }}
                             >
                                 <CartesianGrid strokeDasharray='3 3' />
                                 <XAxis dataKey='dia_semana' />
-                                <YAxis />
-                                <Tooltip formatter={(value) => `$${value}`} />
-                                <Legend />
+                                <YAxis tickFormatter={(value) =>
+                                    new Intl.NumberFormat('es-MX', {
+                                        style: 'currency',
+                                        currency: 'MXN',
+                                        notation: value >= 1000 ? 'compact' : 'standard', // Muestra $123K para valores grandes
+                                        compactDisplay: 'short'
+                                    }).format(value)
+                                } />
+                                <Tooltip formatter={(value) =>
+                                    new Intl.NumberFormat('es-MX', {
+                                        style: 'currency',
+                                        currency: 'MXN'
+                                    }).format(value)
+                                } />
                                 <Line type='monotone' dataKey='Ventas' stroke='#6b48ff' activeDot={{ r: 8 }} />
                             </LineChart>
                         </Accordion>
@@ -312,22 +339,29 @@ const AnalisisVentas = () => {
                                 placeholder='Ingrese el producto'
                                 sx={{ marginRight: 2 }}
                             />
-                            <Input
-                                type='date'
-                                onChange={(e) => setStartDate2(e.target.value)}
-                                value={startDate2}
-                                placeholder='Fecha de inicio'
-                                sx={{ marginRight: 2 }}
+                            <DatePicker
+                                className='customDatePicker'
+                                onChange={(date) => setStartDate2(date)}
+                                selected={startDate2}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha inicio'
+                                portalId="root-portal"
                             />
-                            <Input
-                                type='date'
-                                onChange={(e) => setEndDate2(e.target.value)}
-                                value={endDate2}
-                                placeholder='fecha fin'
-                                sx={{ marginRight: 2 }}
+                            <DatePicker
+                                className='customDatePicker1'
+                                onChange={(date) => setEndDate2(date)}
+                                selected={endDate2}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha fin'
+                                portalId="root-portal"
                             />
                             <Button
                                 variant='contained'
+                                sx={{ marginLeft: 2 }}
                                 onClick={() => exportToExcel(data4, 'Tendencia_venta_individual.xlsx')}>
                                 Exportar datos a Excel
                             </Button>
@@ -406,26 +440,29 @@ const AnalisisVentas = () => {
                             >
                                 Top Productos por dinero
                             </AccordionSummary>
-                            <Input
-                                type='date'
-                                onChange={(e) => setStartDate(e.target.value)}
-                                value={startDate}
-                                placeholder='Fecha de inicio'
-                                sx={{ marginRight: 2 }}
-                                min="2024-01-01"  // Fecha mínima: 1 de enero de 2024
-                                max="2024-12-31"  // Fecha máxima: 31 de diciembre de 2024
+                            <DatePicker
+                                className='customDatePicker'
+                                onChange={(date) => setStartDate(date)}
+                                selected={startDate}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha inicio'
+                                portalId="root-portal"
                             />
-                            <Input
-                                type='date'
-                                onChange={(e) => setEndDate(e.target.value)}
-                                value={endDate}
-                                placeholder='Fecha final'
-                                sx={{ marginRight: 2 }}
-                                min="2024-01-01"  // Fecha mínima: 1 de enero de 2024
-                                max="2024-12-31"  // Fecha máxima: 31 de diciembre de 2024
+                            <DatePicker
+                                className='customDatePicker1'
+                                onChange={(date) => setEndDate(date)}
+                                selected={endDate}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha fin'
+                                portalId="root-portal"
                             />
                             <Button
                                 variant='contained'
+                                sx={{ marginLeft: 2 }}
                                 onClick={() => exportToExcel(data2, 'Top_productos_dinero.xlsx')}>
                                 Exportar datos a Excel
                             </Button>

@@ -1,9 +1,8 @@
 import * as React from 'react';
-import Box from '@mui/system/Box';
 import { Button, InputAdornment, TextField } from '@mui/material';
-import PersonIcon from '@mui/icons-material/Person';
-import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import KeyIcon from '@mui/icons-material/Key';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import logo from '../../images/Logo aphelios blanco.png';
+import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import '../../estilos/login.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -37,7 +36,7 @@ const Login = () => {
           timer: 5000,
           showCloseButton: true,
           allowEscapeKey: true
-      });
+        });
       } else {
         const defaultMessage = 'Ocurrió un error inesperado.';
         setErrorMessage(defaultMessage);
@@ -47,57 +46,57 @@ const Login = () => {
   }
 
   return (
-    <div className='cuerpoLogin'>
-    <Box
-      height={250}
-      width={250}
-      marginTop={15}
-      marginLeft={"39%"}
-      alignItems="center"
-      padding={'40px'}
-      sx={{ border: '2px solid #507fdc', 
-      boxShadow: '5px 5px 5px 5px rgba(124, 124, 145, 0.5)',
-      background: 'rgba(221, 232, 235, 0.5)',
-      borderRadius: '40px'
-    }}
-    >
-      <PersonOutlineOutlinedIcon
-      color='primary' 
-      sx={{ fontSize: 60 }}
-      /><br/><br></br>
-      <TextField
-        label='Usuario'
-        type='text'
-        value={nombre}
-        onChange={(e) => setNombre(e.target.value)}
-        InputProps={{
-          startAdornment: <InputAdornment position='start'>
-            <PersonIcon />
-          </InputAdornment>
-        }}
-      />
-      <p></p>
-      <TextField 
-        label='Contraseña'
-        type='password'
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        InputProps={{
-          startAdornment: <InputAdornment position='start'>
-            <KeyIcon />
-          </InputAdornment>
-        }}
+    <div className='layoutLogin'>
+       <img src={logo} alt="logo" className="logoAphelios" />
+      <div className='cuerpoLogin'>
+        <TextField
+          className='itemLogin'
+          variant="standard"
+          label="Usuario"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          sx={{
+            marginBottom: '20px', width: '100%'
+          }}
+          InputLabelProps={{
+            shrink: true,  // Forzar que el label se mantenga arriba
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <AccountCircleOutlinedIcon sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+              </InputAdornment>
+            ),
+          }}
         />
-       <p/>
+        <TextField
+          className='itemLogin'
+          variant='standard'
+          label='Contraseña'
+          type='password'
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          sx={{
+            width: '100%'
+          }}
+          InputProps={{
+            startAdornment:
+              <InputAdornment position='start'>
+                <LockOutlinedIcon sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
+              </InputAdornment>
+          }}
+        />
         <Button
-        variant='contained'
-        onClick={handleLogin}
-        sx={{background:'#507fdc'}}
-        >
-        Iniciar Sesión  
-        </Button>
-    </Box>
-  </div>
+          variant='contained'
+          className='botonLogin'
+          onClick={handleLogin}
+          sx={{
+            borderRadius: '20px',
+            width: '100%',
+            boxShadow: '0px 0px 30px 20px rgba(0, 0, 0, 0.30)'
+          }}>INICIAR SESIÓN</Button>
+      </div>
+    </div>
   )
 }
 

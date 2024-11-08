@@ -30,23 +30,25 @@ const getCurrentDateTime = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-const formatFecha = (date) => {
-    if (!date) return null; // Asegúrate de manejar el caso de que no haya fecha
+const formatFecha = (fecha) => {
+    const date = new Date(fecha);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
 
-const formatFechaGet = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+const formatFechaGet = (fechaBack) => {
+    const date = new Date(fechaBack); // Crear objeto Date usando la fecha recibida
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Los meses empiezan en 0
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`; // Formato YYYY-MM-DD
 };
+
 
 const TableOrdenesCompra = () => {
+    const [bodegaTemp, setBodegaTemp] = useState('');
     const [rows, setRows] = useState([]);
     const [habilitarComentario, setHabilitarComentario] = useState(false);
     const [bodegaEntradaHabilitada, setBodegaEntradaHabilitada] = useState(false);
@@ -60,7 +62,6 @@ const TableOrdenesCompra = () => {
     const [ubicacionLineas, setUbicacionLineas] = useState('');
     const [movimientos, setMovimientos] = useState([]);
     const [inputValue, setInputValue] = useState('');
-    const [existenciaProductoDestino, setExistenciaProductoDestino] = useState('');
     const [estatus, setEstatus] = useState('');
     const [idOrder, setIdOrder] = useState('');
     const [descripcion, setDescripcion] = useState('');
@@ -121,6 +122,12 @@ const TableOrdenesCompra = () => {
         };
     }, []);
 
+    const today = new Date();
+    const minDate = today;
+
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 90);
+
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
@@ -168,7 +175,8 @@ const TableOrdenesCompra = () => {
         fetchTipoTraspaso();
     }, []);
 
-    const fetchExistencias = async () => {
+
+    const fetchExistencias = async (bodegaTemp) => {
         // Verificar si las refs no son null antes de acceder a classList
         if (bodegaEntradaRef.current) {
             bodegaEntradaRef.current.classList.remove('error');
@@ -178,20 +186,18 @@ const TableOrdenesCompra = () => {
             ubicacionEntradaRef.current.classList.remove('error');
         }
 
-        if (cantidadRef.current) {
-            cantidadRef.current.classList.remove('error');
-        }
-
         let isValid = true;
 
         try {
-            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${producto}/bodega/${selectedBodegaEntrada}/tipo/entrada/localidades`, {
+            console.log("Esta es la bodega id seleccionada:", bodegaTemp);
+            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${bodegaTemp}/ubicaciones`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            // Verificar si el producto existe
-            if (!response.data || !response.data.data || response.data.data.length === 0) {
+            if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                setUbicacionesEntrada(response.data);
+            } else {
                 Swal.fire({
                     title: '!Producto no encontrado!',
                     text: 'No se encontraron existencias, verifique el producto',
@@ -200,11 +206,7 @@ const TableOrdenesCompra = () => {
                     showCloseButton: true,
                     allowEscapeKey: true
                 });
-                return; // Salir de la función si el producto no existe
             }
-            setUbicacionesEntrada(response.data.data.existencias);
-            setProductoTitle(response.data.data.producto.title);
-            setUbicacionEntradaHabilitada(true);
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
                 const { messageText } = error.response.data.message;
@@ -244,7 +246,6 @@ const TableOrdenesCompra = () => {
 
             const selectedUbicacionEntradaDescripcion = ubicacionesEntrada.find(ubicacion => ubicacion.id === selectedUbicacionEntrada)?.descripcion || '';
 
-
             const newRow = {
                 id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
                 cantidad_ordenada: inputValue,
@@ -265,14 +266,12 @@ const TableOrdenesCompra = () => {
 
             setProducto('');
             setSelectedUbicacionEntrada('');
-            setExistenciaProductoDestino('');
             setInputValue('');
             setComment('');
             setIsButtonDisabled(true);
         }
 
         if (estatus === 'abierto') {
-            //const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
             const lineasData = {
                 lineas: [{
                     producto_id: producto,
@@ -456,7 +455,6 @@ const TableOrdenesCompra = () => {
     };
 
     const handleSearch = () => {
-        fetchExistencias();
         setIsButtonDisabled(false);
         setComment('');
         setPrecio('');
@@ -488,7 +486,6 @@ const TableOrdenesCompra = () => {
         setSelectedBodegaEntrada('');
         setProducto('');
         setSelectedUbicacionEntrada('');
-        setExistenciaProductoDestino('');
         setInputValue('');
         setComment('');
         setEstatus('');
@@ -524,30 +521,33 @@ const TableOrdenesCompra = () => {
     };
 
     const handleSelectBodegaEntrada = (e) => {
-        const bodegaId = e.target.value;
+        const bodegaId = parseInt(e.target.value, 10);
         setSelectedBodegaEntrada(bodegaId);
-        setHabilitarBuscador(true);
+
+        const selectedBodegaEntradaTemp = bodegasEntrada.find(bodega => bodega.id === bodegaId);
+
+        if (selectedBodegaEntradaTemp) {
+            setBodegaTemp(selectedBodegaEntradaTemp.id);
+            setUbicacionEntradaHabilitada(true);
+            fetchExistencias(selectedBodegaEntradaTemp.id);  // Cambia aquí
+        }
 
         if (bodegaEntradaRef.current) {
             bodegaEntradaRef.current.classList.remove('error');
         }
     };
 
+
     const handleUbicacionSelectEntrada = (e) => {
         const selectedIdEntrada = parseInt(e.target.value, 10);
         setSelectedUbicacionEntrada(selectedIdEntrada);
-        setHabilitarCantidad(true);
         setFechaCompromisoHabilitada(true);
+    };
 
-        const selectedUbicacionEntrada = ubicacionesEntrada.find(ubicacion => ubicacion.id === parseInt(selectedIdEntrada));
-
-        if (selectedUbicacionEntrada) {
-            setExistenciaProductoDestino(selectedUbicacionEntrada.cantidad);
-        }
-
-        if (ubicacionEntradaRef.current) {
-            ubicacionEntradaRef.current.classList.remove('error');
-        }
+    // Manejador de cambio para capturar la fecha seleccionada sin desfases
+    const handleFechaCompromiso = (date) => {
+        setSelectedFechaCompromiso(date); // Almacena la fecha como cadena
+        setHabilitarBuscador(true);
     };
 
     const isCellEditable = () => {
@@ -581,7 +581,6 @@ const TableOrdenesCompra = () => {
             });
             setProducto('');
             setSelectedUbicacionEntrada('');
-            setExistenciaProductoDestino('');
             setInputValue('');
             setComment('');
             setSelectedBodegaEntrada('');
@@ -605,7 +604,7 @@ const TableOrdenesCompra = () => {
                 cantidad_ordenada: linea.cantidad_ordenada,
                 comentario: linea.comentario,
                 precio: linea.precio,
-                fecha_recibo: formatFechaGet(linea.fecha_recibo),
+                fecha_recibo: null || '',
                 ubicacion_entrada_descripcion: linea.ubicacion_entrada_descripcion,
                 ubicacion_entrada_id: linea.ubicacion_entrada_id,
                 back_order: linea.back_order,
@@ -759,7 +758,7 @@ const TableOrdenesCompra = () => {
         try {
             const updatedFields = {
                 cantidad_recibida: parseOrNull(cantidad_recibida),
-                fecha_back: formatFecha(fecha_back),
+                fecha_back: formatFechaGet(fecha_back),
             };
 
             const response = await axios.put(`http://localhost:3304/ordenesCompras/lineasOrden/${id}`, updatedFields, {
@@ -850,6 +849,8 @@ const TableOrdenesCompra = () => {
             setBodegaEntradaHabilitada(false);
             setEnableRevertir(false);
             setEnableProcess(false);
+            setUbicacionEntradaHabilitada(false);
+            setFechaCompromisoHabilitada(false);
             if (user?.rol_id === rolIdTempEntrada) {
                 setEnableConfirm(true);
             } else {
@@ -903,13 +904,10 @@ const TableOrdenesCompra = () => {
 
     useEffect(() => {
         if (producto === '') {
-            setSelectedUbicacionEntrada('');
             setPrecio('');
-            setUbicacionEntradaHabilitada(false);
             setHabilitarCantidad(false);
             setHabilitarComentario(false);
             setHabilitarPrecio(false);
-            setExistenciaProductoDestino('');
             setInputValue('');
             setComment('');
             setIsButtonDisabled(true);
@@ -939,23 +937,18 @@ const TableOrdenesCompra = () => {
 
     const handleClose = () => setOpenComment(false);
 
-    // Manejador de cambio para capturar la fecha seleccionada sin desfases
-    const handleFechaCompromiso = (date) => {
-        setSelectedFechaCompromiso(date); // Almacena la fecha como cadena
-    };
-
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
-        { field: 'producto_id', headerName: 'Producto', type: 'text', width: 150 },
-        { field: 'producto_title', headerName: 'Descripción', width: 500 },
-        { field: 'precio', headerName: 'Precio', type: 'float', width: 100 },
-        { field: 'cantidad_ordenada', headerName: 'Cantidad', type: 'number', width: 100 },
-        { field: 'back_order', headerName: 'Back Order', type: 'number' },
-        { field: 'fecha_recibo', headerName: 'Fecha Recibo', width: 150 },
-        { field: 'ubicacion_entrada_descripcion', headerName: 'Ubicacion Entrada', type: 'text', width: 150 },
-        { field: 'ubicacion_entrada_id', headerName: 'Ubicacion Entrada ID', type: 'number', width: 150 },
+        { field: 'producto_id', headerName: 'Producto', type: 'text', flex: 2 },
+        { field: 'producto_title', headerName: 'Descripción', flex: 3 },
+        { field: 'precio', headerName: 'Precio', type: 'float', flex: 1, headerAlign: 'center' },
+        { field: 'cantidad_ordenada', headerName: 'Cantidad', type: 'number', flex: 1, headerAlign: 'center' },
+        { field: 'back_order', headerName: 'Back Order', type: 'number', flex: 1, headerAlign: 'center' },
+        { field: 'fecha_recibo', headerName: 'Fecha Recibo', flex: 1 },
+        { field: 'ubicacion_entrada_descripcion', headerName: 'Ubicacion', type: 'text', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'ubicacion_entrada_id', headerName: 'Ubicacion Entrada ID', type: 'number', flex: 1 },
         {
-            field: 'cantidad_recibida', headerName: 'Cantidad Recibida', type: 'number', width: 150, cellClassName: 'celdaEditable', editable: true,
+            field: 'cantidad_recibida', headerName: 'Cantidad\nRecibida', type: 'number', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center', cellClassName: 'celdaEditable', editable: true,
             renderEditCell: (params) => {
                 return (
                     <GridEditInputCell
@@ -1023,15 +1016,16 @@ const TableOrdenesCompra = () => {
             type: 'Date',
             editable: true,
             cellClassName: 'celdaEditable',
-            width: 150,
+            flex: 1,
             renderEditCell: (params) => {
                 return (
                     <TextField
                         type="date"
                         value={params.value ? formatFechaGet(params.value) : ''}
                         onChange={(e) => {
-                            // Mantener la fecha seleccionada sin alterarla
-                            params.api.setEditCellValue({ id: params.id, field: 'fecha_back', value: e.target.value });
+                            const selectedDate = e.target.value;  // YYYY-MM-DD
+                            const updatedDate = new Date(`${selectedDate}T00:00:00.000Z`); // Forzar UTC
+                            params.api.setEditCellValue({ id: params.id, field: 'fecha_back', value: updatedDate.toISOString() });
                         }}
                         fullWidth
                     />
@@ -1042,7 +1036,7 @@ const TableOrdenesCompra = () => {
             field: 'actions',
             headerName: 'Acciones',
             type: 'actions',
-            width: 150,
+            flex: 1,
             getActions: (params) => {
                 if (!params || !params.row) {
                     console.error('Error: params o params.row es null o undefined');
@@ -1163,16 +1157,16 @@ const TableOrdenesCompra = () => {
                     value={estatus}
                     readOnly
                 ></input>
-                <label className='descripcion'>Descripción:</label>
-                <input className='input-descr'
+                <label className='item005'>Descripción:</label>
+                <input className='item6'
                     disabled={!habilitarMovimiento}
                     value={descripcion}
                     ref={descripcionRef}
                     onChange={(e) => setDescripcion(e.target.value)}
                 ></input>
-                <label className='item5' >Tipo de movimiento:</label>
+                <label className='descripcion' >Tipo de movimiento:</label>
                 <select
-                    className='item6'
+                    className='input-descr'
                     value={selectedMovimiento}
                     onChange={handleSelectedTraspasoChange}
                     disabled={!habilitarMovimiento}
@@ -1218,27 +1212,23 @@ const TableOrdenesCompra = () => {
                 >
                     <option value="">Seleccione...</option>
                     {ubicacionesEntrada
-                        .sort((a, b) => b.cantidad - a.cantidad)
                         .map((ubicacion, index) => (
                             <option key={index} value={ubicacion.id}>
-                                {`${ubicacion.descripcion} : ${ubicacion.cantidad}`}
+                                {`${ubicacion.descripcion}`}
                             </option>
                         ))}
                 </select>
                 <label className='fC'>Fecha Compromiso:</label>
                 <DatePicker
-                    className='fCCalendar' 
+                    className='fCCalendar'
                     selected={selectedFechaCompromiso}
                     onChange={handleFechaCompromiso}
+                    disabled={!fechaCompromisoHabilitada}
                     dateFormat="yyyy-MM-dd"
-                    minDate={new Date()}
-                    maxDate={new Date(2024, 11, 31)}
+                    minDate={minDate}
+                    maxDate={maxDate}
                     placeholderText='YYYY-MM-DD'
                 />
-                <label className='exis-labelC'>Existencias Destino:</label>
-                <input className='exis-destinoC'
-                    value={existenciaProductoDestino} disabled
-                ></input>
                 <label className='item016'>Cantidad:</label>
                 <input className='item017'
                     disabled={!habilitarCantidad}
