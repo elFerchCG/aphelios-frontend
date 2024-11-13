@@ -30,17 +30,6 @@ const Existencias = () => {
 
   return (
     <div>
-      <div className='encabezado'>
-        <h2 id='titulo'>Existencias</h2>
-        <div className='cuerpo'>
-          <input id='buscador' 
-          type='text'
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder='Buscar existencias' /><br />
-          <button id='button-add-usuario' onClick={() => setOpenModalRegistroE(true)}>Agregar existencias</button><p />
-        </div>
-      </div>
       <DataGridE
       data={data}
       setData={setData}

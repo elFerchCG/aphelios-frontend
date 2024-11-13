@@ -1,7 +1,7 @@
-import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, GridToolbar } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, Button, Input, InputAdornment, Modal, TextField, Tooltip } from '@mui/material';
+import { accordionSummaryClasses, Box, Button, Input, InputAdornment, Modal, TextField, Tooltip } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png';
 import processOrden from '../../../../images/process.png';
@@ -449,7 +449,7 @@ const TableOrdenes = () => {
         };
     };
 
-    const handleSearch = (productoId) => {
+    const handleSearch = async (productoId) => {
         if (productoId) {
             fetchExistencias(productoId);
             setComment('');
@@ -1122,12 +1122,17 @@ const TableOrdenes = () => {
                         icon: 'success'
                     });
                 } catch (error) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Hubo un error al eliminar la línea.'
-                    });
-                    console.error('Error al eliminar la línea:', error);
+                    if (error.response && error.response.data && error.response.data.message) {
+                        const errorMessage = error.response.data.message;
+                        Swal.fire({
+                            title: 'Error',
+                            text: errorMessage,
+                            icon: 'error',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
+                    }
                 }
             }
         });
@@ -1195,19 +1200,66 @@ const TableOrdenes = () => {
         let isValid = true;
     };
 
+    const fetchsku = async (productoSku) => {
+        try {
+            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoSku}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+    
+            // Si llega aquí, significa que hay un resultado válido en el array
+            if (Array.isArray(response.data) && response.data.length === 1) {
+                const producto = response.data[0];  // Accede al único producto
+                setProductoId(producto.producto_id);
+                setProductoSku(producto.sku);
+                await handleSearch(producto.producto_id);
+            } else {
+                // Para cuando el array no tiene exactamente un elemento
+                setSearchTerm(productoSku);
+                setOpen(true);
+            }
+        } catch (error) {
+            // Maneja el caso específico de "Producto no encontrado"
+            if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
+                setSearchTerm(productoSku);
+                setOpen(true);
+            } else if (error.response && error.response.data && error.response.data.message) {
+                // Otros mensajes de error
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error en la comunicación con el servidor.',
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    };
+    
     // Función que maneja el evento de presionar Enter en el input
-    const handleKeyDown = async (event) => {
-        if (habilitarBuscador && (event.key === 'Enter' || event.key === 'Tab')) {
-            setSearchTerm(productoSku);
-            setOpen(true);  // Abre la modal después de la búsqueda
+    const handleKeyDown = (event) => {
+        if (habilitarBuscador && (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click')) {
+             fetchsku(productoSku);
         }
     };
 
-    // const handleBlur = () => {
-    //     if (productoId) {
-    //         handleSearch();
-    //     }
-    // };
+    const handleBlur = () => {
+        if (habilitarBuscador && productoSku.trim()) {
+            fetchsku(productoSku);
+        }
+    };
 
     const handleProductId = (event) => {
         const sku = event.target.value;
@@ -1430,7 +1482,7 @@ const TableOrdenes = () => {
             setRolMovimiento(response.data.data.rol_id_tipo_transaccion);
 
             setHabilitarBuscador(user.rol_id === response.data.data.rol_id_tipo_transaccion && response.data.data.orden.estatus === 'abierto');
-          //  setHabilitarComentario(user.rol_id === response.data.data.rol_id_entrada && response.data.data.orden.estatus === 'abierto');
+            //  setHabilitarComentario(user.rol_id === response.data.data.rol_id_entrada && response.data.data.orden.estatus === 'abierto');
 
             const dataGridRows = response.data.data.lineas.map((linea) => ({
                 id: linea.id,
@@ -1450,8 +1502,8 @@ const TableOrdenes = () => {
             // Limpia las filas actuales y luego añade las nuevas filas
             setRows(dataGridRows);
         } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                const errorMessage = error.response.data.message;
+            if (error.response && error.response.data && error.response.data.message && error.response.data.messageText) {
+                const errorMessage = error.response.data.messageText;
                 Swal.fire({
                     title: 'Error',
                     text: errorMessage,
@@ -1555,12 +1607,12 @@ const TableOrdenes = () => {
         },
         { field: 'sku', headerName: 'SKU', flex: 1.3 },
         { field: 'inventory_id', headerName: 'ML', flex: 0.6, headerAlign: 'center' },
-        { field: 'localidad_salida', headerName: 'Ubicación\nOrigen', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'existencias_origen', headerName: 'Existencia\nOrigen', type: 'number', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'localidad_entrada', headerName: 'Ubicación\nDestino', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'localidad_salida', headerName: 'Ubicación\nOrigen', flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'existencias_origen', headerName: 'Existencia\nOrigen', type: 'number', flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'localidad_entrada', headerName: 'Ubicación\nDestino', flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'localidad_entrada_id', headerName: 'ID ubicación entrada', type: 'number' },
         { field: 'localidad_salida_id', headerName: 'ID ubicación salida', type: 'number' },
-        { field: 'existencias_destino', headerName: 'Existencia\nDestino', flex: 0.5, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'existencias_destino', headerName: 'Existencia\nDestino', flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'producto_title', headerName: 'Descripción', flex: 2 },
         {
             field: 'actions',
@@ -1797,7 +1849,7 @@ const TableOrdenes = () => {
                 <TextField
                     className='item12'
                     onKeyDown={handleKeyDown}
-                    //onBlur={handleBlur}
+                    onBlur={handleBlur}
                     disabled={!habilitarBuscador}
                     value={productoSku}
                     onChange={handleProductId}
@@ -1944,6 +1996,7 @@ const TableOrdenes = () => {
                         rows={rows}
                         columns={columns}
                         pageSize={5}
+                        disableColumnResize={false}
                         onRowClick={handleRowSelectionComment}
                         processRowUpdate={processRowUpdate}
                         showCellVerticalBorder
@@ -1957,6 +2010,9 @@ const TableOrdenes = () => {
                             localidad_entrada_id: false,
                         }}
                         isCellEditable={isCellEditable}
+                        components={{
+                            Toolbar: GridToolbar,
+                        }}
                     />
                 </div>
                 <Modal

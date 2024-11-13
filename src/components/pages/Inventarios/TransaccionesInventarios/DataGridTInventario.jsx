@@ -31,12 +31,15 @@ const DataGridTInventario = ({ filter }) => {
     const url = 'http://localhost:3304/inventario/transacciones';
 
     const columns = [
-        { field: 'id', headerName: 'ID', flex: 1 },
+        // { field: 'id', headerName: 'ID', flex: 1 },
         {
-            field: 'linea_orden_id', headerName: 'Folio', type: 'number', flex: 1, filterable: true
+            field: 'transaccion_id', headerName: 'Folio', type: 'number', flex: 1, filterable: true
+        },
+        {
+            field: 'orden_id', headerName: 'Folio Orden', type: 'number', flex: 1, filterable: true
         },
         { field: 'tipo', headerName: 'Tipo de transacción', type: 'string', flex: 2, filterable: true },
-        { field: 'producto_id', headerName: 'SKU', type: 'text', flex: 2, sortable: true, filterable: true },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, sortable: true, filterable: true },
         { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 2 },
         { field: 'localidad_id', headerName: 'Ubicación', type: 'number', flex: 1 },
         { field: 'cantidad', headerName: 'Cantidad', type: 'number', flex: 1, headerAlign: 'center', filterable: true },
@@ -86,7 +89,7 @@ const DataGridTInventario = ({ filter }) => {
                         pageSize={5}
                         showCellVerticalBorder
                         showColumnVerticalBorder
-                        getRowId={(row) => row.id}
+                        getRowId={(row) => row.transaccion_id}
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
                             id: false,

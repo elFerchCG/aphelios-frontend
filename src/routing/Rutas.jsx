@@ -5,7 +5,6 @@ import { Proveedores } from '../components/pages/Proveedores/Proveedores';
 import { Usuarios } from '../components/pages/Usuarios/Usuarios';
 import Login from '../components/login/Login';
 import Transacciones from '../components/pages/Inventarios/Transacciones/Transacciones';
-import Localidades from '../components/pages/Inventarios/Localidades/Localidades';
 import Bodegas from '../components/pages/Inventarios/Bodegas/Bodegas';
 import Ventas from '../components/pages/Ventas/Ventas';
 import Existencias from '../components/pages/Inventarios/Existencias/Existencias';
@@ -21,6 +20,7 @@ import Envios from '../components/Envios/Envios';
 import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/TableOrdenesCompra';
 import AnalisisVentas from '../components/pages/Analisi Ventas/AnalisisVentas';
 import ConteoCiclico from '../components/pages/Inventarios/OrdenBodegas/ConteoCiclico';
+import Localidades from '../components/pages/Inventarios/Localidades/Localidades';
 
 const Rutas = () => {
     return (
@@ -42,7 +42,6 @@ const Rutas = () => {
                         </ProtectedRoute>
                     } />
                     <Route path='/transacciones' element={<Transacciones />} />
-                    <Route path='/ubicaciones' element={<Localidades />} />
                     <Route path='/bodegas' element={<Bodegas />} />
                     <Route path='/existencias' element={<Existencias />} />
                     <Route path='/traspasos' element={<Lineas />} />
@@ -56,6 +55,7 @@ const Rutas = () => {
                     <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
                     <Route path='/analisisVentas' element={<AnalisisVentas />} />
                     <Route path='/conteociclico' element={<ConteoCiclico />} />
+                    <Route path='/ubicaciones' element={<Localidades />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>

@@ -16,8 +16,8 @@ const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }
   const estadoInicial = {
     nombre: "",
     tipo: "",
-    neteable: "",
-    responsable: ""
+    neteable: null,
+    rol_id: null
   };
 
   const [data, setData] = React.useState(estadoInicial);
@@ -48,7 +48,7 @@ const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }
         nombre: data.nombre,
         tipo: data.tipo,
         neteable: data.neteable,
-        responsable: data.responsable
+        rol_id: data.rol_id
       });
       setData(response);
       Swal.fire({
@@ -89,7 +89,7 @@ const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }
             type="text"
             fullWidth
             variant="standard"
-            value={data.nombre}
+            value={data.nombre ?? ""}
             onChange={handleChange}
           />
           <FormControl fullWidth margin='dense' required variant='standard'>
@@ -99,7 +99,8 @@ const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }
               id="tipo"
               name="tipo"
               label="Tipo"
-              value={data.tipo}
+              type='text'
+              value={data.tipo ?? ""}
               onChange={handleChange}
             >
               <MenuItem value="Almacén">Almacén</MenuItem>
@@ -118,24 +119,32 @@ const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }
               type="number"
               fullWidth
               variant="standard"
-              value={data.neteable}
+              value={data.neteable ?? ""}
               onChange={handleChange}
             >
-              <MenuItem value="Disponible">Disponible</MenuItem>
-              <MenuItem value="No disponible">No disponible</MenuItem>
+              <MenuItem value={1}>Disponible</MenuItem>
+              <MenuItem value={0}>No disponible</MenuItem>
             </Select>
           </FormControl>
-          <TextField
-            margin="dense"
-            id="responsable"
-            name="responsable"
-            label="Responsable"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={data.responsable}
-            onChange={handleChange}
-          />
+          <FormControl fullWidth margin='dense' variant='standard'>
+            <InputLabel id="rol_id-label">Rol</InputLabel>
+            <Select
+              id="rol_id"
+              name="rol_id"
+              label="Rol"
+              type="number"
+              fullWidth
+              variant="standard"
+              value={data.rol_id ?? ""}
+              onChange={handleChange}
+            >
+              <MenuItem value={1}>Administrador</MenuItem>
+              <MenuItem value={3}>Planeador</MenuItem>
+              <MenuItem value={4}>Almacenista</MenuItem>
+              <MenuItem value={6}>Marketing</MenuItem>
+              <MenuItem value={8}>Producción</MenuItem>
+            </Select>
+          </FormControl>
         </form>
       </DialogContent>
       <DialogActions>

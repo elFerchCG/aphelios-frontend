@@ -15,7 +15,6 @@ export const Ventas = () => {
   const fetchData = async () => {
     setLoading(true);
     const result = await getVentas(url);
-    console.log(result);
     setData(result.data);
     setError(result.error);
     setLoading(false);

@@ -7,6 +7,7 @@ import '../../estilos/login.css';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import apiUrl from '../../config';
 
 const Login = () => {
   const [nombre, setNombre] = React.useState('');
@@ -16,7 +17,7 @@ const Login = () => {
 
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:3304/auth/login', { nombre, password });
+      const response = await axios.post(`${apiUrl}/auth/login`, { nombre, password });
       if (response.data.ok) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));

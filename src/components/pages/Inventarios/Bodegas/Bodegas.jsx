@@ -30,7 +30,7 @@ export const Bodegas = () => {
   }, []);
 
   return (
-    <div>
+    <>
       <div className='encabezado'>
         <h2 id='titulo'>Bodegas</h2>
         <div className='cuerpo'>
@@ -73,7 +73,7 @@ export const Bodegas = () => {
         onClose={() => setOpenUbicaciones(false)}
         bodegaId={selectedBodega?.id}
       />
-    </div>
+    </>
   );
 };
 
