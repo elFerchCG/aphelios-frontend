@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { getLineas } from '../../../actions/getUsers';
 import DataGridL from './DataGridL';
 import ModalRegistroL from './ModalRegistroL';
+import apiUrl from '../../../../config';
 
 
 const Lineas = () => {
@@ -10,7 +11,7 @@ const Lineas = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/lineasOrden';
+  const url = `${apiUrl}/inventario/lineasOrden`;
 
   const [openModalRegistroL, setOpenModalRegistroL] = useState(false);
 

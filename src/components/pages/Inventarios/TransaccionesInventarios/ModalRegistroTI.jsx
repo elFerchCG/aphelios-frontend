@@ -13,6 +13,11 @@ import { FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Select }
 
 const ModalRegistroTI = ({ openModalRegistroT, setOpenModalRegistroT }) => {
 
+    const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
     const estadoInicial = {
         linea_orden_id: 0,
         tipo: "",
@@ -45,7 +50,7 @@ const ModalRegistroTI = ({ openModalRegistroT, setOpenModalRegistroT }) => {
         try {
             e.preventDefault();
             console.log(data);
-            const response = await axios.post("http://localhost:3304/inventario/transacciones", {
+            const response = await axios.post(`${apiUrl}/inventario/transacciones`, {
                 linea_orden_id: data.linea_orden_id,
                 tipo: data.tipo,
                 producto_id: data.producto_id,

@@ -15,7 +15,12 @@ export const Bodegas = () => {
   const [openUbicaciones, setOpenUbicaciones] = useState(false);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/bodegas';
+  const apiUrl =
+  process.env.NODE_ENV === 'production'
+    ? process.env.REACT_APP_API_URL
+    : process.env.REACT_APP_API_URL_LOCAL;
+
+  const url = `${apiUrl}/inventario/bodegas`;
 
   const fetchData = async () => {
     setLoading(true);
@@ -34,12 +39,12 @@ export const Bodegas = () => {
       <div className='encabezado'>
         <h2 id='titulo'>Bodegas</h2>
         <div className='cuerpo'>
-          <input 
-          id='buscador' 
-          type='text'
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder='Buscar Bodega' /><br />
+          <input
+            id='buscador'
+            type='text'
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder='Buscar Bodega' /><br />
           <button id='button-add-usuario' onClick={() => setOpenModalRegistroB(true)}>Agregar Bodega</button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { getLocalidades } from '../../../actions/getUsers';
 import DataGridL from './DataGridL';
 import ModalRegistroL from './ModalRegistroL';
 import DetalleLocalidades from './DetalleLocalidades';
+import apiUrl from '../../../../config';
 
 
 const Localidades = () => {
@@ -14,7 +15,7 @@ const Localidades = () => {
   const [openDetalleLocalidad, setOpenDetalleLocalidad] = useState(false);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/localidades';
+  const url = `${apiUrl}/inventario/localidades`;
 
   const fetchData = async () => {
     setLoading(true);

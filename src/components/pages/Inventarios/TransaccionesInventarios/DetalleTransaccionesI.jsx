@@ -13,6 +13,11 @@ import { IconButton, InputAdornment } from '@mui/material';
 
 const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccion, handleClose, selectedTransaccion, fetchData }) => {
 
+    const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
     const [formData, setFormData] = useState({
         id: "",
         linea_orden_id: 0,
@@ -71,7 +76,7 @@ const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccio
         try {
             e.preventDefault();
             console.log("Datos enviados:", formData);
-            const response = await axios.put(`http://localhost:3304/inventario/transacciones/${selectedTransaccion.id}`, formData)
+            const response = await axios.put(`${apiUrl}/inventario/transacciones/${selectedTransaccion.id}`, formData)
             setFormData(response);
             Swal.fire({
                 title: 'Éxito!',

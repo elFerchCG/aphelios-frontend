@@ -3,6 +3,7 @@ import DataGridV from './DataGridV';
 import { useEffect } from 'react';
 import { getVentas } from '../../actions/getUsers';
 import Encabezado from './Encabezado';
+import apiUrl from '../../../config';
 
 
 export const Ventas = () => {
@@ -10,7 +11,7 @@ export const Ventas = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const url = 'http://localhost:3304/ventas';
+  const url = `${apiUrl}/ventas`;
 
   const fetchData = async () => {
     setLoading(true);

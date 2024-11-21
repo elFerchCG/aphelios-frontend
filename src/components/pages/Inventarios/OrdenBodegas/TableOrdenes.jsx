@@ -19,6 +19,7 @@ import UpdateIcon from '@mui/icons-material/Update';
 import SearchIcon from '@mui/icons-material/Search';
 import { read, utils } from 'xlsx';
 import { useRef } from 'react';
+import apiUrl from '../../../../config';
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -143,7 +144,7 @@ const TableOrdenes = () => {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/buscador/productos/todo');
+                const response = await axios.get(`${apiUrl}/buscador/productos/todo`);
                 if (response.data && Array.isArray(response.data) && response.data.length > 0) {
                     setRowsProducts(response.data);
                     setFilteredProducts(response.data);
@@ -177,7 +178,7 @@ const TableOrdenes = () => {
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas', {
+                const response = await axios.get(`${apiUrl}/inventario/bodegas_y_localidades/nombres/bodegas`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -201,7 +202,7 @@ const TableOrdenes = () => {
 
         const fetchTipoTraspaso = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/tipoTransaccion', {
+                const response = await axios.get(`${apiUrl}/inventario/tipoTransaccion`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -366,7 +367,7 @@ const TableOrdenes = () => {
                     });
                     return;
                 }
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodegaSalida/${selectedBodegaSalida}/bodegaEntrada/${selectedBodegaEntrada}/transferencia`, {
+                const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodegaSalida/${selectedBodegaSalida}/bodegaEntrada/${selectedBodegaEntrada}/transferencia`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -401,7 +402,7 @@ const TableOrdenes = () => {
                     alert('Tipo de movimiento no válido');
                     return;
                 }
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodega/${bodegaSeleccionada}/tipo/${categoriaTemp}/localidades`, {
+                const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodega/${bodegaSeleccionada}/tipo/${categoriaTemp}/localidades`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -653,7 +654,7 @@ const TableOrdenes = () => {
                             return;
                         }
                     }
-                    const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
+                    const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
@@ -818,7 +819,7 @@ const TableOrdenes = () => {
                         return;
                     }
                 }
-                const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${idTraspaso}`, data, {
+                const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idTraspaso}`, data, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -946,7 +947,7 @@ const TableOrdenes = () => {
         };
 
         try {
-            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/confirmar/${idOrder}`, data, {
+            const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/confirmar/${idOrder}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -984,7 +985,7 @@ const TableOrdenes = () => {
             fecha_procesada: dateTime
         }
         try {
-            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/cancelar/${idOrder}`, data, {
+            const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/cancelar/${idOrder}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1019,7 +1020,7 @@ const TableOrdenes = () => {
     const handleRevertirOrden = async () => {
         try {
             const response = await axios.put(
-                `http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/revertir`,
+                `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/revertir`,
                 {}, // Este es el cuerpo de la solicitud (si no envías datos, puedes pasar un objeto vacío)
                 {
                     headers: {
@@ -1062,7 +1063,7 @@ const TableOrdenes = () => {
         };
 
         try {
-            const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/procesar/${idOrder}`, data, {
+            const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/procesar/${idOrder}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1109,7 +1110,7 @@ const TableOrdenes = () => {
             if (result.isConfirmed) {
                 try {
                     // Eliminar la línea en el backend
-                    await axios.delete(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`, {
+                    await axios.delete(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
@@ -1202,7 +1203,7 @@ const TableOrdenes = () => {
 
     const fetchsku = async (productoSku) => {
         try {
-            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/producto/${productoSku}`, {
+            const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoSku}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1345,7 +1346,7 @@ const TableOrdenes = () => {
     const handleUpdateOrder = async () => {
         try {
             if (descripcion) {
-                const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`,
+                const response = await axios.put(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`,
                     {
                         descripcion: descripcion,
                     },
@@ -1388,7 +1389,7 @@ const TableOrdenes = () => {
                 comentario: comentario,
             };
 
-            const response = await axios.put(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${id}`, updatedFields, {
+            const response = await axios.put(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/${id}`, updatedFields, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -1465,7 +1466,7 @@ const TableOrdenes = () => {
 
     const fetchOrderSelected = async (orderId) => {
         try {
-            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${orderId}`, {
+            const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${orderId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

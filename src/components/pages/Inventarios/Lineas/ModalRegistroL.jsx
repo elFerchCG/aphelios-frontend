@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { IconButton, InputAdornment } from '@mui/material';
+import apiUrl from '../../../../config';
 
 
 const ModalRegistroL = ({ openModalRegistroL, setOpenModalRegistroL }) => {
@@ -42,7 +43,7 @@ const ModalRegistroL = ({ openModalRegistroL, setOpenModalRegistroL }) => {
         try {
             e.preventDefault();
             console.log(data);
-            const response = await axios.post("http://localhost:3304/inventario/lineasOrden", {
+            const response = await axios.post(`${apiUrl}/inventario/lineasOrden`, {
                 orden_id: data.orden_id,
                 producto_id: data.producto_id,
                 cantidad: data.cantidad,

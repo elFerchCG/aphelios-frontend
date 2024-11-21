@@ -37,6 +37,10 @@ const AnalisisVentas = () => {
     const [year1, setYear1] = useState('');
     const [year, setYear] = useState('');
 
+    const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
 
     useEffect(() => {
         const totalAnual = async () => {
@@ -44,7 +48,7 @@ const AnalisisVentas = () => {
                 year: year
             }
             try {
-                const response = await axios.post('http://localhost:3304/analisisGraficas/ventas/totalVentasAnual', yearData);
+                const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/totalVentasAnual`, yearData);
                 const result = response.data.map(item => ({
                     mes: item.mes,
                     año: item.año,
@@ -68,7 +72,7 @@ const AnalisisVentas = () => {
                 endDate: endDate,
             }
             try {
-                const response = await axios.post('http://localhost:3304/analisisGraficas/ventas/topProductosSemana', dates);
+                const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/topProductosSemana`, dates);
                 const result = response.data.map(item => ({
                     producto_id: item.producto_id,
                     Ventas: parseFloat(item.total_ventas),
@@ -91,7 +95,7 @@ const AnalisisVentas = () => {
                 endDate: endDate1
             }
             try {
-                const response = await axios.post('http://localhost:3304/analisisGraficas/ventas/ultimaSemana', dates);
+                const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/ultimaSemana`, dates);
                 // Verificar la respuesta completa del servidor
                 console.log("Response data del servidor: ", response.data);
                 const result = response.data.map(item => ({
@@ -118,7 +122,7 @@ const AnalisisVentas = () => {
             }
             try {
                 console.log("Producto seleccionado:", producto);
-                const response = await axios.post(`http://localhost:3304/analisisGraficas/ventas/tendenciaProducto/${producto}`, dates);
+                const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/tendenciaProducto/${producto}`, dates);
                 const result = response.data.map(item => ({
                     fecha_venta: formatFecha(item.fecha_venta),
                     Ventas: parseFloat(item.total_ventas),
@@ -140,7 +144,7 @@ const AnalisisVentas = () => {
                 endDate: endDate3
             }
             try {
-                const response = await axios.post('http://localhost:3304/analisisGraficas/ventas/topProductosPorUnidades', dates);
+                const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/topProductosPorUnidades`, dates);
                 console.log("Response data del servidor: ", response.data);
                 const result = response.data.map(item => ({
                     producto_id: item.producto_id,
@@ -164,7 +168,7 @@ const AnalisisVentas = () => {
                 year: year1,
             }
             try {
-                const response = await axios.post(`http://localhost:3304/analisisGraficas/ventas/clasificacionABC`, dates);
+                const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/clasificacionABC`, dates);
                 const result = response.data.map(item => ({
                     producto_id: item.producto_id,
                     valor_total_ventas: item.valor_total_ventas,

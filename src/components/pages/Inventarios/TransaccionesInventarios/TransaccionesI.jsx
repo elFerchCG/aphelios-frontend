@@ -11,7 +11,12 @@ export const OrdenB = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/transacciones';
+  const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
+  const url = `${apiUrl}/inventario/transacciones`;
 
   const [openModalRegistroT, setOpenModalRegistroT] = useState(false);
 
@@ -23,7 +28,7 @@ export const OrdenB = () => {
     setError(result.error);
     setLoading(false);
   };
- 
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -31,14 +36,14 @@ export const OrdenB = () => {
   return (
     <div>
       <DataGridTInventario
-      data={data}
-      setData={setData}
-      fetchData={fetchData}
-      filter={filter}
+        data={data}
+        setData={setData}
+        fetchData={fetchData}
+        filter={filter}
       ></DataGridTInventario>
       <ModalRegistroTI
-      openModalRegistroT={openModalRegistroT}
-      setOpenModalRegistroT={setOpenModalRegistroT}
+        openModalRegistroT={openModalRegistroT}
+        setOpenModalRegistroT={setOpenModalRegistroT}
       ></ModalRegistroTI>
     </div>
   )

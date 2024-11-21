@@ -4,6 +4,7 @@ import { getOrdenB } from '../../../actions/getUsers';
 import { useEffect } from 'react';
 import ModalRegistroO from './ModalRegistroO';
 import FetchOrders from './FetchOrders';
+import apiUrl from '../../../../config';
 
 
 export const OrdenB = () => {
@@ -12,7 +13,7 @@ export const OrdenB = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/ordenBodegas';
+  const url = `${apiUrl}/inventario/ordenBodegas`;
 
   const [openModalRegistroO, setOpenModalRegistroO] = useState(false);
 

@@ -5,6 +5,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import { Checkbox } from '@mui/material';
 import Swal from 'sweetalert2';
 import axios from 'axios';
+import apiUrl from '../../../../config';
 
 const formatFecha = (fecha) => {
     const date = new Date(fecha);
@@ -49,7 +50,7 @@ const ConteoCiclico = () => {
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas', {
+                const response = await axios.get(`${apiUrl}/inventario/bodegas_y_localidades/nombres/bodegas`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -70,7 +71,7 @@ const ConteoCiclico = () => {
     useEffect(() => {
         const fetchLocalidades = async () => {
             try {
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${selectedBodega}/ubicaciones`);
+                const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/${selectedBodega}/ubicaciones`);
                 if (response.data && Array.isArray(response.data) && response.data.length > 0) {
                     setUbicaciones(response.data);
                 } else {
@@ -107,7 +108,7 @@ const ConteoCiclico = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await axios.get(`http://localhost:3304/conteoCiclico/localidad/${selectedLocalidad}`);
+            const response = await axios.get(`${apiUrl}/conteoCiclico/localidad/${selectedLocalidad}`);
             const data = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
             const dataGridRows = data.map((linea) => ({
                 existencia_id: linea.existencia_id,
@@ -155,7 +156,7 @@ const ConteoCiclico = () => {
 
     const fetchProductsMLM = async () => {
         try {
-            const response = await axios.get(`http://localhost:3304/conteoCiclico/producto/${productoId}/localidades`);
+            const response = await axios.get(`${apiUrl}/conteoCiclico/producto/${productoId}/localidades`);
             const data = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
             const dataGridRows = data.map((linea) => ({
                 existencia_id: linea.existencia_id,
@@ -205,7 +206,7 @@ const ConteoCiclico = () => {
 
     const fetchProductsDate = async () => {
         try {
-            const response = await axios.get(`http://localhost:3304/conteoCiclico/existencias/fechaAntigua`);
+            const response = await axios.get(`${apiUrl}/conteoCiclico/existencias/fechaAntigua`);
             const data = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
             const dataGridRows = data.map((linea) => ({
                 existencia_id: linea.existencia_id,
@@ -335,7 +336,7 @@ const ConteoCiclico = () => {
         try {
             // Llamada al backend para actualizar la fila individualmente
             const response = await axios.put(
-                `http://localhost:3304/conteoCiclico/existencias/${row.existencia_id}`,
+                `${apiUrl}/conteoCiclico/existencias/${row.existencia_id}`,
                 {
                     cantidad: row.existencia, // Usar el valor actualizado de existencia
                     fecha_conteo: fechaHoy // Suponiendo que esto también necesita actualizarse

@@ -3,6 +3,7 @@ import { getTransacciones } from '../../../actions/getUsers';
 import DataGridT from './DataGridT';
 import ModalRegistroT from './ModalRegistroT';
 import DetalleTransacciones from './DetalleTransacciones';
+import apiUrl from '../../../../config';
 
 
 const Transacciones = () => {
@@ -14,7 +15,7 @@ const Transacciones = () => {
   const [selectedTransaccion, setSelectedTransaccion] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/tipoTransaccion';
+  const url = `${apiUrl}/inventario/tipoTransaccion`;
 
 
   const fetchData = async () => {

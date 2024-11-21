@@ -11,15 +11,56 @@ import Swal from 'sweetalert2';
 import { FormControl, IconButton, InputLabel, MenuItem, Select } from '@mui/material';
 import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
 
+
 const DetalleBodegas = ({ openDetalleBodega, setOpenDetalleBodega, selectedBodega, fetchData }) => {
+  const [roles, setRoles] = useState([]);
+  const [selectedRol, setSelectedRol] = useState('');
+
+  const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
 
   const [formData, setFormData] = useState({
     id: '',
     nombre: '',
     tipo: '',
-    neteable: '',
-    responsable: ''
+    neteable: null,
+    rol_id: selectedRol
   });
+
+  useEffect(() => {
+    const obtenerRoles = async () => {
+      try {
+        const response = await axios.get(`${apiUrl}/inventario/bodegas/roles`);
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          setRoles(response.data);
+        } else {
+          Swal.fire({
+            title: '!Productos no encontrados!',
+            text: 'No se encontraron productos',
+            icon: 'error',
+            timer: 5000,
+            showCloseButton: true,
+            allowEscapeKey: true
+          });
+        }
+      } catch (error) {
+        if (error.response && error.response.data && error.response.data.message) {
+          const { messageText } = error.response.data.message;
+          Swal.fire({
+            title: 'Error',
+            text: `Error: ${messageText}`,
+            icon: 'error',
+            timer: 5000,
+            showCloseButton: true,
+            allowEscapeKey: true
+          });
+        }
+      }
+    }
+    obtenerRoles();
+  }, [openDetalleBodega]);
 
   useEffect(() => {
     if (selectedBodega) {
@@ -28,7 +69,7 @@ const DetalleBodegas = ({ openDetalleBodega, setOpenDetalleBodega, selectedBodeg
         nombre: selectedBodega.Nombre || '',
         tipo: selectedBodega.Tipo || '',
         neteable: selectedBodega.Neteable || '',
-        responsable: selectedBodega.Responsable || ''
+        rol_id: selectedBodega.rol_id || ''
       });
     }
   }, [selectedBodega]);
@@ -49,7 +90,7 @@ const DetalleBodegas = ({ openDetalleBodega, setOpenDetalleBodega, selectedBodeg
     e.preventDefault();
 
     try {
-      await axios.put(`http://localhost:3304/inventario/bodegas/${selectedBodega.id}`, formData);
+      await axios.put(`${apiUrl}/inventario/bodegas/${selectedBodega.id}`, formData);
       Swal.fire({
         title: 'Éxito!',
         text: 'Bodega actualizada correctamente!!!',
@@ -82,7 +123,7 @@ const DetalleBodegas = ({ openDetalleBodega, setOpenDetalleBodega, selectedBodeg
       if (result.isConfirmed) {
 
         try {
-          await axios.delete(`http://localhost:3304/inventario/bodegas/${selectedBodega.id}`);
+          await axios.delete(`${apiUrl}/inventario/bodegas/${selectedBodega.id}`);
           Swal.fire({
             title: '¡Eliminado!',
             text: 'Tu bodega ha sido desactivada.',
@@ -101,6 +142,14 @@ const DetalleBodegas = ({ openDetalleBodega, setOpenDetalleBodega, selectedBodeg
       }
     });
   };
+
+  const handleSelectedRol = (e) => {
+    const rolId = parseInt(e.target.value, 10);
+    setSelectedRol(rolId);
+
+    const selectedRolId = roles.find(role => role.id === parseInt(selectedRolId));
+    console.log("Este es el rol que se manda en el update", rolId);
+  }
 
   return (
     <Dialog open={openDetalleBodega} onClose={handleClose}>
@@ -145,27 +194,38 @@ const DetalleBodegas = ({ openDetalleBodega, setOpenDetalleBodega, selectedBodeg
               id="neteable"
               name="neteable"
               label="Disponible para retiro"
-              type="text"
+              type="number"
               fullWidth
               variant="standard"
               value={formData.neteable}
               onChange={handleChange}
             >
-              <MenuItem value="Disponible">Disponible</MenuItem>
-              <MenuItem value="No disponible">No disponible</MenuItem>
+              <MenuItem value={1}>Disponible</MenuItem>
+              <MenuItem value={0}>No disponible</MenuItem>
             </Select>
           </FormControl>
-          <TextField
-            margin="dense"
-            id="responsable"
-            name="responsable"
-            label="Responsable"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={formData.responsable}
-            onChange={handleChange}
-          />
+          <FormControl fullWidth margin='dense' variant='standard'>
+            <InputLabel id="rol_id-label">Rol</InputLabel>
+            <Select
+              labelId="rol_id-label"
+              margin="dense"
+              id="rol_id"
+              name="rol_id"
+              label="Rol"
+              type="number"
+              fullWidth
+              variant="standard"
+              value={selectedRol}
+              onChange={handleSelectedRol}
+            >
+              <MenuItem value="">Seleccione...</MenuItem>
+              {roles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  {role.descripcion}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </form>
       </DialogContent>
       <DialogActions>

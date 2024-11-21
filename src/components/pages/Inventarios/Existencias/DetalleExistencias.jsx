@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { IconButton, InputAdornment } from '@mui/material';
+import apiUrl from '../../../../config';
 
 
 const DetalleExistencias = ({ openDetalleExistencia, setOpenDetalleExistencia, handleClose, selectedExistencia, fetchData }) => {
@@ -62,7 +63,7 @@ const DetalleExistencias = ({ openDetalleExistencia, setOpenDetalleExistencia, h
         try {
             e.preventDefault();
             console.log("Datos enviados:", formData);
-            const response = await axios.put(`http://localhost:3304/inventario/existencias/${selectedExistencia.id}`, formData)
+            const response = await axios.put(`${apiUrl}/inventario/existencias/${selectedExistencia.id}`, formData)
             setFormData(response);
             Swal.fire({
                 title: 'Éxito!',

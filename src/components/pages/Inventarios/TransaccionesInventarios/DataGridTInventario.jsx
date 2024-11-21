@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DataGrid, GridToolbar, GRID_DEFAULT_LOCALE_TEXT } from '@mui/x-data-grid';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { getTransaccionesI } from '../../../actions/getUsers';
+import apiUrl from '../../../../config';
 
 const theme = createTheme({
     palette: {
@@ -28,7 +29,7 @@ const DataGridTInventario = ({ filter }) => {
     const [error, setError] = useState(null);
     const [refresh, setRefresh] = useState(false);
 
-    const url = 'http://localhost:3304/inventario/transacciones';
+    const url = `${apiUrl}/inventario/transacciones`;
 
     const columns = [
         // { field: 'id', headerName: 'ID', flex: 1 },

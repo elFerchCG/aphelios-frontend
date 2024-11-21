@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { getExistencias } from '../../../actions/getUsers';
 import DataGridE from './DataGridE';
 import ModalRegistroE from './ModalRegistroE';
+import apiUrl from '../../../../config';
 
 
 const Existencias = () => {
@@ -10,7 +11,7 @@ const Existencias = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const url = 'http://localhost:3304/inventario/existencias';
+  const url = `${apiUrl}/inventario/existencias`;
 
   const [openModalRegistroE, setOpenModalRegistroE] = useState(false);
 

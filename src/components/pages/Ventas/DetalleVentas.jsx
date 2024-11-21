@@ -7,6 +7,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
+import apiUrl from '../../../config';
 
 
 const DetalleVentas = ({ openDetalleVentas, setOpenDetalleVentas, handleClose, selectedVentas, }) => {
@@ -22,7 +23,7 @@ const DetalleVentas = ({ openDetalleVentas, setOpenDetalleVentas, handleClose, s
     });
 
     const getDetalle = async (sale_id) => {
-        const url = `http://localhost:3304/detalleVentas/${sale_id}`;
+        const url = `${apiUrl}/detalleVentas/${sale_id}`;
         console.log(`Fetching details from: ${url}`);
 
         try {

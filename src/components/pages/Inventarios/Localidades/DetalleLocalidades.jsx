@@ -9,8 +9,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
-import { IconButton, InputAdornment } from '@mui/material';
+import { IconButton } from '@mui/material';
 import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
+import apiUrl from '../../../../config';
 
 const DetalleLocalidades = ({ openDetalleLocalidad, setOpenDetalleLocalidad, selectedLocalidad, fetchData }) => {
     const [bodegas, setBodegas] = useState([]);
@@ -51,7 +52,7 @@ const DetalleLocalidades = ({ openDetalleLocalidad, setOpenDetalleLocalidad, sel
         e.preventDefault();
 
         try {
-            await axios.put(`http://localhost:3304/inventario/localidades/${selectedLocalidad.id}`, formData);
+            await axios.put(`${apiUrl}/inventario/localidades/${selectedLocalidad.id}`, formData);
             Swal.fire({
                 title: 'Éxito!',
                 text: 'Ubicación actualizada correctamente!!!',
@@ -83,7 +84,7 @@ const DetalleLocalidades = ({ openDetalleLocalidad, setOpenDetalleLocalidad, sel
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    await axios.delete(`http://localhost:3304/inventario/localidades/${selectedLocalidad.id}`);
+                    await axios.delete(`${apiUrl}/inventario/localidades/${selectedLocalidad.id}`);
                     Swal.fire({
                         title: '¡Eliminado!',
                         text: 'Tu ubicación ha sido eliminada.',
@@ -106,7 +107,7 @@ const DetalleLocalidades = ({ openDetalleLocalidad, setOpenDetalleLocalidad, sel
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas');
+                const response = await axios.get(`${apiUrl}/inventario/bodegas_y_localidades/nombres/bodegas`);
                 setBodegas(response.data);  // Correctly set the bodegas data
             } catch (error) {
                 console.error('Error fetching bodegas:', error);

@@ -10,6 +10,7 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, IconButton, InputLabel, MenuItem, Select } from '@mui/material';
 import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
+import apiUrl from '../../../../config';
 
 
 const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccion, selectedTransaccion, fetchData }) => {
@@ -48,7 +49,7 @@ const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccio
         e.preventDefault();
 
         try {
-            await axios.put(`http://localhost:3304/inventario/tipoTransaccion/${selectedTransaccion.id}`, formData)
+            await axios.put(`${apiUrl}/inventario/tipoTransaccion/${selectedTransaccion.id}`, formData)
             Swal.fire({
                 title: 'Éxito!',
                 text: 'Transaccion actualizada correctamente!!!',
@@ -81,7 +82,7 @@ const DetalleTransacciones = ({ openDetalleTransaccion, setOpenDetalleTransaccio
             if (result.isConfirmed) {
 
                 try {
-                    await axios.delete(`http://localhost:3304/inventario/tipoTransaccion/${selectedTransaccion.id}`)
+                    await axios.delete(`${apiUrl}/inventario/tipoTransaccion/${selectedTransaccion.id}`)
 
                     Swal.fire({
                         title: '¡Eliminado!',

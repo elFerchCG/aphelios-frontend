@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import apiUrl from '../../../../config';
 
 
 const ModalRegistroT = ({ openModalRegistroT, setOpenModalRegistroT, fetchData }) => {
@@ -43,7 +44,7 @@ const ModalRegistroT = ({ openModalRegistroT, setOpenModalRegistroT, fetchData }
     e.preventDefault();
 
     try {
-      const response = await axios.post("http://localhost:3304/inventario/tipoTransaccion", {
+      const response = await axios.post(`${apiUrl}/inventario/tipoTransaccion`, {
         descripcion: data.descripcion,
         categoria: data.categoria,
         rol_id: data.rol_id

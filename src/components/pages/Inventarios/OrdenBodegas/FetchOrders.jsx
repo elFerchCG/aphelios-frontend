@@ -7,6 +7,7 @@ import DatePicker from 'react-datepicker';
 
 import "react-datepicker/dist/react-datepicker.css";
 import "./DatePickerStyles.css"; // Archivo CSS personalizado
+import apiUrl from '../../../../config';
 
 const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
     const [orders, setOrders] = useState([]);
@@ -26,7 +27,7 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
             const fetchOrders = async () => {
                 const token = localStorage.getItem('token');
                 try {
-                    const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/`, {
+                    const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/`, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }

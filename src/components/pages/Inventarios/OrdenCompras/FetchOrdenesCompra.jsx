@@ -4,6 +4,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import { formatISO } from 'date-fns';
 import DatePicker from 'react-datepicker';
+import apiUrl from '../../../../config';
 
 const FetchOrdenesCompra = ({ selectedOrder, openModal, setOpenModal }) => {
   const [orders, setOrders] = useState([]);
@@ -23,7 +24,7 @@ const FetchOrdenesCompra = ({ selectedOrder, openModal, setOpenModal }) => {
       const fetchOrders = async () => {
         const token = localStorage.getItem('token');
         try {
-          const response = await axios.get(`http://localhost:3304/ordenesCompras/ordenesCompra`, {
+          const response = await axios.get(`${apiUrl}/ordenesCompras/ordenesCompra`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }

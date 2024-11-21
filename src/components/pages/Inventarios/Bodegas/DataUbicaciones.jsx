@@ -11,6 +11,11 @@ const DataUbicaciones = ({ open, onClose, bodegaId }) => {
     const [filteredUbicaciones, setFilteredUbicaciones] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
     const fileInputRef = useRef(null); // Inicializa la referencia del input
 
     // Estilos del modal
@@ -36,7 +41,7 @@ const DataUbicaciones = ({ open, onClose, bodegaId }) => {
         if (bodegaId) {
             const fetchUbicaciones = async () => {
                 try {
-                    const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${bodegaId}/ubicaciones`);
+                    const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/${bodegaId}/ubicaciones`);
                     setUbicaciones(response.data);
                 } catch (error) {
                     console.error("Error fetching ubicaciones:", error);
@@ -48,7 +53,7 @@ const DataUbicaciones = ({ open, onClose, bodegaId }) => {
 
     const fetchUbicaciones = async (bodegaId) => {
         // Reemplaza con la URL correcta de tu API
-        const response = await fetch(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${bodegaId}/ubicaciones`);
+        const response = await fetch(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/${bodegaId}/ubicaciones`);
         const data = await response.json();
         setUbicaciones(data);
         setFilteredUbicaciones(data);
@@ -96,7 +101,7 @@ const DataUbicaciones = ({ open, onClose, bodegaId }) => {
                     console.log("Enviando datos al servidor:", data);
                     // Realizar la solicitud POST para cada fila
                     try {
-                        const response = await axios.post('http://localhost:3304/inventario/localidades/', data);
+                        const response = await axios.post(`${apiUrl}/inventario/localidades/`, data);
                         console.log("Respuesta del servidor:", response.data);
                         if (response.data.ok) {
                             // Crear un objeto de fila para agregar al DataGrid

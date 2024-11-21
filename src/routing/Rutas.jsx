@@ -1,8 +1,8 @@
 import React from 'react';
 import Header from '../components/layout/Header';
 import { Routes, Route, BrowserRouter } from 'react-router-dom';
-import { Proveedores } from '../components/pages/Proveedores/Proveedores';
-import { Usuarios } from '../components/pages/Usuarios/Usuarios';
+import Proveedores from '../components/pages/Proveedores/Proveedores';
+import Usuarios from '../components/pages/Usuarios/Usuarios';
 import Login from '../components/login/Login';
 import Transacciones from '../components/pages/Inventarios/Transacciones/Transacciones';
 import Bodegas from '../components/pages/Inventarios/Bodegas/Bodegas';

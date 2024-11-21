@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import apiUrl from '../../../../config';
 
 
 const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }) => {
@@ -44,7 +45,7 @@ const ModalRegistroB = ({ openModalRegistroB, setOpenModalRegistroB, fetchData }
     e.preventDefault();
 
     try {
-      const response = await axios.post("http://localhost:3304/inventario/bodegas", {
+      const response = await axios.post(`${apiUrl}/inventario/bodegas`, {
         nombre: data.nombre,
         tipo: data.tipo,
         neteable: data.neteable,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { DataGrid } from '@mui/x-data-grid';
 import { Dialog, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import apiUrl from '../../../../config';
 
 
 const DetalleLocalidades = ({ openDetalleOrden, setOpenDetalleOrden, handleClose, selectedOrden }) => {
@@ -11,7 +12,7 @@ const DetalleLocalidades = ({ openDetalleOrden, setOpenDetalleOrden, handleClose
     useEffect(() => {
         const fetchOrdenes = async () => {
             try {
-                const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas`);
+                const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas`);
                 setFormData(response.data);
                 console.log("datos", response.data.orden.lineas)
             } catch (error) {

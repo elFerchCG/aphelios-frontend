@@ -10,6 +10,7 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 import { useState, useEffect } from 'react';
+import apiUrl from '../../../../config';
 
 const ModalRegistroL = ({ openModalRegistroL, setOpenModalRegistroL, fetchData }) => {
     const [bodegas, setBodegas] = useState([]);
@@ -26,7 +27,7 @@ const ModalRegistroL = ({ openModalRegistroL, setOpenModalRegistroL, fetchData }
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas');
+                const response = await axios.get(`${apiUrl}/inventario/bodegas_y_localidades/nombres/bodegas`);
                 setBodegas(response.data);
             } catch (error) {
                 console.error('Error fetching bodegas:', error);
@@ -69,7 +70,7 @@ const ModalRegistroL = ({ openModalRegistroL, setOpenModalRegistroL, fetchData }
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post("http://localhost:3304/inventario/localidades", data);
+            const response = await axios.post(`${apiUrl}/inventario/localidades`, data);
             console.log("Submit response:", response.data);
             Swal.fire({
                 title: 'Éxito!',

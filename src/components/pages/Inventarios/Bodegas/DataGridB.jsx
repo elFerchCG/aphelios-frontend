@@ -21,7 +21,7 @@ const DataGridB = ({ data, setSelectedBodega, setOpenDetalleBodega, setOpenUbica
     { field: 'id', headerName: 'Folio', type: 'number', width: 50 },
     { field: 'Nombre', headerName: 'Descripción', type: 'string', width: 250 },
     { field: 'Tipo', headerName: 'Tipo', type: 'string', width: 200 },
-    { field: 'Neteable', headerName: 'Disponible para retiro', width: 200 },
+    { field: 'rol_descripcion', headerName: 'Rol', width: 200 },
     {
       field: 'actions', headerName: 'Acciones', type: 'actions', width: 150, getActions: (params) => [
         <Tooltip title='Ver detalles'>

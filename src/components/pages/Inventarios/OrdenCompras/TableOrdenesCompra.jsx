@@ -16,6 +16,7 @@ import { useRef } from 'react';
 import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import apiUrl from '../../../../config';
 
 
 const getCurrentDateTime = () => {
@@ -131,7 +132,7 @@ const TableOrdenesCompra = () => {
     useEffect(() => {
         const fetchBodegas = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/bodegas_y_localidades/nombres/bodegas', {
+                const response = await axios.get(`${apiUrl}/inventario/bodegas_y_localidades/nombres/bodegas`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -149,7 +150,7 @@ const TableOrdenesCompra = () => {
 
         const fetchTipoTraspaso = async () => {
             try {
-                const response = await axios.get('http://localhost:3304/inventario/tipoTransaccion', {
+                const response = await axios.get(`${apiUrl}/inventario/tipoTransaccion`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -190,7 +191,7 @@ const TableOrdenesCompra = () => {
 
         try {
             console.log("Esta es la bodega id seleccionada:", bodegaTemp);
-            const response = await axios.get(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/${bodegaTemp}/ubicaciones`, {
+            const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/${bodegaTemp}/ubicaciones`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -312,7 +313,7 @@ const TableOrdenesCompra = () => {
                         });
                         return;
                     }
-                    const response = await axios.post(`http://localhost:3304/ordenesCompras/ordenDeCompra/${ordenId}/lineas`, lineasData, {
+                    const response = await axios.post(`${apiUrl}/ordenesCompras/ordenDeCompra/${ordenId}/lineas`, lineasData, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
@@ -423,7 +424,7 @@ const TableOrdenesCompra = () => {
                     });
                     return;
                 }
-                const response = await axios.post(`http://localhost:3304/ordenesCompras/ordenDeCompra`, data, {
+                const response = await axios.post(`${apiUrl}/ordenesCompras/ordenDeCompra`, data, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -574,7 +575,7 @@ const TableOrdenesCompra = () => {
     const fetchOrderSelected = async (orderId) => {
         try {
             console.log("Este es el orderId:", orderId);
-            const response = await axios.get(`http://localhost:3304/ordenesCompras/ordenesCompra/${orderId}`, {
+            const response = await axios.get(`${apiUrl}/ordenesCompras/ordenesCompra/${orderId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -628,7 +629,7 @@ const TableOrdenesCompra = () => {
 
     const handleConfirmarOrden = async () => {
         try {
-            const response = await axios.post(`http://localhost:3304/ordenesCompras/ordenDeCompra/${idOrder}/confirmar`,
+            const response = await axios.post(`${apiUrl}/ordenesCompras/ordenDeCompra/${idOrder}/confirmar`,
                 {},
                 {
                     headers: {
@@ -659,7 +660,7 @@ const TableOrdenesCompra = () => {
 
     const handleProcesarOrden = async () => {
         try {
-            const response = await axios.post(`http://localhost:3304/ordenesCompras/ordenDeCompra/${idOrder}/procesar`,
+            const response = await axios.post(`${apiUrl}/ordenesCompras/ordenDeCompra/${idOrder}/procesar`,
                 {},
                 {
                     headers: {
@@ -690,7 +691,7 @@ const TableOrdenesCompra = () => {
 
     const handleCancelOrden = async () => {
         try {
-            const response = await axios.put(`http://localhost:3304/ordenesCompras/orden/${idOrder}/cancelar`,
+            const response = await axios.put(`${apiUrl}/ordenesCompras/orden/${idOrder}/cancelar`,
                 {},
                 {
                     headers: {
@@ -722,7 +723,7 @@ const TableOrdenesCompra = () => {
     const handleRevertirOrden = async () => {
         try {
             const response = await axios.put(
-                `http://localhost:3304/ordenesCompras/orden/${idOrder}/revertirConfirmacion`,
+                `${apiUrl}/ordenesCompras/orden/${idOrder}/revertirConfirmacion`,
                 {}, // Este es el cuerpo de la solicitud (si no envías datos, puedes pasar un objeto vacío)
                 {
                     headers: {
@@ -761,7 +762,7 @@ const TableOrdenesCompra = () => {
                 fecha_back: formatFechaGet(fecha_back),
             };
 
-            const response = await axios.put(`http://localhost:3304/ordenesCompras/lineasOrden/${id}`, updatedFields, {
+            const response = await axios.put(`${apiUrl}/ordenesCompras/lineasOrden/${id}`, updatedFields, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -819,7 +820,7 @@ const TableOrdenesCompra = () => {
                 try {
                     console.log("Esta es la orden id del delete:", id);
                     // Eliminar la línea en el backend
-                    await axios.delete(`http://localhost:3304/ordenesCompras/lineasOrden/${id}`, {
+                    await axios.delete(`${apiUrl}/ordenesCompras/lineasOrden/${id}`, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }

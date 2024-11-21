@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 import { useEffect } from 'react';
 import { Tooltip } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import apiUrl from '../../../../config';
 
 
 const DataGridL = ({ filter }) => {
@@ -17,7 +18,7 @@ const DataGridL = ({ filter }) => {
     const [error, setError] = useState(null);
     const [refresh, setRefresh] = useState(false);
 
-    const url = 'http://localhost:3304/inventario/lineasOrden';
+    const url = `${apiUrl}/inventario/lineasOrden`;
 
     const [selectedLinea, setSelectedLinea] = useState(null);
     const [openDetalleLinea, setOpenDetalleLinea] = useState(false);
@@ -91,7 +92,7 @@ const DataGridL = ({ filter }) => {
             confirmButtonText: 'Sí, eliminarlo'
         }).then((result) => {
             if (result.isConfirmed) {
-                axios.delete(`http://localhost:3304/inventario/lineasOrden/${id}`)
+                axios.delete(`${apiUrl}/inventario/lineasOrden/${id}`)
                     .then(response => {
                         Swal.fire({
                             title: '¡Eliminado!',

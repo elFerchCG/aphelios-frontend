@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { getExistencias } from '../../../actions/getUsers';
 import { useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import apiUrl from '../../../../config';
 
 
 const theme = createTheme({
@@ -18,7 +19,7 @@ const DataGridE = ({ filter }) => {
     const [error, setError] = useState(null);
     const [refresh, setRefresh] = useState(false);
 
-    const url = 'http://localhost:3304/inventario/existencias';
+    const url = `${apiUrl}/inventario/existencias`;
 
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number' },

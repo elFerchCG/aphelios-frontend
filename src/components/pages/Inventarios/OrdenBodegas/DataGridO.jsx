@@ -7,6 +7,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import DetalleOrdenB from '../OrdenBodegas/DetalleOrdenB';
 import { getOrdenB } from '../../../actions/getUsers';
 import { formatISO } from 'date-fns'; // Importar formatISO de date-fns
+import apiUrl from '../../../../config';
 
 const DataGridO = ({ fetchData, filter }) => {
     const [data, setData] = useState([]);
@@ -14,7 +15,7 @@ const DataGridO = ({ fetchData, filter }) => {
     const [error, setError] = useState(null);
     const [refresh, setRefresh] = useState(false);
 
-    const url = 'http://localhost:3304/inventario/ordenBodegas';
+    const url = `${apiUrl}/inventario/ordenBodegas`;
 
     const [selectedOrden, setSelectedOrden] = useState(null);
     const [openDetalleOrden, setOpenDetalleOrden] = useState(false);
@@ -62,7 +63,7 @@ const DataGridO = ({ fetchData, filter }) => {
             confirmButtonText: 'Sí, eliminarlo'
         }).then((result) => {
             if (result.isConfirmed) {
-                axios.delete(`http://localhost:3304/inventario/ordenBodegas/${id}`)
+                axios.delete(`${apiUrl}/inventario/ordenBodegas/${id}`)
                     .then(response => {
                         Swal.fire({
                             title: '¡Eliminado!',

@@ -9,6 +9,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import apiUrl from '../../../../config';
 //import { format } from 'date-fns';
 
 
@@ -52,7 +53,7 @@ const ModalRegistroO = ({ openModalRegistroO, setOpenModalRegistroO, fetchData }
 
     try {
       console.log(data);
-      const response = await axios.post("http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas", {
+      const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas`, {
         fecha: data.fecha,
         tipo_transaccion_id: data.tipo_transaccion_id,
         localidad_salida_id: data.localidad_salida_id,
