@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import apiUrl from '../../config';
+import { jwtDecode } from 'jwt-decode';
+
 
 const Login = () => {
   const [nombre, setNombre] = React.useState('');
@@ -46,9 +48,40 @@ const Login = () => {
     }
   }
 
+  // Función para verificar si el token está presente y es válido
+  const checkTokenValidity = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Aquí puedes hacer una petición al backend si necesitas validar el token
+      // o realizar una validación con JWT en frontend (si es necesario)
+      try {
+        const decodedToken = jwtDecode(token); // Usar jwt-decode o similar si lo necesitas
+        const currentTime = Math.floor(Date.now() / 1000); // Obtener tiempo actual en segundos
+        if (decodedToken.exp < currentTime) {
+          // El token ha expirado
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+        } else {
+          // El token es válido
+          navigate('/home');
+        }
+      } catch (error) {
+        // Si no se puede decodificar el token, lo eliminamos y redirigimos a login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login');
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    checkTokenValidity();
+  }, []); // Este useEffect se ejecutará al cargar el componente
+
   return (
     <div className='layoutLogin'>
-       <img src={logo} alt="logo" className="logoAphelios" />
+      <img src={logo} alt="logo" className="logoAphelios" />
       <div className='cuerpoLogin'>
         <TextField
           className='itemLogin'

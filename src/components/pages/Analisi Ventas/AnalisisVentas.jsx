@@ -33,14 +33,14 @@ const AnalisisVentas = () => {
     const [endDate2, setEndDate2] = useState('');
     const [startDate3, setStartDate3] = useState('');
     const [endDate3, setEndDate3] = useState('');
-    const [month, setMonth] = useState('');
-    const [year1, setYear1] = useState('');
+    const [startDate4, setStartDate4] = useState('');
+    const [endDate4, setEndDate4] = useState('');
     const [year, setYear] = useState('');
 
     const apiUrl =
-    process.env.NODE_ENV === 'production'
-      ? process.env.REACT_APP_API_URL
-      : process.env.REACT_APP_API_URL_LOCAL;
+        process.env.NODE_ENV === 'production'
+            ? process.env.REACT_APP_API_URL
+            : process.env.REACT_APP_API_URL_LOCAL;
 
     useEffect(() => {
         const totalAnual = async () => {
@@ -164,8 +164,8 @@ const AnalisisVentas = () => {
     useEffect(() => {
         const productosABC = async () => {
             const dates = {
-                month: month,
-                year: year1,
+                startDate: startDate4,
+                endDate: endDate4,
             }
             try {
                 const response = await axios.post(`${apiUrl}/analisisGraficas/ventas/clasificacionABC`, dates);
@@ -181,10 +181,10 @@ const AnalisisVentas = () => {
                 console.log("Error fetching data", error);
             }
         };
-        if (year1 && month) {
+        if (startDate4 && endDate4) {
             productosABC();
         }
-    }, [month, year1]);
+    }, [startDate4, endDate4]);
 
     const exportToExcel = (data, filename = 'data.xlsx') => {
         const ws = XLSX.utils.json_to_sheet(data);
@@ -261,8 +261,8 @@ const AnalisisVentas = () => {
                             <BarChart width={1300} height={600} data={data5} layout='vertical'>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis type="number"
-                                    domain={[0, 'dataMax']} 
-                                     />
+                                    domain={[0, 'dataMax']}
+                                />
                                 <YAxis type='category' dataKey="producto_id" tick={false} />
                                 <Tooltip formatter={(value) => [`Unidades vendidas: ${value}`, null]} />
                                 <Bar dataKey="Ventas" fill='#1e88e5' maxBarSize={50}>
@@ -500,36 +500,32 @@ const AnalisisVentas = () => {
                             >
                                 Productos ABC
                             </AccordionSummary>
-                            <Select
-                                value={year1}
-                                onChange={(e) => setYear1(e.target.value)}
-                                displayEmpty
-                                inputProps={{ 'aria-label': 'Seleccione el año' }}
-                                sx={{ marginRight: 2 }}
-                            >
-                                <MenuItem value="" disabled>
-                                    Seleccione el año
-                                </MenuItem>
-                                <MenuItem key={2024} value={2024}>
-                                    2024
-                                </MenuItem>
-                            </Select>
-                            <Select
-                                value={month}
-                                onChange={(e) => setMonth(e.target.value)}
-                                displayEmpty
-                                inputProps={{ 'aria-label': 'Seleccione el mes' }}
-                                sx={{ marginRight: 2 }}
-                            >
-                                <MenuItem value="" disabled>
-                                    Seleccione el mes
-                                </MenuItem>
-                                <MenuItem value={6}>Junio</MenuItem>
-                                <MenuItem value={7}>Julio</MenuItem>
-                                <MenuItem value={8}>Agosto</MenuItem>
-                                <MenuItem value={9}>Septiembre</MenuItem>
-                                <MenuItem value={10}>Octubre</MenuItem>
-                            </Select>
+                            <DatePicker
+                                className='customDatePicker'
+                                onChange={(date) => setStartDate4(date)}
+                                selected={startDate4}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha inicio'
+                                portalId="root-portal"
+                            />
+                            <DatePicker
+                                className='customDatePicker1'
+                                onChange={(date) => setEndDate4(date)}
+                                selected={endDate4}
+                                dateFormat="yyyy-MM-dd"
+                                minDate={new Date(2023, 0, 1)}
+                                maxDate={new Date()}
+                                placeholderText='Fecha fin'
+                                portalId="root-portal"
+                            />
+                            <Button
+                                variant='contained'
+                                sx={{ marginLeft: 2 }}
+                                onClick={() => exportToExcel(rows, 'productosABC.xlsx')}>
+                                Exportar datos a Excel
+                            </Button>
                             <DataGrid style={{ width: 1300, height: 600 }}
                                 rows={rows}
                                 columns={columns}

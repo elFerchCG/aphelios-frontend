@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import FetchOrdenesCompra from './FetchOrdenesCompra';
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
 import axios from 'axios';
-import { Box, Button, Modal, TextField, Tooltip } from '@mui/material';
+import { Box, Button, Modal, TextField, Tooltip, InputAdornment } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png'
 import processOrden from '../../../../images/process.png'
@@ -16,7 +16,8 @@ import { useRef } from 'react';
 import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import apiUrl from '../../../../config';
+import UpdateIcon from '@mui/icons-material/Update';
+import SearchIcon from '@mui/icons-material/Search';
 
 
 const getCurrentDateTime = () => {
@@ -49,6 +50,9 @@ const formatFechaGet = (fechaBack) => {
 
 
 const TableOrdenesCompra = () => {
+    const [productoMlm, setProductoMlm] = useState('');
+    const [traspasos, setTraspasos] = useState([]);
+    const [selectedTraspasoId, setSelectedTraspasoId] = useState('');
     const [bodegaTemp, setBodegaTemp] = useState('');
     const [rows, setRows] = useState([]);
     const [habilitarComentario, setHabilitarComentario] = useState(false);
@@ -90,6 +94,16 @@ const TableOrdenesCompra = () => {
     const [habilitarPrecio, setHabilitarPrecio] = useState(false);
     const [selectedComment, setSelectedComment] = useState('');
     const [openComment, setOpenComment] = useState(false);
+    const [productoSku, setProductoSku] = useState('');
+    const [productoId, setProductoId] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [open, setOpen] = useState(false);
+    const [rowsProducts, setRowsProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [habilitarDescripcion, setHabilitarDescripcion] = useState(false);
+    const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
+    const [idTraspaso, setIdTraspaso] = useState('');
+    
 
     const bodegaEntradaRef = useRef(null);
     const ubicacionEntradaRef = useRef(null);
@@ -123,11 +137,66 @@ const TableOrdenesCompra = () => {
         };
     }, []);
 
+    const apiUrl =
+        process.env.NODE_ENV === 'production'
+            ? process.env.REACT_APP_API_URL
+            : process.env.REACT_APP_API_URL_LOCAL;
+
+    console.log(process.env.NODE_ENV); // Esto debe imprimir "production" en Netlify
+    console.log(apiUrl); // Esto imprimirá la URL correcta según el entorno
+
     const today = new Date();
     const minDate = today;
 
     const maxDate = new Date(today);
     maxDate.setDate(today.getDate() + 90);
+
+    // Estilos del modal
+    const modalStyle = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        borderRadius: 6,
+        boxShadow: 24,
+        p: 4,
+    };
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const response = await axios.get(`${apiUrl}/buscador/productos/todo`);
+                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                    setRowsProducts(response.data);
+                    setFilteredProducts(response.data);
+                } else {
+                    Swal.fire({
+                        title: '!Productos no encontrados!',
+                        text: 'No se encontraron productos',
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            } catch (error) {
+                if (error.response && error.response.data && error.response.data.message) {
+                    const { messageText } = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: `Error: ${messageText}`,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            }
+        }
+        fetchProducts();
+    }, []);
 
     useEffect(() => {
         const fetchBodegas = async () => {
@@ -155,10 +224,10 @@ const TableOrdenesCompra = () => {
                         'Authorization': `Bearer ${token}`
                     }
                 });
-                const resultadosFiltrados = response.data.filter(item => item.rol_id === user.rol_id && item.categoria === 'entrada' && item.conteo === 1);
+                const resultadosFiltrados = response.data.filter(item => item.rol_id === user.rol_id && item.categoria === 'entrada');
 
                 if (resultadosFiltrados.length > 0) {
-                    setMovimientos(resultadosFiltrados);
+                    setTraspasos(resultadosFiltrados);
                 } else {
                     console.log("Sin movimientos asignados");
                 }
@@ -176,6 +245,53 @@ const TableOrdenesCompra = () => {
         fetchTipoTraspaso();
     }, []);
 
+    const fetchsku = async (productoSku) => {
+        try {
+            const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoSku}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            // Si llega aquí, significa que hay un resultado válido en el array
+            if (Array.isArray(response.data) && response.data.length === 1) {
+                const producto = response.data[0];  // Accede al único producto
+                setProductoId(producto.producto_id);
+                setProductoSku(producto.sku);
+                handleSearch(producto.producto_id);
+            } else {
+                // Para cuando el array no tiene exactamente un elemento
+                setSearchTerm(productoSku);
+                setOpen(true);
+            }
+        } catch (error) {
+            // Maneja el caso específico de "Producto no encontrado"
+            if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
+                setSearchTerm(productoSku);
+                setOpen(true);
+            } else if (error.response && error.response.data && error.response.data.message) {
+                // Otros mensajes de error
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error en la comunicación con el servidor.',
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    };
 
     const fetchExistencias = async (bodegaTemp) => {
         // Verificar si las refs no son null antes de acceder a classList
@@ -251,7 +367,8 @@ const TableOrdenesCompra = () => {
                 id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
                 cantidad_ordenada: inputValue,
                 cantidad_recibida: 0,
-                producto_id: producto, // ID del producto seleccionado,
+                sku: productoId, // ID del producto seleccionado,
+                inventory_id: productoMlm,
                 producto_title: productoTitle,
                 ubicacion_entrada_descripcion: selectedUbicacionEntradaDescripcion || ubicacionEntradaDescripcionBackend,
                 ubicacion_entrada_id: selectedUbicacionEntrada,
@@ -265,7 +382,7 @@ const TableOrdenesCompra = () => {
 
             setRows((prevRows) => [...prevRows, newRow]);
 
-            setProducto('');
+            setProductoId('');
             setSelectedUbicacionEntrada('');
             setInputValue('');
             setComment('');
@@ -275,7 +392,7 @@ const TableOrdenesCompra = () => {
         if (estatus === 'abierto') {
             const lineasData = {
                 lineas: [{
-                    producto_id: producto,
+                    producto_id: productoId,
                     cantidad_ordenada: parseInt(inputValue),
                     precio: parseFloat(precio) || 0,
                     fecha_recibo: null,
@@ -348,13 +465,13 @@ const TableOrdenesCompra = () => {
             //const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
             const data = {
                 descripcion: descripcion,
-                tipo_transaccion_id: idMovimiento,
+                tipo_transaccion_id: idTraspaso,
                 bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
                 ubicacion_compra_id: parseOrNull(selectedUbicacionEntrada),
                 fecha_compromiso: formatFecha(selectedFechaCompromiso),
                 lineas: [
                     {
-                        producto_id: producto,
+                        producto_id: productoId,
                         cantidad_ordenada: parseInt(inputValue),
                         precio: precio,
                         fecha_recibo: null,
@@ -464,26 +581,17 @@ const TableOrdenesCompra = () => {
         setHabilitarPrecio(true);
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter' || e.key === 'Tab') {
-            handleSearch();
-        }
-    }
-
-    const handleBlur = () => {
-        handleSearch();
-    };
-
     const handleOrderNew = () => {
         setRows([]);
-        setHabilitarMovimiento(true);
+        setHabilitarTraspaso(true);
+        setHabilitarDescripcion(false);
         setBodegaEntradaHabilitada(false);
         setHabilitarBuscador(false);
         setHabilitarComentario(false);
         setUbicacionEntradaHabilitada(false);
         setHabilitarCantidad(false);
         setDescripcion('');
-        setSelectedMovimiento('');
+        setSelectedTraspasoId('');
         setSelectedBodegaEntrada('');
         setProducto('');
         setSelectedUbicacionEntrada('');
@@ -510,15 +618,16 @@ const TableOrdenesCompra = () => {
 
     const handleSelectedTraspasoChange = (e) => {
         const traspasoId = parseInt(e.target.value);
-        setSelectedMovimiento(traspasoId);
-        setBodegaEntradaHabilitada(true);
+        setSelectedTraspasoId(traspasoId);
 
-        const tipoTraspasoSeleccionado = movimientos.find(movimiento => movimiento.id === traspasoId);
+        const tipoTraspasoSeleccionado = traspasos.find(traspaso => traspaso.id === traspasoId);
         if (tipoTraspasoSeleccionado) {
+            setHabilitarDescripcion(true);
+            setBodegaEntradaHabilitada(true);
             setCategoriaTemp(tipoTraspasoSeleccionado.categoria);
-            setIdMovimiento(tipoTraspasoSeleccionado.id);
+            setIdTraspaso(tipoTraspasoSeleccionado.id);
+            setRolMovimiento(tipoTraspasoSeleccionado.rol_id);
         }
-
     };
 
     const handleSelectBodegaEntrada = (e) => {
@@ -592,7 +701,7 @@ const TableOrdenesCompra = () => {
             setSelectedBodegaEntrada(response.data.data.bodega_entrada_id);
             setRolIdTempEntrada(response.data.data.rol_id_entrada);
             setDescripcion(response.data.data.descripcion);
-            setSelectedMovimiento(response.data.data.tipo_transaccion_id);
+            setSelectedTraspasoId(response.data.data.tipo_transaccion_id);
             setCategoriaTemp(response.data.data.categoria);
             setRolMovimiento(response.data.data.rol_id_tipo_transaccion);
 
@@ -846,7 +955,8 @@ const TableOrdenesCompra = () => {
 
     useEffect(() => {
         if (estatus === 'abierto') {
-            setHabilitarMovimiento(false);
+            setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setBodegaEntradaHabilitada(false);
             setEnableRevertir(false);
             setEnableProcess(false);
@@ -865,7 +975,8 @@ const TableOrdenesCompra = () => {
         if (estatus === 'confirmado') {
             setHabilitarBuscador(false);
             setEnableConfirm(false);
-            setHabilitarMovimiento(false);
+            setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setBodegaEntradaHabilitada(false);
             if (user?.rol_id === rolIdTempEntrada) {
                 setEnableProcess(true);
@@ -879,13 +990,15 @@ const TableOrdenesCompra = () => {
             setEnableCancel(false);
             setEnableRevertir(false);
             setEnableProcess(false);
-            setHabilitarMovimiento(false);
+            setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setBodegaEntradaHabilitada(false);
             setHabilitarComentario(false);
         }
         if (estatus === 'cancelada') {
             setHabilitarBuscador(false);
-            setHabilitarMovimiento(false);
+            setHabilitarTraspaso(false);
+            setHabilitarDescripcion(false);
             setEnableCancel(false);
             setEnableConfirm(false);
             setEnableProcess(false);
@@ -938,9 +1051,117 @@ const TableOrdenesCompra = () => {
 
     const handleClose = () => setOpenComment(false);
 
+    const handleProductId = (event) => {
+        const sku = event.target.value;
+        setProductoSku(sku);
+        setSearchTerm(sku);
+    }
+
+    // Función que maneja el evento de presionar Enter en el input
+    const handleKeyDown = (event) => {
+        if (habilitarBuscador && (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click')) {
+            fetchsku(productoSku);
+        }
+    };
+
+    const handleBlur = () => {
+        if (habilitarBuscador && productoSku.trim()) {
+            fetchsku(productoSku);
+        }
+    };
+
+    // Función que abre la modal y realiza la búsqueda al hacer clic en el ícono de búsqueda
+    const handleOpenSearchProducts = async () => {
+        if (habilitarBuscador) {
+            setOpen(true);  // Abre la modal después de la búsqueda
+        }
+    };
+
+    const handleCloseSearchProducts = () => setOpen(false);
+
+    // Función que se llama cuando se selecciona una fila en el DataGrid
+    const handleRowSelection = (params) => {
+        const selectedProductSku = params.row.sku;
+        const selectedProductId = params.row.producto_id; // Captura el ID del producto seleccionado
+
+        setProductoSku(selectedProductSku);
+        setProductoId(selectedProductId); // Actualiza el valor del input
+        handleSearch(selectedProductId);
+        setOpen(false); // Cierra la modal
+    };
+
+    useEffect(() => {
+        // Filtra los productos en base al término de búsqueda
+        let filtered = rowsProducts;
+
+        if (searchTerm) {
+            const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+
+            filtered = filtered.filter(product => {
+                const productMLM = product.id ? product.id.toLowerCase() : '';
+                const productSku = product.sku ? product.sku.toLowerCase() : '';
+                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const productTitle = product.title ? product.title.toLowerCase() : '';
+                const productVariation = product.variation_desc ? product.variation_desc.toLowerCase() : '';
+
+                // Verifica si todas las palabras están en el título
+                const titleMatch = searchWords.every(word => productTitle.includes(word));
+
+                // Verifica si el término de búsqueda está en otras columnas
+                const otherColumnsMatch = (
+                    productMLM.includes(searchTerm.toLowerCase()) ||
+                    productSku.includes(searchTerm.toLowerCase()) ||
+                    productInventoryId.includes(searchTerm.toLowerCase()) ||
+                    productVariation.includes(searchTerm.toLowerCase())
+                );
+
+                // El producto debe coincidir en el título o en alguna de las otras columnas
+                return titleMatch || otherColumnsMatch;
+            });
+        }
+
+        setFilteredProducts(filtered);
+    }, [searchTerm, rowsProducts]);
+
+    const handleUpdateOrder = async () => {
+        try {
+            if (descripcion) {
+                const response = await axios.put(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/ordenDeBodega/${idOrder}/descripcion`,
+                    {
+                        descripcion: descripcion,
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                Swal.fire({
+                    title: '¡Actualizado!',
+                    text: 'Tu descripción ha sido actualizada.',
+                    icon: 'success'
+                });
+                return response.data;
+            }
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    }
+
     const columns = [
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
         { field: 'producto_id', headerName: 'Producto', type: 'text', flex: 2 },
+        { field: 'sku', headerName: 'SKU', flex: 1.3 },
+        { field: 'inventory_id', headerName: 'ML', flex: 0.6, headerAlign: 'center' },
         { field: 'producto_title', headerName: 'Descripción', flex: 3 },
         { field: 'precio', headerName: 'Precio', type: 'float', flex: 1, headerAlign: 'center' },
         { field: 'cantidad_ordenada', headerName: 'Cantidad', type: 'number', flex: 1, headerAlign: 'center' },
@@ -1092,6 +1313,15 @@ const TableOrdenesCompra = () => {
         },
     ];
 
+    const columnsProducts = [
+        { field: 'id', headerName: '# De Publicación', type: 'text', flex: 1 },
+        { field: 'producto_id', headerName: 'MLM', type: 'number', flex: 1 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
+    ]
+
     return (
         <div>
             <div className="gestorOrdenes">
@@ -1147,6 +1377,39 @@ const TableOrdenesCompra = () => {
                     </div>
                 </div>
             </div>
+            {/* Ventana Modal */}
+            <Modal open={open} onClose={handleCloseSearchProducts}>
+                <Box sx={modalStyle}>
+                    <TextField
+                        label="Buscador..."
+                        color='primary'
+                        focused
+                        sx={{ width: '20rem', marginBottom: '10px' }}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500 }}
+                        rows={filteredProducts}
+                        columns={columnsProducts}
+                        pageSize={5}
+                        // processRowUpdate={processRowUpdate}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        onRowClick={handleRowSelection}
+                        getRowId={(row) => row.producto_id}
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={{
+                            producto_id: false
+                        }}
+                    />
+                    <Button onClick={handleCloseSearchProducts} variant="contained" color="primary"
+                        sx={{
+                            marginTop: '10px',
+                            marginLeft: '93%'
+                        }}
+                    >Cerrar</Button>
+                </Box>
+            </Modal>
             <div className='container'>
                 <label className='item1'>Orden:</label>
                 <input className='item2'
@@ -1159,23 +1422,49 @@ const TableOrdenesCompra = () => {
                     readOnly
                 ></input>
                 <label className='item005'>Descripción:</label>
-                <input className='item6'
-                    disabled={!habilitarMovimiento}
+                <TextField
+                    className='item6'
+                    disabled={!habilitarDescripcion}
                     value={descripcion}
-                    ref={descripcionRef}
                     onChange={(e) => setDescripcion(e.target.value)}
-                ></input>
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <UpdateIcon
+                                    style={{
+                                        cursor: habilitarDescripcion ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                        color: habilitarDescripcion ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                    }}
+                                    onClick={habilitarDescripcion ? handleUpdateOrder : null}  // Desactiva onClick si está deshabilitado
+                                />
+                            </InputAdornment>
+                        ),
+                    }}
+                    style={{
+                        height: '10px', // Altura del TextField completo
+                        marginTop: 20,
+                        marginLeft: 10,
+                    }}
+                    inputProps={{
+                        style: {
+                            height: '10px', // Altura interna del input
+                            padding: '10px', // Padding interno
+                            backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
+                            color: habilitarDescripcion ? 'black' : 'gray',
+                        },
+                    }}
+                />
                 <label className='descripcion' >Tipo de movimiento:</label>
                 <select
                     className='input-descr'
-                    value={selectedMovimiento}
+                    value={selectedTraspasoId}
                     onChange={handleSelectedTraspasoChange}
-                    disabled={!habilitarMovimiento}
+                    disabled={!habilitarTraspaso}
                 >
                     <option value="">Seleccione...</option>
-                    {movimientos.map((movimiento) => (
-                        <option key={movimiento.id} value={movimiento.id}>
-                            {`${movimiento.descripcion} : ${movimiento.categoria}`}
+                    {traspasos.map((traspaso) => (
+                        <option key={traspaso.id} value={traspaso.id}>
+                            {`${traspaso.descripcion} : ${traspaso.categoria}`}
                         </option>
                     ))}
                 </select>
@@ -1194,15 +1483,44 @@ const TableOrdenesCompra = () => {
                     ))}
                 </select>
                 <label className='item11'>Producto:</label>
-                <input
+                <TextField
                     className='item12'
-                    type='text'
                     onKeyDown={handleKeyDown}
                     onBlur={handleBlur}
                     disabled={!habilitarBuscador}
-                    value={producto}
-                    onChange={(e) => setProducto(e.target.value)}
-                    placeholder='Ingrese el MLM'
+                    value={productoSku}
+                    onChange={handleProductId}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position='end'>
+                                <SearchIcon
+                                    style={{
+                                        cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                        color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                    }}
+                                    onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
+                                />
+                            </InputAdornment>
+                        ),
+                    }}
+                    InputLabelProps={{
+                        style: {
+                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                        },
+                    }}
+                    style={{
+                        height: '10px', // Altura del TextField completo
+                        marginTop: 20,
+                        marginLeft: 90,
+                    }}
+                    inputProps={{
+                        style: {
+                            height: '10px', // Altura interna del input
+                            padding: '10px', // Padding interno
+                            backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
+                            color: habilitarBuscador ? 'black' : 'gray',
+                        },
+                    }}
                 />
                 <label className='item07'>Ubicación compra:</label>
                 <select className='item08'
@@ -1288,6 +1606,8 @@ const TableOrdenesCompra = () => {
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
                             id: false,
+                            producto_id: false,
+                            inventory_id: false,
                             ubicacion_entrada_id: false,
                             ubicacion_entrada_descripcion: true,
                             precio_factura: false,

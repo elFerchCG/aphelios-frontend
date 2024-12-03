@@ -29,12 +29,9 @@ const Header = () => {
     <>
       {location.pathname !== '/login' && isLoggedIn && (
         <header className="header">
-          <div className="logo-container">
-            <img src={logo} alt="logo" className="logo" />
-          </div>
-
-          <>
-            <nav className="nav">
+          {/* Contenedor izquierdo: íconos de navegación */}
+          <div className="left">
+            <div className="nav">
               <NavLink to="/home" className="nav-link">
                 <img src={inicio} alt="Home" className="nav-icon" />
                 <span>Home</span>
@@ -57,7 +54,18 @@ const Header = () => {
                   <span>Configuracion</span>
                 </NavLink>
               )}
-            </nav>
+            </div>
+          </div>
+
+          {/* Contenedor central: logo */}
+          <div className="center">
+            <div className="logo-container">
+              <img src={logo} alt="logo" className="logo" />
+            </div>
+          </div>
+
+          {/* Contenedor derecho: perfil y logout */}
+          <div className="right">
             <div className="person-container">
               <div className="person-nav">
                 <img src={sesion} alt="user" className="logo-person" />
@@ -67,8 +75,7 @@ const Header = () => {
                 <button className="logout-button" onClick={handleLogout}>Cerrar sesión</button>
               </div>
             </div>
-          </>
-
+          </div>
         </header>
       )}
     </>

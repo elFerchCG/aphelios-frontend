@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { getExistencias } from '../../../actions/getUsers';
 import DataGridE from './DataGridE';
 import ModalRegistroE from './ModalRegistroE';
-import apiUrl from '../../../../config';
 
 
 const Existencias = () => {
@@ -10,6 +9,12 @@ const Existencias = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
+
+  const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
 
   const url = `${apiUrl}/inventario/existencias`;
 
@@ -23,7 +28,7 @@ const Existencias = () => {
     setError(result.error);
     setLoading(false);
   };
- 
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -32,14 +37,14 @@ const Existencias = () => {
   return (
     <div>
       <DataGridE
-      data={data}
-      setData={setData}
-      fetchData={fetchData}
-      filter={filter}
+        data={data}
+        setData={setData}
+        fetchData={fetchData}
+        filter={filter}
       ></DataGridE>
       <ModalRegistroE
-      openModalRegistroE={openModalRegistroE}
-      setOpenModalRegistroE={setOpenModalRegistroE}
+        openModalRegistroE={openModalRegistroE}
+        setOpenModalRegistroE={setOpenModalRegistroE}
       ></ModalRegistroE>
     </div>
   )

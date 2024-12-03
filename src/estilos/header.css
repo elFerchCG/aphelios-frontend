@@ -1,22 +1,29 @@
+/* Estilo del header principal */
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #1e88e5; /* Cambia el color de fondo según sea necesario */
+  display: flex; /* Usamos flexbox para distribuir los tres contenedores */
+  width: 100%; /* Aseguramos que ocupe el 100% del ancho disponible */
+  height: 80px; /* Establece la altura del header */
+  background-color: #1e88e5; /* Color de fondo */
   padding: 10px 20px;
   color: white;
   font-family: "Montserrat", sans-serif;
   font-weight: bold;
-  position: relative;
-  height: 80px; /* Establece una altura fija o mínima para el header */
   box-sizing: border-box;
-  flex-wrap: wrap;
 }
 
+/* Estilo para los contenedores hijos, distribuidos 33.33% cada uno */
+.header .left, .header .center, .header .right {
+  flex: 1; /* Cada uno de los tres contenedores ocupa el 33.33% del ancho */
+  display: flex;
+  align-items: center; /* Centra los elementos verticalmente */
+  justify-content: center; /* Centra los elementos horizontalmente */
+}
+
+/* Contenedor izquierdo: íconos de navegación */
 .nav {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: flex-start; /* Alinea los íconos de navegación a la izquierda */
 }
 
 .nav-link {
@@ -28,9 +35,28 @@
   color: white;
 }
 
+.nav-icon {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 5px;
+}
+
+/* Contenedor central: logo */
+.logo-container {
+  display: flex;
+  justify-content: center; /* Centra el logo horizontalmente */
+  align-items: center; /* Centra el logo verticalmente */
+}
+
+.logo {
+  height: 50px;
+}
+
+/* Contenedor derecho: íconos de perfil y botón de logout */
 .person-container {
   display: flex;
   align-items: center;
+  justify-content: flex-end; /* Alinea el perfil y el logout a la derecha */
 }
 
 .person-nav {
@@ -41,38 +67,13 @@
 }
 
 .logo-person {
-  width: 30px; /* Ajusta el tamaño del icono */
+  width: 30px;
   height: 30px;
   margin-bottom: 5px;
-}
-
-.nav-link:hover {
-  color: #b3e5fc; /* Cambia el color al pasar el ratón */
-}
-
-.nav-icon {
-  width: 30px; /* Ajusta el tamaño del icono */
-  height: 30px;
-  margin-bottom: 5px;
-}
-
-.logo-container {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 50%; /* Centra verticalmente el logo */
-  transform: translate(-50%, -50%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.logo {
-  height: 50px; /* Ajusta el tamaño del logo */
 }
 
 .logout-button {
-  background-color: #0d47a1; /* Cambia el color del botón */
+  background-color: #0d47a1;
   border: none;
   padding: 10px 20px;
   color: white;
@@ -82,25 +83,28 @@
 }
 
 .logout-button:hover {
-  background-color: #1565c0; /* Cambia el color al pasar el ratón */
+  background-color: #1565c0;
 }
 
+/* Media query para pantallas pequeñas */
 @media (max-width: 768px) {
   .header {
     flex-direction: column;
     align-items: center;
     height: auto;
   }
+  .left, .center, .right {
+    flex: none; /* Eliminar el 33.33% de flex */
+    width: 100%; /* Hacer que cada contenedor ocupe el 100% en pantallas pequeñas */
+  }
   .nav {
     justify-content: center;
-    margin-bottom: 10px;
   }
   .nav-link {
     margin-right: 10px;
-    margin-bottom: 10px;
   }
   .logo-container {
-    top: 10px;
+    margin-top: 10px;
   }
   .logout-button {
     width: 100%;

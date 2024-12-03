@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react'
 import '../../../../estilos/barraAcciones.css';
 import addOrder from '../../../../images/addOrder.png';
 import { DataGrid } from '@mui/x-data-grid';
-import { Checkbox } from '@mui/material';
+import { Checkbox, InputAdornment, TextField, Box, Modal, Button } from '@mui/material';
 import Swal from 'sweetalert2';
 import axios from 'axios';
-import apiUrl from '../../../../config';
+import SearchIcon from '@mui/icons-material/Search';
+
 
 const formatFecha = (fecha) => {
     const date = new Date(fecha);
@@ -31,6 +32,21 @@ const ConteoCiclico = () => {
     const [productChecked, setProductChecked] = useState(false);
     const [ubicacionChecked, setUbicacionChecked] = useState(false);
     const [fechaChecked, setFechaChecked] = useState(false);
+    const [habilitarBuscador, setHabilitarBuscador] = useState(false);
+    const [productoSku, setProductoSku] = useState('');
+    const [open, setOpen] = useState(false);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [rowsProducts, setRowsProducts] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isButtonDisabled, setIsButtonDisabled] = useState(true);
+
+    const apiUrl =
+        process.env.NODE_ENV === 'production'
+            ? process.env.REACT_APP_API_URL
+            : process.env.REACT_APP_API_URL_LOCAL;
+
+    console.log(process.env.NODE_ENV); // Esto debe imprimir "production" en Netlify
+    console.log(apiUrl); // Esto imprimirá la URL correcta según el entorno
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -46,6 +62,119 @@ const ConteoCiclico = () => {
             window.removeEventListener('storage', handleStorageChange);
         };
     }, []);
+
+    // Estilos del modal
+    const modalStyle = {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        bgcolor: 'background.paper',
+        border: '2px solid #000',
+        borderRadius: 6,
+        boxShadow: 24,
+        p: 4,
+    };
+
+    const handleProductId = (event) => {
+        const sku = event.target.value;
+        setProductoSku(sku);
+        setSearchTerm(sku);
+    }
+
+    // Función que abre la modal y realiza la búsqueda al hacer clic en el ícono de búsqueda
+    const handleOpenSearchProducts = async () => {
+        if (habilitarBuscador) {
+            setOpen(true);  // Abre la modal después de la búsqueda
+        }
+    };
+
+    const handleCloseSearchProducts = () => setOpen(false);
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const response = await axios.get(`${apiUrl}/buscador/productos/todo`);
+                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                    setRowsProducts(response.data);
+                    setFilteredProducts(response.data);
+                } else {
+                    Swal.fire({
+                        title: '!Productos no encontrados!',
+                        text: 'No se encontraron productos',
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            } catch (error) {
+                if (error.response && error.response.data && error.response.data.message) {
+                    const { messageText } = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: `Error: ${messageText}`,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            }
+        }
+        fetchProducts();
+    }, []);
+
+    const fetchsku = async () => {
+        try {
+            const data = {
+                sku: productoSku,
+            }
+            const response = await axios.post(`${apiUrl}/conteoCiclico/productos/obtenerProductoId`, data, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            // Si llega aquí, significa que hay un resultado válido en el array
+            if (response.data) {
+                const producto = response.data;  // Accede al único producto
+                setProductoId(producto.producto_id);
+                //setProductoSku(producto.sku);
+                await handleSearch(producto.producto_id);
+            } else {
+                // Para cuando el array no tiene exactamente un elemento
+                setSearchTerm(productoSku);
+                setOpen(true);
+            }
+        } catch (error) {
+            // Maneja el caso específico de "Producto no encontrado"
+            if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
+                setSearchTerm(productoSku);
+                setOpen(true);
+            } else if (error.response && error.response.data && error.response.data.message) {
+                // Otros mensajes de error
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error en la comunicación con el servidor.',
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    };
 
     useEffect(() => {
         const fetchBodegas = async () => {
@@ -114,17 +243,19 @@ const ConteoCiclico = () => {
                 existencia_id: linea.existencia_id,
                 producto_id: linea.producto_id,
                 producto_title: linea.producto_title,
+                sku: linea.sku,
+                inventory_id: linea.inventory_id,
                 clasificacion: linea.clasificacion,
                 localidad_descripcion: linea.localidad_descripcion,
                 existencia: 0,
                 fecha_conteo: formatFecha(linea.fecha_conteo),
             }));
-            // Ordenar primero por 'clasificacion' ascendente y luego por 'fecha_conteo' descendente
+            // Ordenar primero por 'clasificacion' ascendente y luego por 'fecha_conteo' ascendente
             const sortedRows = dataGridRows.sort((a, b) => {
                 const clasificacionCompare = a.clasificacion.localeCompare(b.clasificacion);
                 if (clasificacionCompare === 0) {
-                    // Si las clasificaciones son iguales, comparar por fecha_conteo (descendente)
-                    return new Date(b.fecha_conteo) - new Date(a.fecha_conteo);
+                    // Si las clasificaciones son iguales, comparar por fecha_conteo (ascendente)
+                    return new Date(a.fecha_conteo) - new Date(b.fecha_conteo);
                 }
                 return clasificacionCompare;
             });
@@ -143,7 +274,14 @@ const ConteoCiclico = () => {
                 });
             }
         }
-    }
+    };
+
+    const handleSearch = async (productoId) => {
+        if (productoId) {
+            fetchProductsMLM(productoId);
+            setIsButtonDisabled(false);
+        }
+    };
 
     useEffect(() => {
         if (ubicacionChecked === true && selectedLocalidad) {
@@ -154,7 +292,7 @@ const ConteoCiclico = () => {
         }
     }, [ubicacionChecked, selectedLocalidad]);
 
-    const fetchProductsMLM = async () => {
+    const fetchProductsMLM = async (productoId) => {
         try {
             const response = await axios.get(`${apiUrl}/conteoCiclico/producto/${productoId}/localidades`);
             const data = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
@@ -162,6 +300,8 @@ const ConteoCiclico = () => {
                 existencia_id: linea.existencia_id,
                 producto_id: linea.producto_id,
                 producto_title: linea.producto_title,
+                sku: linea.sku,
+                inventory_id: linea.inventory_id,
                 clasificacion: linea.clasificacion,
                 localidad_descripcion: linea.localidad_descripcion,
                 existencia: 0,
@@ -195,15 +335,6 @@ const ConteoCiclico = () => {
         }
     }
 
-    useEffect(() => {
-        if (productChecked === true && productoId) {
-            fetchProductsMLM();
-        } else {
-            setRows([]);
-            setProductoId('');
-        }
-    }, [productChecked, productoId]);
-
     const fetchProductsDate = async () => {
         try {
             const response = await axios.get(`${apiUrl}/conteoCiclico/existencias/fechaAntigua`);
@@ -212,6 +343,8 @@ const ConteoCiclico = () => {
                 existencia_id: linea.existencia_id,
                 producto_id: linea.producto_id,
                 producto_title: linea.title,
+                sku: linea.sku,
+                inventory_id: linea.inventory_id,
                 clasificacion: linea.clasificacion,
                 localidad_descripcion: linea.localidad_descripcion,
                 existencia: 0,
@@ -296,14 +429,17 @@ const ConteoCiclico = () => {
             setProductChecked(true);
             setFechaChecked(false);
             setUbicacionChecked(false);
+            setHabilitarBuscador(true);
         } else if (type === 'fecha') {
             setProductChecked(false);
             setFechaChecked(true);
             setUbicacionChecked(false);
+            setHabilitarBuscador(false);
         } else if (type === 'ubicacion') {
             setProductChecked(false);
             setFechaChecked(false);
             setUbicacionChecked(true);
+            setHabilitarBuscador(false);
         }
     };
 
@@ -364,10 +500,78 @@ const ConteoCiclico = () => {
         }
     };
 
+    useEffect(() => {
+        // Filtra los productos en base al término de búsqueda
+        let filtered = rowsProducts;
+
+        if (searchTerm) {
+            const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+
+            filtered = filtered.filter(product => {
+                const productMLM = product.id ? product.id.toLowerCase() : '';
+                const productSku = product.sku ? product.sku.toLowerCase() : '';
+                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const productTitle = product.title ? product.title.toLowerCase() : '';
+                const productVariation = product.variation_desc ? product.variation_desc.toLowerCase() : '';
+
+                // Verifica si todas las palabras están en el título
+                const titleMatch = searchWords.every(word => productTitle.includes(word));
+
+                // Verifica si el término de búsqueda está en otras columnas
+                const otherColumnsMatch = (
+                    productMLM.includes(searchTerm.toLowerCase()) ||
+                    productSku.includes(searchTerm.toLowerCase()) ||
+                    productInventoryId.includes(searchTerm.toLowerCase()) ||
+                    productVariation.includes(searchTerm.toLowerCase())
+                );
+
+                // El producto debe coincidir en el título o en alguna de las otras columnas
+                return titleMatch || otherColumnsMatch;
+            });
+        }
+
+        setFilteredProducts(filtered);
+    }, [searchTerm, rowsProducts]);
+
+    // Función que maneja el evento de presionar Enter en el input
+    const handleKeyDown = (event) => {
+        if (habilitarBuscador && (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click')) {
+            fetchsku(productoSku);
+        }
+    };
+
+    const handleBlur = () => {
+        if (habilitarBuscador && productoSku.trim()) {
+            fetchsku(productoSku);
+        }
+    };
+
+    // Función que se llama cuando se selecciona una fila en el DataGrid
+    const handleRowSelection = (params) => {
+        const selectedProductSku = params.row.sku;
+        const selectedProductId = params.row.producto_id; // Captura el ID del producto seleccionado
+
+        setProductoSku(selectedProductSku);
+        setProductoId(selectedProductId); // Actualiza el valor del input
+        handleSearch(selectedProductId);
+        setOpen(false); // Cierra la modal
+    };
+
+    const columnsProducts = [
+        { field: 'id', headerName: '# De Publicación', type: 'text', flex: 1 },
+        { field: 'producto_id', headerName: 'MLM', type: 'number', flex: 1 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
+    ]
+
     const columns = [
         { field: 'existencia_id', headerName: 'Existencia ID', type: 'number' },
         { field: 'producto_id', headerName: 'MLM', type: 'text', flex: 1 },
         { field: 'producto_title', headerName: 'Titulo', type: 'text', flex: 3 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 3 },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 3 },
         { field: 'clasificacion', headerName: 'Clasificación', type: 'text', headerAlign: 'center', flex: 1 },
         { field: 'localidad_descripcion', headerName: 'Ubicación', type: 'text', flex: 1, headerAlign: 'center' },
         {
@@ -412,6 +616,39 @@ const ConteoCiclico = () => {
                     </div>
                 </div>
             </div>
+            {/* Ventana Modal */}
+            <Modal open={open} onClose={handleCloseSearchProducts}>
+                <Box sx={modalStyle}>
+                    <TextField
+                        label="Buscador..."
+                        color='primary'
+                        focused
+                        sx={{ width: '20rem', marginBottom: '10px' }}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500 }}
+                        rows={filteredProducts}
+                        columns={columnsProducts}
+                        pageSize={5}
+                        // processRowUpdate={processRowUpdate}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        onRowClick={handleRowSelection}
+                        getRowId={(row) => row.producto_id}
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={{
+                            producto_id: false
+                        }}
+                    />
+                    <Button onClick={handleCloseSearchProducts} variant="contained" color="primary"
+                        sx={{
+                            marginTop: '10px',
+                            marginLeft: '93%'
+                        }}
+                    >Cerrar</Button>
+                </Box>
+            </Modal>
             <div className='container'>
                 <label className='item03'>Bodega de entrada:</label>
                 <select className='item04'
@@ -455,13 +692,46 @@ const ConteoCiclico = () => {
                     onChange={() => handleCheckboxChangeInputs('product')}
                     checked={productChecked} />
                 <label className='labelProduct'>Producto:</label>
-                <input
+                <TextField
                     className='inputProduct'
-                    type='text'
-                    placeholder='Ingresa un MLM'
-                    onChange={(e) => setProductoId(e.target.value)}
-                    value={productoId}
-                    disabled={!productChecked} />
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleBlur}
+                    disabled={!habilitarBuscador}
+                    value={productoSku}
+                    onChange={handleProductId}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position='end'>
+                                <SearchIcon
+                                    style={{
+                                        cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                        color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                    }}
+                                    onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
+                                />
+                            </InputAdornment>
+                        ),
+                    }}
+                    InputLabelProps={{
+                        style: {
+                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                        },
+                    }}
+                    style={{
+                        height: '10px', // Altura del TextField completo
+                        width: 250,
+                        marginTop: 10,
+                        marginLeft: 70,
+                    }}
+                    inputProps={{
+                        style: {
+                            height: '10px', // Altura interna del input
+                            padding: '10px', // Padding interno
+                            backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
+                            color: habilitarBuscador ? 'black' : 'gray',
+                        },
+                    }}
+                />
             </div>
             <div className='DataG' style={{ width: 'auto', height: 500 }}>
                 <DataGrid style={{ fontFamily: 'Montserrat', fontWeight: 'bold' }}
@@ -475,6 +745,7 @@ const ConteoCiclico = () => {
                     getRowClassName={(params) => params.row.disabled ? 'disabled-row' : ''}
                     columnVisibilityModel={{
                         existencia_id: false,
+                        producto_id: false
                     }}
                 />
             </div>
