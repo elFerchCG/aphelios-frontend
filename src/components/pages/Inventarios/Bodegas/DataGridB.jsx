@@ -226,14 +226,16 @@ const DataGridB = () => {
       }
     } catch (error) {
       setNewBodegaData('');
+      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
         title: 'Error',
-        text: 'Hubo un problema al crear la bodega',
+        text: errorMessage,
         icon: 'error',
         timer: 5000,
         showCloseButton: true,
         allowEscapeKey: true
       });
+      handleCloseModalPost();
     }
   }
 
@@ -328,14 +330,16 @@ const DataGridB = () => {
       }
     } catch (error) {
       setBodegaData('');
+      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
-        title: 'Error',
-        text: 'Hubo un problema al guardar los cambios',
-        icon: 'error',
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true
+          title: 'Error',
+          text: errorMessage,
+          icon: 'error',
+          timer: 5000,
+          showCloseButton: true,
+          allowEscapeKey: true
       });
+      setOpenModal(false);
     }
   };
 
@@ -372,14 +376,17 @@ const DataGridB = () => {
       }
     } catch (error) {
       setUbicacionData('');
+      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
         title: 'Error',
-        text: 'Hubo un problema al guardar los cambios',
+        text: errorMessage,
         icon: 'error',
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
+        target: document.getElementById('modal-consultaUbi'),
       });
+      setOpenModalUbicacionesUpdate(false);
     }
   };
 
@@ -406,14 +413,17 @@ const DataGridB = () => {
       }
     } catch (error) {
       setNewUbicacionData('');
+      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
         title: 'Error',
-        text: 'Hubo un problema al crear la ubicación',
+        text: errorMessage,
         icon: 'error',
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
+        target: document.getElementById('modal-consultaUbi'),
       });
+      handleCloseModalPostUbicaciones();
     }
   }
 

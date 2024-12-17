@@ -31,16 +31,14 @@ const TableUsuarios = () => {
         password: '',
         estado: '',
         rol_id: '',
-        rol_descripcion: '',
-        permisos: '' // Asumimos que permisos es un campo de texto que necesita ser enviado
+        rol_descripcion: ''
     });
 
     const [newUserData, setNewUserData] = useState({
         nombre: '',
         password: "",
         estado: 1,
-        rol_id: "",
-        permisos: ""
+        rol_id: ""
     })
 
     const fetchUsuarios = async () => {
@@ -126,8 +124,8 @@ const TableUsuarios = () => {
         setSelectedUser(user);
         setUserData({
             ...user,
+            password: '',
             rol_descripcion: getRolDescripcion(user.rol_id),
-            permisos: user.permisos || '', // Inicializamos permisos si no está presente
         });
         setOpenModal(true);
     };
@@ -164,8 +162,7 @@ const TableUsuarios = () => {
             const response = await axios.put(`${apiUrl}/usuarios/actualizar/${userData.id_usuario}`, {
                 nombre: userData.nombre,
                 password: userData.password,
-                rol: userData.rol_id, // Enviar el ID del rol
-                permisos: userData.permisos, // Enviar permisos como string
+                rol: parseInt(userData.rol_id, 10), // Convertir a número entero
                 estado: userData.estado // Enviar el estado (1 o 0)
             });
             if (response.status === 200) {
@@ -183,14 +180,16 @@ const TableUsuarios = () => {
             }
         } catch (error) {
             setUserData('');
+            const errorMessage = error.response?.data?.message || "Hubo un error desconocido";
             Swal.fire({
                 title: 'Error',
-                text: 'Hubo un problema al guardar los cambios',
+                text: errorMessage,
                 icon: 'error',
                 timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true
             });
+            setOpenModal(false);
         }
     };
 
@@ -200,7 +199,6 @@ const TableUsuarios = () => {
                 nombre: newUserData.nombre,
                 password: newUserData.password,
                 rol_id: newUserData.rol_id,
-                permisos: newUserData.permisos,
                 estado: newUserData.estado
             });
             if (response.data.ok) {
@@ -218,14 +216,16 @@ const TableUsuarios = () => {
             }
         } catch (error) {
             setNewUserData('');
+            const errorMessage = error.response?.data?.message || "Hubo un error desconocido";
             Swal.fire({
                 title: 'Error',
-                text: 'Hubo un problema al crear el usuario',
+                text: errorMessage,
                 icon: 'error',
                 timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true
             });
+            setOpenModalPost(false);
         }
     }
 
@@ -321,6 +321,7 @@ const TableUsuarios = () => {
                         label={'Nombre'}
                         fullWidth
                         margin="normal"
+                        type='text'
                         value={userData.nombre}
                         onChange={(e) => setUserData({ ...userData, nombre: e.target.value })}
                     />
@@ -328,27 +329,19 @@ const TableUsuarios = () => {
                         label={'Password'}
                         fullWidth
                         margin="normal"
-                        type='password'
                         value={userData.password}
                         onChange={(e) => setUserData({ ...userData, password: e.target.value })}
-                    />
-                    <TextField
-                        label={'Permisos'}
-                        fullWidth
-                        margin="normal"
-                        value={userData.permisos}
-                        onChange={(e) => setUserData({ ...userData, permisos: e.target.value })}
                     />
                     <FormControl fullWidth margin="normal">
                         <InputLabel>{'Rol'}</InputLabel>
                         <Select
-                            value={userData.rol_id}
+                            value={userData.rol_id || ''}
                             onChange={(e) => {
                                 const selectedRol = e.target.value;
                                 const descripcion = getRolDescripcion(selectedRol);
                                 setUserData({
                                     ...userData,
-                                    rol_id: selectedRol,
+                                    rol_id: parseInt(selectedRol, 10),  // Convertir el rol seleccionado a número
                                     rol_descripcion: descripcion,
                                 });
                             }}
@@ -356,17 +349,21 @@ const TableUsuarios = () => {
                             <MenuItem value="">
                                 <em>Seleccionar rol</em>
                             </MenuItem>
-                            {roles.map(role => (
-                                <MenuItem key={role.id} value={role.id}>
-                                    {role.descripcion}
-                                </MenuItem>
-                            ))}
+                            {roles.length > 0 ? (
+                                roles.map(role => (
+                                    <MenuItem key={role.id} value={role.id}>
+                                        {role.descripcion}
+                                    </MenuItem>
+                                ))
+                            ) : (
+                                <MenuItem value="" disabled>No hay roles disponibles</MenuItem>
+                            )}
                         </Select>
                     </FormControl>
                     <FormControl fullWidth margin="normal">
                         <InputLabel>{'Estatus'}</InputLabel>
                         <Select
-                            value={userData.estado}
+                            value={userData.estado !== undefined ? userData.estado : ''}
                             onChange={handleChangeEstado}
                         >
                             <MenuItem value={1}>Activo</MenuItem>
@@ -402,17 +399,10 @@ const TableUsuarios = () => {
                         value={newUserData.password}
                         onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
                     />
-                    <TextField
-                        label={'Permisos'}
-                        fullWidth
-                        margin="normal"
-                        value={newUserData.permisos}
-                        onChange={(e) => setNewUserData({ ...newUserData, permisos: e.target.value })}
-                    />
                     <FormControl fullWidth margin="normal">
                         <InputLabel>{'Rol'}</InputLabel>
                         <Select
-                            value={newUserData.rol_id} // El valor de 'rol_id' debe coincidir con los valores de los roles
+                            value={newUserData.rol_id || ''} // El valor de 'rol_id' debe coincidir con los valores de los roles
                             onChange={(e) => {
                                 const selectedRol = e.target.value;
                                 const descripcion = getRolDescripcion(selectedRol);
@@ -423,7 +413,7 @@ const TableUsuarios = () => {
                                 });
                             }}
                         >
-                            <MenuItem value="">
+                            <MenuItem defaultValue="">
                                 <em>Seleccionar rol</em>
                             </MenuItem>
                             {roles.length > 0 ? (
@@ -433,14 +423,14 @@ const TableUsuarios = () => {
                                     </MenuItem>
                                 ))
                             ) : (
-                                <MenuItem value="" disabled>No hay roles disponibles</MenuItem>
+                                <MenuItem defaultValue="" disabled>No hay roles disponibles</MenuItem>
                             )}
                         </Select>
                     </FormControl>
                     <FormControl fullWidth margin="normal">
                         <InputLabel>{'Estatus'}</InputLabel>
                         <Select
-                            value={newUserData.estado}
+                            value={newUserData.estado !== undefined ? newUserData.estado : ''}
                             onChange={(e) => setNewUserData({ ...newUserData, estado: e.target.value })}
                         >
                             <MenuItem value={1}>Activo</MenuItem>
@@ -460,5 +450,6 @@ const TableUsuarios = () => {
         </div >
     )
 }
+
 
 export default TableUsuarios;

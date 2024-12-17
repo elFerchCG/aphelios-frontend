@@ -122,6 +122,8 @@ const TableOrdenes = () => {
     // Estilos del modal
     const modalStyle = {
         position: 'absolute',
+        width: 1480,
+        height: 600,
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -1208,7 +1210,7 @@ const TableOrdenes = () => {
                     'Authorization': `Bearer ${token}`
                 }
             });
-    
+
             // Si llega aquí, significa que hay un resultado válido en el array
             if (Array.isArray(response.data) && response.data.length === 1) {
                 const producto = response.data[0];  // Accede al único producto
@@ -1248,11 +1250,11 @@ const TableOrdenes = () => {
             }
         }
     };
-    
+
     // Función que maneja el evento de presionar Enter en el input
     const handleKeyDown = (event) => {
         if (habilitarBuscador && (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click')) {
-             fetchsku(productoSku);
+            fetchsku(productoSku);
         }
     };
 
@@ -1521,17 +1523,17 @@ const TableOrdenes = () => {
     //     document.getElementById('file-input').click();
     // };
 
-    // Función que se llama cuando se selecciona una fila en el DataGrid
     const handleRowSelection = (params) => {
-        const selectedProductSku = params.row.sku;
-        const selectedProductId = params.row.producto_id; // Captura el ID del producto seleccionado
-
-        setProductoSku(selectedProductSku);
-        setProductoId(selectedProductId); // Actualiza el valor del input
-        handleSearch(selectedProductId);
-        setOpen(false); // Cierra la modal
+        // Encuentra el producto en los datos originales por ID
+        const selectedProduct = rowsProducts.find(product => product.producto_id === params.row.producto_id);
+    
+        if (selectedProduct) {
+            setProductoSku(selectedProduct.sku);
+            setProductoId(selectedProduct.producto_id);
+            handleSearch(selectedProduct.producto_id);
+            setOpen(false); // Cierra la modal
+        }
     };
-
     useEffect(() => {
         // Filtra los productos en base al término de búsqueda
         let filtered = rowsProducts;
@@ -1541,10 +1543,12 @@ const TableOrdenes = () => {
 
             filtered = filtered.filter(product => {
                 const productMLM = product.id ? product.id.toLowerCase() : '';
-                const productSku = product.sku ? product.sku.toLowerCase() : '';
-                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const productCatalog = product.catalog_id ? product.catalog_id.toLowerCase() : '';
                 const productTitle = product.title ? product.title.toLowerCase() : '';
-                const productVariation = product.variation_desc ? product.variation_desc.toLowerCase() : '';
+                const productSku = product.sku ? product.sku.toLowerCase() : '';
+                const productVariation = product.variation_id ? product.variation_id.toLowerCase() : '';
+                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const productVariationDesc = product.variation_desc ? product.variation_desc.toLowerCase() : '';
 
                 // Verifica si todas las palabras están en el título
                 const titleMatch = searchWords.every(word => productTitle.includes(word));
@@ -1552,9 +1556,12 @@ const TableOrdenes = () => {
                 // Verifica si el término de búsqueda está en otras columnas
                 const otherColumnsMatch = (
                     productMLM.includes(searchTerm.toLowerCase()) ||
+                    productCatalog.includes(searchTerm.toLowerCase()) ||
+                    // productTitle.includes(searchTerm.toLowerCase()) ||
                     productSku.includes(searchTerm.toLowerCase()) ||
+                    productVariation.includes(searchTerm.toLowerCase()) ||
                     productInventoryId.includes(searchTerm.toLowerCase()) ||
-                    productVariation.includes(searchTerm.toLowerCase())
+                    productVariationDesc.includes(searchTerm.toLowerCase())
                 );
 
                 // El producto debe coincidir en el título o en alguna de las otras columnas
@@ -1566,12 +1573,32 @@ const TableOrdenes = () => {
     }, [searchTerm, rowsProducts]);
 
     const columnsProducts = [
-        { field: 'id', headerName: '# De Publicación', type: 'text', flex: 1 },
-        { field: 'producto_id', headerName: 'MLM', type: 'number', flex: 1 },
-        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
-        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
+        {
+            field: 'select',
+            headerName: 'Seleccionar',
+            width: 150,
+            renderCell: (params) => (
+                <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    disabled={!rowsProducts.some(product => product.producto_id === params.row.producto_id)}
+                    onClick={() => handleRowSelection(params)}
+                >
+                    Seleccionar
+                </Button>
+            ),
+            sortable: false,
+            filterable: false,
+        },
+        { field: 'producto_id', headerName: 'ID producto', type: 'number' },
+        { field: 'id', headerName: '#Publicación', type: 'text', flex: 1 },
+        { field: 'catalog_id', headerName: '#Catalogo', type: 'text', flex: 1 },
         { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
-        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
+        { field: 'variation_id', headerName: '#Variación', type: 'number', headerAlign: 'center' },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1.7 },
     ]
 
     const columns = [
@@ -1739,20 +1766,23 @@ const TableOrdenes = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500 }}
-                        rows={filteredProducts}
-                        columns={columnsProducts}
-                        pageSize={5}
-                        // processRowUpdate={processRowUpdate}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        onRowClick={handleRowSelection}
-                        getRowId={(row) => row.producto_id}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            producto_id: false
-                        }}
-                    />
+                    <div style={{ width: '100%', height: '85%', overflowX: 'auto' }}>
+                        <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1800px" }}
+                            rows={filteredProducts}
+                            columns={columnsProducts}
+                            pageSize={5}
+                            // processRowUpdate={processRowUpdate}
+                            showCellVerticalBorder
+                            showColumnVerticalBorder
+                            //onRowClick={handleRowSelection}
+                            getRowId={(row) => row.producto_id}
+                            experimentalFeatures={{ newEditingApi: true }}
+                            columnVisibilityModel={{
+                                producto_id: true,
+                                variation_id: false
+                            }}
+                        />
+                    </div>  
                     <Button onClick={handleCloseSearchProducts} variant="contained" color="primary"
                         sx={{
                             marginTop: '10px',
