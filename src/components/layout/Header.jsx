@@ -4,7 +4,7 @@ import '../../estilos/header.css';
 import logo from '../../images/APHELIOS negro.png';
 import inicio from '../../images/hogar.svg';
 import envio from '../../images/shipment.svg';
-import monedas from '../../images/money.png';
+import reCharts from '../../images/reCharts.png';
 import inventario from '../../images/inventory.png';
 import configuracion from '../../images/settings.png';
 import sesion from '../../images/sesion.png';
@@ -40,9 +40,9 @@ const Header = () => {
                 <img src={envio} alt="Envios" className="nav-icon" />
                 <span>Envios</span>
               </NavLink>
-              <NavLink to="/ventas" className="nav-link">
-                <img src={monedas} alt="Ventas" className="nav-icon" />
-                <span>Ventas</span>
+              <NavLink to="/reCharts" className="nav-link">
+                <img src={reCharts} alt="reCharts" className="nav-icon" />
+                <span>Graficas</span>
               </NavLink>
               <NavLink to="/inventario" className="nav-link">
                 <img src={inventario} alt="Inventario" className="nav-icon" />

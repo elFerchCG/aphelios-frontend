@@ -1,0 +1,135 @@
+.boceto {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 100vh;
+    font-family: "Montserrat", sans-serif;
+    font-weight: bold;
+    font-variant: small-caps;
+}
+
+.left-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 50%;
+    text-align: center;
+    color: #333;
+}
+
+.buttons {
+    display: flex;
+    /* Asegúrate de usar Flexbox si quieres un diseño flexible */
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    padding: 50px;
+    gap: 20px;
+    /* Espacio entre los botones */
+}
+
+.buttons Button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    width: 180px;
+    margin: 10px auto;
+    text-decoration: none;
+    background-color: rgba(232, 232, 232, 0.9);
+    /* Fondo semitransparente */
+    box-shadow: 0px 0px 15px rgba(217, 217, 217, 0.723);
+    /* Sombra alrededor */
+    /*border: 4px solid rgb(159, 159, 159);*/
+    border-radius: 20px;
+}
+
+.buttons button:hover {
+    /* Efecto hover */
+    background-color: #043e71;
+    color: white;
+}
+
+.logoHome {
+    width: 350px;
+    margin-top: -80px;
+}
+
+.right-section {
+    width: 50%;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(90deg, #50e6fa, #02549c);
+    /* Fondo en degradado */
+    border-left: 10px solid #043e71;
+    box-shadow: -15px 0px 15px rgba(0, 0, 0, 0.3);
+    /* Sombra alrededor */
+}
+
+.graphic {
+    width: 60%;
+    margin-top: -80px;
+}
+
+/* Media Queries para pantallas más pequeñas */
+@media (max-width: 768px) {
+    .boceto {
+        flex-direction: column;
+        /* Cambiar a diseño en columna */
+        height: 100vh;
+        /* Ajustar altura automáticamente */
+    }
+
+    .left-section,
+    .right-section {
+        width: 100%;
+        /* Ocupan todo el ancho */
+        height: 100vh;
+        /* Ajustar la altura automáticamente */
+    }
+
+    .buttons Button {
+        width: 120px;
+        /* Reducir tamaño del botón */
+        height: 80px;
+    }
+
+    .logoHome {
+        width: 250px;
+        /* Ajustar tamaño del logo */
+        margin-top: 80px;
+    }
+
+    .graphic {
+        width: 80%;
+        /* Ajustar tamaño de la gráfica */
+        height: 100vh;
+        padding: 60px;
+    }
+}
+
+@media (max-width: 480px) {
+    .buttons Button {
+        width: 100px;
+        /* Botones más pequeños */
+        height: 70px;
+        font-size: 12px;
+        /* Reducir tamaño del texto */
+    }
+
+    .logoHome {
+        width: 200px;
+        /* Reducir tamaño del logo */
+        margin-top: 100px;
+    }
+
+    .graphic {
+        width: 90%;
+        /* Ajustar gráfico al ancho disponible */
+        padding: 60px;
+    }
+}

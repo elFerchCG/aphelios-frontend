@@ -1,12 +1,11 @@
 import React from 'react'
-import { DataGrid } from '@mui/x-data-grid';
+import { DataGrid, GridToolbar, GRID_DEFAULT_LOCALE_TEXT } from '@mui/x-data-grid';
 import { useState } from 'react';
 import { useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import { TextField } from '@mui/material';
-
 
 
 const theme = createTheme({
@@ -19,6 +18,20 @@ const DataGridE = () => {
     const [data, setData] = useState([]);
     const [filteredExistencias, setFilteredExistencias] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+        id: false,
+        producto_id: false,
+        localidad_id: false,
+        mlm: true, // Asegúrate de incluir todas las columnas
+        catalog_id: false,
+        title: true,
+        sku: true,
+        inventory_id: true,
+        variation_desc: false,
+        localidad_descripcion: true,
+        cantidad: true,
+    });
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -60,14 +73,17 @@ const DataGridE = () => {
     }, [apiUrl]);
 
     const columns = [
+        { field: 'cantidad', headerName: 'Cantidad', type: 'number', flex: 0.5 },
         { field: 'id', headerName: 'ID', type: 'number' },
-        { field: 'producto_id', headerName: 'ID Producto', type: 'text', flex: 3 },
-        { field: 'sku', headerName: 'SKU', type: 'text', flex: 3 },
-        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1 },
-        //{ field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
+        { field: 'producto_id', headerName: 'ID Producto', type: 'text', flex: 1 },
+        { field: 'mlm', headerName: '#De Publicación', type: 'text', flex: 1, pinned: 'left' },
+        { field: 'catalog_id', headerName: '#De Catalogo', type: 'text', flex: 1 },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 2 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 1.7 },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 0.7 },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
         { field: 'localidad_id', headerName: 'Ubicacion ID', type: 'number', flex: 1 },
-        { field: 'localidad_descripcion', headerName: 'Ubicación', type: 'text', flex: 1 },
-        { field: 'cantidad', headerName: 'Cantidad', type: 'number', flex: 1 },
+        { field: 'localidad_descripcion', headerName: 'Ubicación', type: 'text', flex: 0.5 },
     ];
 
     useEffect(() => {
@@ -83,8 +99,8 @@ const DataGridE = () => {
                 const productVariationDesc = exist.variation_desc ? exist.variation_desc.toLowerCase() : '';
                 const productoLocalidad = exist.localidad_descripcion ? exist.localidad_descripcion.toLowerCase() : '';
 
-            // Convertir la cantidad a cadena y hacer la búsqueda
-            const productoCantidad = exist.cantidad !== undefined ? exist.cantidad.toString().toLowerCase() : '';
+                // Convertir la cantidad a cadena y hacer la búsqueda
+                const productoCantidad = exist.cantidad !== undefined ? exist.cantidad.toString().toLowerCase() : '';
 
                 // Verifica si el término de búsqueda está en otras columnas
                 const otherColumnsMatch = (
@@ -94,7 +110,7 @@ const DataGridE = () => {
                     productVariationDesc.includes(searchTerm.toLowerCase()) ||
                     productoLocalidad.includes(searchTerm.toLowerCase()) ||
                     productoCantidad.includes(searchTerm.toLowerCase())
-                    
+
                 );
 
                 // El producto debe coincidir en el título o en alguna de las otras columnas
@@ -114,9 +130,11 @@ const DataGridE = () => {
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    height: '500px',
+                    height: '600px',
                     width: 'auto',
-                    margin: '30px',
+                    marginTop: '-20px',
+                    marginLeft: '30px',
+                    marginRight: '30px'
                 }}
             >
                 {/* Contenedor flex para el TextField y el Button */}
@@ -140,21 +158,37 @@ const DataGridE = () => {
                         }}
                     />
                 </div>
+                <div style={{ width: '100%', height: '80%', overflowX: 'auto' }}>
                 <ThemeProvider theme={theme}>
-                    <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
+                    <DataGrid 
+                        style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1500px" }}
                         rows={filteredExistencias}
                         columns={columns}
                         showCellVerticalBorder
                         showColumnVerticalBorder
                         getRowId={(row) => row.id}
                         experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id: false,
-                            producto_id: false,
-                            localidad_id: false
-                        }}
+                        columnVisibilityModel={columnVisibilityModel}
+                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
+                        localeText={{
+                            ...GRID_DEFAULT_LOCALE_TEXT, ...{
+                                toolbarColumns: 'Columnas',
+                                toolbarDensity: 'Densidad',
+                                toolbarExport: 'Exportar',
+                                toolbarFilters: 'Filtros',
+                                filterPanelOperator: 'Operador',
+                                toolbarFiltersTooltipHide: 'Ocultar filtros',
+                                toolbarFiltersTooltipShow: 'Mostrar filtros',
+                                footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
+                                footerTotalVisibleRows: (visibleCount, totalCount) =>
+                                    `${visibleCount} de ${totalCount}`,
+                                footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
+                            }
+                        }} // Localización en español
+                        slots={{ toolbar: GridToolbar }}
                     />
                 </ThemeProvider>
+                </div>
             </div>
         </div>
     )

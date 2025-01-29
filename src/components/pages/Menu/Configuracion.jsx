@@ -1,12 +1,9 @@
 import React from 'react'
 import '../../../estilos/configuracion.css'
-import usuarios from '../../../images/seguidores.png'
-import proveedores from '../../../images/proveedor.png'
-import inventario from '../../../images/inventario.png'
-import bodegas from '../../../images/almacen.png'
-import transacciones from '../../../images/traspaso.png'
-import movimientos from '../../../images/movimientos.png'
-
+import usuarios from '../../../images/usuarios.png'
+import proveedores from '../../../images/proveedores.png'
+import bodegas from '../../../images/bodegas.png'
+import movimientosI from '../../../images/movimientosI.png'
 import { NavLink } from 'react-router-dom'
 
 const Navegacion = () => {
@@ -21,22 +18,18 @@ const Navegacion = () => {
                 <img src={proveedores} alt="Proveedores" className="nav-icon-config" />
                 <span>Proveedores</span>
             </NavLink>
-            <NavLink to="/existencias" className="nav-config">
-                <img src={inventario} alt="Existencias" className="nav-icon-config" />
-                <span>Existencias</span>
-            </NavLink>
             <NavLink to="/bodegas" className="nav-config">
                 <img src={bodegas} alt="Bodegas" className="nav-icon-config" />
                 <span>Bodegas</span>
             </NavLink>
             <NavLink to="/transacciones" className="nav-config">
-                <img src={transacciones} alt="Tipos de Movimientos" className="nav-icon-config" />
+                <img src={movimientosI} alt="Tipos de Movimientos" className="nav-icon-config" />
                 <span>Tipos de Movimientos</span>
             </NavLink>
-            <NavLink to="/traspasos" className="nav-config">
+            {/* <NavLink to="/traspasos" className="nav-config">
                 <img src={movimientos} alt="Movimientos" className="nav-icon-config" />
                 <span>Movimientos</span>
-            </NavLink>
+            </NavLink> */}
         </div>
     )
 }

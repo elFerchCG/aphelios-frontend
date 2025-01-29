@@ -61,7 +61,8 @@ const DataGridTInventario = ({ filter }) => {
             flex: 1,
             renderCell: (params) => formatFecha(params.value),
         },
-        { field: 'usuario', headerName: 'Usuario', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'usuario_autorizacion', headerName: 'Confirmó', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'usuario_transaccion', headerName: 'Procesó', type: 'text', flex: 1, headerAlign: 'center' },
     ];
 
     const fetchData = async () => {

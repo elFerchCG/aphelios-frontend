@@ -485,17 +485,16 @@ const TableOrdenes = () => {
             // Si todo sale bien, devolver la fila actualizada
             return updatedRow;
         } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                const errorMessage = error.response.data.message;
-                Swal.fire({
-                    title: 'Error',
-                    text: errorMessage,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-            }
+            const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+            Swal.fire({
+                title: '¡No se pudo actualizar la linea!',
+                text: errorMessage,
+                icon: 'error',
+                //timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            return oldRow;
         }
     };
 
@@ -864,83 +863,124 @@ const TableOrdenes = () => {
         }
     }
 
-    // const handleImportExcel = async (e) => {
-    //     const file = e.target.files[0];
+    const handleImportExcel = async (e) => {
+        //console.log("onChange detectado");
+        const file = e.target.files[0];
 
-    //     if (!file) {
-    //         console.error("No se seleccionó ningún archivo.");
-    //         return;
-    //     }
+        if (!file) {
+            Swal.fire({
+                title: 'Error',
+                text: 'No se selecciono ningún archivo excel',
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            return;
+        }
 
-    //     console.log("Archivo seleccionado:", file);
+        console.log("Archivo seleccionado:", file);
 
-    //     const reader = new FileReader();
+        const reader = new FileReader();
 
-    //     reader.onload = async (event) => {
-    //         console.log("Archivo cargado, leyendo contenido...");
-    //         const arrayBuffer = event.target.result;
+        reader.onload = async (event) => {
+            //console.log("Archivo cargado, leyendo contenido...");
+            const arrayBuffer = event.target.result;
 
-    //         try {
-    //             const workbook = read(arrayBuffer, { type: 'array' });
-    //             const sheetName = workbook.SheetNames[0];
-    //             const worksheet = workbook.Sheets[sheetName];
-    //             const jsonData = utils.sheet_to_json(worksheet);
+            try {
+                const workbook = read(arrayBuffer, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = utils.sheet_to_json(worksheet);
 
-    //             console.log("Datos leídos del archivo Excel:", jsonData);
+                //console.log("Datos leídos del archivo Excel:", jsonData);
 
-    //             // Iterar sobre cada fila del archivo Excel
-    //             for (const row of jsonData) {
-    //                 const lineasData = {
-    //                     lineas: [{
-    //                         producto_id: row.producto_id,
-    //                         cantidad: parseInt(row.cantidad, 10),
-    //                         comentario: row.comentario || '',
-    //                         localidad_salida_id: row.localidad_salida_id || null,
-    //                         localidad_entrada_id: row.localidad_entrada_id || null
-    //                     }]
-    //                 };
+                // Iterar sobre cada fila del archivo Excel
+                // Mapear los datos al formato requerido por el backend
+                const lineasData = {
+                    lineas: jsonData.map(row => ({
+                        producto_id: row.producto_id,
+                        cantidad: parseInt(row.cantidad, 10),
+                        comentario: row.comentario || '',
+                        localidad_salida_id: row.localidad_salida_id || null,
+                        localidad_entrada_id: row.localidad_entrada_id || null
+                    }))
+                };
 
-    //                 console.log("Enviando datos al servidor:", lineasData);
+                try {
+                    //console.log("Datos enviados al backend:", JSON.stringify(lineasData, null, 2));
+                    const response = await axios.post(
+                        `http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/lineas/excel`,
+                        lineasData,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        }
+                    );
 
-    //                 try {
-    //                     // Realizar la solicitud POST para cada fila
-    //                     const response = await axios.post(`http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${id}/lineas`, lineasData, {
-    //                         headers: {
-    //                             'Authorization': `Bearer ${token}`
-    //                         }
-    //                     });
+                    //console.log("Respuesta del servidor:", response.data);
+                    const { ok, message, errores } = response.data;
+                    if (errores && errores.length > 0) {
+                        const erroresText = errores
+                            .map((err, index) => `${index + 1}. ${err.message}`)
+                            .join('<br>');
 
-    //                     console.log("Respuesta del servidor:", response.data);
+                        Swal.fire({
+                            title: 'Advertencia',
+                            html: `<p>${message}</p><div>${erroresText}</div>`,
+                            icon: 'warning', // Cambia el icono a "warning" para representar éxito parcial
+                            showCloseButton: true,
+                            allowEscapeKey: true,
+                        });
+                        fetchOrderSelected(idOrder);
+                    } else {
+                        Swal.fire({
+                            title: 'Éxito',
+                            text: message,
+                            icon: 'success',
+                            timer: 5000,
+                        });
+                        fetchOrderSelected(idOrder);
+                    }
+                    fetchOrderSelected(idOrder);
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+                    Swal.fire({
+                        title: 'Error',
+                        text: errorMessage,
+                        icon: 'error',
+                        //timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            } catch (error) {
+                const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    //timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        };
 
-    //                     if (response.data.ok && response.data.lineasIds) {
-    //                         // Crear un objeto de fila para agregar al DataGrid
-    //                         const newRow = {
-    //                             id: response.data.lineasIds[0], // Usar el ID retornado por el servidor
-    //                             producto_id: row.producto_id,
-    //                             cantidad: parseInt(row.cantidad, 10),
-    //                             comentario: row.comentario || '',
-    //                             localidad_salida: row.localidad_salida_id || null,
-    //                             localidad_entrada: row.localidad_entrada_id || null
-    //                         };
+        reader.onerror = () => {
+            Swal.fire({
+                title: 'Error',
+                text: 'Error al leer el archivo Excel',
+                icon: 'error',
+                //timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+        };
 
-    //                         // Actualizar el DataGrid con la nueva fila
-    //                         setRows(prevRows => [...prevRows, newRow]);
-    //                     }
-    //                 } catch (error) {
-    //                     console.error("Error al enviar datos:", error);
-    //                 }
-    //             }
-    //         } catch (error) {
-    //             console.error("Error al leer el archivo:", error);
-    //         }
-    //     };
-
-    //     reader.onerror = (error) => {
-    //         console.error("Error al leer el archivo:", error);
-    //     };
-
-    //     reader.readAsArrayBuffer(file);
-    // };
+        reader.readAsArrayBuffer(file);
+    };
 
     const handleConfirmarOrden = async () => {
         const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -1407,20 +1447,29 @@ const TableOrdenes = () => {
 
         } catch (error) {
             // Revisamos si la estructura de `error.response.data.message` contiene `messageText`
-            const messageText = error.response?.data?.message?.messageText || 'Ha ocurrido un error inesperado.';
-
+            const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
             Swal.fire({
-                title: 'Error',
-                text: messageText,
+                title: '¡No se pudo actualizar la linea!',
+                text: errorMessage,
                 icon: 'error',
-                timer: 5000,
+                //timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true
             });
-
-            console.error('Error al actualizar la línea:', error);
             throw error; // Lanzar el error para que pueda ser capturado por processRowUpdate
         }
+    };
+
+    // Manejador de errores global en DataGrid
+    const handleProcessRowUpdateError = (error) => {
+        const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+        Swal.fire({
+            title: "Error Global",
+            text: errorMessage,
+            icon: "error",
+            showCloseButton: true,
+            allowEscapeKey: true,
+        });
     };
 
     const handleOpenComment = (row) => {
@@ -1519,14 +1568,14 @@ const TableOrdenes = () => {
         }
     };
 
-    // const handleButtonClick = () => {
-    //     document.getElementById('file-input').click();
-    // };
+    const handleButtonClick = () => {
+        document.getElementById('file-input').click();
+    };
 
     const handleRowSelection = (params) => {
         // Encuentra el producto en los datos originales por ID
         const selectedProduct = rowsProducts.find(product => product.producto_id === params.row.producto_id);
-    
+
         if (selectedProduct) {
             setProductoSku(selectedProduct.sku);
             setProductoId(selectedProduct.producto_id);
@@ -1592,6 +1641,7 @@ const TableOrdenes = () => {
             filterable: false,
         },
         { field: 'producto_id', headerName: 'ID producto', type: 'number' },
+        { field: 'tipo_publicacion', headerName: 'Tipo\npublicación', type: 'number', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'id', headerName: '#Publicación', type: 'text', flex: 1 },
         { field: 'catalog_id', headerName: '#Catalogo', type: 'text', flex: 1 },
         { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
@@ -1716,17 +1766,17 @@ const TableOrdenes = () => {
                         <img src={searchOrden} alt="Buscar Orden" className="action-icon" />
                         <span>Buscar Orden</span>
                     </div>
-                    {/* <div className="action-item" style={{ cursor: 'pointer' }} onClick={handleButtonClick}>
-                    <img src={importExcel} alt="Importar Excel" className="action-icon" />
-                    <span>Importar Excel</span>
-                    <input
-                        id="file-input"
-                        type="file"
-                        accept=".xlsx, .xls"
-                        style={{ display: 'none' }}
-                        onChange={handleImportExcel}
-                    />
-                </div> */}
+                    <div className="action-item" style={{ cursor: 'pointer' }} onClick={handleButtonClick}>
+                        <img src={importExcel} alt="Importar Excel" className="action-icon" />
+                        <span>Importar Excel</span>
+                        <input
+                            id="file-input"
+                            type="file"
+                            accept=".xlsx, .xls"
+                            style={{ display: 'none' }}
+                            onChange={handleImportExcel}
+                        />
+                    </div>
                 </div>
                 <div className="right-actions">
                     <div className="action-item" onClick={enableCancel ? handleCancelOrden : null}
@@ -1782,7 +1832,7 @@ const TableOrdenes = () => {
                                 variation_id: false
                             }}
                         />
-                    </div>  
+                    </div>
                     <Button onClick={handleCloseSearchProducts} variant="contained" color="primary"
                         sx={{
                             marginTop: '10px',
@@ -2029,6 +2079,7 @@ const TableOrdenes = () => {
                         pageSize={5}
                         disableColumnResize={false}
                         onRowClick={handleRowSelectionComment}
+                        onProcessRowUpdateError={handleProcessRowUpdateError} // Aquí añadimos el manejador global
                         processRowUpdate={processRowUpdate}
                         showCellVerticalBorder
                         showColumnVerticalBorder

@@ -21,6 +21,10 @@ import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/Tab
 import AnalisisVentas from '../components/pages/Analisi Ventas/AnalisisVentas';
 import ConteoCiclico from '../components/pages/Inventarios/OrdenBodegas/ConteoCiclico';
 import Localidades from '../components/pages/Inventarios/Localidades/Localidades';
+import ReCharts from '../components/pages/Analisi Ventas/ReCharts';
+import ChartPronostico from '../components/pages/Analisi Ventas/ChartPronostico';
+import Billetes from '../components/pages/Inventarios/Billetes';
+
 
 const Rutas = () => {
     return (
@@ -53,9 +57,12 @@ const Rutas = () => {
                     <Route path='/home' element={<Home />} />
                     <Route path='/envios' element={<Envios />} />
                     <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
+                    <Route path='/reCharts' element={<ReCharts />} />
                     <Route path='/analisisVentas' element={<AnalisisVentas />} />
                     <Route path='/conteociclico' element={<ConteoCiclico />} />
                     <Route path='/ubicaciones' element={<Localidades />} />
+                    <Route path='/chartpronostico' element={<ChartPronostico />} />
+                    <Route path='/billetes' element={<Billetes />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>

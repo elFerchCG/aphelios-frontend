@@ -1,29 +1,34 @@
 import React from 'react'
 import '../../../estilos/configuracion.css'
-import ordenes from '../../../images/ordenes.png'
-import ordenesCompra from '../../../images/ordenesCompra.png'
-import transaccionesI from '../../../images/transaccionesI.png'
+import order from '../../../images/order.png'
+import orderBuy from '../../../images/orderBuy.png'
+import transacciones from '../../../images/transacciones.png'
+import existencias from '../../../images/existencias.png'
 import { NavLink } from 'react-router-dom'
-import conteo from '../../../images/conteo.png'
+import conteoCiclico from '../../../images/conteoCiclico.png'
 
 const Inventario = () => {
     return (
         <div className='content'>
             <NavLink to="/ordenes" className="nav-config">
-                <img src={ordenes} alt="Usuarios" className="nav-icon-config" />
+                <img src={order} alt="Usuarios" className="nav-icon-config" />
                 <span>Ordenes</span>
             </NavLink>
             <NavLink to="/ordenescompra" className="nav-config">
-                <img src={ordenesCompra} alt="Usuarios" className="nav-icon-config" />
+                <img src={orderBuy} alt="Usuarios" className="nav-icon-config" />
                 <span>Ordenes Compra</span>
             </NavLink>
             <NavLink to="/conteociclico" className="nav-config">
-                <img src={conteo} alt="Conteo Ciclico" className="nav-icon-config" />
+                <img src={conteoCiclico} alt="Conteo Ciclico" className="nav-icon-config" />
                 <span>Conteo Ciclico</span>
             </NavLink>
             <NavLink to="/transaccionesInventario" className="nav-config">
-                <img src={transaccionesI} alt="Usuarios" className="nav-icon-config" />
+                <img src={transacciones} alt="Usuarios" className="nav-icon-config" />
                 <span>Transacciones</span>
+            </NavLink>
+            <NavLink to="/existencias" className="nav-config">
+                <img src={existencias} alt="Existencias" className="nav-icon-config" />
+                <span>Existencias</span>
             </NavLink>
         </div>
     )

@@ -48,6 +48,12 @@ const Login = () => {
     }
   }
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      handleLogin(); // Llama al método cuando se presione Enter
+    }
+  };
+
   // Función para verificar si el token está presente y es válido
   const checkTokenValidity = () => {
     const token = localStorage.getItem('token');
@@ -82,7 +88,7 @@ const Login = () => {
   return (
     <div className='layoutLogin'>
       <img src={logo} alt="logo" className="logoAphelios" />
-      <div className='cuerpoLogin'>
+      <div className='cuerpoLogin' onKeyDown={handleKeyDown}>
         <TextField
           className='itemLogin'
           variant="standard"
