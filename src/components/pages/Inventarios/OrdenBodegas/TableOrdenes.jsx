@@ -1837,8 +1837,7 @@ const TableOrdenes = () => {
                         sx={{
                             marginTop: '10px',
                             marginLeft: '93%'
-                        }}
-                    >Cerrar</Button>
+                        }}>Cerrar</Button>
                 </Box>
             </Modal>
             <div className='container'>

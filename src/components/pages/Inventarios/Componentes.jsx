@@ -4,31 +4,18 @@ import SearchIcon from '@mui/icons-material/Search';
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { Box, Button, InputAdornment, MenuItem, Modal, Select, TextField, Typography } from '@mui/material';
+import { Box, Button, InputAdornment, Modal, TextField } from '@mui/material';
 
 const Componentes = () => {
 
     const [data, setData] = useState([]);
     const [productoId, setProductoId] = useState('');
     const [title, setTitle] = useState('');
-    const [productos, setProductos] = useState({
-        input1: '',
-        input2: '',
-        input3: ''
-    });
-    const [productosId, setProductosId] = useState({
-        input1: '',
-        input2: '',
-        input3: ''
-    });
-    const [tipo, setTipo] = useState('');
     const [productoSku, setProductoSku] = useState('');
     const [open, setOpen] = useState(false);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [rowsProducts, setRowsProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [openAddComponent, setOpenAddComponent] = useState(false);
-    const [inputActivo, setInputActivo] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
 
@@ -55,88 +42,29 @@ const Componentes = () => {
     // Estilos del modal
     const modalStyle = {
         position: 'absolute',
-        width: 1400,
+        width: 1480,
         height: 600,
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
         bgcolor: 'background.paper',
         border: '2px solid #000',
-        borderRadius: 4,
-        boxShadow: 24,
-        p: 4,
-    };
-
-    // Estilos del modal
-    const styleAddComponent = {
-        position: 'absolute',
-        width: 400,
-        height: 400,
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        bgcolor: 'background.paper',
-        border: '2px solid #000',
-        borderRadius: 4,
+        borderRadius: 6,
         boxShadow: 24,
         p: 4,
     };
 
     // Función que abre la modal y realiza la búsqueda al hacer clic en el ícono de búsqueda
-    const handleOpenSearchProducts = (inputName) => {
-        setInputActivo(inputName);
-        setOpen(true);
+    const handleOpenSearchProducts = async () => {
+        setOpen(true);  // Abre la modal después de la búsqueda
     };
 
     const handleCloseSearchProducts = () => setOpen(false);
 
-    const handleOpenAddComponent = async () => {
-        setOpenAddComponent(true);
-    }
-
-    const handleCloseAddComponent = () => {
-        setOpenAddComponent(false);
-        setTipo('');
-    } 
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await axios.get(`${apiUrl}/buscador/productos/todo`);
-                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-                    setRowsProducts(response.data);
-                    setFilteredProducts(response.data);
-                } else {
-                    Swal.fire({
-                        title: '!Productos no encontrados!',
-                        text: 'No se encontraron productos',
-                        icon: 'error',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true
-                    });
-                }
-            } catch (error) {
-                if (error.response && error.response.data && error.response.data.message) {
-                    const { messageText } = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: `Error: ${messageText}`,
-                        icon: 'error',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true
-                    });
-                }
-            }
-        }
-        fetchProducts();
-    }, [apiUrl]);
-
     const fetchData = async (productoId) => {
         try {
             // Llamada para obtener componentes
-            const componentesResponse = await axios.get(`${apiUrl}/inventario/existencias/${productoId}`);
+            const componentesResponse = await axios.get(`${apiUrl}/inventario/existencias/${productoId}/componentes`);
             if (componentesResponse.data.data && Array.isArray(componentesResponse.data.data) && componentesResponse.data.data.length > 0) {
                 setData(componentesResponse.data.data);
             } else if (componentesResponse.data.data && Array.isArray(componentesResponse.data.data) && componentesResponse.data.data.length === 0) {
@@ -232,48 +160,23 @@ const Componentes = () => {
         }
     };
 
-    const handleProductId = (event, inputName) => {
-        setProductos((prev) => ({
-            ...prev,
-            [inputName]: event.target.value
-        }));
-    };
+    const handleProductId = (event) => {
+        const sku = event.target.value;
+        setProductoSku(sku);
+        setSearchTerm(sku);
+    }
 
     const handleRowSelection = (params) => {
+        // Encuentra el producto en los datos originales por ID
         const selectedProduct = rowsProducts.find(product => product.producto_id === params.row.producto_id);
 
-        if (selectedProduct && inputActivo) {
-            setProductos((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.sku // Asigna el SKU al input correcto
-            }));
-
-            setProductosId((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.producto_id // Asigna el SKU al input correcto
-            }));
-            setOpen(false); // Cierra la modal
-        }
-
-        if (selectedProduct && inputActivo === 'input1') {
-            setProductos((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.sku // Asigna el SKU al input correcto
-            }));
-
-            setProductosId((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.producto_id // Asigna el SKU al input correcto
-            }));
+        if (selectedProduct) {
+            setProductoSku(selectedProduct.sku);
+            setProductoId(selectedProduct.producto_id);
             fetchData(selectedProduct.producto_id);
             setOpen(false); // Cierra la modal
         }
     };
-
-    const handleChangeTipo = (e) => {
-        setTipo(e.target.value);
-    }
-
     useEffect(() => {
         // Filtra los productos en base al término de búsqueda
         let filtered = rowsProducts;
@@ -343,14 +246,14 @@ const Componentes = () => {
     ]
 
     const columns = [
-        { field: 'producto_id', headerName: "ID", type: "number", flex: 1, headerAlign: 'center' },
-        { field: 'id', headerName: "MLM", type: "text", flex: 1, headerAlign: 'center' },
-        { field: 'inventory_id', headerName: "ML", type: "text", flex: 1, headerAlign: 'center' },
-        { field: 'variation_id', headerName: "Variante ID", type: "number", flex: 1, headerAlign: 'center' },
-        { field: "title", headerName: "Descripción", type: "text", flex: 3, headerAlign: 'center' },
-        { field: 'componente_id', headerName: "Componente ID", type: "number", flex: 1, headerAlign: 'center' },
-        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center' },
-        { field: "tipo", headerName: "Tipo", type: "text", flex: 1, headerAlign: 'center' }
+        { field: 'producto_id', headerName: "ID", type: "number", flex: 1 },
+        { field: 'id', headerName: "MLM", type: "text", flex: 1 },
+        { field: 'inventory_id', headerName: "ML", type: "text", flex: 1 },
+        { field: 'variation_id', headerName: "Variante ID", type: "number", flex: 1 },
+        { field: "title", headerName: "Descripción", type: "text", flex: 3 },
+        { field: 'componente_id', headerName: "Componente ID", type: "number", flex: 1 },
+        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1 },
+        { field: "tipo", headerName: "Tipo", type: "text", flex: 1 }
     ]
 
     return (
@@ -395,21 +298,17 @@ const Componentes = () => {
                 <div className='buscador-productos'>
                     <label className='label'>Producto ID:</label>
                     <TextField
-                        className='input'
+                        className='item12'
                         onKeyDown={handleKeyDown}
                         onBlur={handleBlur}
                         //disabled={!habilitarBuscador}
-                        value={productos.input1}
-                        onChange={(e) => handleProductId(e, 'input1')}
+                        value={productoSku}
+                        onChange={handleProductId}
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position='end'>
                                     <SearchIcon
-                                        style={{
-                                            cursor: 'pointer',
-                                            color: 'blue',
-                                        }}
-                                        onClick={() => handleOpenSearchProducts('input1')}
+                                        onClick={handleOpenSearchProducts}  // Desactiva onClick si está deshabilitado
                                     />
                                 </InputAdornment>
                             ),
@@ -419,27 +318,25 @@ const Componentes = () => {
                                 transform: 'translate(10px, 8px)',  // Ajusta la posición del label
                             },
                         }}
+                        style={{
+                            height: '10px', // Altura del TextField completo
+                            marginTop: 20,
+                            marginLeft: 90,
+                        }}
                         inputProps={{
                             style: {
-                                width: "20rem",
-                                height: '5px', // Altura interna del input
+                                height: '10px', // Altura interna del input
+                                padding: '10px', // Padding interno
                                 backgroundColor: 'white',
                                 color: 'black',
                             },
                         }}
                     />
-                    <label className='label'>Título: {title}</label>
+                    <label>Título: {title}</label>
                 </div>
             </div>
-            <div className='DataG' style={{ height: 500, width: "90%" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-                    <Button variant='contained' style={{
-                        marginLeft: 'auto',
-                        marginBottom: '10px'
-                    }}
-                        onClick={handleOpenAddComponent}
-                    >Agregar componente</Button>
-                </div>
+            <div className='DataG' style={{ height: 500, width: "80%" }}>
+                <button>Agregar componente</button>
                 <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                     rows={data}
                     columns={columns}
@@ -449,131 +346,6 @@ const Componentes = () => {
                     experimentalFeatures={{ newEditingApi: true }}
                 />
             </div>
-            {/* Ventana Modal ADD Componente*/}
-            <Modal open={openAddComponent} onClose={handleCloseAddComponent}>
-                <Box sx={styleAddComponent}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center" }}>
-                            Agregar nuevo componente
-                        </Typography>
-                        {/* <TextField
-                            className='input'
-                            // onKeyDown={handleKeyDownProduct}
-                            // onBlur={handleBlurProduct}
-                            //disabled={!habilitarBuscador}
-                            label="Producto"
-                            value={productos.input2}
-                            onChange={(e) => handleProductId(e, 'input2')}
-                            variant='outlined'
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position='end'>
-                                        <SearchIcon
-                                            style={{
-                                                cursor: 'pointer',
-                                                color: 'blue',
-                                            }}
-                                            onClick={() => handleOpenSearchProducts('input2')}
-                                        />
-                                    </InputAdornment>
-                                ),
-                            }}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        /> */}
-                        <TextField
-                            className='input'
-                            // onKeyDown={handleKeyDownComponent}
-                            // onBlur={handleBlurComponent}
-                            //disabled={!habilitarBuscador}
-                            label="Componente"
-                            variant='outlined'
-                            value={productos.input3}
-                            onChange={(e) => handleProductId(e, 'input3')}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position='end'>
-                                        <SearchIcon
-                                            style={{
-                                                cursor: 'pointer',
-                                                color: 'blue',
-                                            }}
-                                            onClick={() => handleOpenSearchProducts('input3')}
-                                        />
-                                    </InputAdornment>
-                                ),
-                            }}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        />
-                        <TextField
-                            className='input'
-                            // onKeyDown={handleKeyDownComponent}
-                            // onBlur={handleBlurComponent}
-                            //disabled={!habilitarBuscador}
-                            label="Descripción"
-                            variant='outlined'
-                            // value={productos.input3}
-                            // onChange={(e) => handleProductId(e, 'input3')}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        />
-                        <TextField
-                            className='input'
-                            // onKeyDown={handleKeyDownComponent}
-                            // onBlur={handleBlurComponent}
-                            //disabled={!habilitarBuscador}
-                            label="Cantidad"
-                            variant='outlined'
-                            type='number'
-                            // value={productos.input3}
-                            // onChange={(e) => handleProductId(e, 'input3')}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        />
-                        <Select
-                            labelId='select-tipo-label'
-                            id='select-tipo'
-                            value={tipo}
-                            label="Tipo"
-                            onChange={handleChangeTipo}
-                            variant="standard"
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            <MenuItem value={"Inventario"}>Inventario</MenuItem>
-                            <MenuItem value={"Costo"}>Costo</MenuItem>
-                        </Select>
-                    </Box>
-                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
-                        <Button onClick={handleCloseAddComponent} variant="contained" color="primary">Cerrar</Button>
-                        <Button variant="contained" color="success">Guardar</Button>
-                    </Box>
-                </Box>
-            </Modal>
         </div>
     )
 }

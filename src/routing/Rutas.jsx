@@ -24,6 +24,7 @@ import Localidades from '../components/pages/Inventarios/Localidades/Localidades
 import ReCharts from '../components/pages/Analisi Ventas/ReCharts';
 import ChartPronostico from '../components/pages/Analisi Ventas/ChartPronostico';
 import Billetes from '../components/pages/Inventarios/Billetes';
+import Componentes from '../components/pages/Inventarios/Componentes';
 
 
 const Rutas = () => {
@@ -63,6 +64,7 @@ const Rutas = () => {
                     <Route path='/ubicaciones' element={<Localidades />} />
                     <Route path='/chartpronostico' element={<ChartPronostico />} />
                     <Route path='/billetes' element={<Billetes />} />
+                    <Route path='/componentes' element={<Componentes />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>
