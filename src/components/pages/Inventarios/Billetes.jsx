@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import '../../../estilos/billetes.css';
 import SearchIcon from '@mui/icons-material/Search';
-import { DataGrid } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, renderEditInputCell } from '@mui/x-data-grid';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { Box, Button, InputAdornment, MenuItem, Modal, Select, TextField, Typography } from '@mui/material';
+import { Box, Button, InputAdornment, MenuItem, Modal, Select, TextField, Tooltip, Typography } from '@mui/material';
 
 const Componentes = () => {
 
     const [data, setData] = useState([]);
     const [productoId, setProductoId] = useState('');
+    const [productoIdComponent, setProductoIdComponent] = useState('');
     const [title, setTitle] = useState('');
     const [productos, setProductos] = useState({
         input1: '',
@@ -22,6 +23,7 @@ const Componentes = () => {
         input3: ''
     });
     const [tipo, setTipo] = useState('');
+    const [cantidad, setCantidad] = useState('');
     const [productoSku, setProductoSku] = useState('');
     const [open, setOpen] = useState(false);
     const [filteredProducts, setFilteredProducts] = useState([]);
@@ -61,7 +63,6 @@ const Componentes = () => {
         left: '50%',
         transform: 'translate(-50%, -50%)',
         bgcolor: 'background.paper',
-        border: '2px solid #000',
         borderRadius: 4,
         boxShadow: 24,
         p: 4,
@@ -70,13 +71,12 @@ const Componentes = () => {
     // Estilos del modal
     const styleAddComponent = {
         position: 'absolute',
-        width: 400,
-        height: 400,
+        width: 300,
+        height: 300,
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
         bgcolor: 'background.paper',
-        border: '2px solid #000',
         borderRadius: 4,
         boxShadow: 24,
         p: 4,
@@ -97,7 +97,9 @@ const Componentes = () => {
     const handleCloseAddComponent = () => {
         setOpenAddComponent(false);
         setTipo('');
-    } 
+        setProductos('');
+        setCantidad('');
+    }
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -136,7 +138,7 @@ const Componentes = () => {
     const fetchData = async (productoId) => {
         try {
             // Llamada para obtener componentes
-            const componentesResponse = await axios.get(`${apiUrl}/inventario/existencias/${productoId}`);
+            const componentesResponse = await axios.get(`${apiUrl}/billetes/${productoId}`);
             if (componentesResponse.data.data && Array.isArray(componentesResponse.data.data) && componentesResponse.data.data.length > 0) {
                 setData(componentesResponse.data.data);
             } else if (componentesResponse.data.data && Array.isArray(componentesResponse.data.data) && componentesResponse.data.data.length === 0) {
@@ -145,7 +147,7 @@ const Componentes = () => {
             }
 
             // Llamada para obtener el título
-            const titleResponse = await axios.get(`${apiUrl}/inventario/existencias/${productoId}/title`);
+            const titleResponse = await axios.get(`${apiUrl}/billetes/${productoId}/title`);
             if (titleResponse.data && Array.isArray(titleResponse.data) && titleResponse.data.length > 0) {
                 setTitle(titleResponse.data[0].title);
             } else if (componentesResponse.data && Array.isArray(componentesResponse.data) && componentesResponse.data.length === 0) {
@@ -215,6 +217,100 @@ const Componentes = () => {
         }
     };
 
+    const addComponent = async () => {
+        try {
+            const data = {
+                producto_id: productoId,
+                componente_id: productoIdComponent,
+                cantidad: cantidad,
+                tipo: tipo
+            }
+            console.log("Esto es lo que se manda al post:", data);
+            const response = await axios.post(`${apiUrl}/billetes/addComponente/${productoId}`, data);
+            if (response.data) {
+                const message = response.data.message;
+                Swal.fire({
+                    title: 'Registrado!',
+                    text: message,
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+            fetchData(productoId);
+            handleCloseAddComponent();
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            handleCloseAddComponent();
+        }
+    }
+
+    const processRowUpdate = async (newRow, oldRow) => {
+        try {
+            // Enviar la actualización al backend
+            const response = await axios.put(`${apiUrl}/billetes/${newRow.billete_id}`, {
+                cantidad: newRow.cantidad,
+            });
+    
+            if (response.data.ok) {
+                Swal.fire({
+                    title: 'Actualizado!',
+                    text: response.data.message,
+                    icon: 'success',
+                    timer: 3000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+                return newRow; // Devuelve la fila actualizada
+            }
+        } catch (error) {
+            // Capturar errores del backend
+            const errorMessage = error.response?.data?.message || 'Error desconocido';
+    
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+    
+            return oldRow; // Revertir cambios en la UI
+        }
+    };
+
+    const putComponente = async (billete_id, cantidad) => {
+        try {
+            const dataUpdate = { cantidad };
+            console.log("Esto es lo que se manda en el PUT:", dataUpdate);
+
+            const response = await axios.put(`${apiUrl}/billetes/${billete_id}`, dataUpdate);
+
+            if (response.data) {
+                Swal.fire({
+                    title: 'Actualizado!',
+                    text: response.data.message,
+                    icon: 'success',
+                    timer: 3000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        } catch (error) {
+            throw new Error(error?.response?.data?.message || "Error en la actualización");
+        }
+    };
+
     const handleKeyDown = (event) => {
         if (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click') {
             if (productoSku.trim() === '') {
@@ -239,6 +335,13 @@ const Componentes = () => {
         }));
     };
 
+    const handleProductIdComponent = (event, inputName) => {
+        setProductos((prev) => ({
+            ...prev,
+            [inputName]: event.target.value
+        }));
+    };
+
     const handleRowSelection = (params) => {
         const selectedProduct = rowsProducts.find(product => product.producto_id === params.row.producto_id);
 
@@ -252,6 +355,7 @@ const Componentes = () => {
                 ...prev,
                 [inputActivo]: selectedProduct.producto_id // Asigna el SKU al input correcto
             }));
+            setProductoIdComponent(selectedProduct.producto_id);
             setOpen(false); // Cierra la modal
         }
 
@@ -265,6 +369,7 @@ const Componentes = () => {
                 ...prev,
                 [inputActivo]: selectedProduct.producto_id // Asigna el SKU al input correcto
             }));
+            setProductoId(selectedProduct.producto_id);
             fetchData(selectedProduct.producto_id);
             setOpen(false); // Cierra la modal
         }
@@ -272,6 +377,60 @@ const Componentes = () => {
 
     const handleChangeTipo = (e) => {
         setTipo(e.target.value);
+    }
+
+    const handleChangeCantidad = (e) => {
+        setCantidad(parseInt(e.target.value, 10) || 0)
+    }
+
+    const deleteComponent = (billete_id) => async (e) => {
+        try {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: '¡No podrás revertir esto!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminarlo'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        await axios.delete(`${apiUrl}/billetes/${billete_id}`)
+                        fetchData(productoId);
+
+                        Swal.fire({
+                            title: '¡Eliminado!',
+                            text: 'Tu línea ha sido eliminada.',
+                            icon: 'success'
+                        });
+                    } catch (error) {
+                        const errorMessage = error.response.data.message;
+                        Swal.fire({
+                            title: 'Error',
+                            text: errorMessage,
+                            icon: 'error',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
+                    }
+                } else if (result.isDenied) {
+                    Swal.fire("¡No se ha eliminado el componente!", "", "info");
+                }
+            })
+
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+        }
     }
 
     useEffect(() => {
@@ -343,14 +502,60 @@ const Componentes = () => {
     ]
 
     const columns = [
-        { field: 'producto_id', headerName: "ID", type: "number", flex: 1, headerAlign: 'center' },
+        { field: 'billete_id', headerName: "ID", type: "number", flex: 1, headerAlign: 'center' },
+        { field: 'producto_id', headerName: "# De producto", type: "number", flex: 1, headerAlign: 'center' },
         { field: 'id', headerName: "MLM", type: "text", flex: 1, headerAlign: 'center' },
         { field: 'inventory_id', headerName: "ML", type: "text", flex: 1, headerAlign: 'center' },
         { field: 'variation_id', headerName: "Variante ID", type: "number", flex: 1, headerAlign: 'center' },
         { field: "title", headerName: "Descripción", type: "text", flex: 3, headerAlign: 'center' },
         { field: 'componente_id', headerName: "Componente ID", type: "number", flex: 1, headerAlign: 'center' },
-        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center' },
-        { field: "tipo", headerName: "Tipo", type: "text", flex: 1, headerAlign: 'center' }
+        {
+            field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center', editable: true, cellClassName: "celdaEditable",
+            renderEditCell: (params) => {
+                return (
+                    <GridEditInputCell
+                        {...params}
+                        type="number"
+                        inputProps={{
+                            min: 0,
+                        }}
+                        onWheel={(e) => e.target.blur()}
+                    />
+                )
+            },
+            preProcessEditCellProps: (params) => {
+                const { props } = params;
+
+                // Asegurar que el valor sea al menos 0
+                const value = Math.max(0, props.value);
+
+                const isValid = /^[0-9]+$/.test(value);
+
+                return {
+                    ...props,
+                    value, // Forzar el valor a 0 si es menor
+                    error: !isValid,  // Marca la celda con error si la validación falla
+                };
+            }
+        },
+        { field: "tipo", headerName: "Tipo", type: "text", flex: 1, headerAlign: 'center' },
+        {
+            field: "actions",
+            headerName: "Acciones",
+            type: "actions",
+            getActions: (params) => {
+                return [
+                    <Tooltip title="Borrar componente del billete" key={`delete-${params.row.billete_id}`}>
+                        <GridActionsCellItem
+                            icon={<GridDeleteIcon />}
+                            sx={{ color: "red" }}
+                            onClick={deleteComponent(params.billete_id)}
+                            label="Eliminar"
+                        />
+                    </Tooltip>
+                ]
+            }
+        }
     ]
 
     return (
@@ -440,12 +645,13 @@ const Componentes = () => {
                         onClick={handleOpenAddComponent}
                     >Agregar componente</Button>
                 </div>
-                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
+                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24 }}
                     rows={data}
                     columns={columns}
                     showCellVerticalBorder
                     showColumnVerticalBorder
-                    getRowId={(row) => row.componente_id}
+                    getRowId={(row) => row.billete_id}
+                    processRowUpdate={processRowUpdate}
                     experimentalFeatures={{ newEditingApi: true }}
                 />
             </div>
@@ -493,7 +699,7 @@ const Componentes = () => {
                             label="Componente"
                             variant='outlined'
                             value={productos.input3}
-                            onChange={(e) => handleProductId(e, 'input3')}
+                            onChange={(e) => handleProductIdComponent(e, 'input3')}
                             InputProps={{
                                 endAdornment: (
                                     <InputAdornment position='end'>
@@ -519,25 +725,11 @@ const Componentes = () => {
                             // onKeyDown={handleKeyDownComponent}
                             // onBlur={handleBlurComponent}
                             //disabled={!habilitarBuscador}
-                            label="Descripción"
-                            variant='outlined'
-                            // value={productos.input3}
-                            // onChange={(e) => handleProductId(e, 'input3')}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        />
-                        <TextField
-                            className='input'
-                            // onKeyDown={handleKeyDownComponent}
-                            // onBlur={handleBlurComponent}
-                            //disabled={!habilitarBuscador}
                             label="Cantidad"
                             variant='outlined'
                             type='number'
+                            value={cantidad}
+                            onChange={handleChangeCantidad}
                             // value={productos.input3}
                             // onChange={(e) => handleProductId(e, 'input3')}
                             inputProps={{
@@ -570,7 +762,7 @@ const Componentes = () => {
                     </Box>
                     <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
                         <Button onClick={handleCloseAddComponent} variant="contained" color="primary">Cerrar</Button>
-                        <Button variant="contained" color="success">Guardar</Button>
+                        <Button onClick={addComponent} variant="contained" color="success">Guardar</Button>
                     </Box>
                 </Box>
             </Modal>
