@@ -1,8 +1,60 @@
 import { Box } from '@mui/material';
-import React from 'react';
+import axios from 'axios';
+import React, { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const ChartPronostico = () => {
+    // const [dataProduct, setDataProduct] = useState([]);
+    // const [productoId, setProductoId] = useState('');
+
+    // const fetchPronosticoProduct = async (productoSkuComponente) => {
+    //     try {
+    //         const response = await axios.get(`${apiUrl}/analisisGraficas/ventas/pronosticos/{productId}`, {
+    //             headers: {
+    //                 'Authorization': `Bearer ${token}`
+    //             }
+    //         });
+
+    //         // Si llega aquí, significa que hay un resultado válido en el array
+    //         if (Array.isArray(response.data) && response.data.length === 1) {
+    //             const producto = response.data[0];  // Accede al único producto
+    //             setProductoIdComponent(producto.producto_id);
+    //             setProductoSkuComponente(producto.sku);
+    //             await fetchDataComponente(productoIdComponent);
+    //         } else {
+    //             // Para cuando el array no tiene exactamente un elemento
+    //             setSearchTermComponente(productoSkuComponente);
+    //             setOpen(true);
+    //         }
+    //     } catch (error) {
+    //         // Maneja el caso específico de "Producto no encontrado"
+    //         if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
+    //             setSearchTermComponente(productoSkuComponente);
+    //             setOpen(true);
+    //         } else if (error.response && error.response.data && error.response.data.message) {
+    //             // Otros mensajes de error
+    //             const errorMessage = error.response.data.message;
+    //             Swal.fire({
+    //                 title: 'Error',
+    //                 text: errorMessage,
+    //                 icon: 'error',
+    //                 timer: 5000,
+    //                 showCloseButton: true,
+    //                 allowEscapeKey: true
+    //             });
+    //         } else {
+    //             Swal.fire({
+    //                 title: 'Error',
+    //                 text: 'Error en la comunicación con el servidor.',
+    //                 icon: 'error',
+    //                 timer: 5000,
+    //                 showCloseButton: true,
+    //                 allowEscapeKey: true
+    //             });
+    //         }
+    //     }
+    // };
+
     const data = [
         { "semana": "enero", "ventas": 5, "pronostico": 8, "pendiente": 2 },
         { "semana": "febrero", "ventas": 3, "pronostico": 4, "pendiente": 1 },

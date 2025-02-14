@@ -12,23 +12,19 @@ const Componentes = () => {
     const [productoId, setProductoId] = useState('');
     const [productoIdComponent, setProductoIdComponent] = useState('');
     const [title, setTitle] = useState('');
-    const [productos, setProductos] = useState({
-        input1: '',
-        input2: '',
-        input3: ''
-    });
-    const [productosId, setProductosId] = useState({
-        input1: '',
-        input2: '',
-        input3: ''
-    });
+    const [titleComponente, setTitleComponente] = useState('');
     const [tipo, setTipo] = useState('');
     const [cantidad, setCantidad] = useState('');
     const [productoSku, setProductoSku] = useState('');
+    const [productoSkuComponente, setProductoSkuComponente] = useState('');
     const [open, setOpen] = useState(false);
+    const [openComponentes, setOpenComponentes] = useState(false);
     const [filteredProducts, setFilteredProducts] = useState([]);
+    const [filteredProductsComponente, setFilteredProductsComponente] = useState([]);
     const [rowsProducts, setRowsProducts] = useState([]);
+    const [rowsComponentes, setRowsComponentes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchTermComponente, setSearchTermComponente] = useState('');
     const [openAddComponent, setOpenAddComponent] = useState(false);
     const [inputActivo, setInputActivo] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token'));
@@ -83,12 +79,17 @@ const Componentes = () => {
     };
 
     // Función que abre la modal y realiza la búsqueda al hacer clic en el ícono de búsqueda
-    const handleOpenSearchProducts = (inputName) => {
-        setInputActivo(inputName);
+    const handleOpenSearchProducts = async () => {
         setOpen(true);
     };
 
     const handleCloseSearchProducts = () => setOpen(false);
+
+    const handleOpenSearchProductsComponentes = async () => {
+        setOpenComponentes(true);
+    }
+
+    const handleCloseComponentes = () => setOpenComponentes(false);
 
     const handleOpenAddComponent = async () => {
         setOpenAddComponent(true);
@@ -97,7 +98,6 @@ const Componentes = () => {
     const handleCloseAddComponent = () => {
         setOpenAddComponent(false);
         setTipo('');
-        setProductos('');
         setCantidad('');
     }
 
@@ -135,6 +135,40 @@ const Componentes = () => {
         fetchProducts();
     }, [apiUrl]);
 
+    useEffect(() => {
+        const fetchProductsComponente = async () => {
+            try {
+                const response = await axios.get(`${apiUrl}/buscador/productos/todo`);
+                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                    setRowsComponentes(response.data);
+                    setFilteredProductsComponente(response.data);
+                } else {
+                    Swal.fire({
+                        title: '!Productos no encontrados!',
+                        text: 'No se encontraron productos',
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            } catch (error) {
+                if (error.response && error.response.data && error.response.data.message) {
+                    const { messageText } = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: `Error: ${messageText}`,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
+            }
+        }
+        fetchProductsComponente();
+    }, [apiUrl]);
+
     const fetchData = async (productoId) => {
         try {
             // Llamada para obtener componentes
@@ -157,6 +191,33 @@ const Componentes = () => {
             setData([]); // Limpiar datos si no hay resultados
             setTitle('');
             setProductoId('');
+            const messageText = error?.response?.data?.message || 'Error desconocido';
+            Swal.fire({
+                title: 'Error',
+                text: `Error: ${messageText}`,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
+    };
+
+    const fetchDataComponente = async (productoIdComponent) => {
+        try {
+            // Llamada para obtener componentes
+            const componentesResponse = await axios.get(`${apiUrl}/billetes/${productoIdComponent}`);
+
+            // Llamada para obtener el título
+            const titleResponse = await axios.get(`${apiUrl}/billetes/${productoIdComponent}/title`);
+            if (titleResponse.data && Array.isArray(titleResponse.data) && titleResponse.data.length > 0) {
+                setTitleComponente(titleResponse.data[0].title);
+            } else if (componentesResponse.data && Array.isArray(componentesResponse.data) && componentesResponse.data.length === 0) {
+                setTitleComponente('Producto no encontrado');
+            }
+        } catch (error) {
+            setTitleComponente('');
+            setProductoIdComponent('');
             const messageText = error?.response?.data?.message || 'Error desconocido';
             Swal.fire({
                 title: 'Error',
@@ -192,6 +253,54 @@ const Componentes = () => {
             // Maneja el caso específico de "Producto no encontrado"
             if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
                 setSearchTerm(productoSku);
+                setOpen(true);
+            } else if (error.response && error.response.data && error.response.data.message) {
+                // Otros mensajes de error
+                const errorMessage = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: errorMessage,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error en la comunicación con el servidor.',
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    };
+
+    const fetchskuComponente = async (productoSkuComponente) => {
+        try {
+            const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoSkuComponente}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            // Si llega aquí, significa que hay un resultado válido en el array
+            if (Array.isArray(response.data) && response.data.length === 1) {
+                const producto = response.data[0];  // Accede al único producto
+                setProductoIdComponent(producto.producto_id);
+                setProductoSkuComponente(producto.sku);
+                await fetchDataComponente(productoIdComponent);
+            } else {
+                // Para cuando el array no tiene exactamente un elemento
+                setSearchTermComponente(productoSkuComponente);
+                setOpen(true);
+            }
+        } catch (error) {
+            // Maneja el caso específico de "Producto no encontrado"
+            if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
+                setSearchTermComponente(productoSkuComponente);
                 setOpen(true);
             } else if (error.response && error.response.data && error.response.data.message) {
                 // Otros mensajes de error
@@ -260,7 +369,7 @@ const Componentes = () => {
             const response = await axios.put(`${apiUrl}/billetes/${newRow.billete_id}`, {
                 cantidad: newRow.cantidad,
             });
-    
+
             if (response.data.ok) {
                 Swal.fire({
                     title: 'Actualizado!',
@@ -275,7 +384,7 @@ const Componentes = () => {
         } catch (error) {
             // Capturar errores del backend
             const errorMessage = error.response?.data?.message || 'Error desconocido';
-    
+
             Swal.fire({
                 title: 'Error',
                 text: errorMessage,
@@ -284,34 +393,13 @@ const Componentes = () => {
                 showCloseButton: true,
                 allowEscapeKey: true
             });
-    
+
             return oldRow; // Revertir cambios en la UI
         }
     };
 
-    const putComponente = async (billete_id, cantidad) => {
-        try {
-            const dataUpdate = { cantidad };
-            console.log("Esto es lo que se manda en el PUT:", dataUpdate);
-
-            const response = await axios.put(`${apiUrl}/billetes/${billete_id}`, dataUpdate);
-
-            if (response.data) {
-                Swal.fire({
-                    title: 'Actualizado!',
-                    text: response.data.message,
-                    icon: 'success',
-                    timer: 3000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-            }
-        } catch (error) {
-            throw new Error(error?.response?.data?.message || "Error en la actualización");
-        }
-    };
-
     const handleKeyDown = (event) => {
+        console.log("Tecla presionada:", event.key, "SKU:", productoSku); // <-- Verifica el valor
         if (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click') {
             if (productoSku.trim() === '') {
                 setData([]); // Limpia los datos si el productoId está vacío
@@ -328,50 +416,53 @@ const Componentes = () => {
         }
     };
 
-    const handleProductId = (event, inputName) => {
-        setProductos((prev) => ({
-            ...prev,
-            [inputName]: event.target.value
-        }));
+    const handleKeyDownComponent = (event) => {
+        console.log("Tecla presionada:", event.key, "SKU:", productoSkuComponente); // <-- Verifica el valor
+        if (event.key === 'Enter' || event.key === 'Tab' || event.type === 'click') {
+            if (productoSkuComponente.trim() === '') {
+                return;
+            }
+            fetchskuComponente(productoSkuComponente);
+        }
     };
 
-    const handleProductIdComponent = (event, inputName) => {
-        setProductos((prev) => ({
-            ...prev,
-            [inputName]: event.target.value
-        }));
+    const handleBlurComponent = () => {
+        if (productoSkuComponente.trim()) {
+            fetchskuComponente(productoSkuComponente);
+        }
+    };
+
+    const handleProductId = (event) => {
+        const sku = event.target.value;
+        setProductoSku(sku);
+        setSearchTerm(sku);
+    };
+
+    const handleProductIdComponent = (event) => {
+        const skuComponente = event.target.value;
+        setProductoSkuComponente(skuComponente);
+        setSearchTermComponente(skuComponente);
     };
 
     const handleRowSelection = (params) => {
         const selectedProduct = rowsProducts.find(product => product.producto_id === params.row.producto_id);
 
-        if (selectedProduct && inputActivo) {
-            setProductos((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.sku // Asigna el SKU al input correcto
-            }));
-
-            setProductosId((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.producto_id // Asigna el SKU al input correcto
-            }));
-            setProductoIdComponent(selectedProduct.producto_id);
-            setOpen(false); // Cierra la modal
-        }
-
-        if (selectedProduct && inputActivo === 'input1') {
-            setProductos((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.sku // Asigna el SKU al input correcto
-            }));
-
-            setProductosId((prev) => ({
-                ...prev,
-                [inputActivo]: selectedProduct.producto_id // Asigna el SKU al input correcto
-            }));
+        if (selectedProduct) {
+            setProductoSku(selectedProduct.sku);
             setProductoId(selectedProduct.producto_id);
             fetchData(selectedProduct.producto_id);
-            setOpen(false); // Cierra la modal
+            setOpen(false);
+        }
+    };
+
+    const handleRowSelectionComponente = (params) => {
+        const selectedProductComponente = rowsProducts.find(product => product.producto_id === params.row.producto_id);
+
+        if (selectedProductComponente) {
+            setProductoSkuComponente(selectedProductComponente.sku);
+            setProductoIdComponent(selectedProductComponente.producto_id);
+            fetchDataComponente(selectedProductComponente.producto_id);
+            setOpenComponentes(false);
         }
     };
 
@@ -396,6 +487,7 @@ const Componentes = () => {
             }).then(async (result) => {
                 if (result.isConfirmed) {
                     try {
+                        console.log("Este es el id del billete a eliminar:", billete_id);
                         await axios.delete(`${apiUrl}/billetes/${billete_id}`)
                         fetchData(productoId);
 
@@ -471,6 +563,44 @@ const Componentes = () => {
         setFilteredProducts(filtered);
     }, [searchTerm, rowsProducts]);
 
+    useEffect(() => {
+        // Filtra los productos en base al término de búsqueda
+        let filtered = rowsComponentes;
+
+        if (searchTermComponente) {
+            const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+
+            filtered = filtered.filter(product => {
+                const productMLM = product.id ? product.id.toLowerCase() : '';
+                const productCatalog = product.catalog_id ? product.catalog_id.toLowerCase() : '';
+                const productTitle = product.title ? product.title.toLowerCase() : '';
+                const productSku = product.sku ? product.sku.toLowerCase() : '';
+                const productVariation = product.variation_id ? product.variation_id.toLowerCase() : '';
+                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const productVariationDesc = product.variation_desc ? product.variation_desc.toLowerCase() : '';
+
+                // Verifica si todas las palabras están en el título
+                const titleMatch = searchWords.every(word => productTitle.includes(word));
+
+                // Verifica si el término de búsqueda está en otras columnas
+                const otherColumnsMatch = (
+                    productMLM.includes(searchTerm.toLowerCase()) ||
+                    productCatalog.includes(searchTerm.toLowerCase()) ||
+                    // productTitle.includes(searchTerm.toLowerCase()) ||
+                    productSku.includes(searchTerm.toLowerCase()) ||
+                    productVariation.includes(searchTerm.toLowerCase()) ||
+                    productInventoryId.includes(searchTerm.toLowerCase()) ||
+                    productVariationDesc.includes(searchTerm.toLowerCase())
+                );
+
+                // El producto debe coincidir en el título o en alguna de las otras columnas
+                return titleMatch || otherColumnsMatch;
+            });
+        }
+
+        setFilteredProductsComponente(filtered);
+    }, [searchTermComponente, rowsComponentes]);
+
     const columnsProducts = [
         {
             field: 'select',
@@ -483,6 +613,36 @@ const Componentes = () => {
                     size="small"
                     disabled={!rowsProducts.some(product => product.producto_id === params.row.producto_id)}
                     onClick={() => handleRowSelection(params)}
+                >
+                    Seleccionar
+                </Button>
+            ),
+            sortable: false,
+            filterable: false,
+        },
+        { field: 'producto_id', headerName: 'ID producto', type: 'number' },
+        { field: 'tipo_publicacion', headerName: 'Tipo\npublicación', type: 'number', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'id', headerName: '#Publicación', type: 'text', flex: 1 },
+        { field: 'catalog_id', headerName: '#Catalogo', type: 'text', flex: 1 },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
+        { field: 'variation_id', headerName: '#Variación', type: 'number', headerAlign: 'center' },
+        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1.7 },
+    ]
+
+    const columnsProductsComponentes = [
+        {
+            field: 'select',
+            headerName: 'Seleccionar',
+            width: 150,
+            renderCell: (params) => (
+                <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    disabled={!rowsProducts.some(product => product.producto_id === params.row.producto_id)}
+                    onClick={() => handleRowSelectionComponente(params)}
                 >
                     Seleccionar
                 </Button>
@@ -517,7 +677,7 @@ const Componentes = () => {
                         {...params}
                         type="number"
                         inputProps={{
-                            min: 0,
+                            min: 1,
                         }}
                         onWheel={(e) => e.target.blur()}
                     />
@@ -527,9 +687,9 @@ const Componentes = () => {
                 const { props } = params;
 
                 // Asegurar que el valor sea al menos 0
-                const value = Math.max(0, props.value);
+                const value = Math.max(1, props.value);
 
-                const isValid = /^[0-9]+$/.test(value);
+                const isValid = /^[1-9]+$/.test(value);
 
                 return {
                     ...props,
@@ -549,7 +709,7 @@ const Componentes = () => {
                         <GridActionsCellItem
                             icon={<GridDeleteIcon />}
                             sx={{ color: "red" }}
-                            onClick={deleteComponent(params.billete_id)}
+                            onClick={deleteComponent(params.row.billete_id)}
                             label="Eliminar"
                         />
                     </Tooltip>
@@ -576,10 +736,8 @@ const Componentes = () => {
                             rows={filteredProducts}
                             columns={columnsProducts}
                             pageSize={5}
-                            // processRowUpdate={processRowUpdate}
                             showCellVerticalBorder
                             showColumnVerticalBorder
-                            //onRowClick={handleRowSelection}
                             getRowId={(row) => row.producto_id}
                             experimentalFeatures={{ newEditingApi: true }}
                             columnVisibilityModel={{
@@ -596,6 +754,40 @@ const Componentes = () => {
                     >Cerrar</Button>
                 </Box>
             </Modal>
+            {/* Ventana Modal */}
+            <Modal open={openComponentes} onClose={handleCloseComponentes}>
+                <Box sx={modalStyle}>
+                    <TextField
+                        label="Buscador..."
+                        color='primary'
+                        focused
+                        sx={{ width: '20rem', marginBottom: '10px' }}
+                        value={searchTermComponente}
+                        onChange={(e) => setSearchTermComponente(e.target.value)}
+                    />
+                    <div style={{ width: '100%', height: '85%', overflowX: 'auto' }}>
+                        <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1800px" }}
+                            rows={filteredProductsComponente}
+                            columns={columnsProductsComponentes}
+                            pageSize={5}
+                            showCellVerticalBorder
+                            showColumnVerticalBorder
+                            getRowId={(row) => row.producto_id}
+                            experimentalFeatures={{ newEditingApi: true }}
+                            columnVisibilityModel={{
+                                producto_id: true,
+                                variation_id: false
+                            }}
+                        />
+                    </div>
+                    <Button onClick={handleCloseComponentes} variant="contained" color="primary"
+                        sx={{
+                            marginTop: '10px',
+                            marginLeft: '93%'
+                        }}
+                    >Cerrar</Button>
+                </Box>
+            </Modal>
             <div className='contenedor-billetes'>
                 <div className='buscador-productos'>
                     <label className='label'>Producto ID:</label>
@@ -603,9 +795,8 @@ const Componentes = () => {
                         className='input'
                         onKeyDown={handleKeyDown}
                         onBlur={handleBlur}
-                        //disabled={!habilitarBuscador}
-                        value={productos.input1}
-                        onChange={(e) => handleProductId(e, 'input1')}
+                        value={productoSku}
+                        onChange={handleProductId}
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position='end'>
@@ -614,7 +805,7 @@ const Componentes = () => {
                                             cursor: 'pointer',
                                             color: 'blue',
                                         }}
-                                        onClick={() => handleOpenSearchProducts('input1')}
+                                        onClick={handleOpenSearchProducts}
                                     />
                                 </InputAdornment>
                             ),
@@ -653,6 +844,12 @@ const Componentes = () => {
                     getRowId={(row) => row.billete_id}
                     processRowUpdate={processRowUpdate}
                     experimentalFeatures={{ newEditingApi: true }}
+                    columnVisibilityModel={{
+                        billete_id: false,
+                        componente_id: false,
+                        producto_id: false,
+                        variation_id: false
+                    }}
                 />
             </div>
             {/* Ventana Modal ADD Componente*/}
@@ -662,44 +859,14 @@ const Componentes = () => {
                         <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center" }}>
                             Agregar nuevo componente
                         </Typography>
-                        {/* <TextField
-                            className='input'
-                            // onKeyDown={handleKeyDownProduct}
-                            // onBlur={handleBlurProduct}
-                            //disabled={!habilitarBuscador}
-                            label="Producto"
-                            value={productos.input2}
-                            onChange={(e) => handleProductId(e, 'input2')}
-                            variant='outlined'
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position='end'>
-                                        <SearchIcon
-                                            style={{
-                                                cursor: 'pointer',
-                                                color: 'blue',
-                                            }}
-                                            onClick={() => handleOpenSearchProducts('input2')}
-                                        />
-                                    </InputAdornment>
-                                ),
-                            }}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        /> */}
                         <TextField
                             className='input'
-                            // onKeyDown={handleKeyDownComponent}
-                            // onBlur={handleBlurComponent}
-                            //disabled={!habilitarBuscador}
+                            onKeyDown={handleKeyDownComponent}
+                            onBlur={handleBlurComponent}
                             label="Componente"
                             variant='outlined'
-                            value={productos.input3}
-                            onChange={(e) => handleProductIdComponent(e, 'input3')}
+                            value={productoSkuComponente}
+                            onChange={handleProductIdComponent}
                             InputProps={{
                                 endAdornment: (
                                     <InputAdornment position='end'>
@@ -708,7 +875,7 @@ const Componentes = () => {
                                                 cursor: 'pointer',
                                                 color: 'blue',
                                             }}
-                                            onClick={() => handleOpenSearchProducts('input3')}
+                                            onClick={handleOpenSearchProductsComponentes}
                                         />
                                     </InputAdornment>
                                 ),
@@ -722,16 +889,11 @@ const Componentes = () => {
                         />
                         <TextField
                             className='input'
-                            // onKeyDown={handleKeyDownComponent}
-                            // onBlur={handleBlurComponent}
-                            //disabled={!habilitarBuscador}
                             label="Cantidad"
                             variant='outlined'
                             type='number'
                             value={cantidad}
                             onChange={handleChangeCantidad}
-                            // value={productos.input3}
-                            // onChange={(e) => handleProductId(e, 'input3')}
                             inputProps={{
                                 style: {
                                     backgroundColor: 'white',
