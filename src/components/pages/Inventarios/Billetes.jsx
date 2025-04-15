@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import '../../../estilos/billetes.css';
 import SearchIcon from '@mui/icons-material/Search';
-import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, renderEditInputCell } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, GridToolbar } from '@mui/x-data-grid';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { Box, Button, InputAdornment, MenuItem, Modal, Select, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Modal, Select, TextField, Tooltip, Typography } from '@mui/material';
 
 const Componentes = () => {
 
@@ -29,6 +29,20 @@ const Componentes = () => {
     const [inputActivo, setInputActivo] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+
+    const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+        billete_id: false,
+        producto_id: false,
+        componente_id: false,
+    });
+
+    const [columnVisibilityModelProducts, setColumnVisibilityModelProducts] = useState({
+        producto_id: false,
+        tipo_publicacion: false,
+        id: false,
+        catalog_id: false,
+        variation_id: false,
+    })
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -97,6 +111,8 @@ const Componentes = () => {
 
     const handleCloseAddComponent = () => {
         setOpenAddComponent(false);
+        setProductoIdComponent('');
+        setProductoSkuComponente('');
         setTipo('');
         setCantidad('');
     }
@@ -132,20 +148,56 @@ const Componentes = () => {
                 }
             }
         }
-        fetchProducts();
-    }, [apiUrl]);
+        if (open) {
+            fetchProducts();
+        }
+    }, [apiUrl, open]);
+
+    // useEffect(() => {
+    //     const fetchProductsComponente = async () => {
+    //         try {
+    //             const response = await axios.get(`${apiUrl}/componentes`);
+    //             if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+    //                 setRowsComponentes(response.data);
+    //                 setFilteredProductsComponente(response.data);
+    //             } else {
+    //                 Swal.fire({
+    //                     title: '!Productos no encontrados!',
+    //                     text: 'No se encontraron productos',
+    //                     icon: 'error',
+    //                     timer: 5000,
+    //                     showCloseButton: true,
+    //                     allowEscapeKey: true
+    //                 });
+    //             }
+    //         } catch (error) {
+    //             if (error.response && error.response.data && error.response.data.message) {
+    //                 const { messageText } = error.response.data.message;
+    //                 Swal.fire({
+    //                     title: 'Error',
+    //                     text: `Error: ${messageText}`,
+    //                     icon: 'error',
+    //                     timer: 5000,
+    //                     showCloseButton: true,
+    //                     allowEscapeKey: true
+    //                 });
+    //             }
+    //         }
+    //     }
+    //     fetchProductsComponente();
+    // }, [apiUrl]);
 
     useEffect(() => {
-        const fetchProductsComponente = async () => {
+        const fetchComponentesTodos = async () => {
             try {
-                const response = await axios.get(`${apiUrl}/buscador/productos/todo`);
-                if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-                    setRowsComponentes(response.data);
-                    setFilteredProductsComponente(response.data);
+                const response = await axios.get(`${apiUrl}/componentes/todos`);
+                if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+                    setRowsComponentes(response.data.data);
+                    setFilteredProductsComponente(response.data.data);
                 } else {
                     Swal.fire({
-                        title: '!Productos no encontrados!',
-                        text: 'No se encontraron productos',
+                        title: '!Componentes no encontrados!',
+                        text: 'No se encontraron componentes',
                         icon: 'error',
                         timer: 5000,
                         showCloseButton: true,
@@ -166,39 +218,46 @@ const Componentes = () => {
                 }
             }
         }
-        fetchProductsComponente();
-    }, [apiUrl]);
+        if (openComponentes) {
+            fetchComponentesTodos();
+        }
+    }, [apiUrl, openComponentes]);
 
     const fetchData = async (productoId) => {
         try {
             // Llamada para obtener componentes
+            console.log(`Este es el title: ${title} y este es el producto_id: ${productoId}`);
             const componentesResponse = await axios.get(`${apiUrl}/billetes/${productoId}`);
             if (componentesResponse.data.data && Array.isArray(componentesResponse.data.data) && componentesResponse.data.data.length > 0) {
                 setData(componentesResponse.data.data);
             } else if (componentesResponse.data.data && Array.isArray(componentesResponse.data.data) && componentesResponse.data.data.length === 0) {
                 setData([]); // Limpiar datos si no hay resultados
-                setTitle('');
             }
-
+            //No entra a esta parte del codigo, se va directo al catch
+            console.log(`Intentando obtener el título de: ${apiUrl}/billetes/${productoId}/title`);
             // Llamada para obtener el título
             const titleResponse = await axios.get(`${apiUrl}/billetes/${productoId}/title`);
+            console.log("Respuesta del título:", titleResponse.data);
             if (titleResponse.data && Array.isArray(titleResponse.data) && titleResponse.data.length > 0) {
                 setTitle(titleResponse.data[0].title);
-            } else if (componentesResponse.data && Array.isArray(componentesResponse.data) && componentesResponse.data.length === 0) {
-                setTitle('Producto no encontrado');
             }
         } catch (error) {
             setData([]); // Limpiar datos si no hay resultados
-            setTitle('');
-            setProductoId('');
-            const messageText = error?.response?.data?.message || 'Error desconocido';
+            console.log(`Intentando obtener el título de: ${apiUrl}/billetes/${productoId}/title`);
+            // Llamada para obtener el título
+            const titleResponse = await axios.get(`${apiUrl}/billetes/${productoId}/title`);
+            console.log("Respuesta del título:", titleResponse.data);
+            if (titleResponse.data && Array.isArray(titleResponse.data) && titleResponse.data.length > 0) {
+                setTitle(titleResponse.data[0].title);
+            }
+            const errorMessage = error.response.data.message;
             Swal.fire({
                 title: 'Error',
-                text: `Error: ${messageText}`,
+                text: errorMessage,
                 icon: 'error',
                 timer: 5000,
                 showCloseButton: true,
-                allowEscapeKey: true,
+                allowEscapeKey: true
             });
         }
     };
@@ -295,13 +354,13 @@ const Componentes = () => {
             } else {
                 // Para cuando el array no tiene exactamente un elemento
                 setSearchTermComponente(productoSkuComponente);
-                setOpen(true);
+                setOpenComponentes(true);
             }
         } catch (error) {
             // Maneja el caso específico de "Producto no encontrado"
             if (error.response && error.response.data && error.response.data.message === "Producto no encontrado") {
                 setSearchTermComponente(productoSkuComponente);
-                setOpen(true);
+                setOpenComponentes(true);
             } else if (error.response && error.response.data && error.response.data.message) {
                 // Otros mensajes de error
                 const errorMessage = error.response.data.message;
@@ -456,12 +515,11 @@ const Componentes = () => {
     };
 
     const handleRowSelectionComponente = (params) => {
-        const selectedProductComponente = rowsProducts.find(product => product.producto_id === params.row.producto_id);
+        const selectedProductComponente = rowsComponentes.find(component => component.componente_id === params.row.componente_id);
 
         if (selectedProductComponente) {
             setProductoSkuComponente(selectedProductComponente.sku);
-            setProductoIdComponent(selectedProductComponente.producto_id);
-            fetchDataComponente(selectedProductComponente.producto_id);
+            setProductoIdComponent(selectedProductComponente.componente_id);
             setOpenComponentes(false);
         }
     };
@@ -568,29 +626,22 @@ const Componentes = () => {
         let filtered = rowsComponentes;
 
         if (searchTermComponente) {
-            const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+            const searchWords = searchTermComponente.toLowerCase().split(' ').filter(word => word);
 
-            filtered = filtered.filter(product => {
-                const productMLM = product.id ? product.id.toLowerCase() : '';
-                const productCatalog = product.catalog_id ? product.catalog_id.toLowerCase() : '';
-                const productTitle = product.title ? product.title.toLowerCase() : '';
-                const productSku = product.sku ? product.sku.toLowerCase() : '';
-                const productVariation = product.variation_id ? product.variation_id.toLowerCase() : '';
-                const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
-                const productVariationDesc = product.variation_desc ? product.variation_desc.toLowerCase() : '';
+            filtered = filtered.filter(component => {
+                const productTitle = component.descripcion ? component.descripcion.toLowerCase() : '';
+                const productSku = component.sku ? component.sku.toLowerCase() : '';
+                const productProveedor = component.razon_social ? component.razon_social.toLowerCase() : '';
+                const productTipo = component.tipo ? component.tipo.toLowerCase() : '';
 
                 // Verifica si todas las palabras están en el título
                 const titleMatch = searchWords.every(word => productTitle.includes(word));
 
                 // Verifica si el término de búsqueda está en otras columnas
                 const otherColumnsMatch = (
-                    productMLM.includes(searchTerm.toLowerCase()) ||
-                    productCatalog.includes(searchTerm.toLowerCase()) ||
-                    // productTitle.includes(searchTerm.toLowerCase()) ||
-                    productSku.includes(searchTerm.toLowerCase()) ||
-                    productVariation.includes(searchTerm.toLowerCase()) ||
-                    productInventoryId.includes(searchTerm.toLowerCase()) ||
-                    productVariationDesc.includes(searchTerm.toLowerCase())
+                    productSku.includes(searchTermComponente.toLowerCase()) ||
+                    productProveedor.includes(searchTermComponente.toLowerCase()) ||
+                    productTipo.includes(searchTermComponente.toLowerCase())
                 );
 
                 // El producto debe coincidir en el título o en alguna de las otras columnas
@@ -620,15 +671,15 @@ const Componentes = () => {
             sortable: false,
             filterable: false,
         },
-        { field: 'producto_id', headerName: 'ID producto', type: 'number' },
+        { field: 'producto_id', headerName: 'ID producto', type: 'number', flex: 1 },
         { field: 'tipo_publicacion', headerName: 'Tipo\npublicación', type: 'number', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'id', headerName: '#Publicación', type: 'text', flex: 1 },
         { field: 'catalog_id', headerName: '#Catalogo', type: 'text', flex: 1 },
         { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
         { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
-        { field: 'variation_id', headerName: '#Variación', type: 'number', headerAlign: 'center' },
+        { field: 'variation_id', headerName: '#Variación', type: 'number', flex: 1, headerAlign: 'center' },
         { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
-        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1.7 },
+        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
     ]
 
     const columnsProductsComponentes = [
@@ -641,7 +692,7 @@ const Componentes = () => {
                     variant="contained"
                     color="primary"
                     size="small"
-                    disabled={!rowsProducts.some(product => product.producto_id === params.row.producto_id)}
+                    disabled={!rowsComponentes.some(component => component.componente_id === params.row.componente_id)}
                     onClick={() => handleRowSelectionComponente(params)}
                 >
                     Seleccionar
@@ -650,25 +701,18 @@ const Componentes = () => {
             sortable: false,
             filterable: false,
         },
-        { field: 'producto_id', headerName: 'ID producto', type: 'number' },
-        { field: 'tipo_publicacion', headerName: 'Tipo\npublicación', type: 'number', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'id', headerName: '#Publicación', type: 'text', flex: 1 },
-        { field: 'catalog_id', headerName: '#Catalogo', type: 'text', flex: 1 },
-        { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
-        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
-        { field: 'variation_id', headerName: '#Variación', type: 'number', headerAlign: 'center' },
-        { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
-        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1.7 },
+        { field: 'componente_id', headerName: 'ID Componente', type: 'number', flex: 1 },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'descripcion', headerName: 'Descripcion', type: 'text', flex: 3 },
+        { field: 'razon_social', headerName: 'Proveedor', type: 'text', flex: 1 },
     ]
 
     const columns = [
         { field: 'billete_id', headerName: "ID", type: "number", flex: 1, headerAlign: 'center' },
         { field: 'producto_id', headerName: "# De producto", type: "number", flex: 1, headerAlign: 'center' },
-        { field: 'id', headerName: "MLM", type: "text", flex: 1, headerAlign: 'center' },
-        { field: 'inventory_id', headerName: "ML", type: "text", flex: 1, headerAlign: 'center' },
-        { field: 'variation_id', headerName: "Variante ID", type: "number", flex: 1, headerAlign: 'center' },
-        { field: "title", headerName: "Descripción", type: "text", flex: 3, headerAlign: 'center' },
-        { field: 'componente_id', headerName: "Componente ID", type: "number", flex: 1, headerAlign: 'center' },
+        { field: 'componente_id', headerName: "# De componente", type: "text", flex: 1, headerAlign: 'center' },
+        { field: 'sku', headerName: "SKU Componente", type: "text", flex: 1, headerAlign: 'center' },
+        { field: 'descripcion', headerName: "Descripcion", type: "number", flex: 1, headerAlign: 'center' },
         {
             field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center', editable: true, cellClassName: "celdaEditable",
             renderEditCell: (params) => {
@@ -720,7 +764,7 @@ const Componentes = () => {
 
     return (
         <div>
-            {/* Ventana Modal */}
+            {/* Ventana Modal Productos*/}
             <Modal open={open} onClose={handleCloseSearchProducts}>
                 <Box sx={modalStyle}>
                     <TextField
@@ -731,20 +775,23 @@ const Componentes = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <div style={{ width: '100%', height: '85%', overflowX: 'auto' }}>
-                        <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1800px" }}
-                            rows={filteredProducts}
-                            columns={columnsProducts}
-                            pageSize={5}
-                            showCellVerticalBorder
-                            showColumnVerticalBorder
-                            getRowId={(row) => row.producto_id}
-                            experimentalFeatures={{ newEditingApi: true }}
-                            columnVisibilityModel={{
-                                producto_id: true,
-                                variation_id: false
-                            }}
-                        />
+                    <div style={{ width: '100%', height: 500, overflowX: 'auto' }}>
+                        <div style={{ minWidth: columnsProducts.length * 160 }}>
+                            <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+                                rows={filteredProducts}
+                                columns={columnsProducts}
+                                pageSize={5}
+                                showCellVerticalBorder
+                                showColumnVerticalBorder
+                                getRowId={(row) => row.producto_id}
+                                experimentalFeatures={{ newEditingApi: true }}
+                                columnVisibilityModel={columnVisibilityModelProducts}
+                                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelProducts(newModel)}
+                                density="compact" // Establece el tamaño de las filas en compacto por defecto
+                                slots={{ toolbar: GridToolbar }}
+                                autoWidth
+                            />
+                        </div>
                     </div>
                     <Button onClick={handleCloseSearchProducts} variant="contained" color="primary"
                         sx={{
@@ -754,7 +801,7 @@ const Componentes = () => {
                     >Cerrar</Button>
                 </Box>
             </Modal>
-            {/* Ventana Modal */}
+            {/* Ventana Modal Componentes*/}
             <Modal open={openComponentes} onClose={handleCloseComponentes}>
                 <Box sx={modalStyle}>
                     <TextField
@@ -766,17 +813,18 @@ const Componentes = () => {
                         onChange={(e) => setSearchTermComponente(e.target.value)}
                     />
                     <div style={{ width: '100%', height: '85%', overflowX: 'auto' }}>
-                        <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1800px" }}
+                        <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "100%" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                             rows={filteredProductsComponente}
                             columns={columnsProductsComponentes}
                             pageSize={5}
                             showCellVerticalBorder
                             showColumnVerticalBorder
-                            getRowId={(row) => row.producto_id}
+                            getRowId={(row) => row.componente_id}
                             experimentalFeatures={{ newEditingApi: true }}
+                            density="compact" // Establece el tamaño de las filas en compacto por defecto
                             columnVisibilityModel={{
-                                producto_id: true,
-                                variation_id: false
+                                variation_id: false,
+                                componente_id: false
                             }}
                         />
                     </div>
@@ -790,7 +838,7 @@ const Componentes = () => {
             </Modal>
             <div className='contenedor-billetes'>
                 <div className='buscador-productos'>
-                    <label className='label'>Producto ID:</label>
+                    <label className='label'>Producto:</label>
                     <TextField
                         className='input'
                         onKeyDown={handleKeyDown}
@@ -836,20 +884,18 @@ const Componentes = () => {
                         onClick={handleOpenAddComponent}
                     >Agregar componente</Button>
                 </div>
-                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24 }}
+                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                     rows={data}
                     columns={columns}
                     showCellVerticalBorder
                     showColumnVerticalBorder
                     getRowId={(row) => row.billete_id}
                     processRowUpdate={processRowUpdate}
+                    columnVisibilityModel={columnVisibilityModel}
+                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                     experimentalFeatures={{ newEditingApi: true }}
-                    columnVisibilityModel={{
-                        billete_id: false,
-                        componente_id: false,
-                        producto_id: false,
-                        variation_id: false
-                    }}
+                    density="compact" // Establece el tamaño de las filas en compacto por defecto
+                    slots={{ toolbar: GridToolbar }}
                 />
             </div>
             {/* Ventana Modal ADD Componente*/}
@@ -901,28 +947,27 @@ const Componentes = () => {
                                 },
                             }}
                         />
-                        <Select
-                            labelId='select-tipo-label'
-                            id='select-tipo'
-                            value={tipo}
-                            label="Tipo"
-                            onChange={handleChangeTipo}
-                            variant="standard"
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            <MenuItem value={"Inventario"}>Inventario</MenuItem>
-                            <MenuItem value={"Costo"}>Costo</MenuItem>
-                        </Select>
+                        <FormControl>
+                            <InputLabel id='select-tipo-label'>Tipo</InputLabel>
+                            <Select
+                                labelId='select-tipo-label'
+                                id='select-tipo'
+                                value={tipo}
+                                label="Tipo"
+                                onChange={handleChangeTipo}
+                                inputProps={{
+                                    style: {
+                                        backgroundColor: 'white',
+                                        color: 'black',
+                                    },
+                                }}
+                            >
+                                <MenuItem value={"Inventario"}>Inventario</MenuItem>
+                                <MenuItem value={"Costo"}>Costo</MenuItem>
+                            </Select>
+                        </FormControl>
                     </Box>
-                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
+                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "40px" }}>
                         <Button onClick={handleCloseAddComponent} variant="contained" color="primary">Cerrar</Button>
                         <Button onClick={addComponent} variant="contained" color="success">Guardar</Button>
                     </Box>

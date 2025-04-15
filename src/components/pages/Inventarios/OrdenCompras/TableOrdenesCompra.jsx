@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react'
 import FetchOrdenesCompra from './FetchOrdenesCompra';
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from '@mui/x-data-grid';
 import axios from 'axios';
-import { Box, Button, Modal, TextField, Tooltip, InputAdornment } from '@mui/material';
+import { Box, Button, Modal, TextField, Tooltip, InputAdornment, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
+import '../OrdenCompras/estilosOrdenesCompra.css';
 import confirmOrden from '../../../../images/confirm.png'
 import processOrden from '../../../../images/process.png'
 import revertir from '../../../../images/revertir.png'
@@ -103,7 +104,7 @@ const TableOrdenesCompra = () => {
     const [habilitarDescripcion, setHabilitarDescripcion] = useState(false);
     const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
     const [idTraspaso, setIdTraspaso] = useState('');
-    
+
 
     const bodegaEntradaRef = useRef(null);
     const ubicacionEntradaRef = useRef(null);
@@ -591,6 +592,7 @@ const TableOrdenesCompra = () => {
         setUbicacionEntradaHabilitada(false);
         setHabilitarCantidad(false);
         setDescripcion('');
+        setCategoriaTemp('');
         setSelectedTraspasoId('');
         setSelectedBodegaEntrada('');
         setProducto('');
@@ -1410,189 +1412,187 @@ const TableOrdenesCompra = () => {
                     >Cerrar</Button>
                 </Box>
             </Modal>
-            <div className='container'>
-                <label className='item1'>Orden:</label>
-                <input className='item2'
-                    value={idOrder}
-                    readOnly
-                ></input>
-                <label className='status'>Estatus:</label>
-                <input className='statusValue'
-                    value={estatus}
-                    readOnly
-                ></input>
-                <label className='item005'>Descripción:</label>
-                <TextField
-                    className='item6'
-                    disabled={!habilitarDescripcion}
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position="end">
-                                <UpdateIcon
-                                    style={{
-                                        cursor: habilitarDescripcion ? 'pointer' : 'not-allowed',  // Cambia el cursor
-                                        color: habilitarDescripcion ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
-                                    }}
-                                    onClick={habilitarDescripcion ? handleUpdateOrder : null}  // Desactiva onClick si está deshabilitado
-                                />
-                            </InputAdornment>
-                        ),
-                    }}
-                    style={{
-                        height: '10px', // Altura del TextField completo
-                        marginTop: 20,
-                        marginLeft: 10,
-                    }}
-                    inputProps={{
-                        style: {
-                            height: '10px', // Altura interna del input
-                            padding: '10px', // Padding interno
-                            backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
-                            color: habilitarDescripcion ? 'black' : 'gray',
-                        },
-                    }}
-                />
-                <label className='descripcion' >Tipo de movimiento:</label>
-                <select
-                    className='input-descr'
-                    value={selectedTraspasoId}
-                    onChange={handleSelectedTraspasoChange}
-                    disabled={!habilitarTraspaso}
-                >
-                    <option value="">Seleccione...</option>
-                    {traspasos.map((traspaso) => (
-                        <option key={traspaso.id} value={traspaso.id}>
-                            {`${traspaso.descripcion} : ${traspaso.categoria}`}
-                        </option>
-                    ))}
-                </select>
-                <label className='item03'>Bodega de entrada:</label>
-                <select className='item04'
-                    value={selectedBodegaEntrada}
-                    disabled={!bodegaEntradaHabilitada}
-                    onChange={handleSelectBodegaEntrada}
-                    ref={bodegaEntradaRef}
-                >
-                    <option value="">Seleccione...</option>
-                    {bodegasEntrada.map((bodega) => (
-                        <option key={bodega.id} value={bodega.id}>
-                            {bodega.Nombre}
-                        </option>
-                    ))}
-                </select>
-                <label className='item11'>Producto:</label>
-                <TextField
-                    className='item12'
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    disabled={!habilitarBuscador}
-                    value={productoSku}
-                    onChange={handleProductId}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position='end'>
-                                <SearchIcon
-                                    style={{
-                                        cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
-                                        color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
-                                    }}
-                                    onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
-                                />
-                            </InputAdornment>
-                        ),
-                    }}
-                    InputLabelProps={{
-                        style: {
-                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
-                        },
-                    }}
-                    style={{
-                        height: '10px', // Altura del TextField completo
-                        marginTop: 20,
-                        marginLeft: 90,
-                    }}
-                    inputProps={{
-                        style: {
-                            height: '10px', // Altura interna del input
-                            padding: '10px', // Padding interno
-                            backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
-                            color: habilitarBuscador ? 'black' : 'gray',
-                        },
-                    }}
-                />
-                <label className='item07'>Ubicación compra:</label>
-                <select className='item08'
-                    disabled={!ubicacionEntradaHabilitada}
-                    value={selectedUbicacionEntrada}
-                    onChange={handleUbicacionSelectEntrada}
-                    ref={ubicacionEntradaRef}
-                >
-                    <option value="">Seleccione...</option>
-                    {ubicacionesEntrada
-                        .map((ubicacion, index) => (
-                            <option key={index} value={ubicacion.id}>
-                                {`${ubicacion.descripcion}`}
-                            </option>
-                        ))}
-                </select>
-                <label className='fC'>Fecha Compromiso:</label>
-                <DatePicker
-                    className='fCCalendar'
-                    selected={selectedFechaCompromiso}
-                    onChange={handleFechaCompromiso}
-                    disabled={!fechaCompromisoHabilitada}
-                    dateFormat="yyyy-MM-dd"
-                    minDate={minDate}
-                    maxDate={maxDate}
-                    placeholderText='YYYY-MM-DD'
-                />
-                <label className='item016'>Cantidad:</label>
-                <input className='item017'
-                    disabled={!habilitarCantidad}
-                    value={inputValue}
-                    ref={cantidadRef}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        // Expresión regular para permitir solo números y evitar caracteres especiales
-                        const regex = /^[1-9]\d*$/;
-                        if (value === '' || regex.test(value)) {
-                            setInputValue(value);
-                        }
-                    }}
-                ></input>
-                <label className='item0016'>Precio:</label>
-                <input className='item001'
-                    type='float'
-                    disabled={!habilitarPrecio}
-                    value={precio}
-                    ref={precioRef}
-                    onChange={(e) => setPrecio(e.target.value)}
-                ></input>
-                {/* <label className='fR'>Fecha Recibo</label>
+            <div className='order-form-compra'>
+                <div className='form-row-compra'>
+                    <label>Tipo de movimiento:</label>
+                    <FormControl sx={{ m: 1, minWidth: 300 }} size='small'>
+                        <InputLabel>Movimiento</InputLabel>
+                        <Select
+                            label="Movimiento"
+                            value={selectedTraspasoId}
+                            onChange={handleSelectedTraspasoChange}
+                            disabled={!habilitarTraspaso}
+                            style={{ backgroundColor: habilitarTraspaso ? 'white' : '#f0f0f0' }}
+                        >
+                            {traspasos.map((traspaso) => (
+                                <MenuItem key={traspaso.id} value={traspaso.id}>
+                                    {`${traspaso.descripcion} : ${traspaso.categoria}`}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <label className='label-compra-desc'>Descripción:</label>
+                    <TextField
+                        disabled={!habilitarDescripcion}
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <UpdateIcon
+                                        style={{
+                                            cursor: habilitarDescripcion ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                            color: habilitarDescripcion ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                        }}
+                                        onClick={habilitarDescripcion ? handleUpdateOrder : null}  // Desactiva onClick si está deshabilitado
+                                    />
+                                </InputAdornment>
+                            ),
+                        }}
+                        inputProps={{
+                            style: {
+                                backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
+                                color: habilitarDescripcion ? 'black' : 'gray',
+                            },
+                        }}
+                    />
+                    <label className='label-compra-orden'>Orden:</label>
+                    <TextField value={idOrder} disabled sx={{ width: "80px" }} />
+                </div>
+                <div className='form-row-compra'>
+                    <label>Bodega de entrada:</label>
+                    <FormControl sx={{ m: 1, minWidth: 300 }} size='small'>
+                        <InputLabel>Bodega de entrada:</InputLabel>
+                        <Select
+                            label="Bodega de entrada:"
+                            value={selectedBodegaEntrada}
+                            disabled={!bodegaEntradaHabilitada}
+                            onChange={handleSelectBodegaEntrada}
+                            ref={bodegaEntradaRef}
+                            style={{ backgroundColor: bodegaEntradaHabilitada ? 'white' : '#f0f0f0' }}
+                        >
+                            {bodegasEntrada.map((bodega) => (
+                                <MenuItem key={bodega.id} value={bodega.id}>
+                                    {bodega.Nombre}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <label className='label-compra-compromiso'>Fecha Compromiso:</label>
+                    <DatePicker
+                        sx={{ m: 1, width: "130px" }} size='small'
+                        selected={selectedFechaCompromiso}
+                        onChange={handleFechaCompromiso}
+                        disabled={!fechaCompromisoHabilitada}
+                        dateFormat="yyyy-MM-dd"
+                        minDate={minDate}
+                        maxDate={maxDate}
+                        placeholderText='YYYY-MM-DD'
+                    />
+                    <label className='label-compra-estatus'>Estatus:</label>
+                    <TextField value={estatus} disabled sx={{ width: "80px" }} />
+                </div>
+                <div className='form-row-compra'>
+                    <label>Producto:</label>
+                    <TextField
+                        onKeyDown={handleKeyDown}
+                        onBlur={handleBlur}
+                        disabled={!habilitarBuscador}
+                        value={productoSku}
+                        onChange={handleProductId}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position='end'>
+                                    <SearchIcon
+                                        style={{
+                                            cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                            color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                        }}
+                                        onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
+                                    />
+                                </InputAdornment>
+                            ),
+                        }}
+                        InputLabelProps={{
+                            style: {
+                                transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                            },
+                        }}
+                        inputProps={{
+                            style: {
+                                backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
+                                color: habilitarBuscador ? 'black' : 'gray',
+                            },
+                        }}
+                    />
+                    <label>Ubicación compra:</label>
+                    <FormControl sx={{ m: 1, width: "180px" }} size='small'>
+                        <InputLabel>Ubicación compra:</InputLabel>
+                        <Select
+                            label="Ubicación de compra:"
+                            disabled={!ubicacionEntradaHabilitada}
+                            value={selectedUbicacionEntrada}
+                            onChange={handleUbicacionSelectEntrada}
+                            ref={ubicacionEntradaRef}
+                        >
+                            {ubicacionesEntrada
+                                .map((ubicacion, index) => (
+                                    <MenuItem key={index} value={ubicacion.id}>
+                                        {`${ubicacion.descripcion}`}
+                                    </MenuItem>
+                                ))}
+                        </Select>
+                    </FormControl>
+                    <label>Cantidad:</label>
+                    <TextField
+                        sx={{ width: "80px" }}
+                        disabled={!habilitarCantidad}
+                        value={inputValue}
+                        ref={cantidadRef}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            // Expresión regular para permitir solo números y evitar caracteres especiales
+                            const regex = /^[1-9]\d*$/;
+                            if (value === '' || regex.test(value)) {
+                                setInputValue(value);
+                            }
+                        }}
+                    />
+                    <label>Precio:</label>
+                    <TextField
+                        sx={{ width: "80px" }}
+                        type='float'
+                        disabled={!habilitarPrecio}
+                        value={precio}
+                        ref={precioRef}
+                        onChange={(e) => setPrecio(e.target.value)}
+                    />
+                    {/* <label className='fR'>Fecha Recibo</label>
                 <input
                     className='fechaRecibo' 
                     type="date"
                     // value={endDate}
                     // onChange={(e) => setEndDate(e.target.value)}
                 /> */}
-                <Button className='item13'
-                    variant='contained'
-                    endIcon={<SendIcon />}
-                    onClick={handleGenerarOrder}
-                    sx={{ fontSize: '0.8rem', marginTop: 'auto', marginLeft: 'auto', borderRadius: '8px' }}
-                    disabled={isButtonDisabled} // Deshabilita el botón según la condición
-                >Agregar Fila</Button>
-                <label className='coment'>Comentario:</label>
-                <input className='comentInput'
-                    placeholder='Ingrese un comentario a la linea'
-                    value={comment} disabled={!habilitarComentario}
-                    onChange={(e) => setComment(e.target.value)}
-                    onBlur={handleBlurComment}
-                ></input>
+                </div>
+                <div className='form-row-compra'>
+                    <label>Comentario:</label>
+                    <TextField
+                        placeholder='Ingrese un comentario a la linea'
+                        value={comment} disabled={!habilitarComentario}
+                        onChange={(e) => setComment(e.target.value)}
+                        onBlur={handleBlurComment}
+                    />
+                    <Button
+                        variant='contained'
+                        endIcon={<SendIcon />}
+                        onClick={handleGenerarOrder}
+                        sx={{ fontSize: '0.8rem', marginTop: 'auto', marginLeft: 'auto', borderRadius: '8px' }}
+                        disabled={isButtonDisabled} // Deshabilita el botón según la condición
+                    >Agregar Fila</Button>
+                </div>
             </div>
-            <div >
+            <div>
                 <div className='DataG' style={{ height: 500, width: 'auto' }}>
                     <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={rows}

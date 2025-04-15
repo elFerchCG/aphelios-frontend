@@ -1,7 +1,7 @@
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, GridToolbar } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { accordionSummaryClasses, Box, Button, Input, InputAdornment, Modal, TextField, Tooltip } from '@mui/material';
+import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png';
 import processOrden from '../../../../images/process.png';
@@ -20,6 +20,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { read, utils } from 'xlsx';
 import { useRef } from 'react';
 import apiUrl from '../../../../config';
+import '../../Inventarios/estilosPrueba.css'
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -38,7 +39,6 @@ const TableOrdenes = () => {
     const [bodegaEntrada, setBodegaEntrada] = useState([]);
     const [productoSku, setProductoSku] = useState('');
     const [productoMlm, setProductoMlm] = useState('');
-    const [selectedProduct, setSelectedProduct] = useState('');
     const [traspasos, setTraspasos] = useState([]);
     const [selectedBodegaSalida, setSelectedBodegaSalida] = useState('');
     const [selectedBodegaEntrada, setSelectedBodegaEntrada] = useState('');
@@ -1198,15 +1198,6 @@ const TableOrdenes = () => {
 
     const handleOrderNew = () => {
         setRows([]);
-        setHabilitarTraspaso(true);
-        setBodegaSalidaHabilitada(false);
-        setBodegaEntradaHabilitada(false);
-        setHabilitarBuscador(false);
-        setHabilitarComentario(false);
-        setUbicacionSalidaHabilitada(false);
-        setUbicacionEntradaHabilitada(false);
-        setHabilitarCantidad(false);
-        setHabilitarComentario(false);
         setDescripcion('');
         setSelectedTraspasoId('');
         setSelectedBodegaSalida('');
@@ -1221,6 +1212,17 @@ const TableOrdenes = () => {
         setSelectedComment('');
         setEstatus('');
         setIdOrder('');
+        setCategoriaTemp('');
+        setHabilitarTraspaso(true);
+        setBodegaSalidaHabilitada(false);
+        setBodegaEntradaHabilitada(false);
+        setHabilitarBuscador(false);
+        setHabilitarComentario(false);
+        setUbicacionSalidaHabilitada(false);
+        setUbicacionEntradaHabilitada(false);
+        setHabilitarCantidad(false);
+        setHabilitarComentario(false);
+
         if (bodegaSalidaRef.current) {
             bodegaSalidaRef.current.classList.remove('error');
         }
@@ -1821,15 +1823,18 @@ const TableOrdenes = () => {
                             rows={filteredProducts}
                             columns={columnsProducts}
                             pageSize={5}
-                            // processRowUpdate={processRowUpdate}
                             showCellVerticalBorder
                             showColumnVerticalBorder
-                            //onRowClick={handleRowSelection}
                             getRowId={(row) => row.producto_id}
                             experimentalFeatures={{ newEditingApi: true }}
+                            slots={{ toolbar: GridToolbar }}
+                            density="compact"
                             columnVisibilityModel={{
-                                producto_id: true,
-                                variation_id: false
+                                producto_id: false,
+                                variation_id: false,
+                                tipo_publicacion: false,
+                                id: false,
+                                catalog_id: false
                             }}
                         />
                     </div>
@@ -1840,237 +1845,241 @@ const TableOrdenes = () => {
                         }}>Cerrar</Button>
                 </Box>
             </Modal>
-            <div className='container'>
-                <label className='item1'>Orden:</label>
-                <input className='item2' value={idOrder} readOnly></input>
-                <label className='status'>Estatus:</label>
-                <input
-                    className="statusValue"
-                    value={estatus}
-                    readOnly={true}  // Cambia a false si quieres habilitar la edición
-                />
-                <label className='item005'>Descripción:</label>
-                <TextField
-                    className='item6'
-                    disabled={!habilitarDescripcion}
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position="end">
-                                <UpdateIcon
-                                    style={{
-                                        cursor: habilitarDescripcion ? 'pointer' : 'not-allowed',  // Cambia el cursor
-                                        color: habilitarDescripcion ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
-                                    }}
-                                    onClick={habilitarDescripcion ? handleUpdateOrder : null}  // Desactiva onClick si está deshabilitado
-                                />
-                            </InputAdornment>
-                        ),
-                    }}
-                    style={{
-                        height: '10px', // Altura del TextField completo
-                        marginTop: 20,
-                        marginLeft: 10,
-                    }}
-                    inputProps={{
-                        style: {
-                            height: '10px', // Altura interna del input
-                            padding: '10px', // Padding interno
-                            backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
-                            color: habilitarDescripcion ? 'black' : 'gray',
-                        },
-                    }}
-                />
-                <label className='descripcion' >Tipo de movimiento:</label>
-                <select
-                    className='input-descr'
-                    value={selectedTraspasoId}
-                    onChange={handleSelectedTraspasoChange}
-                    disabled={!habilitarTraspaso}
-                >
-                    <option value="">Seleccione...</option>
-                    {traspasos.map((traspaso) => (
-                        <option key={traspaso.id} value={traspaso.id}>
-                            {`${traspaso.descripcion} : ${traspaso.categoria}`}
-                        </option>
-                    ))}
-                </select>
-                <label className='labelB'>Bodega de salida:</label>
-                <select
-                    className='selectB'
-                    value={selectedBodegaSalida}
-                    onChange={handleSelectBodegaSalida}
-                    disabled={!bodegaSalidaHabilitada}
-                    ref={bodegaSalidaRef}
-                >
-                    <option value="">Seleccione...</option>
-                    {bodegaSalida.map((bod) => (
-                        <option key={bod.id} value={bod.id}>
-                            {bod.Nombre}
-                        </option>
-                    ))}
-                </select>
-                <label className='item3'>Bodega de entrada:</label>
-                <select className='item4'
-                    value={selectedBodegaEntrada}
-                    disabled={!bodegaEntradaHabilitada}
-                    onChange={handleSelectBodegaEntrada}
-                    ref={bodegaEntradaRef}
-                >
-                    <option value="">Seleccione...</option>
-                    {bodegaEntrada.map((bodega) => (
-                        <option key={bodega.id} value={bodega.id}>
-                            {bodega.Nombre}
-                        </option>
-                    ))}
-                </select>
-                <label className='item11'>Producto:</label>
-                <TextField
-                    className='item12'
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    disabled={!habilitarBuscador}
-                    value={productoSku}
-                    onChange={handleProductId}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position='end'>
-                                <SearchIcon
-                                    style={{
-                                        cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
-                                        color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
-                                    }}
-                                    onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
-                                />
-                            </InputAdornment>
-                        ),
-                    }}
-                    InputLabelProps={{
-                        style: {
-                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
-                        },
-                    }}
-                    style={{
-                        height: '10px', // Altura del TextField completo
-                        marginTop: 20,
-                        marginLeft: 90,
-                    }}
-                    inputProps={{
-                        style: {
-                            height: '10px', // Altura interna del input
-                            padding: '10px', // Padding interno
-                            backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
-                            color: habilitarBuscador ? 'black' : 'gray',
-                        },
-                    }}
-                />
-                <label className='item9'>Ubicación salida:</label>
-                <select
-                    className='item10'
-                    disabled={!ubicacionSalidaHabilitada}
-                    value={selectedUbicacionSalida}
-                    onChange={handleUbicacionSelectSalida}
-                    ref={ubicacionSalidaRef}
-                >
-                    <option value="">Seleccione...</option>
-                    {ubicaciones
-                        .sort((a, b) => b.cantidad - a.cantidad)
-                        .map((ubic, index) => (
-                            <option key={index} value={ubic.id}>
-                                {`${ubic.descripcion} : ${ubic.cantidad}`}
-                            </option>
-                        ))}
-                </select>
-                <label className='item7'>Ubicación entrada:</label>
-                <select className='item8'
-                    disabled={!ubicacionEntradaHabilitada}
-                    value={selectedUbicacionEntrada}
-                    onChange={handleUbicacionSelectEntrada}
-                    ref={ubicacionEntradaRef}
-                >
-                    <option value="">Seleccione...</option>
-                    {ubicacionEntrada
-                        .sort((a, b) => b.cantidad - a.cantidad)
-                        .map((ubicacion, index) => (
-                            <option key={index} value={ubicacion.id}>
-                                {`${ubicacion.descripcion} : ${ubicacion.cantidad}`}
-                            </option>
-                        ))}
-                </select>
-                <label className='item14'>Existencias Origen:</label>
-                <input className='item15' value={existenciaProducto} disabled></input>
-                <label className='exis-label'>Existencias Destino:</label>
-                <input className='exis-destino' value={existenciaProductoDestino} disabled></input>
-                <label className='item16'>Cantidad:</label>
-                <input className='item17'
-                    disabled={!habilitarCantidad}
-                    value={inputValue}
-                    type='text'
-                    ref={cantidadRef}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        // Expresión regular para permitir solo números y evitar caracteres especiales
-                        const regex = /^[1-9]\d*$/;
-                        if (value === '' || regex.test(value)) {
-                            setInputValue(value);
-                        }
-                    }}></input>
-                <Button className='item13'
-                    variant='contained'
-                    endIcon={<SendIcon />}
-                    onClick={handleGenerarOrder}
-                    sx={{ fontSize: '0.8rem', marginTop: 'auto', marginLeft: 'auto', borderRadius: '8px' }}
-                    disabled={isButtonDisabled} // Deshabilita el botón según la condición
-                >Agregar Fila</Button>
-                <label className='coment'>Comentario:</label>
-                <TextField
-                    className='comentInput'
-                    placeholder='Ingrese un comentario a la linea'
-                    value={selectedComment}
-                    disabled={!habilitarComentario}
-                    onChange={(e) => setSelectedComment(e.target.value)}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position='end'>
-                                <CheckCircleIcon
-                                    style={{
-                                        cursor: habilitarComentario ? 'pointer' : 'not-allowed',  // Cambia el cursor
-                                        color: habilitarComentario ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
-                                    }}
-                                    onClick={habilitarComentario
-                                        ? async () => {
-                                            await handleUpdateLinea({
-                                                ...selectedRow, // Pasamos toda la fila seleccionada
-                                                comentario: selectedComment  // Actualiza el comentario
-                                            });
-                                            setSelectedComment('');
-                                        } : null}  // Desactiva onClick si está deshabilitado
-                                />
-                            </InputAdornment>
-                        ),
-                    }}
-                    InputLabelProps={{
-                        style: {
-                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
-                        },
-                    }}
-                    style={{
-                        height: '10px', // Altura del TextField completo
-                        marginTop: 0,
-                        marginLeft: 110,
-                    }}
-                    inputProps={{
-                        style: {
-                            height: '10px', // Altura interna del input
-                            padding: '10px', // Padding interno
-                            backgroundColor: habilitarComentario ? 'white' : '#f0f0f0',
-                            color: habilitarComentario ? 'black' : 'gray',
-                        },
-                    }}
-                />
+            <div className='order-form'>
+                <div className='form-row'>
+                    <label>Tipo de movimiento:</label>
+                    <FormControl sx={{ m: 1, minWidth: 300 }} size='small'>
+                        <InputLabel>Movimiento</InputLabel>
+                        <Select
+                            label="Movimiento"
+                            value={selectedTraspasoId}
+                            onChange={handleSelectedTraspasoChange}
+                            disabled={!habilitarTraspaso}
+                            style={{ backgroundColor: habilitarTraspaso ? 'white' : '#f0f0f0' }}
+                        >
+                            {traspasos.map((traspaso) => (
+                                <MenuItem key={traspaso.id} value={traspaso.id}>
+                                    {`${traspaso.descripcion} : ${traspaso.categoria}`}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <label className='label-desc'>Descripción:</label>
+                    <TextField
+                        disabled={!habilitarDescripcion}
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                        inputRef={descripcionRef}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <UpdateIcon
+                                        style={{
+                                            cursor: habilitarDescripcion ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                            color: habilitarDescripcion ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                        }}
+                                        onClick={habilitarDescripcion ? handleUpdateOrder : null}  // Desactiva onClick si está deshabilitado
+                                    />
+                                </InputAdornment>
+                            ),
+                        }}
+                        inputProps={{
+                            style: {
+                                backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
+                                color: habilitarDescripcion ? 'black' : 'gray',
+                            },
+                        }}
+                    />
+                    <label className='label-orden'>Orden:</label>
+                    <TextField type="text" value={idOrder} disabled sx={{ width: "80px" }} />
+                </div>
+                <div className='form-row'>
+                    <label>Bodega de salida:</label>
+                    <FormControl sx={{ m: 1, minWidth: "300px", marginLeft: "33px" }} size='small'>
+                        <InputLabel>Bodega de salida:</InputLabel>
+                        <Select
+                            label="Bodega de salida:"
+                            value={selectedBodegaSalida}
+                            onChange={handleSelectBodegaSalida}
+                            disabled={!bodegaSalidaHabilitada}
+                            ref={bodegaSalidaRef}
+                            style={{ backgroundColor: bodegaSalidaHabilitada ? 'white' : '#f0f0f0' }}
+                        >
+                            {bodegaSalida.map((bod) => (
+                                <MenuItem key={bod.id} value={bod.id}>
+                                    {bod.Nombre}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <label className='label-entrada'>Bodega de entrada:</label>
+                    <FormControl sx={{ m: 1, minWidth: 300 }} size='small'>
+                        <InputLabel>Bodega de entrada:</InputLabel>
+                        <Select
+                            label="Bodega de entrada:"
+                            value={selectedBodegaEntrada}
+                            disabled={!bodegaEntradaHabilitada}
+                            onChange={handleSelectBodegaEntrada}
+                            ref={bodegaEntradaRef}
+                            style={{ backgroundColor: bodegaEntradaHabilitada ? 'white' : '#f0f0f0' }}
+                        >
+                            {bodegaEntrada.map((bodega) => (
+                                <MenuItem key={bodega.id} value={bodega.id}>
+                                    {bodega.Nombre}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <label className='label-estatus'>Estatus:</label>
+                    <TextField
+                        value={estatus}
+                        disabled
+                        sx={{ width: "80px", color: "red" }}
+                    />
+                </div>
+                <div className='form-row'>
+                    <label>Producto:</label>
+                    <TextField
+                        onKeyDown={handleKeyDown}
+                        onBlur={handleBlur}
+                        disabled={!habilitarBuscador}
+                        value={productoSku}
+                        onChange={handleProductId}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position='end'>
+                                    <SearchIcon
+                                        style={{
+                                            cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                            color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                        }}
+                                        onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
+                                    />
+                                </InputAdornment>
+                            ),
+                        }}
+                        InputLabelProps={{
+                            style: {
+                                transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                            },
+                        }}
+                        inputProps={{
+                            style: {
+                                backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
+                                color: habilitarBuscador ? 'black' : 'gray',
+                            },
+                        }}
+                    />
+                    <label>Ubicación salida:</label>
+                    <FormControl sx={{ m: 1, width: "130px" }} size='small'>
+                        <InputLabel>Ubicación de salida</InputLabel>
+                        <Select
+                            label="Ubicación de salida"
+                            disabled={!ubicacionSalidaHabilitada}
+                            value={selectedUbicacionSalida}
+                            onChange={handleUbicacionSelectSalida}
+                            ref={ubicacionSalidaRef}
+                            style={{ backgroundColor: ubicacionSalidaHabilitada ? 'white' : '#f0f0f0' }}
+                        >
+                            {ubicaciones
+                                .sort((a, b) => b.cantidad - a.cantidad)
+                                .map((ubic, index) => (
+                                    <MenuItem key={index} value={ubic.id}>
+                                        {`${ubic.descripcion} : ${ubic.cantidad}`}
+                                    </MenuItem>
+                                ))}
+                        </Select>
+                    </FormControl>
+                    <label>Ubicación entrada:</label>
+                    <FormControl sx={{ m: 1, width: "130px" }} size='small'>
+                        <InputLabel>Ubicación de entrada</InputLabel>
+                        <Select
+                            label="Ubicación de entrada"
+                            disabled={!ubicacionEntradaHabilitada}
+                            value={selectedUbicacionEntrada}
+                            onChange={handleUbicacionSelectEntrada}
+                            ref={ubicacionEntradaRef}
+                            style={{ backgroundColor: ubicacionEntradaHabilitada ? 'white' : '#f0f0f0' }}
+                        >
+                            {ubicacionEntrada
+                                .sort((a, b) => b.cantidad - a.cantidad)
+                                .map((ubicacion, index) => (
+                                    <MenuItem key={index} value={ubicacion.id}>
+                                        {`${ubicacion.descripcion} : ${ubicacion.cantidad}`}
+                                    </MenuItem>
+                                ))}
+                        </Select>
+                    </FormControl>
+                    <label className='label-existencias-origen'>Existencias Origen:</label>
+                    <TextField sx={{ width: "80px" }} value={existenciaProducto} disabled />
+                    <label>Cantidad:</label>
+                    <TextField
+                        sx={{ width: "80px" }}
+                        disabled={!habilitarCantidad}
+                        value={inputValue}
+                        type='text'
+                        ref={cantidadRef}
+                        style={{ backgroundColor: habilitarCantidad ? 'white' : '#f0f0f0' }}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            // Expresión regular para permitir solo números y evitar caracteres especiales
+                            const regex = /^[1-9]\d*$/;
+                            if (value === '' || regex.test(value)) {
+                                setInputValue(value);
+                            }
+                        }} />
+                </div>
+                <div className='form-row'>
+                    <label>Comentario:</label>
+                    <TextField
+                        placeholder='Ingrese un comentario a la linea'
+                        value={selectedComment}
+                        disabled={!habilitarComentario}
+                        onChange={(e) => setSelectedComment(e.target.value)}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position='end'>
+                                    <CheckCircleIcon
+                                        style={{
+                                            cursor: habilitarComentario ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                            color: habilitarComentario ? 'green' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                        }}
+                                        onClick={habilitarComentario
+                                            ? async () => {
+                                                await handleUpdateLinea({
+                                                    ...selectedRow, // Pasamos toda la fila seleccionada
+                                                    comentario: selectedComment  // Actualiza el comentario
+                                                });
+                                                setSelectedComment('');
+                                            } : null}  // Desactiva onClick si está deshabilitado
+                                    />
+                                </InputAdornment>
+                            ),
+                        }}
+                        InputLabelProps={{
+                            style: {
+                                transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                            },
+                        }}
+                        inputProps={{
+                            style: {
+                                backgroundColor: habilitarComentario ? 'white' : '#f0f0f0',
+                                color: habilitarComentario ? 'black' : 'gray',
+                            },
+                        }}
+                    />
+                    <label className='label-existencias-destino'>Existencias Destino:</label>
+                    <TextField sx={{ width: "80px" }} value={existenciaProductoDestino} disabled />
+                    <Button
+                        variant='contained'
+                        endIcon={<SendIcon />}
+                        onClick={handleGenerarOrder}
+                        sx={{ fontSize: '0.8rem', marginTop: 'auto', marginLeft: 'auto', borderRadius: '8px' }}
+                        disabled={isButtonDisabled} // Deshabilita el botón según la condición
+                    >Agregar Fila</Button>
+                </div>
             </div>
-            <div >
+            <div>
                 <div className='DataG' style={{ height: 500, width: 'auto' }}>
                     <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={rows}

@@ -1,5 +1,5 @@
 import React from 'react'
-import { DataGrid, GridToolbar, GRID_DEFAULT_LOCALE_TEXT } from '@mui/x-data-grid';
+import { DataGrid, GridToolbarContainer, GridToolbarExport, GRID_DEFAULT_LOCALE_TEXT, GridToolbarColumnsButton, GridToolbarFilterButton, GridToolbarDensitySelector } from '@mui/x-data-grid';
 import { useState } from 'react';
 import { useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -32,6 +32,22 @@ const DataGridE = () => {
         localidad_descripcion: true,
         cantidad: true,
     });
+
+    const CustomToolbar = () => (
+        <GridToolbarContainer>
+            {/* Mantener solo los botones necesarios */}
+            <GridToolbarColumnsButton />  {/* Botón de Columnas */}
+            <GridToolbarFilterButton />   {/* Botón de Filtros */}
+            <GridToolbarDensitySelector />{/* Botón de Densidad */}
+            <GridToolbarExport
+                csvOptions={{
+                    fileName: "exported_data",
+                    utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
+                }}
+            />
+        </GridToolbarContainer>
+    );
+
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -91,9 +107,11 @@ const DataGridE = () => {
         let filtered = data;
 
         if (searchTerm) {
+            const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
 
             filtered = filtered.filter(exist => {
-                const productMLM = exist.producto_id ? exist.producto_id.toLowerCase() : '';
+                const productMLM = exist.mlm ? exist.mlm.toLowerCase() : '';
+                const productTitle = exist.title ? exist.title.toLowerCase() : '';
                 const productSku = exist.sku ? exist.sku.toLowerCase() : '';
                 const productInventoryId = exist.inventory_id ? exist.inventory_id.toLowerCase() : '';
                 const productVariationDesc = exist.variation_desc ? exist.variation_desc.toLowerCase() : '';
@@ -101,6 +119,8 @@ const DataGridE = () => {
 
                 // Convertir la cantidad a cadena y hacer la búsqueda
                 const productoCantidad = exist.cantidad !== undefined ? exist.cantidad.toString().toLowerCase() : '';
+                // Verifica si todas las palabras están en el título
+                const titleMatch = searchWords.every(word => productTitle.includes(word));
 
                 // Verifica si el término de búsqueda está en otras columnas
                 const otherColumnsMatch = (
@@ -114,7 +134,7 @@ const DataGridE = () => {
                 );
 
                 // El producto debe coincidir en el título o en alguna de las otras columnas
-                return otherColumnsMatch;
+                return titleMatch || otherColumnsMatch;
             });
         }
 
@@ -159,35 +179,35 @@ const DataGridE = () => {
                     />
                 </div>
                 <div style={{ width: '100%', height: '80%', overflowX: 'auto' }}>
-                <ThemeProvider theme={theme}>
-                    <DataGrid 
-                        style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1500px" }}
-                        rows={filteredExistencias}
-                        columns={columns}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        getRowId={(row) => row.id}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={columnVisibilityModel}
-                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
-                        localeText={{
-                            ...GRID_DEFAULT_LOCALE_TEXT, ...{
-                                toolbarColumns: 'Columnas',
-                                toolbarDensity: 'Densidad',
-                                toolbarExport: 'Exportar',
-                                toolbarFilters: 'Filtros',
-                                filterPanelOperator: 'Operador',
-                                toolbarFiltersTooltipHide: 'Ocultar filtros',
-                                toolbarFiltersTooltipShow: 'Mostrar filtros',
-                                footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
-                                footerTotalVisibleRows: (visibleCount, totalCount) =>
-                                    `${visibleCount} de ${totalCount}`,
-                                footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
-                            }
-                        }} // Localización en español
-                        slots={{ toolbar: GridToolbar }}
-                    />
-                </ThemeProvider>
+                    <ThemeProvider theme={theme}>
+                        <DataGrid
+                            style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1500px" }}
+                            rows={filteredExistencias}
+                            columns={columns}
+                            showCellVerticalBorder
+                            showColumnVerticalBorder
+                            getRowId={(row) => row.id}
+                            experimentalFeatures={{ newEditingApi: true }}
+                            columnVisibilityModel={columnVisibilityModel}
+                            onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
+                            localeText={{
+                                ...GRID_DEFAULT_LOCALE_TEXT, ...{
+                                    toolbarColumns: 'Columnas',
+                                    toolbarDensity: 'Densidad',
+                                    toolbarExport: 'Exportar',
+                                    toolbarFilters: 'Filtros',
+                                    filterPanelOperator: 'Operador',
+                                    toolbarFiltersTooltipHide: 'Ocultar filtros',
+                                    toolbarFiltersTooltipShow: 'Mostrar filtros',
+                                    footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
+                                    footerTotalVisibleRows: (visibleCount, totalCount) =>
+                                        `${visibleCount} de ${totalCount}`,
+                                    footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
+                                }
+                            }} // Localización en español
+                            slots={{ toolbar: CustomToolbar }}
+                        />
+                    </ThemeProvider>
                 </div>
             </div>
         </div>

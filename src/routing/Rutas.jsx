@@ -16,7 +16,7 @@ import Configuracion from '../components/pages/Menu/Configuracion';
 import Inventario from '../components/pages/Menu/Inventario';
 import ProtectedRoute from './ProtectedRoute';
 import Home from '../components/pages/Menu/Home';
-import Envios from '../components/Envios/Envios';
+import Envios from '../components/pages/Envios/Envios';
 import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/TableOrdenesCompra';
 import AnalisisVentas from '../components/pages/Analisi Ventas/AnalisisVentas';
 import ConteoCiclico from '../components/pages/Inventarios/OrdenBodegas/ConteoCiclico';
@@ -25,6 +25,11 @@ import ReCharts from '../components/pages/Analisi Ventas/ReCharts';
 import ChartPronostico from '../components/pages/Analisi Ventas/ChartPronostico';
 import Billetes from '../components/pages/Inventarios/Billetes';
 import Componentes from '../components/pages/Inventarios/Componentes';
+import Surtido from '../components/pages/Inventarios/Surtido/Surtido';
+import Publicaciones from '../components/pages/Inventarios/Publicaciones/Publicaciones';
+import Empaque from '../components/pages/Envios/Empaque';
+import Facturas from '../components/pages/Facturas/Facturas';
+import Cajas from '../components/pages/Envios/Cajas';
 
 
 const Rutas = () => {
@@ -65,6 +70,11 @@ const Rutas = () => {
                     <Route path='/chartpronostico' element={<ChartPronostico />} />
                     <Route path='/billetes' element={<Billetes />} />
                     <Route path='/componentes' element={<Componentes />} />
+                    <Route path='/surtido' element={<Surtido />} />
+                    <Route path='/publicaciones' element={<Publicaciones />} />
+                    <Route path="/empaque/:envioId/:cajaId" element={<Empaque />} />
+                    <Route path="/facturas" element={<Facturas />} />
+                    <Route path='/cajas/:envioId' element={<Cajas />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>

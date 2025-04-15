@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import '../../../../estilos/barraAcciones.css';
+import '../OrdenBodegas/estilosConteo.css'
 import addOrder from '../../../../images/addOrder.png';
 import { DataGrid } from '@mui/x-data-grid';
-import { Checkbox, InputAdornment, TextField, Box, Modal, Button } from '@mui/material';
+import { Checkbox, InputAdornment, TextField, Box, Modal, Button, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import SearchIcon from '@mui/icons-material/Search';
@@ -649,89 +650,89 @@ const ConteoCiclico = () => {
                     >Cerrar</Button>
                 </Box>
             </Modal>
-            <div className='container'>
-                <label className='item03'>Bodega de entrada:</label>
-                <select className='item04'
-                    value={selectedBodega}
-                    onChange={handleSelectBodega}
-                >
-                    <option value="">Seleccione...</option>
-                    {bodegas.map((bodega) => (
-                        <option key={bodega.id} value={bodega.id}>
-                            {bodega.Nombre}
-                        </option>
-                    ))}
-                </select>
-                <input
-                    className='checkFecha'
-                    type='checkbox'
-                    checked={fechaChecked}
-                    onChange={() => handleCheckboxChangeInputs('fecha')} />
-                <label className='labelFecha'>Fecha</label>
-                <input
-                    className='checkUbicacion'
-                    type='checkbox'
-                    checked={ubicacionChecked}
-                    onChange={() => handleCheckboxChangeInputs('ubicacion')} />
-                <label className='item3'>Ubicación de entrada:</label>
-                <select className='item4'
-                    value={selectedLocalidad}
-                    disabled={!ubicacionChecked}
-                    onChange={handleSelectedUbicacion}
-                >
-                    <option value="">Seleccione...</option>
-                    {ubicaciones.map((ubicacion) => (
-                        <option key={ubicacion.id} value={ubicacion.id}>
-                            {ubicacion.descripcion}
-                        </option>
-                    ))}
-                </select>
-                <input
-                    className='checkProduct'
-                    type='checkbox'
-                    onChange={() => handleCheckboxChangeInputs('product')}
-                    checked={productChecked} />
-                <label className='labelProduct'>Producto:</label>
-                <TextField
-                    className='inputProduct'
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    disabled={!habilitarBuscador}
-                    value={productoSku}
-                    onChange={handleProductId}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position='end'>
-                                <SearchIcon
-                                    style={{
-                                        cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
-                                        color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
-                                    }}
-                                    onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
-                                />
-                            </InputAdornment>
-                        ),
-                    }}
-                    InputLabelProps={{
-                        style: {
-                            transform: 'translate(10px, 8px)',  // Ajusta la posición del label
-                        },
-                    }}
-                    style={{
-                        height: '10px', // Altura del TextField completo
-                        width: 250,
-                        marginTop: 10,
-                        marginLeft: 70,
-                    }}
-                    inputProps={{
-                        style: {
-                            height: '10px', // Altura interna del input
-                            padding: '10px', // Padding interno
-                            backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
-                            color: habilitarBuscador ? 'black' : 'gray',
-                        },
-                    }}
-                />
+            <div className='order-form-conteo'>
+                <div className='form-row-conteo'>
+                    <TextField
+                        type='checkbox'
+                        checked={fechaChecked}
+                        onChange={() => handleCheckboxChangeInputs('fecha')} />
+                    <label className='labelFecha'>Fecha</label>
+                </div>
+                <div className='form-row-conteo'>
+                    <label>Bodega de entrada:</label>
+                    <FormControl sx={{ m: 1, minWidth: "300px", marginLeft: "33px" }} size='small'>
+                        <InputLabel>Bodega de entrada:</InputLabel>
+                        <Select
+                            label="Bodega de entrada"
+                            value={selectedBodega}
+                            onChange={handleSelectBodega}
+                        >
+                            {bodegas.map((bodega) => (
+                                <MenuItem key={bodega.id} value={bodega.id}>
+                                    {bodega.Nombre}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <TextField
+                        type='checkbox'
+                        checked={ubicacionChecked}
+                        onChange={() => handleCheckboxChangeInputs('ubicacion')} />
+                    <label>Ubicación de entrada:</label>
+                    <FormControl sx={{ m: 1, width: "200px" }} size='small'>
+                        <InputLabel>Ubicación de entrada:</InputLabel>
+                        <Select
+                            label="Ubicación de entrada"
+                            value={selectedLocalidad}
+                            disabled={!ubicacionChecked}
+                            onChange={handleSelectedUbicacion}
+                        >
+                            {ubicaciones.map((ubicacion) => (
+                                <MenuItem key={ubicacion.id} value={ubicacion.id}>
+                                    {ubicacion.descripcion}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                </div>
+                <div className='form-row-conteo'>
+                    <TextField
+                        type='checkbox'
+                        onChange={() => handleCheckboxChangeInputs('product')}
+                        checked={productChecked} />
+                    <label>Producto:</label>
+                    <TextField
+                        onKeyDown={handleKeyDown}
+                        onBlur={handleBlur}
+                        disabled={!habilitarBuscador}
+                        value={productoSku}
+                        onChange={handleProductId}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position='end'>
+                                    <SearchIcon
+                                        style={{
+                                            cursor: habilitarBuscador ? 'pointer' : 'not-allowed',  // Cambia el cursor
+                                            color: habilitarBuscador ? 'blue' : 'grey',  // Cambia el color del ícono cuando está deshabilitado 
+                                        }}
+                                        onClick={habilitarBuscador ? handleOpenSearchProducts : null}  // Desactiva onClick si está deshabilitado
+                                    />
+                                </InputAdornment>
+                            ),
+                        }}
+                        InputLabelProps={{
+                            style: {
+                                transform: 'translate(10px, 8px)',  // Ajusta la posición del label
+                            },
+                        }}
+                        inputProps={{
+                            style: {
+                                backgroundColor: habilitarBuscador ? 'white' : '#f0f0f0',
+                                color: habilitarBuscador ? 'black' : 'gray',
+                            },
+                        }}
+                    />
+                </div>
             </div>
             <div className='DataG' style={{ width: 'auto', height: 500 }}>
                 <DataGrid style={{ fontFamily: 'Montserrat', fontWeight: 'bold' }}

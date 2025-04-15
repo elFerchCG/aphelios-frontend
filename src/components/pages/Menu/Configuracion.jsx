@@ -4,6 +4,8 @@ import usuarios from '../../../images/usuarios.png'
 import proveedores from '../../../images/proveedores.png'
 import bodegas from '../../../images/bodegas.png'
 import movimientosI from '../../../images/movimientosI.png'
+import billetes from '../../../images/billetes.png'
+import componentes from '../../../images/componentes.png'
 import { NavLink } from 'react-router-dom'
 
 const Navegacion = () => {
@@ -26,10 +28,14 @@ const Navegacion = () => {
                 <img src={movimientosI} alt="Tipos de Movimientos" className="nav-icon-config" />
                 <span>Tipos de Movimientos</span>
             </NavLink>
-            {/* <NavLink to="/traspasos" className="nav-config">
-                <img src={movimientos} alt="Movimientos" className="nav-icon-config" />
-                <span>Movimientos</span>
-            </NavLink> */}
+            <NavLink to="/billetes" className="nav-config">
+                <img src={billetes} alt='Billetes' className='nav-icon-config'/>
+                <span>Billetes</span>
+            </NavLink>
+            <NavLink to="/componentes" className="nav-config">
+                <img src={componentes} alt='Componentes' className='nav-icon-config' />
+                <span>Componentes</span>
+            </NavLink>
         </div>
     )
 }

@@ -3,11 +3,11 @@ import './estilos.css';
 import recurso from './images/Recurso 1.svg';
 import logo from './images/LOGO APHELIOS.svg';
 import React from 'react'
-
+import { useNavigate } from 'react-router-dom';
 
 
 const Home = () => {
-
+  const navigate = useNavigate();
 
 
   return (
@@ -15,10 +15,9 @@ const Home = () => {
       <div className='left-section'>
         <img src={logo} alt='Logo Aphelios' className='logoHome' />
         <div className='buttons'>
-          <Button>Envio actual</Button>
-          <Button>Crear Orden</Button>
-          <Button>Existencias</Button>
-          <Button>Contar producto</Button>
+          <Button onClick={() => navigate('/surtido')}>Surtido</Button>
+          <Button onClick={() => navigate('/ordenes')}>Orden Bodega</Button>
+          <Button onClick={() => navigate('/existencias')}>Existencias</Button>
         </div>
       </div>
       <div className='right-section'>
