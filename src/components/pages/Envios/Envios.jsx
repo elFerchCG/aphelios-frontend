@@ -1,110 +1,43 @@
-import { Box, Button, InputAdornment, Modal, TextField, Tooltip, Typography } from '@mui/material'
+import { Box, Button, TextField, Tooltip, CircularProgress } from '@mui/material'
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid'
 import React, { useEffect, useState } from 'react'
-import SearchIcon from '@mui/icons-material/Search';
-import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import axios from 'axios';
 import { GridToolbarContainer } from '@mui/x-data-grid';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import DetailsIcon from '@mui/icons-material/Details';
 
 const Envios = () => {
   const [data, setData] = useState([]);
-  const [cajasData, setCajasData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [envioId, setEnvioId] = useState('');
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredEnvios, setFilteredEnvios] = useState([]);
-  const [openModalCajas, setOpenModalCajas] = useState(false);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
   const navigate = useNavigate();
+  const [expandedRowId, setExpandedRowId] = useState(null);
 
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setToken(localStorage.getItem('token'));
-      setUser(JSON.parse(localStorage.getItem('user')));
-    };
-
-    // Añadir un listener para el evento `storage`
-    window.addEventListener('storage', handleStorageChange);
-
-    // Limpieza al desmontar el componente
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
-  const apiUrl =
-    process.env.NODE_ENV === 'production'
-      ? process.env.REACT_APP_API_URL
-      : process.env.REACT_APP_API_URL_LOCAL;
-
-  const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-    id: true,
-    usuario_id: false,
-    nombre_usuario: true,
-    estatus: true
-  });
+  const apiUrl = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
 
   const CustomToolbar = () => (
     <GridToolbarContainer>
-      {/* Mantener solo los botones necesarios */}
-      <GridToolbarColumnsButton />  {/* Botón de Columnas */}
-      <GridToolbarFilterButton />   {/* Botón de Filtros */}
-      <GridToolbarDensitySelector />{/* Botón de Densidad */}
-      <GridToolbarExport
-        csvOptions={{
-          fileName: "exported_data",
-          utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
-        }}
-      />
+      <GridToolbarColumnsButton />
+      <GridToolbarFilterButton />
+      <GridToolbarDensitySelector />
+      <GridToolbarExport csvOptions={{ fileName: "exported_data", utf8WithBom: true }} />
     </GridToolbarContainer>
   );
 
-  // Estilos del modal ADD envio
-  // const styleAddEnvio = {
-  //   position: 'absolute',
-  //   width: "30%",
-  //   top: '50%',
-  //   left: '50%',
-  //   transform: 'translate(-50%, -50%)',
-  //   bgcolor: 'background.paper',
-  //   borderRadius: 4,
-  //   boxShadow: 24,
-  //   p: 4,
-  // };
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+    id: true,
+    descripcion: true,
+    estatus: true
+  });
 
   useEffect(() => {
-    const fetchEnvios = async () => {
-      try {
-        const response = await axios.get(`${apiUrl}/empaque/fetchEnvios`);
-        if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-          setData(response.data.data);
-          setFilteredEnvios(response.data.data);
-        } else {
-          Swal.fire({
-            title: '¡Sin Datos!',
-            text: "No se encontraron envios registrados actualmente en la base de datos",
-            icon: 'error',
-            timer: 5000,
-            showCloseButton: true,
-            allowEscapeKey: true
-          });
-        }
-      } catch (error) {
-        const errorMessage = error.response.data.message;
-        Swal.fire({
-          title: 'Error',
-          text: errorMessage,
-          icon: 'error',
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true
-        });
-      }
-    };
     fetchEnvios();
-  }, [apiUrl])
+  }, [apiUrl]);
 
   const fetchEnvios = async () => {
     try {
@@ -112,32 +45,26 @@ const Envios = () => {
       if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
         setData(response.data.data);
         setFilteredEnvios(response.data.data);
-      } else {
-        Swal.fire({
-          title: '¡Sin Datos!',
-          text: "No se encontraron envios registrados actualmente en la base de datos",
-          icon: 'error',
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true
-        });
       }
     } catch (error) {
-      const errorMessage = error.response.data.message;
+      const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
       Swal.fire({
         title: 'Error',
         text: errorMessage,
         icon: 'error',
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddEnvio = async () => {
+
+  const abrirEnvio = async () => {
     Swal.fire({
-      title: '¿Estás seguro de abrir un nuevo envío?',
+      title: `¿Estás seguro de abrir un nuevo envio?`,
       text: '¡No podrás revertir esto!',
       icon: 'warning',
       showCancelButton: true,
@@ -149,11 +76,6 @@ const Envios = () => {
         try {
           const response = await axios.post(`${apiUrl}/empaque/nuevoEnvio`,
             {},
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            }
           );
           if (response.data) {
             setEnvioId(response.data.id);
@@ -198,7 +120,7 @@ const Envios = () => {
 
       filtered = filtered.filter(envio => {
         const envioId = envio.id ? envio.id.toString() : '';
-        const envioUsuario = envio.nombre_usuario ? envio.nombre_usuario.toLowerCase() : '';
+        const envioDescripcion = envio.descripcion ? envio.descripcion.toLowerCase() : '';
         const envioEstatus = envio.estatus ? envio.estatus.toLowerCase() : '';
 
         // Verifica si todas las palabras están en el título
@@ -207,7 +129,7 @@ const Envios = () => {
         // Verifica si el término de búsqueda está en otras columnas
         const otherColumnsMatch = (
           envioId.includes(searchTerm.toString()) ||
-          envioUsuario.includes(searchTerm.toLowerCase()) ||
+          envioDescripcion.includes(searchTerm.toLowerCase()) ||
           envioEstatus.includes(searchTerm.toLowerCase())
         );
 
@@ -219,33 +141,30 @@ const Envios = () => {
     setFilteredEnvios(filtered);
   }, [searchTerm, data]);
 
-  const handleMostrarCajas = (envioId) => {
-    navigate(`/cajas/${envioId}`)
-    console.log("Este es el idEnvio:", envioId);
-  };
-
+  const handleDetallesEnvio = (envioId) => {
+    navigate(`/empaque/${envioId}/detalle`)
+};
 
   const columns = [
     { field: "id", headerName: "# Envío", type: "number", flex: 1 },
-    { field: 'usuario_id', headerName: "Creado Por", type: "text", flex: 1 },
-    { field: "nombre_usuario", headerName: "Creado Por", type: "text", flex: 1 },
+    { field: "descripcion", headerName: "Descrpción", type: "text", flex: 1 },
     { field: 'estatus', headerName: "Estatus", type: "text", flex: 1 },
     {
       field: "actions",
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => [
-        <Tooltip title="Mostrar Cajas" key={`cajas-${params.row.id}`}>
+        <Tooltip title="Detalles" key={`envios-${params.row.id}`}>
           <GridActionsCellItem
-            icon={<AssignmentIndIcon />}
-            sx={{ color: "orange" }}
-            label='Mostrar Cajas'
-            onClick={() => handleMostrarCajas(params.row.id)}
+            icon={<DetailsIcon />}
+            sx={{ color: "blue" }}
+            label='Detalles'
+            onClick={() => handleDetallesEnvio(params.row.id)}
           />
         </Tooltip>
       ]
     }
-  ]
+  ];
 
   return (
     <div>
@@ -272,52 +191,38 @@ const Envios = () => {
             marginBottom: '10px',
             marginTop: "10px"
           }}
-            onClick={handleAddEnvio}
+            onClick={abrirEnvio}
           >Nuevo envío</Button>
         </div>
-        <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
-          rows={filteredEnvios}
-          columns={columns}
-          showCellVerticalBorder
-          showColumnVerticalBorder
-          getRowId={(row) => row.id}
-          //processRowUpdate={processRowUpdate}
-          columnVisibilityModel={columnVisibilityModel}
-          onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
-          experimentalFeatures={{ newEditingApi: true }}
-          density="compact" // Establece el tamaño de las filas en compacto por defecto
-          slots={{ toolbar: CustomToolbar }}
-        />
-      </div>
-      {/* <Modal id="modal-detailsCaja" open={openModalCajas} onClose={() => setOpenModalCajas(false)}>
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '80%',
-          bgcolor: 'background.paper',
-          borderRadius: 3,
-          boxShadow: 24,
-          p: 4,
-        }}>
-          <Typography variant="h6" mb={2}>Cajas del Envío {envioId}</Typography>
-          <DataGrid
-            rows={cajasData}
-            columns={[
-              { field: 'id', headerName: '# Caja', type: "number", flex: 1 },
-              { field: 'usuario_id', headerName: 'Creado Por', type: "number", flex: 1 },
-              { field: "nombre_usuario", headerName: "Creado Por", type: "text", flex: 1 },
-              { field: 'estatus', headerName: 'Estatus', type: "text", flex: 1 },
-              // agrega aquí las columnas necesarias
-            ]}
+        {/* Muestra el CircularProgress mientras cargan los datos */}
+        {loading ? (
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+            rows={filteredEnvios}
+            columns={columns}
+            showCellVerticalBorder
+            showColumnVerticalBorder
             getRowId={(row) => row.id}
-            sx={{ fontFamily: "Montserrat", fontWeight: "bold" }}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
+            experimentalFeatures={{ newEditingApi: true }}
+            density="compact" // Establece el tamaño de las filas en compacto por defecto
+            slots={{ toolbar: CustomToolbar }}
           />
-        </Box>
-      </Modal> */}
+        )}
+      </div>
     </div>
-  )
-}
+  );
+};
 
-export default Envios
+export default Envios;

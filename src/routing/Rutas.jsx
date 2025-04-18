@@ -29,7 +29,7 @@ import Surtido from '../components/pages/Inventarios/Surtido/Surtido';
 import Publicaciones from '../components/pages/Inventarios/Publicaciones/Publicaciones';
 import Empaque from '../components/pages/Envios/Empaque';
 import Facturas from '../components/pages/Facturas/Facturas';
-import Cajas from '../components/pages/Envios/Cajas';
+import EnvioDetalle from '../components/pages/Envios/EnvioDetalle';
 
 
 const Rutas = () => {
@@ -72,9 +72,9 @@ const Rutas = () => {
                     <Route path='/componentes' element={<Componentes />} />
                     <Route path='/surtido' element={<Surtido />} />
                     <Route path='/publicaciones' element={<Publicaciones />} />
-                    <Route path="/empaque/:envioId/:cajaId" element={<Empaque />} />
+                    <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
                     <Route path="/facturas" element={<Facturas />} />
-                    <Route path='/cajas/:envioId' element={<Cajas />} />
+                    <Route path='/empaque/:envioId/:cajaId' element={<Empaque />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>
