@@ -6,6 +6,7 @@
   padding: 10px; /* Añadir un poco de padding */
   border-bottom: 1px solid #ccc;
   font-family: "Montserrat", sans-serif;
+  font-weight: bold;
 }
 
 .left-actions, .right-actions {

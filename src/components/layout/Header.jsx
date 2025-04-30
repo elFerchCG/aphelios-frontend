@@ -33,8 +33,8 @@ const Header = () => {
           <div className="left">
             <div className="nav">
               <NavLink to="/home" className="nav-link">
-                <img src={inicio} alt="Home" className="nav-icon" />
-                <span>Home</span>
+                <img src={inicio} alt="Inicio" className="nav-icon" />
+                <span>Inicio</span>
               </NavLink>
               <NavLink to="/envios" className="nav-link">
                 <img src={envio} alt="Envios" className="nav-icon" />

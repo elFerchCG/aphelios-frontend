@@ -1,22 +1,25 @@
-import { Box, Button, TextField, Tooltip, CircularProgress } from '@mui/material'
+import { Box, Button, TextField, Tooltip, CircularProgress, Modal, Typography } from '@mui/material'
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid'
 import React, { useEffect, useState } from 'react'
 import axios from 'axios';
 import { GridToolbarContainer } from '@mui/x-data-grid';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DetailsIcon from '@mui/icons-material/Details';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
+import DatePicker from 'react-datepicker';
+
 
 const Envios = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [envioId, setEnvioId] = useState('');
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredEnvios, setFilteredEnvios] = useState([]);
+  //const [filteredEnvios, setFilteredEnvios] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [descripcion, setDescripcion] = useState("");
+  const [fechaProgramada, setFechaProgramada] = useState(null);
   const navigate = useNavigate();
-  const [expandedRowId, setExpandedRowId] = useState(null);
 
   const apiUrl = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
 
@@ -28,6 +31,19 @@ const Envios = () => {
       <GridToolbarExport csvOptions={{ fileName: "exported_data", utf8WithBom: true }} />
     </GridToolbarContainer>
   );
+
+  // Estilos del modal
+  const styleModal = {
+    position: 'absolute',
+    width: "40%",
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    bgcolor: 'background.paper',
+    borderRadius: 4,
+    boxShadow: 24,
+    p: 4,
+  };
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: true,
@@ -44,14 +60,14 @@ const Envios = () => {
       const response = await axios.get(`${apiUrl}/empaque/fetchEnvios`);
       if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
         setData(response.data.data);
-        setFilteredEnvios(response.data.data);
+        //setFilteredEnvios(response.data.data);
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
       Swal.fire({
         title: 'Error',
         text: errorMessage,
-        icon: 'error',
+        icon: 'warning',
         timer: 5000,
         showCloseButton: true,
         allowEscapeKey: true,
@@ -71,11 +87,16 @@ const Envios = () => {
       confirmButtonColor: '#3085d6',
       cancelButtonColor: '#d33',
       confirmButtonText: 'Sí, abrir nuevo envío!',
+      target: document.getElementById("modal-focus"),
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
+          const soloFecha = fechaProgramada.toISOString().split('T')[0]; // 'yyyy-MM-dd'
           const response = await axios.post(`${apiUrl}/empaque/nuevoEnvio`,
-            {},
+            {
+              descripcion: descripcion,
+              fecha_programada: soloFecha
+            },
           );
           if (response.data) {
             setEnvioId(response.data.id);
@@ -89,13 +110,114 @@ const Envios = () => {
               allowEscapeKey: true,
             })
             fetchEnvios();
+            setOpenModal(false);
           }
         } catch (error) {
           const errorMessage = error.response.data.message;
           Swal.fire({
             title: 'Error',
             text: errorMessage,
-            icon: 'error',
+            icon: 'warning',
+            timer: 5000,
+            showCloseButton: true,
+            allowEscapeKey: true,
+          });
+          setOpenModal(false);
+        }
+      } else if (result.isDismissed) {
+        Swal.fire({
+          title: "¡Revertido!",
+          text: "¡No se ha abierto un nuevo envío!",
+          icon: "info",
+        });
+        setOpenModal(false);
+      }
+    })
+  }
+
+  // useEffect(() => {
+  //   // Filtra los envios en base al término de búsqueda
+  //   let filtered = data;
+
+  //   if (searchTerm) {
+  //     //const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+
+  //     filtered = filtered.filter(envio => {
+  //       const envioId = envio.id ? envio.id.toString() : '';
+  //       const envioDescripcion = envio.descripcion ? envio.descripcion.toLowerCase() : '';
+  //       const envioEstatus = envio.estatus ? envio.estatus.toLowerCase() : '';
+
+  //       // Verifica si todas las palabras están en el título
+  //       //const titleMatch = searchWords.every(word => productTitle.includes(word));
+
+  //       // Verifica si el término de búsqueda está en otras columnas
+  //       const otherColumnsMatch = (
+  //         envioId.includes(searchTerm.toString()) ||
+  //         envioDescripcion.includes(searchTerm.toLowerCase()) ||
+  //         envioEstatus.includes(searchTerm.toLowerCase())
+  //       );
+
+  //       // El producto debe coincidir en el título o en alguna de las otras columnas
+  //       return otherColumnsMatch;
+  //     });
+  //   }
+
+  //   setFilteredEnvios(filtered);
+  // }, [searchTerm, data]);
+
+  const handleDetallesEnvio = (envio) => {
+    navigate(`/empaque/${envio.id}/detalle`, {
+      state: { estatusEnvio: envio.estatus }
+    });
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setDescripcion("");
+  }
+
+  const handleOpenModal = () => {
+    setOpenModal(true);
+  }
+
+  const handleDescripcion = (e) => {
+    const descripcionEnvio = e.target.value;
+    setDescripcion(descripcionEnvio);
+  }
+
+  const cambiarEstatusAbiertoEnvio = async (envioId) => {
+    Swal.fire({
+      title: `¿Estás seguro de reabrir el envío: ${envioId}?`,
+      text: '¡No podrás revertir esto!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, reabrir envío!',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const response = await axios.put(`${apiUrl}/empaque/estatusAbiertoEnvio/${envioId}`,
+            {},
+          );
+          if (response.data.ok) {
+            const message = response.data.message;
+            Swal.fire({
+              title: '¡Listo!',
+              text: message,
+              icon: 'success',
+              timer: 5000,
+              showCloseButton: true,
+              allowEscapeKey: true,
+            });
+          }
+          await fetchEnvios();
+        } catch (error) {
+          const errorMessage = error.response.data.message;
+          Swal.fire({
+            title: 'Error',
+            text: errorMessage,
+            icon: 'warning',
             timer: 5000,
             showCloseButton: true,
             allowEscapeKey: true,
@@ -104,63 +226,82 @@ const Envios = () => {
       } else if (result.isDismissed) {
         Swal.fire({
           title: "¡Revertido!",
-          text: "¡No se ha abierto un nuevo envío!",
+          text: "¡No se ha reabierto el envío!",
           icon: "info",
         });
       }
     })
   }
 
-  useEffect(() => {
-    // Filtra los envios en base al término de búsqueda
-    let filtered = data;
+  const today = new Date();
+  const minDate = today;
 
-    if (searchTerm) {
-      //const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
+  const maxDate = new Date(today);
+  maxDate.setDate(today.getDate() + 90);
 
-      filtered = filtered.filter(envio => {
-        const envioId = envio.id ? envio.id.toString() : '';
-        const envioDescripcion = envio.descripcion ? envio.descripcion.toLowerCase() : '';
-        const envioEstatus = envio.estatus ? envio.estatus.toLowerCase() : '';
-
-        // Verifica si todas las palabras están en el título
-        //const titleMatch = searchWords.every(word => productTitle.includes(word));
-
-        // Verifica si el término de búsqueda está en otras columnas
-        const otherColumnsMatch = (
-          envioId.includes(searchTerm.toString()) ||
-          envioDescripcion.includes(searchTerm.toLowerCase()) ||
-          envioEstatus.includes(searchTerm.toLowerCase())
-        );
-
-        // El producto debe coincidir en el título o en alguna de las otras columnas
-        return otherColumnsMatch;
-      });
-    }
-
-    setFilteredEnvios(filtered);
-  }, [searchTerm, data]);
-
-  const handleDetallesEnvio = (envioId) => {
-    navigate(`/empaque/${envioId}/detalle`)
-};
+  const handleFechaProgramada = (date) => {
+    setFechaProgramada(date); // Almacena la fecha como cadena
+  };
 
   const columns = [
-    { field: "id", headerName: "# Envío", type: "number", flex: 1 },
-    { field: "descripcion", headerName: "Descrpción", type: "text", flex: 1 },
-    { field: 'estatus', headerName: "Estatus", type: "text", flex: 1 },
+    { field: "id", headerName: "# Envío", type: "number", flex: 0.3, align: "left", headerAlign: "left" },
+    { field: "descripcion", headerName: "Descripción", type: "text", flex: 1, align: "center", headerAlign: "center" },
+    {
+      field: "fecha_creacion",
+      headerName: "Fecha Creación",
+      type: 'Date',
+      flex: 1,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
+      field: "fecha_programada",
+      headerName: "Fecha Programada",
+      type: 'Date',
+      flex: 1,
+      align: "center",
+      headerAlign: "center",
+    },
+    { field: 'estatus', headerName: "Estatus", type: "text", flex: 1, align: "center", headerAlign: "center" },
     {
       field: "actions",
       headerName: "Acciones",
+      flex: 0.5,
       type: "actions",
       getActions: (params) => [
         <Tooltip title="Detalles" key={`envios-${params.row.id}`}>
+          <>
+            <GridActionsCellItem
+              icon={
+                <Box display="flex" flexDirection="column" alignItems="center">
+                  <DetailsIcon sx={{ color: 'blue' }} />
+                  <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
+                    Detalles
+                  </Typography>
+                </Box>
+              }
+              label='Detalles'
+              onClick={() => handleDetallesEnvio(params.row)}
+            />
+          </>
+        </Tooltip>,
+        <Tooltip title="Revertir estatus" key={`envios-${params.row.id}`}>
+          <>
           <GridActionsCellItem
-            icon={<DetailsIcon />}
-            sx={{ color: "blue" }}
-            label='Detalles'
-            onClick={() => handleDetallesEnvio(params.row.id)}
+            icon={
+              <Box display="flex" flexDirection="column" alignItems="center">
+                <AutorenewIcon sx={{ color: params.row.estatus === "abierto" ? undefined : 'orange' }} />
+
+                <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
+                  Reabrir
+                </Typography>
+              </Box>
+            }
+            label="Abrir envío"
+            onClick={() => cambiarEstatusAbiertoEnvio(params.row.id)}
+            disabled={params.row.estatus === 'abierto'}
           />
+          </>
         </Tooltip>
       ]
     }
@@ -183,15 +324,15 @@ const Envios = () => {
               marginBottom: '10px',
               backgroundColor: "white",
             }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+          //value={searchTerm}
+          //onChange={(e) => setSearchTerm(e.target.value)}
           />
           <Button variant='contained' style={{
             marginLeft: 'auto',
             marginBottom: '10px',
             marginTop: "10px"
           }}
-            onClick={abrirEnvio}
+            onClick={handleOpenModal}
           >Nuevo envío</Button>
         </div>
         {/* Muestra el CircularProgress mientras cargan los datos */}
@@ -208,7 +349,7 @@ const Envios = () => {
           </Box>
         ) : (
           <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
-            rows={filteredEnvios}
+            rows={data}
             columns={columns}
             showCellVerticalBorder
             showColumnVerticalBorder
@@ -221,6 +362,45 @@ const Envios = () => {
           />
         )}
       </div>
+      {/* Modal de nuevo envío */}
+      <Modal id="modal-focus" open={openModal} onClose={handleCloseModal}>
+        <Box sx={styleModal}>
+          <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
+            Nuevo envío
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
+            <TextField
+              fullWidth
+              className='input'
+              label="Descripción"
+              variant='outlined'
+              type='text'
+              value={descripcion}
+              onChange={handleDescripcion}
+              inputProps={{
+                min: 0,
+                style: {
+                  backgroundColor: 'white',
+                  color: 'black',
+                },
+              }}
+            />
+            <DatePicker
+              selected={fechaProgramada}
+              onChange={handleFechaProgramada}
+              dateFormat="yyyy-MM-dd"
+              minDate={minDate}
+              maxDate={maxDate}
+              placeholderText='Fecha Programada'
+              className="datepicker-custom"
+            />
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
+            <Button onClick={handleCloseModal} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
+            <Button onClick={abrirEnvio} variant="contained" color="success" sx={{ width: 190 }}>Abrir Envío</Button>
+          </Box>
+        </Box>
+      </Modal>
     </div>
   );
 };

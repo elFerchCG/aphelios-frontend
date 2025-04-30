@@ -28,8 +28,11 @@ import Componentes from '../components/pages/Inventarios/Componentes';
 import Surtido from '../components/pages/Inventarios/Surtido/Surtido';
 import Publicaciones from '../components/pages/Inventarios/Publicaciones/Publicaciones';
 import Empaque from '../components/pages/Envios/Empaque';
-import Facturas from '../components/pages/Facturas/Facturas';
+import CargaFacturas from '../components/pages/Facturas/CargaFacturas';
 import EnvioDetalle from '../components/pages/Envios/EnvioDetalle';
+import Facturas from '../components/pages/Facturas/Facturas';
+import EmpaqueCajaAbierta from '../components/pages/Envios/EmpaqueCajaAbierta';
+import DetalleFactura from '../components/pages/Facturas/DetalleFactura';
 
 
 const Rutas = () => {
@@ -73,8 +76,11 @@ const Rutas = () => {
                     <Route path='/surtido' element={<Surtido />} />
                     <Route path='/publicaciones' element={<Publicaciones />} />
                     <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
+                    <Route path="/cargaFacturas" element={<CargaFacturas />} />
                     <Route path="/facturas" element={<Facturas />} />
-                    <Route path='/empaque/:envioId/:cajaId' element={<Empaque />} />
+                    <Route path='/empaque/envio/:envioId/caja/:cajaId' element={<Empaque />} />
+                    <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId' element={<EmpaqueCajaAbierta />} />
+                    <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>

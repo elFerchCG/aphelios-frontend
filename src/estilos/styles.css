@@ -107,3 +107,11 @@ html {
     z-index: 1000;
     /* Asegúrate de que el calendario esté por encima de otros elementos */
 }
+
+.datepicker-custom {
+    height: 40px;
+    width: 200px;
+    border-radius: 5px;
+    border-color: #e0e0e0;
+  }
+  
