@@ -113,5 +113,8 @@ html {
     width: 200px;
     border-radius: 5px;
     border-color: #e0e0e0;
-  }
-  
+}
+
+.datepicker-error {
+    border-color: red;
+}

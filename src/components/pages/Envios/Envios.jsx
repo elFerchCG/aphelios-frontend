@@ -1,4 +1,4 @@
-import { Box, Button, TextField, Tooltip, CircularProgress, Modal, Typography } from '@mui/material'
+import { Box, Button, TextField, Tooltip, CircularProgress, Modal, Typography, FormControl, FormHelperText } from '@mui/material'
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid'
 import React, { useEffect, useState } from 'react'
 import axios from 'axios';
@@ -19,6 +19,10 @@ const Envios = () => {
   const [openModal, setOpenModal] = useState(false);
   const [descripcion, setDescripcion] = useState("");
   const [fechaProgramada, setFechaProgramada] = useState(null);
+  const [errors, setErrors] = useState({
+    descripcionError: false,
+    fechaProgramadaError: false
+  });
   const navigate = useNavigate();
 
   const apiUrl = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
@@ -79,60 +83,50 @@ const Envios = () => {
 
 
   const abrirEnvio = async () => {
-    Swal.fire({
-      title: `¿Estás seguro de abrir un nuevo envio?`,
-      text: '¡No podrás revertir esto!',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí, abrir nuevo envío!',
-      target: document.getElementById("modal-focus"),
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const soloFecha = fechaProgramada.toISOString().split('T')[0]; // 'yyyy-MM-dd'
-          const response = await axios.post(`${apiUrl}/empaque/nuevoEnvio`,
-            {
-              descripcion: descripcion,
-              fecha_programada: soloFecha
-            },
-          );
-          if (response.data) {
-            setEnvioId(response.data.id);
-            const message = response.data.message;
-            Swal.fire({
-              title: "¡Exito!",
-              text: message,
-              icon: "success",
-              timer: 5000,
-              showCloseButton: true,
-              allowEscapeKey: true,
-            })
-            fetchEnvios();
-            setOpenModal(false);
-          }
-        } catch (error) {
-          const errorMessage = error.response.data.message;
-          Swal.fire({
-            title: 'Error',
-            text: errorMessage,
-            icon: 'warning',
-            timer: 5000,
-            showCloseButton: true,
-            allowEscapeKey: true,
-          });
-          setOpenModal(false);
-        }
-      } else if (result.isDismissed) {
-        Swal.fire({
-          title: "¡Revertido!",
-          text: "¡No se ha abierto un nuevo envío!",
-          icon: "info",
-        });
+    // validación de campos vacíos o cero
+    const newErrors = {
+      descripcionError: !descripcion,
+      fechaProgramadaError: !fechaProgramada
+    };
+
+    // Si hay algún error, no continuar
+    if (Object.values(newErrors).some(error => error)) {
+      setErrors(newErrors);
+      Swal.fire({
+        title: 'Campos incompletos',
+        text: 'Completa todos los campos.',
+        icon: 'warning',
+        target: document.getElementById("modal-focus"),
+      });
+      return;
+    }
+
+    // Si no hay errores, continuar con la petición
+    try {
+      const soloFecha = fechaProgramada.toISOString().split('T')[0]; // 'yyyy-MM-dd'
+      const response = await axios.post(`${apiUrl}/empaque/nuevoEnvio`,
+        {
+          descripcion: descripcion,
+          fecha_programada: soloFecha
+        },
+      );
+      if (response.data) {
+        setEnvioId(response.data.id);
+        fetchEnvios();
         setOpenModal(false);
       }
-    })
+    } catch (error) {
+      const errorMessage = error.response.data.message;
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'warning',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+      setOpenModal(false);
+    }
   }
 
   // useEffect(() => {
@@ -174,6 +168,11 @@ const Envios = () => {
   const handleCloseModal = () => {
     setOpenModal(false);
     setDescripcion("");
+    setFechaProgramada("");
+    setErrors({
+      descripcionError: "",
+      fechaProgramadaError: ""
+    });
   }
 
   const handleOpenModal = () => {
@@ -186,51 +185,24 @@ const Envios = () => {
   }
 
   const cambiarEstatusAbiertoEnvio = async (envioId) => {
-    Swal.fire({
-      title: `¿Estás seguro de reabrir el envío: ${envioId}?`,
-      text: '¡No podrás revertir esto!',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí, reabrir envío!',
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const response = await axios.put(`${apiUrl}/empaque/estatusAbiertoEnvio/${envioId}`,
-            {},
-          );
-          if (response.data.ok) {
-            const message = response.data.message;
-            Swal.fire({
-              title: '¡Listo!',
-              text: message,
-              icon: 'success',
-              timer: 5000,
-              showCloseButton: true,
-              allowEscapeKey: true,
-            });
-          }
-          await fetchEnvios();
-        } catch (error) {
-          const errorMessage = error.response.data.message;
-          Swal.fire({
-            title: 'Error',
-            text: errorMessage,
-            icon: 'warning',
-            timer: 5000,
-            showCloseButton: true,
-            allowEscapeKey: true,
-          });
-        }
-      } else if (result.isDismissed) {
-        Swal.fire({
-          title: "¡Revertido!",
-          text: "¡No se ha reabierto el envío!",
-          icon: "info",
-        });
+    try {
+      const response = await axios.put(`${apiUrl}/empaque/estatusAbiertoEnvio/${envioId}`,
+        {},
+      );
+      if (response.data.ok) {
+        await fetchEnvios();
       }
-    })
+    } catch (error) {
+      const errorMessage = error.response.data.message;
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'warning',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+    }
   }
 
   const today = new Date();
@@ -287,20 +259,20 @@ const Envios = () => {
         </Tooltip>,
         <Tooltip title="Revertir estatus" key={`envios-${params.row.id}`}>
           <>
-          <GridActionsCellItem
-            icon={
-              <Box display="flex" flexDirection="column" alignItems="center">
-                <AutorenewIcon sx={{ color: params.row.estatus === "abierto" ? undefined : 'orange' }} />
+            <GridActionsCellItem
+              icon={
+                <Box display="flex" flexDirection="column" alignItems="center">
+                  <AutorenewIcon sx={{ color: params.row.estatus === "abierto" ? undefined : 'orange' }} />
 
-                <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
-                  Reabrir
-                </Typography>
-              </Box>
-            }
-            label="Abrir envío"
-            onClick={() => cambiarEstatusAbiertoEnvio(params.row.id)}
-            disabled={params.row.estatus === 'abierto'}
-          />
+                  <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
+                    Reabrir
+                  </Typography>
+                </Box>
+              }
+              label="Abrir envío"
+              onClick={() => cambiarEstatusAbiertoEnvio(params.row.id)}
+              disabled={params.row.estatus === 'abierto'}
+            />
           </>
         </Tooltip>
       ]
@@ -377,6 +349,8 @@ const Envios = () => {
               type='text'
               value={descripcion}
               onChange={handleDescripcion}
+              error={errors.descripcionError}
+              helperText={errors.descripcionError ? "Requerido*" : ""}
               inputProps={{
                 min: 0,
                 style: {
@@ -385,15 +359,20 @@ const Envios = () => {
                 },
               }}
             />
-            <DatePicker
-              selected={fechaProgramada}
-              onChange={handleFechaProgramada}
-              dateFormat="yyyy-MM-dd"
-              minDate={minDate}
-              maxDate={maxDate}
-              placeholderText='Fecha Programada'
-              className="datepicker-custom"
-            />
+            <FormControl fullWidth error={!!errors.fechaProgramadaError}>
+              <DatePicker
+                selected={fechaProgramada}
+                onChange={handleFechaProgramada}
+                dateFormat="yyyy-MM-dd"
+                minDate={minDate}
+                maxDate={maxDate}
+                placeholderText='Fecha Programada'
+                className={`datepicker-custom ${errors.fechaProgramadaError ? 'datepicker-error' : ''}`}
+              />
+              {errors.fechaProgramadaError && (
+                <FormHelperText>Requerido*</FormHelperText>
+              )}
+            </FormControl>
           </Box>
           <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
             <Button onClick={handleCloseModal} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>

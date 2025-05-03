@@ -104,313 +104,151 @@ const EnvioDetalle = () => {
                 setTarimas(response.data.data);
             }
         } catch (error) {
-            const errorMessage = error.response.data.message;
-            Swal.fire({
-                title: '¡Sin datos!',
-                text: errorMessage,
-                icon: 'warning',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true,
-            });
         } finally {
             setLoadingTarimas(false); // Detiene la carga
         }
     }
 
     const abrirTarima = async () => {
-        Swal.fire({
-            title: `¿Estás seguro de abrir una nueva tarima en el envío ${envioId}?`,
-            text: '¡No podrás revertir esto!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, abrir nueva tarima!',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await axios.post(`${apiUrl}/empaque/abrirTarima/${envioId}`,
-                        {},
-                    );
-                    if (response.data) {
-                        setTarimaId(response.data.id);
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: "¡Exito!",
-                            text: message,
-                            icon: "success",
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true,
-                        })
-                        fetchTarimas();
-                    }
-                } catch (error) {
-                    const errorMessage = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: errorMessage,
-                        icon: 'warning',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true,
-                    });
-                }
-            } else if (result.isDismissed) {
-                Swal.fire({
-                    title: "¡Revertido!",
-                    text: "¡No se ha abierto una nueva tarima!",
-                    icon: "info",
-                });
+        try {
+            const response = await axios.post(`${apiUrl}/empaque/abrirTarima/${envioId}`,
+                {},
+            );
+            if (response.data) {
+                setTarimaId(response.data.id);
+                fetchTarimas();
             }
-        })
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
     }
 
     const abrirCaja = async (tarimaId, envioIdParam) => {
-        Swal.fire({
-            title: `¿Estás seguro de abrir una nueva caja en la tarima: ${tarimaId}?`,
-            text: '¡No podrás revertir esto!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, abrir nueva caja!',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await axios.post(`${apiUrl}/empaque/abrirCaja/${tarimaId}`,
-                        {},
-                        {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        }
-                    );
-                    if (response.data.ok) {
-                        setCajaId(response.data.id);
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: "¡Exito!",
-                            text: message,
-                            icon: "success",
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true,
-                        })
-                        handleEntrarCajaAbierta(envioIdParam, response.data.id); // ✅ no se colapsa
+        try {
+            const response = await axios.post(`${apiUrl}/empaque/abrirCaja/${tarimaId}`,
+                {},
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
                     }
-                } catch (error) {
-                    const errorMessage = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: errorMessage,
-                        icon: 'warning',
-                        timer: 2000,
-                        showCloseButton: true,
-                        allowEscapeKey: true,
-                    });
                 }
-            } else if (result.isDismissed) {
-                Swal.fire({
-                    title: "¡Revertido!",
-                    text: "¡No se ha abierto una nueva caja!",
-                    icon: "info",
-                });
+            );
+            if (response.data.ok) {
+                setCajaId(response.data.id);
+                handleEntrarCajaAbierta(envioIdParam, response.data.id); // ✅ no se colapsa
             }
-        })
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 2000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
     }
 
     const revertirCaja = async (cajaIdParam, tarimaId) => {
-        Swal.fire({
-            title: `¿Estás seguro de revertir la caja seleccionada en la tarima: ${tarimaId}?`,
-            text: '¡No podrás revertir esto!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, revertir caja!',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await axios.post(`${apiUrl}/empaque/revertirCaja/caja/${cajaIdParam}`,
-                        {},
-                    );
-                    if (response.data.ok) {
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: "¡Exito!",
-                            text: message,
-                            icon: "success",
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true,
-                        })
-                        await fetchCajas(tarimaId); // ✅ no se colapsa
-                    }
-                } catch (error) {
-                    const errorMessage = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: errorMessage,
-                        icon: 'warning',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true,
-                    });
-                }
-            } else if (result.isDismissed) {
-                Swal.fire({
-                    title: "¡Revertido!",
-                    text: "¡No se ha revertido la caja seleccionada!",
-                    icon: "info",
-                });
+        try {
+            const response = await axios.post(`${apiUrl}/empaque/revertirCaja/caja/${cajaIdParam}`,
+                {},
+            );
+            if (response.data.ok) {
+                await fetchCajas(tarimaId); // ✅ no se colapsa
             }
-        })
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
     }
 
     const cerrarTarima = async (envioId, tarimaId) => {
-        Swal.fire({
-            title: `¿Estás seguro de cerrar la tarima seleccionada con folio: ${tarimaId}?`,
-            text: '¡No podrás revertir esto!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, cerrar tarima!',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await axios.put(`${apiUrl}/empaque/cerrarTarima/tarima/${tarimaId}`,
-                        {},
-                    );
-                    if (response.data.ok) {
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: "¡Exito!",
-                            text: message,
-                            icon: "success",
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true,
-                        })
-                        await fetchTarimas(envioId); // ✅ no se colapsa
-                    }
-                } catch (error) {
-                    const errorMessage = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: errorMessage,
-                        icon: 'warning',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true,
-                    });
-                }
-            } else if (result.isDismissed) {
+        try {
+            const response = await axios.put(`${apiUrl}/empaque/cerrarTarima/tarima/${tarimaId}`,
+                {},
+            );
+            if (response.data.ok) {
+                const message = response.data.message;
                 Swal.fire({
-                    title: "¡Revertido!",
-                    text: "¡No se ha cerrado la tarima seleccionada!",
-                    icon: "info",
-                });
+                    title: "¡Exito!",
+                    text: message,
+                    icon: "success",
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true,
+                })
+                await fetchTarimas(envioId); // ✅ no se colapsa
             }
-        })
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
     }
 
     const cerrarEnvio = async (envioId) => {
-        Swal.fire({
-            title: `¿Estás seguro de cerrar el envío con folio: ${envioId}?`,
-            text: '¡No podrás revertir esto!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, cerrar envío!',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await axios.put(`${apiUrl}/empaque/cerrarEnvio/envio/${envioId}`,
-                        {},
-                    );
-                    if (response.data.ok) {
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: "¡Exito!",
-                            text: message,
-                            icon: "success",
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true,
-                        })
-                        navigate('/envios');
-                    }
-                } catch (error) {
-                    const errorMessage = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: errorMessage,
-                        icon: 'warning',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true,
-                    });
-                }
-            } else if (result.isDismissed) {
-                Swal.fire({
-                    title: "¡Revertido!",
-                    text: "¡No se ha cerrado el envío!",
-                    icon: "info",
-                });
+        try {
+            const response = await axios.put(`${apiUrl}/empaque/cerrarEnvio/envio/${envioId}`,
+                {},
+            );
+            if (response.data.ok) {
+                navigate('/envios');
             }
-        })
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
     }
 
     const reabrirTarima = async (tarimaId) => {
-        Swal.fire({
-            title: `¿Estás seguro de reabrir la tarima seleccionada con folio: ${tarimaId}?`,
-            text: '¡No podrás revertir esto!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, reabrir tarima!',
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                try {
-                    const response = await axios.put(`${apiUrl}/empaque/reabrirTarima/tarima/${tarimaId}`,
-                        {},
-                    );
-                    if (response.data.ok) {
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: "¡Exito!",
-                            text: message,
-                            icon: "success",
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true,
-                        })
-                        await fetchTarimas(envioId); // ✅ no se colapsa
-                    }
-                } catch (error) {
-                    const errorMessage = error.response.data.message;
-                    Swal.fire({
-                        title: 'Error',
-                        text: errorMessage,
-                        icon: 'warning',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true,
-                    });
-                }
-            } else if (result.isDismissed) {
-                Swal.fire({
-                    title: "¡Revertido!",
-                    text: "¡No se ha reabierto la tarima seleccionada!",
-                    icon: "info",
-                });
+        try {
+            const response = await axios.put(`${apiUrl}/empaque/reabrirTarima/tarima/${tarimaId}`,
+                {},
+            );
+            if (response.data.ok) {
+                await fetchTarimas(envioId); // ✅ no se colapsa
             }
-        })
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
     }
 
     const handleEntrarCajaCerrada = (envioId, cajaId) => {
@@ -431,15 +269,6 @@ const EnvioDetalle = () => {
                 }));
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.message || "Error al obtener cajas.";
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'warning',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true,
-            });
         }
     };
 
