@@ -211,18 +211,8 @@ const EmpaqueCajaAbierta = () => {
                 },
             );
             if (response.data.ok) {
-                const message = response.data.message;
-                Swal.fire({
-                    title: '¡Exito!',
-                    text: message,
-                    icon: 'success',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true,
-                });
                 setOpenCerrarCaja(false);
                 navigate(`/empaque/${envioId}/detalle`)
-
             }
         } catch (error) {
             const errorMessage = error.response.data.message;
@@ -247,15 +237,6 @@ const EmpaqueCajaAbierta = () => {
                     setData(result);
                 }
             } catch (error) {
-                const errorMessage = error.response?.data?.message || error.message;
-                Swal.fire({
-                    title: 'Error',
-                    text: errorMessage,
-                    icon: 'warning',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true,
-                });
             }
         };
 
