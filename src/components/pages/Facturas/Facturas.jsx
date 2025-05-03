@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react'
 import DetailsIcon from '@mui/icons-material/Details';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs'; 
 
 const Facturas = () => {
     const [data, setData] = useState([]);
@@ -87,18 +88,18 @@ const Facturas = () => {
     // }, [searchTerm, data]);
 
 
-    const handleDetallesFactura = (facturaId) => {
-        navigate(`/detalleFacturas/factura/${facturaId}`)
+    const handleDetallesFactura = (facturaId, proveedorNombre) => {
+        navigate(`/detalleFacturas/factura/${facturaId}`, {
+            state: { proveedorNombre } // así lo mandas al otro componente
+        });
     };
 
     const columns = [
-        { field: "id", headerName: "Folio", type: "number", flex: 0.3, align: "left", headerAlign: "left" },
-        { field: "rfc", headerName: "Descrpción", type: "text", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'total', headerName: "Total Factura", type: "number", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'serie', headerName: "Serie", type: "text", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'folio', headerName: "Factura Folio", type: "number", flex: 1, align: "center", headerAlign: "center" },
+        { field: "fecha", headerName: "Fecha", type: "text", flex: 1, align: "center", headerAlign: "center" },
+        { field: 'proveedor_nombre', headerName: "Proveedor", type: "text", flex: 1, align: "center", headerAlign: "center" },
+        { field: 'folio', headerName: "Numero de Factura", type: "text", flex: 1, align: "center", headerAlign: "center" },
+        { field: 'total', headerName: "total", type: "number", flex: 1, align: "center", headerAlign: "center" },
         { field: 'estatus', headerName: "Estatus", type: "text", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'proveedor_nombre', headerName: "Serie", type: "text", flex: 1, align: "center", headerAlign: "center" },
         {
             field: "actions",
             headerName: "Acciones",
@@ -109,7 +110,7 @@ const Facturas = () => {
                         icon={<DetailsIcon />}
                         sx={{ color: "blue" }}
                         label='Detalles'
-                        onClick={() => handleDetallesFactura(params.row.id)}
+                        onClick={() => handleDetallesFactura(params.row.id, params.row.proveedor_nombre)}
                     />
                 </Tooltip>
             ]
