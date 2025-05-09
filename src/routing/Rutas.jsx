@@ -33,6 +33,7 @@ import EnvioDetalle from '../components/pages/Envios/EnvioDetalle';
 import Facturas from '../components/pages/Facturas/Facturas';
 import EmpaqueCajaAbierta from '../components/pages/Envios/EmpaqueCajaAbierta';
 import DetalleFactura from '../components/pages/Facturas/DetalleFactura';
+import BarraLateral from '../components/layout/BarraLateral';
 
 
 const Rutas = () => {
@@ -81,6 +82,7 @@ const Rutas = () => {
                     <Route path='/empaque/envio/:envioId/caja/:cajaId' element={<Empaque />} />
                     <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId' element={<EmpaqueCajaAbierta />} />
                     <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
+                    <Route path="/barraLateral" element={<BarraLateral />} />
                     <Route path='*' element={
                         <div>
                             <h1>Usuario sin permisos suficientes!</h1>
