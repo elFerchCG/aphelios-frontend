@@ -24,6 +24,7 @@ const Surtido = () => {
     const [sku, setSku] = useState('');
     const [usuarios, setUsuarios] = useState([]);
     const [selectedUsuario, setSelectedUsuario] = useState('');
+    const [selectedUsuarioNombre, setSelectedUsuarioNombre] = useState('');
     const [openAsignar, setOpenAsignar] = useState(false);
     const [selectedOrdenId, setSelectedOrdenId] = useState(null);
     const [selectedDetalleId, setSelectedDetalleId] = useState(null);
@@ -37,6 +38,13 @@ const Surtido = () => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
+
+    useEffect(() => {
+        console.log('🟢 Montado Surtido');
+        return () => {
+            console.log('🔴 Desmontado Surtido');
+        };
+    }, []);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -135,9 +143,10 @@ const Surtido = () => {
     }, [apiUrl, openAsignar])
 
     const handleSelectedUsuario = (e) => {
-        const usuarioId = e.target.value;
-        setSelectedUsuario(usuarioId);
-        console.log("Este es el usuario seleccionado: ", usuarioId);
+        const selectedId = e.target.value;
+        const usuario = usuarios.find((u) => u.id_usuario === selectedId);
+        setSelectedUsuario(usuario); // ahora es un objeto { id_usuario, nombre }
+
     }
 
     const fetchOrdenProduccion = async (sku) => {
@@ -214,7 +223,7 @@ const Surtido = () => {
     ^FO21,145^A0N,18,18^FD^FS
     ^FB350,2,2
     ^FO22,105^A0N,20,20^FD${title}^FS
-    ^FT385,105^A0B,22,22^FH\^FDpersona:/env^FS
+    ^FT385,105^A0B,22,22^FH\^FD${selectedUsuario.nombre}/env^FS
     ^FO65,18^BY2^BCN,54,N,N
     ^FD${inventory_id}^FS
 ^FT150,98^A0N,22,22^FH\^FD${inventory_id}^FS
@@ -281,8 +290,7 @@ const Surtido = () => {
     const updateDetalleOrden = async () => {
         try {
             const data = {
-                id_detalle_orden: selectedDetalleId,
-                cantidad_recibida: cantidadRecibida
+                cantidad_surtida: cantidadRecibida
             }
             console.log("Esto es lo que se manda al put:", data);
             const response = await axios.put(`${apiUrl}/mrp/actualizarDetalleOrden/${selectedDetalleId}`, data);
@@ -321,14 +329,11 @@ const Surtido = () => {
 
     const asignarLinea = async () => {
         try {
-            const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
             const data = {
-                //id: selectedOrdenId,
-                cantidad_recibida: cantidadRecibida,
-                operador: selectedUsuario,
-                fecha_asignacion: dateTime
+                cantidad_asignada: cantidadRecibida,
+                operador: selectedUsuario.id_usuario
             }
-            const response = await axios.post(`${apiUrl}/mrp/asignarLineaProduccion/${selectedOrdenId}`, data, {
+            const response = await axios.post(`${apiUrl}/mrp/asignarLineaProduccion/${selectedDetalleId}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -416,8 +421,8 @@ const Surtido = () => {
 
     const columns = [
         { field: "unique_id", headerName: "Folio linea", type: "text", flex: 1 },
-        { field: 'id_orden', headerName: "# De orden", type: "number", flex: 1 },
-        { field: 'id_detalle_orden', headerName: "# De linea orden", type: "number", flex: 1 },
+        { field: 'id_orden', headerName: "# Orden", type: "number", flex: 1 },
+        { field: 'id_detalle_orden', headerName: "# Detalle orden", type: "number", flex: 1 },
         { field: "componente_sku", headerName: "SKU Componente", type: "text", flex: 2 },
         { field: "descripcion", headerName: "Descripcion", type: "text", flex: 2 },
         {
@@ -498,7 +503,7 @@ const Surtido = () => {
                     slots={{ toolbar: CustomToolbar }}
                 />
             </div>
-            <Modal open={openAsignar} onClose={handleCloseAsignar}>
+            <Modal id={'modal-asignar'} open={openAsignar} onClose={handleCloseAsignar}>
                 <Box sx={styleModalAsignar}>
                     <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
                         Asignar orden
@@ -506,7 +511,7 @@ const Surtido = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
                         <TextField
                             className='input'
-                            label="Cantidad Recibida"
+                            label="Cantidad"
                             variant='outlined'
                             type='number'
                             value={cantidadRecibida}
@@ -523,7 +528,7 @@ const Surtido = () => {
                             <InputLabel>Usuario</InputLabel>
                             <Select
                                 label="Usuario:"
-                                value={selectedUsuario}
+                                value={selectedUsuario ? selectedUsuario.id_usuario : ''}
                                 onChange={handleSelectedUsuario}
                                 style={{ backgroundColor: "white" }}
                             >

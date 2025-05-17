@@ -84,6 +84,16 @@ const DetalleFactura = () => {
       total: parseFloat(d.total),
     }));
 
+  const parseDetallesDataGrid = (detalles) =>
+    detalles.map((d) => ({
+      ...d,
+      // Deja cantidad como string
+      cantidad: d.cantidad,
+      precio: `$${Number(d.precio).toFixed(2)}`,
+      total: `$${Number(d.total).toFixed(2)}`,
+    }));
+
+
   const fetchProveedor = async (proveedorNombre) => {
     try {
       const response = await axios.get(
@@ -115,7 +125,7 @@ const DetalleFactura = () => {
     try {
       const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
       if (response.data && Array.isArray(response.data.detalles)) {
-        const detallesParseados = parseDetalles(response.data.detalles);
+        const detallesParseados = parseDetallesDataGrid(response.data.detalles);
         setData(detallesParseados);
       }
     } catch (error) {
@@ -254,14 +264,6 @@ const DetalleFactura = () => {
       headerAlign: "center",
     },
     {
-      field: "linea_id",
-      headerName: "Folio de Linea",
-      type: "number",
-      flex: 0.6,
-      align: "center",
-      headerAlign: "center",
-    },
-    {
       field: "sku",
       headerName: "SKU",
       type: "text",
@@ -294,8 +296,16 @@ const DetalleFactura = () => {
       headerAlign: "center",
     },
     {
-      field: "orden_id",
-      headerName: "Folio Orden",
+      field: "pedido_id",
+      headerName: "# Pedido",
+      type: "text",
+      flex: 0.6,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
+      field: "orden_produccion_id",
+      headerName: "# Orden Producción",
       type: "text",
       flex: 0.6,
       align: "center",
