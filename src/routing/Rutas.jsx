@@ -79,8 +79,8 @@ const Rutas = () => {
                     <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
                     <Route path="/cargaFacturas" element={<CargaFacturas />} />
                     <Route path="/facturas" element={<Facturas />} />
-                    <Route path='/empaque/envio/:envioId/caja/:cajaId' element={<Empaque />} />
-                    <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId' element={<EmpaqueCajaAbierta />} />
+                    <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
+                    <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<EmpaqueCajaAbierta />} />
                     <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
                     <Route path="/barraLateral" element={<BarraLateral />} />
                     <Route path='*' element={

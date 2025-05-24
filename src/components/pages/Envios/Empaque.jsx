@@ -1,15 +1,16 @@
-import { Typography } from '@mui/material';
-import { GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
+import { Tooltip, Typography } from '@mui/material';
+import { GridActionsCellItem, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import { DataGrid, GridToolbarColumnsButton, GridToolbarContainer } from '@mui/x-data-grid'
 import React, { useEffect, useState } from 'react'
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import '../Inventarios/estilosPrueba.css'
 import { useParams } from 'react-router-dom';
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 
 
 const Empaque = () => {
-    const { envioId, cajaId } = useParams();  // Aquí obtienes ambos parámetros
+    const { envioId, cajaId, visualIdCaja } = useParams();  // Aquí obtienes ambos parámetros
     const [data, setData] = useState([]);
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
@@ -91,8 +92,22 @@ const Empaque = () => {
         { field: "orden", headerName: "# Orden", type: "text", flex: 1 },
         { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1 },
         { field: "sku", headerName: "SKU", type: "text", flex: 2 },
-        { field: "title", headerName: "Descripción", type: "text", flex: 3 }
-        //{ field: "actions", headerName: "Acciones", type: "actions" }
+        { field: "title", headerName: "Descripción", type: "text", flex: 3 },
+        {
+            field: "actions",
+            headerName: "Acciones",
+            type: "actions",
+            getActions: (params) => [
+                <Tooltip title="Eliminar escaneo" key={`escaneos-${params.row.id}`}>
+                    <GridActionsCellItem
+                        icon={<DeleteForeverRoundedIcon />}
+                        sx={{ color: "red" }}
+                        label="Elimiar escaneo"
+                    //onClick={() => handleOpenModal(params)}
+                    />
+                </Tooltip>
+            ],
+        }
     ]
 
     const totalCantidad = data.reduce((acc, row) => acc + Number(row.cantidad || 0), 0);
@@ -109,7 +124,7 @@ const Empaque = () => {
                 </div>
                 <div style={{ position: "absolute", top: "60px", right: "0", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", marginTop: "5px" }}># Caja:</Typography>
-                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{cajaId}</Typography>
+                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{visualIdCaja}</Typography>
                 </div>
                 <DataGrid sx={{ marginTop: 2, borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", fontFamily: "Montserrat", fontWeight: "bold" }}
                     rows={data}

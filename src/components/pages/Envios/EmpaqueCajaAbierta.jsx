@@ -1,5 +1,5 @@
-import { Button, FormControl, Input, InputAdornment, InputLabel, Modal, TextField, Typography } from '@mui/material';
-import { GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
+import { Button, FormControl, Input, InputAdornment, InputLabel, Modal, TextField, Tooltip, Typography } from '@mui/material';
+import { GridActionsCellItem, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import { DataGrid, GridToolbarColumnsButton, GridToolbarContainer } from '@mui/x-data-grid'
 import React, { useEffect, useState } from 'react'
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
@@ -9,10 +9,11 @@ import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import '../Inventarios/estilosPrueba.css'
 import { useParams } from 'react-router-dom';
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 
 
 const EmpaqueCajaAbierta = () => {
-    const { envioId, cajaId } = useParams();  // Aquí obtienes ambos parámetros
+    const { envioId, cajaId, visualIdCaja } = useParams();  // Aquí obtienes ambos parámetros
     const [data, setData] = useState([]);
     const [openCerrarCaja, setOpenCerrarCaja] = useState(false);
     const [inventoryId, setInventoryId] = useState('');
@@ -31,13 +32,25 @@ const EmpaqueCajaAbierta = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-        id: true,
+        id: false,
         inventory_id: true,
         orden: false,
         cantidad: true,
         sku: true,
         title: true,
     });
+
+    useEffect(() => {
+        console.log('🟢 Montado Escaneos');
+        return () => {
+            console.log('🔴 Desmontado Escaneos');
+
+            // Llamar metodo de elimicación caja si es necesario
+            (async () => {
+                await eliminarCajaAutomatico();
+            })();
+        };
+    }, []);
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -156,10 +169,11 @@ const EmpaqueCajaAbierta = () => {
             setData((prevData) => [newRow, ...prevData]); // agrega al inicio
             setInventoryId(""); // Limpiar input
         } catch (error) {
+            const errorMessage = error.response.data.message;
             Swal.fire({
-                title: "Error",
-                text: `Error: ${error.message}`,
-                icon: "error",
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
                 timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true,
@@ -228,6 +242,18 @@ const EmpaqueCajaAbierta = () => {
         }
     }
 
+    const fetchEscaneos = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosAbierta/${cajaId}`);
+            const result = response.data.data;
+            if (Array.isArray(result) && result.length > 0) {
+                setData(result);
+            }
+        } catch (error) {
+            setData([]);
+        }
+    };
+
     useEffect(() => {
         const fetchEscaneos = async () => {
             try {
@@ -237,6 +263,7 @@ const EmpaqueCajaAbierta = () => {
                     setData(result);
                 }
             } catch (error) {
+                setData([]);
             }
         };
 
@@ -270,14 +297,86 @@ const EmpaqueCajaAbierta = () => {
         }
     }
 
+    const eliminarEscaneo = async (id) => {
+        try {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: '¡No podrás revertir esto!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminarlo'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        const response = await axios.delete(`${apiUrl}/empaque/eliminarEscaneo/${id}`)
+                        fetchEscaneos();
+                        const message = response.data.message;
+                        Swal.fire({
+                            title: '¡Eliminado!',
+                            text: message,
+                            icon: 'success'
+                        });
+                    } catch (error) {
+                        const errorMessage = error.response.data.message;
+                        Swal.fire({
+                            title: 'Error',
+                            text: errorMessage,
+                            icon: 'error',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true
+                        });
+                    }
+                } else if (result.isDenied) {
+                    Swal.fire("¡No se ha eliminado el componente!", "", "info");
+                }
+            })
+
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+        }
+    }
+
+    const eliminarCajaAutomatico = async () => {
+        try {
+            await axios.delete(`${apiUrl}/empaque/eliminarCaja/${cajaId}`)
+        } catch (error) {
+            console.log("No se pudo eliminar la caja automaticamente");
+        }
+    }
+
     const columns = [
-        { field: "id", headerName: "# Registro", type: "number", flex: 1 },
-        { field: "inventory_id", headerName: "ML", type: "text", flex: 2 },
+        { field: "id", headerName: "# Escaneo", type: "number", flex: 1 },
+        { field: "inventory_id", headerName: "ML", type: "text", flex: 1 },
         { field: "orden", headerName: "# Orden", type: "text", flex: 1 },
         { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1 },
-        { field: "sku", headerName: "SKU", type: "text", flex: 2 },
-        { field: "title", headerName: "Descripción", type: "text", flex: 3 }
-        //{ field: "actions", headerName: "Acciones", type: "actions" }
+        { field: "sku", headerName: "SKU", type: "text", flex: 3 },
+        { field: "title", headerName: "Descripción", type: "text", flex: 5 },
+        {
+            field: "actions",
+            headerName: "Acciones",
+            type: "actions",
+            getActions: (params) => [
+                <Tooltip title="Eliminar escaneo" key={`escaneos-${params.row.id}`}>
+                    <GridActionsCellItem
+                        icon={<DeleteForeverRoundedIcon />}
+                        sx={{ color: "red" }}
+                        label="Elimiar escaneo"
+                        onClick={() => eliminarEscaneo(params.row.id)}
+                    />
+                </Tooltip>
+            ],
+        }
     ]
 
 
@@ -306,7 +405,7 @@ const EmpaqueCajaAbierta = () => {
                 </div>
                 <div style={{ position: "absolute", top: "60px", right: "0", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", marginTop: "5px" }}># Caja:</Typography>
-                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{cajaId}</Typography>
+                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{visualIdCaja}</Typography>
                 </div>
                 <div style={{ position: "absolute", top: "40px", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <FormControl variant='outlined'>

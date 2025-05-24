@@ -1,5 +1,5 @@
 import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Modal, Select, TextField, Tooltip, Typography } from '@mui/material'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
@@ -38,6 +38,8 @@ const Surtido = () => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
+
+    const inputRef = useRef(null);
 
     useEffect(() => {
         console.log('🟢 Montado Surtido');
@@ -264,15 +266,6 @@ const Surtido = () => {
                     inventory_id: result.inventory_id,  // Usa el campo correcto según tu lógica
                     cantidadEtiquetas: cantidadEtiquetas // Asegura que se pase correctamente
                 });
-            } else {
-                Swal.fire({
-                    title: '!Ocurrio un error en la solicitud!',
-                    text: 'No se realizo la solicitud correctamente!',
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
             }
         } catch (error) {
             const errorMessage = error.response.data.message;
@@ -304,15 +297,6 @@ const Surtido = () => {
                     showCloseButton: true,
                     allowEscapeKey: true
                 });
-            } else {
-                Swal.fire({
-                    title: '!Ocurrio un error en la solicitud!',
-                    text: 'No se realizo la solicitud correctamente!',
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
             }
         } catch (error) {
             const errorMessage = error.response.data.message;
@@ -330,7 +314,7 @@ const Surtido = () => {
     const asignarLinea = async () => {
         try {
             const data = {
-                cantidad_asignada: cantidadRecibida,
+                cantidad_surtida: cantidadRecibida,
                 operador: selectedUsuario.id_usuario
             }
             const response = await axios.post(`${apiUrl}/mrp/asignarLineaProduccion/${selectedDetalleId}`, data, {
@@ -351,7 +335,10 @@ const Surtido = () => {
             }
             await updateDetalleOrden();
             await fetchValoresOrden();
+            setSku('');
+            setData([]); // <- limpia los datos mostrados en el DataGrid
             handleCloseAsignar();
+            inputRef.current?.focus();
         } catch (error) {
             const errorMessage = error.response.data.message;
             Swal.fire({
@@ -454,6 +441,7 @@ const Surtido = () => {
                 </div>
                 <div style={{ display: "flex", justifyContent: "flex-start", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <TextField
+                        inputRef={inputRef}
                         id="outlined-basic"
                         label="Buscar componente"
                         variant='outlined'

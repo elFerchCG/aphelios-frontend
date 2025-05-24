@@ -29,6 +29,8 @@ const EnvioDetalle = () => {
     const [tarimas, setTarimas] = useState([]);
     const [tarimaId, setTarimaId] = useState('');
     const [cajaId, setCajaId] = useState('');
+    const [tarimaIdVisual, setTarimaIdVisual] = useState('');
+    const [cajaIdVisual, setCajaIdVisual] = useState('');
     const [searchTerm, setSearchTerm] = useState("");
     const [filteredTarimas, setFilteredTarimas] = useState([]);
     const [loadingTarimas, setLoadingTarimas] = useState(true);
@@ -73,7 +75,7 @@ const EnvioDetalle = () => {
             : process.env.REACT_APP_API_URL_LOCAL;
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-        id: true,
+        id: false,
         estatus: true
     });
 
@@ -116,6 +118,7 @@ const EnvioDetalle = () => {
             );
             if (response.data) {
                 setTarimaId(response.data.id);
+                setTarimaIdVisual(response.data.visual_id);
                 fetchTarimas();
             }
         } catch (error) {
@@ -143,7 +146,8 @@ const EnvioDetalle = () => {
             );
             if (response.data.ok) {
                 setCajaId(response.data.id);
-                handleEntrarCajaAbierta(envioIdParam, response.data.id); // ✅ no se colapsa
+                setCajaIdVisual(response.data.visual_id);
+                handleEntrarCajaAbierta(envioIdParam, response.data.id, response.data.visual_id); // ✅ no se colapsa
             }
         } catch (error) {
             const errorMessage = error.response.data.message;
@@ -251,12 +255,12 @@ const EnvioDetalle = () => {
         }
     }
 
-    const handleEntrarCajaCerrada = (envioId, cajaId) => {
-        navigate(`/empaque/envio/${envioId}/caja/${cajaId}`)
+    const handleEntrarCajaCerrada = (envioId, cajaId, cajaIdVisual) => {
+        navigate(`/empaque/envio/${envioId}/caja/${cajaId}/visual/${cajaIdVisual}`)
     };
 
-    const handleEntrarCajaAbierta = (envioId, cajaId) => {
-        navigate(`/empaqueCajaAbierta/envio/${envioId}/caja/${cajaId}`)
+    const handleEntrarCajaAbierta = (envioId, cajaId, cajaIdVisual) => {
+        navigate(`/empaqueCajaAbierta/envio/${envioId}/caja/${cajaId}/visual/${cajaIdVisual}`)
     }
 
     const fetchCajas = async (tarimaId) => {
@@ -291,6 +295,7 @@ const EnvioDetalle = () => {
 
     const columns = [
         { field: "id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
+        { field: "visual_id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
         { field: "cajas_ids", headerName: "Cajas", type: "text", flex: 0.5, justifyContent: "center" },
         { field: "estatus", headerName: "Estatus", type: "text", flex: 0.2 },
         {
@@ -504,6 +509,7 @@ const EnvioDetalle = () => {
                                             <TableHead>
                                                 <TableRow>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja</TableCell>
+                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja Visual</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Creado Por</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Fecha Creación</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Piezas</TableCell>
@@ -515,6 +521,7 @@ const EnvioDetalle = () => {
                                                 {(cajas[tarima.id] || []).map((caja, index) => (
                                                     <TableRow key={index}>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.id}</TableCell>
+                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.visual_id}</TableCell>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.nombre_usuario}</TableCell>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{formatFecha(caja.fecha_recepcion)}</TableCell>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.total_cantidad}</TableCell>
@@ -524,7 +531,7 @@ const EnvioDetalle = () => {
                                                                 <Box display="flex" flexDirection="column" alignItems="center">
                                                                     <IconButton
                                                                         color="primary"
-                                                                        onClick={() => handleEntrarCajaCerrada(envioId, caja.id)}
+                                                                        onClick={() => handleEntrarCajaCerrada(envioId, caja.id, caja.visual_id)}
                                                                         disabled={caja.estatus !== 'cerrada'}
                                                                     >
                                                                         <ListAltIcon sx={{ fontSize: "2rem" }} />
@@ -552,7 +559,7 @@ const EnvioDetalle = () => {
                                                                 </Box>
                                                                 <Box display="flex" flexDirection="column" alignItems="center">
                                                                     <IconButton
-                                                                        onClick={() => handleEntrarCajaAbierta(envioId, caja.id)}
+                                                                        onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
                                                                         disabled={tarima.estatus === 'cerrada' || caja.estatus === 'cerrada'}
                                                                     >
                                                                         <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' ? "rebeccapurple" : undefined, fontSize: "2rem" }} />
