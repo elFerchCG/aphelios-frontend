@@ -34,7 +34,7 @@ const Surtido = () => {
     const [skuPuroEtiqueta, setSkuPuroEtiqueta] = useState('');
     const [cantidadRecibida, setCantidadRecibida] = useState('');
     const [cantidadTicket, setCantidadTicket] = useState('');
-    const [cantidadEtiquetas, setCantidadEtiquetas] = useState('');
+    //const [cantidadEtiquetas, setCantidadEtiquetas] = useState('');
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
@@ -153,19 +153,9 @@ const Surtido = () => {
 
     const fetchOrdenProduccion = async (sku) => {
         try {
-            console.log("Este es el sku que se manda en la busqueda:", sku);
             const response = await axios.get(`${apiUrl}/mrp/${sku}`);
             if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
                 setData(response.data.data);
-            } else if (response.data.data && Array.isArray(response.data.data) && response.data.data.length === 0) {
-                Swal.fire({
-                    title: 'Error',
-                    text: `Error: No se encontraron datos sobre ese sku`,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true,
-                });
             }
         } catch (error) {
             const errorMessage = error.response.data.message;
@@ -216,21 +206,21 @@ const Surtido = () => {
 
         // Estructura del contenido del TXT con los valores reemplazados
         const contenido = `^XA
-    ^CI28
-    ^LH0,0
-    ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
-    ^FO22,165^A0N,25,25^FD^FS
-    ^FB350,2,2
-    ^FO22,145^A0N,18,18^FD^FS
-    ^FO21,145^A0N,18,18^FD^FS
-    ^FB350,2,2
-    ^FO22,105^A0N,20,20^FD${title}^FS
-    ^FT385,105^A0B,22,22^FH\^FD${selectedUsuario.nombre}/env^FS
-    ^FO65,18^BY2^BCN,54,N,N
-    ^FD${inventory_id}^FS
-^FT150,98^A0N,22,22^FH\^FD${inventory_id}^FS
-^FT149,98^A0N,22,22^FH\^FD${inventory_id}^FS
-    ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
+            ^CI28
+            ^LH0,0
+            ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
+            ^FO22,165^A0N,25,25^FD^FS
+            ^FB350,2,2
+            ^FO22,145^A0N,18,18^FD^FS
+            ^FO21,145^A0N,18,18^FD^FS
+            ^FB350,2,2
+            ^FO22,105^A0N,20,20^FD${title}^FS
+            ^FT385,105^A0B,22,22^FH\^FD${selectedUsuario.nombre}/env^FS
+            ^FO65,18^BY2^BCN,54,N,N
+            ^FD${inventory_id}^FS
+        ^FT150,98^A0N,22,22^FH\^FD${inventory_id}^FS
+        ^FT149,98^A0N,22,22^FH\^FD${inventory_id}^FS
+            ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
 
         // Crear un Blob con el contenido del archivo
         const blob = new Blob([contenido], { type: "text/plain" });
@@ -246,6 +236,60 @@ const Surtido = () => {
         document.body.removeChild(link);
     };
 
+    const asignarLinea = async () => {
+        try {
+            const data = {
+                cantidad_surtida: cantidadRecibida,
+                operador: selectedUsuario.id_usuario
+            }
+            await axios.post(`${apiUrl}/mrp/asignarLineaProduccion/${selectedDetalleId}`, data, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            //await updateDetalleOrden();
+            await fetchValoresOrden();
+            setSku('');
+            setData([]); // <- limpia los datos mostrados en el DataGrid
+            handleCloseAsignar();
+            inputRef.current?.focus();
+        } catch (error) {
+            const errorMessage =
+                error?.response?.data?.message || 'Ocurrió un error inesperado';
+
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            handleCloseAsignar();
+        }
+    }
+
+    // const updateDetalleOrden = async () => {
+    //     try {
+    //         const data = {
+    //             cantidad_surtida: cantidadRecibida
+    //         }
+    //         await axios.put(`${apiUrl}/mrp/actualizarDetalleOrden/${selectedDetalleId}`, data);
+    //     } catch (error) {
+    //         const errorMessage =
+    //             error?.response?.data?.message || 'Ocurrió un error inesperado';
+
+    //         Swal.fire({
+    //             title: 'Error',
+    //             text: errorMessage,
+    //             icon: 'error',
+    //             timer: 5000,
+    //             showCloseButton: true,
+    //             allowEscapeKey: true
+    //         });
+    //     }
+    // }
+
     const fetchValoresOrden = async () => {
         try {
             const response = await axios.get(`${apiUrl}/mrp/fetchOrden/${selectedOrdenId}`);
@@ -255,9 +299,8 @@ const Surtido = () => {
                 setTitleEtiqueta(result.title);
                 setInventoryIdEtiqueta(result.inventory_id);
                 setSkuPuroEtiqueta(result.sku_componente);
-                //setCantidadTicket(parseInt(result.cantidad_ticket));
                 // Calcula la cantidad de etiquetas necesarias
-                const cantidadEtiquetas = cantidadRecibida / result.cantidad_ticket;
+                const cantidadEtiquetas = cantidadRecibida / result.cantidad_billete;
                 setCantidadTicket(cantidadEtiquetas);
                 // Llamada correcta a generarYDescargarTXT pasando los datos necesarios
                 await generarYDescargarTXT({
@@ -268,7 +311,9 @@ const Surtido = () => {
                 });
             }
         } catch (error) {
-            const errorMessage = error.response.data.message;
+            const errorMessage =
+                error?.response?.data?.message || 'Ocurrió un error inesperado';
+
             Swal.fire({
                 title: 'Error',
                 text: errorMessage,
@@ -280,117 +325,44 @@ const Surtido = () => {
         }
     }
 
-    const updateDetalleOrden = async () => {
-        try {
-            const data = {
-                cantidad_surtida: cantidadRecibida
-            }
-            console.log("Esto es lo que se manda al put:", data);
-            const response = await axios.put(`${apiUrl}/mrp/actualizarDetalleOrden/${selectedDetalleId}`, data);
-            if (response.data) {
-                const message = response.data.message;
-                Swal.fire({
-                    title: 'Se actualizó la cantidad surtida!',
-                    text: message,
-                    icon: 'success',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-            }
-        } catch (error) {
-            const errorMessage = error.response.data.message;
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true
-            });
-        }
-    }
+    // const processRowUpdate = async (newRow, oldRow) => {
+    //     try {
+    //         // Enviar la actualización al backend
+    //         const response = await axios.put(`${apiUrl}/mrp/actualizarCantidad/${newRow.id_detalle_orden}`, {
+    //             cantidad_recibida: newRow.cantidad_recibida,
+    //         });
 
-    const asignarLinea = async () => {
-        try {
-            const data = {
-                cantidad_surtida: cantidadRecibida,
-                operador: selectedUsuario.id_usuario
-            }
-            const response = await axios.post(`${apiUrl}/mrp/asignarLineaProduccion/${selectedDetalleId}`, data, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            if (response.data) {
-                const message = response.data.message;
-                Swal.fire({
-                    title: 'Registrado!',
-                    text: message,
-                    icon: 'success',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-            }
-            await updateDetalleOrden();
-            await fetchValoresOrden();
-            setSku('');
-            setData([]); // <- limpia los datos mostrados en el DataGrid
-            handleCloseAsignar();
-            inputRef.current?.focus();
-        } catch (error) {
-            const errorMessage = error.response.data.message;
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true
-            });
-            handleCloseAsignar();
-        }
-    }
+    //         if (response.data.ok) {
+    //             Swal.fire({
+    //                 title: 'Actualizado!',
+    //                 text: response.data.message,
+    //                 icon: 'success',
+    //                 showCloseButton: true,
+    //                 allowEscapeKey: true
+    //             });
+    //             return newRow; // Devuelve la fila actualizada
+    //         }
+    //     } catch (error) {
+    //         // Capturar errores del backend
+    //         const errorMessage = error.response?.data?.message || 'Error desconocido';
 
-    const processRowUpdate = async (newRow, oldRow) => {
-        try {
-            // Enviar la actualización al backend
-            const response = await axios.put(`${apiUrl}/mrp/actualizarCantidad/${newRow.id_detalle_orden}`, {
-                cantidad_recibida: newRow.cantidad_recibida,
-            });
+    //         Swal.fire({
+    //             title: 'Error',
+    //             text: errorMessage,
+    //             icon: 'error',
+    //             showCloseButton: true,
+    //             allowEscapeKey: true
+    //         });
 
-            if (response.data.ok) {
-                Swal.fire({
-                    title: 'Actualizado!',
-                    text: response.data.message,
-                    icon: 'success',
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-                return newRow; // Devuelve la fila actualizada
-            }
-        } catch (error) {
-            // Capturar errores del backend
-            const errorMessage = error.response?.data?.message || 'Error desconocido';
+    //         return oldRow; // Revertir cambios en la UI
+    //     }
+    // };
 
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                showCloseButton: true,
-                allowEscapeKey: true
-            });
-
-            return oldRow; // Revertir cambios en la UI
-        }
-    };
-
-    const asignarOrdenUsuario = async () => {
-        if (!selectedOrdenId) return; // Evita llamadas con un ID nulo
-        console.log("Asignando orden con ID:", selectedOrdenId);
-        // Aquí puedes hacer la llamada a la API con idOrden
-    }
+    // const asignarOrdenUsuario = async () => {
+    //     if (!selectedOrdenId) return; // Evita llamadas con un ID nulo
+    //     console.log("Asignando orden con ID:", selectedOrdenId);
+    //     // Aquí puedes hacer la llamada a la API con idOrden
+    // }
 
     // useEffect(() => {
     //     if (cantidadTicket > 0) { // Evitar división por 0
@@ -483,7 +455,7 @@ const Surtido = () => {
                     showCellVerticalBorder
                     showColumnVerticalBorder
                     getRowId={(row) => row.unique_id}
-                    processRowUpdate={processRowUpdate}
+                    //processRowUpdate={processRowUpdate}
                     columnVisibilityModel={columnVisibilityModel}
                     onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                     experimentalFeatures={{ newEditingApi: true }}

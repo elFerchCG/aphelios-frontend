@@ -225,7 +225,7 @@ const EmpaqueCajaAbierta = () => {
                 },
             );
             if (response.data.ok) {
-                setOpenCerrarCaja(false);
+                handleCloseCerrarCaja();
                 navigate(`/empaque/${envioId}/detalle`)
             }
         } catch (error) {
@@ -238,7 +238,7 @@ const EmpaqueCajaAbierta = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
-            setOpenCerrarCaja(false);
+            handleCloseCerrarCaja();
         }
     }
 

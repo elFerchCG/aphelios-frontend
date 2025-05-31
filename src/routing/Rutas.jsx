@@ -34,6 +34,7 @@ import Facturas from '../components/pages/Facturas/Facturas';
 import EmpaqueCajaAbierta from '../components/pages/Envios/EmpaqueCajaAbierta';
 import DetalleFactura from '../components/pages/Facturas/DetalleFactura';
 import BarraLateral from '../components/layout/BarraLateral';
+import ResumenEnvio from '../components/pages/Envios/ResumenEnvio';
 
 
 const Rutas = () => {
@@ -82,6 +83,7 @@ const Rutas = () => {
                     <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
                     <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<EmpaqueCajaAbierta />} />
                     <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
+                    <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
                     <Route path="/barraLateral" element={<BarraLateral />} />
                     <Route path='*' element={
                         <div>

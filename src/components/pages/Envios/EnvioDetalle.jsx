@@ -508,8 +508,8 @@ const EnvioDetalle = () => {
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
+                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none'}}># Caja</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja Visual</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Creado Por</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Fecha Creación</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Piezas</TableCell>
@@ -520,7 +520,7 @@ const EnvioDetalle = () => {
                                             <TableBody>
                                                 {(cajas[tarima.id] || []).map((caja, index) => (
                                                     <TableRow key={index}>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.id}</TableCell>
+                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}>{caja.id}</TableCell>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.visual_id}</TableCell>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.nombre_usuario}</TableCell>
                                                         <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{formatFecha(caja.fecha_recepcion)}</TableCell>

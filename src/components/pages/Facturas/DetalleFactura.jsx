@@ -14,7 +14,6 @@ import InsertLinkIcon from '@mui/icons-material/InsertLink';
 import Typography from "@mui/material/Typography";
 import Swal from "sweetalert2";
 import { useParams, useLocation } from "react-router-dom";
-import ReplyAllIcon from '@mui/icons-material/ReplyAll';
 import BarraLateral from "../../layout/BarraLateral";
 
 
@@ -26,19 +25,37 @@ const DetalleFactura = () => {
   const [dataProveedor, setDataProveedor] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [lineaId, setLineaId] = useState('');
-  const [lineaDetalle, setLineaDetalle] = useState("");
-  const [ordenes, setOrdenes] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
   const [detalles, setDetalles] = useState([]); // aquí guardas todas las respuestas
   const [detalleData, setDetalleData] = useState([]);
-  const [selectedOrdenId, setSelectedOrdenId] = useState(null);
-  const [selectedLineaId, setSelectedLineaId] = useState("");
+  const [selectedPedidoId, setSelectedPedidoId] = useState(null);
+  const [selectedPedidoLineaId, setSelectedPedidoLineaId] = useState("");
   const [selectedSku, setSelectedSku] = useState("");
+  const [cantidadFactura, setCantidadFactura] = useState("");
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
     linea_id: false,
     descripcion: true,
     estatus: true,
   });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setToken(localStorage.getItem('token'));
+      setUser(JSON.parse(localStorage.getItem('user')));
+      console.log("Usuario:", user);
+    };
+
+    // Añadir un listener para el evento `storage`
+    window.addEventListener('storage', handleStorageChange);
+
+    // Limpieza al desmontar el componente
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   const apiUrl =
     process.env.NODE_ENV === "production"
@@ -76,14 +93,6 @@ const DetalleFactura = () => {
     fetchProveedor(proveedorNombre);
   }, [apiUrl]);
 
-  const parseDetalles = (detalles) =>
-    detalles.map((d) => ({
-      ...d,
-      cantidad: parseFloat(d.cantidad),
-      precio: parseFloat(d.precio),
-      total: parseFloat(d.total),
-    }));
-
   const parseDetallesDataGrid = (detalles) =>
     detalles.map((d) => ({
       ...d,
@@ -104,8 +113,6 @@ const DetalleFactura = () => {
           },
         }
       );
-
-      console.log(response.data);
       setDataProveedor(response.data.data[0]);
     } catch (error) {
       const errorMessage =
@@ -129,8 +136,7 @@ const DetalleFactura = () => {
         setData(detallesParseados);
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Error al cargar los datos";
+      const errorMessage = error.response?.data?.message || "Error al cargar los datos";
       Swal.fire({
         title: "Error",
         text: errorMessage,
@@ -142,116 +148,19 @@ const DetalleFactura = () => {
     }
   };
 
-  // const fetchOrden = async (facturaId) => {
-  //   try {
-  //     const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
-  //     if (response.data && Array.isArray(response.data.detalles)) {
-  //       const detallesParseados = parseDetalles(response.data.detalles);
-  //       setDetalleData(detallesParseados);
-  //     }
-  //   } catch (error) {
-  //     const errorMessage =
-  //       error.response?.data?.message || "Error al cargar los datos";
-  //     Swal.fire({
-  //       title: "Error",
-  //       text: errorMessage,
-  //       icon: "warning",
-  //       timer: 5000,
-  //       showCloseButton: true,
-  //       allowEscapeKey: true,
-  //     });
-  //   }
-  // };
-
-  const backOrder = async (params) => {
-    try {
-      Swal.fire({
-        title: '¿Estás seguro de ajustar con back order?',
-        text: '¡No podrás revertir esto!',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, ajustar con back order!',
-        //target: document.getElementById("modal-details"),
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            const data = {
-              linea_id: params.row.linea_id,
-              cantidad_facturada: params.row.cantidad
-            }
-
-            await axios.post(`${apiUrl}/facturas/actualizarBackOrder`, data);
-            fetchDetalleFactura(facturaId);
-
-            //setOpenDetailsComponente(false);
-          } catch (error) {
-            const errorMessage = error.response.data.message;
-            Swal.fire({
-              title: 'Error',
-              text: errorMessage,
-              icon: 'error',
-              timer: 5000,
-              showCloseButton: true,
-              allowEscapeKey: true,
-              target: document.getElementById("modal-details"),
-            });
-          }
-        } else if (result.isDismissed) {
-          //setOpenDetailsComponente(false);
-        }
-      })
-
-    } catch (error) {
-      const errorMessage = error.response.data.message;
-      Swal.fire({
-        title: 'Error',
-        text: errorMessage,
-        icon: 'error',
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true
-      });
-    }
-  }
-
   const handleOpenModal = (params) => {
     setLineaId(params.row.id);
     setSelectedSku(params.row.sku);
+    setCantidadFactura(params.row.cantidad);
     setOpenModal(true);
   }
 
   const handleCloseModal = () => {
     setOpenModal(false);
     setLineaId("");
-    setSelectedLineaId("");
+    setSelectedPedidoLineaId("");
     setDetalleData([]);
-    setSelectedOrdenId("");
-  }
-
-  const enlazarManual = async () => {
-    try {
-      const response = await axios.post(`${apiUrl}/facturas/enlazarManual`,
-        {
-          factura_detalle_id: lineaId,
-          linea_id: selectedLineaId
-        },
-      );
-      if (response.data.message) {
-        //await fetchEnvios();
-      }
-    } catch (error) {
-      const errorMessage = error.response.data.message;
-      Swal.fire({
-        title: 'Error',
-        text: errorMessage,
-        icon: 'warning',
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-    }
+    setSelectedPedidoId("");
   }
 
   const columns = [
@@ -275,7 +184,7 @@ const DetalleFactura = () => {
       field: "cantidad",
       headerName: "Cantidad",
       type: "number",
-      flex: 1,
+      flex: 0.6,
       align: "center",
       headerAlign: "center",
     },
@@ -283,7 +192,7 @@ const DetalleFactura = () => {
       field: "precio",
       headerName: "Precio",
       type: "number",
-      flex: 1,
+      flex: 0.6,
       align: "center",
       headerAlign: "center",
     },
@@ -291,7 +200,7 @@ const DetalleFactura = () => {
       field: "total",
       headerName: "Total",
       type: "number",
-      flex: 1,
+      flex: 0.6,
       align: "center",
       headerAlign: "center",
     },
@@ -305,11 +214,12 @@ const DetalleFactura = () => {
     },
     {
       field: "orden_produccion_id",
-      headerName: "# Orden Producción",
+      headerName: "# Orden\nProducción",
       type: "text",
       flex: 0.6,
       align: "center",
       headerAlign: "center",
+      headerClassName: 'header-wrap',
     },
     {
       field: "actions",
@@ -322,14 +232,6 @@ const DetalleFactura = () => {
             sx={{ color: "blue" }}
             label="Enlazar manual"
             onClick={() => handleOpenModal(params)}
-          />
-        </Tooltip>,
-        <Tooltip title="Back Order" key={`facturas-${params.row.id}`}>
-          <GridActionsCellItem
-            icon={<ReplyAllIcon />}
-            sx={{ color: "red" }}
-            label="Back Order"
-            onClick={() => backOrder(params)}
           />
         </Tooltip>
       ],
@@ -369,12 +271,12 @@ const DetalleFactura = () => {
         // Aquí comparas el SKU del producto con el SKU seleccionado del datagrid principal
         if (params.row.sku === selectedSku) {
           return [
-            <Tooltip title="Enlazar manual" key={`facturas-${params.row.id}`}>
+            <Tooltip title="Enlazar Orden" key={`facturas-${params.row.id}`}>
               <GridActionsCellItem
                 icon={<InsertLinkIcon />}
                 sx={{ color: "blue" }}
-                label="Enlazar manual"
-                onClick={() => enlazarManual()}
+                label="Enlazar Orden"
+                onClick={() => linkOrden(params)}
               />
             </Tooltip>
           ];
@@ -392,30 +294,118 @@ const DetalleFactura = () => {
     }
   }, [openModal]);
 
-  // const fetchOrdenes = async (lineaId) => {
-  //   try {
-  //     const response = await axios.get(`${apiUrl}/facturas/detalle/${lineaId}/posiblesEnlaces`);
-  //     if (response.data && Array.isArray(response.data)) {
-  //       // EXTRAER los orden_id únicos para la barra lateral
-  //       const ordenesUnicas = response.data.map(item => ({
-  //         orden_id: item.orden_id,
-  //       }));
+  const enlazarManual = async () => {
+    try {
+      await axios.post(`${apiUrl}/facturas/enlazarManual`,
+        {
+          factura_detalle_id: lineaId,
+          pedido_linea_id: selectedPedidoLineaId,
+          usuario_id: user.id_usuario
+        },
+      );
+      setOpenModal(false);
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      const errorMessage = error.response.data.message;
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'warning',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+        target: document.getElementById("modal-enlazar")
+      });
+    }
+  }
 
-  //       setOrdenes(ordenesUnicas);
-  //     }
-  //   } catch (error) {
-  //     const errorMessage =
-  //       error.response?.data?.message || "Error al cargar los datos";
-  //     Swal.fire({
-  //       title: "Error",
-  //       text: errorMessage,
-  //       icon: "warning",
-  //       timer: 5000,
-  //       showCloseButton: true,
-  //       allowEscapeKey: true,
-  //     });
-  //   }
-  // };
+  const agregarBackOrder = async () => {
+    const result = await Swal.fire({
+      title: '¿Mantener en backorder?',
+      text: '¿Deseas mantener el producto en backorder?',
+      icon: 'question',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: 'Sí',
+      denyButtonText: 'No',
+      cancelButtonText: 'Cancelar',
+      target: document.getElementById("modal-enlazar")
+    });
+
+    // Cancelar: cerrar sin hacer nada
+    if (result.isDismissed) {
+      return;
+    }
+
+    // Determinar valor de mantener_backorder
+    const mantenerBackorder = result.isConfirmed ? true : false;
+
+    try {
+      await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
+        factura_detalle_id: lineaId,
+        pedido_linea_id: selectedPedidoLineaId,
+        mantener_backorder: mantenerBackorder,
+        usuario_id: user.id_usuario,
+      });
+      setOpenModal(false);
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Error desconocido';
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'warning',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+        target: document.getElementById("modal-enlazar")
+      });
+    }
+  };
+
+  const enlazarExcedente = async () => {
+    try {
+      await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`,
+        {
+          factura_detalle_id: lineaId,
+          pedido_linea_id: selectedPedidoLineaId,
+          usuario_id: user.id_usuario
+        },
+      );
+      setOpenModal(false);
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      const errorMessage = error.response.data.message;
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'warning',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+    }
+  }
+
+  const linkOrden = async (params) => {
+    const factura = Number(cantidadFactura);
+    const enlace = Number(params.row.cantidad);
+
+    if (isNaN(factura) || isNaN(enlace)) {
+      alert("Error: las cantidades no son válidas.");
+      return;
+    }
+
+    if (factura === enlace) {
+      await enlazarManual();
+    } else if (factura < enlace) {
+      await agregarBackOrder();
+    } else if (factura > enlace) {
+      await enlazarExcedente();
+    } else {
+      alert("Ocurrió un error inesperado al llamar el enlace");
+    }
+  };
 
   const fetchProductosEnlaces = async (lineaId) => {
     try {
@@ -423,17 +413,15 @@ const DetalleFactura = () => {
       if (response.data && Array.isArray(response.data)) {
         setDetalles(response.data);
         // EXTRAER los orden_id únicos para la barra lateral
-        const ordenesUnicas = response.data.map(item => ({
-          orden_id: item.orden_id,
-          linea_id: item.linea_id,
+        const pedidosUnicos = response.data.map(item => ({
+          pedido_id: item.pedido_id,
+          pedido_linea_id: item.pedido_linea_id,
           productos: item.productos
         }));
-
-        setOrdenes(ordenesUnicas);
+        setPedidos(pedidosUnicos);
       }
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Error al cargar los datos";
+      const errorMessage = error.response?.data?.message || "Error al cargar los datos";
       Swal.fire({
         title: "Error",
         text: errorMessage,
@@ -445,24 +433,20 @@ const DetalleFactura = () => {
     }
   };
 
-  const handleSelectOrden = (ordenId) => {
+  const handleSelectPedido = (pedidoId) => {
 
     // Buscamos la orden seleccionada en el arreglo de ordenes ya cargadas
-    const ordenSeleccionada = ordenes.find((orden) => orden.orden_id === ordenId);
+    const pedidoSeleccionado = pedidos.find((pedido) => pedido.pedido_id === pedidoId);
 
-    if (ordenSeleccionada) {
+    if (pedidoSeleccionado) {
       // Le agregamos un 'id' único a cada producto usando el índice
-      const productosConIndice = ordenSeleccionada.productos.map((producto, index) => ({
+      const productosConIndice = pedidoSeleccionado.productos.map((producto, index) => ({
         ...producto,
         id: index, // esto será usado por el DataGrid
       }));
-      setSelectedOrdenId(ordenId);
-      setSelectedLineaId(ordenSeleccionada.linea_id);
+      setSelectedPedidoId(pedidoId);
+      setSelectedPedidoLineaId(pedidoSeleccionado.pedido_linea_id);
       setDetalleData(productosConIndice);
-
-      console.log("Esta es mi id del detalle de la factura:", facturaId);
-      console.log("Esta es mi id de la orden seleccionada:", ordenId);
-      console.log("Esta es mi linea de la orden seleccionada:", ordenSeleccionada.linea_id);
     } else {
       setDetalleData([]); // si no hay productos, dejamos el grid vacío
     }
@@ -559,11 +543,11 @@ const DetalleFactura = () => {
             height: '80vh',
           }}
         >
-          <BarraLateral ordenes={ordenes} onSelectOrden={handleSelectOrden} />
+          <BarraLateral pedidos={pedidos} onSelectPedido={handleSelectPedido} />
           {/* Contenido principal */}
           <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
             <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
-              Lineas de la orden {selectedOrdenId}
+              Lineas del pedido {selectedPedidoId}
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
               <DataGrid

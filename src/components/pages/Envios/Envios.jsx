@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import DetailsIcon from '@mui/icons-material/Details';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import DatePicker from 'react-datepicker';
+import DataThresholdingOutlinedIcon from '@mui/icons-material/DataThresholdingOutlined';
 
 
 const Envios = () => {
@@ -165,6 +166,11 @@ const Envios = () => {
     });
   };
 
+  const handleResumenEnvio = (envio) => {
+    navigate(`/resumenEnvio/envio/${envio.id}`)
+    console.log("envio:", envio.id);
+  }
+
   const handleCloseModal = () => {
     setOpenModal(false);
     setDescripcion("");
@@ -222,7 +228,7 @@ const Envios = () => {
       field: "fecha_creacion",
       headerName: "Fecha Creación",
       type: 'Date',
-      flex: 1,
+      flex: 0.5,
       align: "center",
       headerAlign: "center",
     },
@@ -230,11 +236,11 @@ const Envios = () => {
       field: "fecha_programada",
       headerName: "Fecha Programada",
       type: 'Date',
-      flex: 1,
+      flex: 0.5,
       align: "center",
       headerAlign: "center",
     },
-    { field: 'estatus', headerName: "Estatus", type: "text", flex: 1, align: "center", headerAlign: "center" },
+    { field: 'estatus', headerName: "Estatus", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
     {
       field: "actions",
       headerName: "Acciones",
@@ -254,6 +260,22 @@ const Envios = () => {
               }
               label='Detalles'
               onClick={() => handleDetallesEnvio(params.row)}
+            />
+          </>
+        </Tooltip>,
+        <Tooltip title="Resumen" key={`envios-${params.row.id}`}>
+          <>
+            <GridActionsCellItem
+              icon={
+                <Box display="flex" flexDirection="column" alignItems="center">
+                  <DataThresholdingOutlinedIcon sx={{ color: 'green' }} />
+                  <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
+                    Resumen
+                  </Typography>
+                </Box>
+              }
+              label='Detalles'
+              onClick={() => handleResumenEnvio(params.row)}
             />
           </>
         </Tooltip>,

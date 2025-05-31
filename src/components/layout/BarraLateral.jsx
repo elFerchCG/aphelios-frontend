@@ -8,10 +8,9 @@ import {
     ListItemText,
     Divider
 } from '@mui/material';
-import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import { useState } from 'react';
 
-const BarraLateral = ({ ordenes, onSelectOrden }) => {
+const BarraLateral = ({ pedidos, onSelectPedido }) => {
     const [openSection, setOpenSection] = useState(null);
 
     const handleToggle = (section) => {
@@ -29,10 +28,10 @@ const BarraLateral = ({ ordenes, onSelectOrden }) => {
             }}
         >
             <List component="nav">
-                {ordenes.map((orden) => (
-                    <Box key={orden.orden_id}>
-                        <ListItemButton onClick={() => onSelectOrden(orden.orden_id)}>
-                            <ListItemText primary={`Orden #${orden.orden_id}`} />
+                {pedidos.map((pedido) => (
+                    <Box key={pedido.pedido_id}>
+                        <ListItemButton onClick={() => onSelectPedido(pedido.pedido_id)}>
+                            <ListItemText primary={`Pedido #${pedido.pedido_id}`} />
                         </ListItemButton>
                         <Divider />
                     </Box>
