@@ -225,16 +225,24 @@ const DetalleFactura = () => {
       field: "actions",
       headerName: "Acciones",
       type: "actions",
-      getActions: (params) => [
-        <Tooltip title="Enlazar manual" key={`facturas-${params.row.id}`}>
-          <GridActionsCellItem
-            icon={<InsertLinkIcon />}
-            sx={{ color: "blue" }}
-            label="Enlazar manual"
-            onClick={() => handleOpenModal(params)}
-          />
-        </Tooltip>
-      ],
+      getActions: (params) => {
+        const { pedido_id, orden_produccion_id } = params.row;
+
+        if (!pedido_id || !orden_produccion_id) {
+          return [
+            <Tooltip title="Enlazar manual" key={`facturas-${params.row.id}`}>
+              <GridActionsCellItem
+                icon={<InsertLinkIcon />}
+                sx={{ color: "blue" }}
+                label="Enlazar manual"
+                onClick={() => handleOpenModal(params)}
+              />
+            </Tooltip>
+          ];
+        }
+
+        return []; // No mostrar acciones si ambos existen
+      },
     },
   ];
 

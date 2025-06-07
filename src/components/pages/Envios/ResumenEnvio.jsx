@@ -6,13 +6,19 @@ import Swal from 'sweetalert2';
 
 
 const ResumenEnvio = () => {
-    const { envio } = useParams();
+    const { envioId } = useParams();
     const [data, setData] = useState([]);
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-        id: true,
+        id: false,
+        envio_id: false,
+        escaneo_id: false,
         descripcion: true,
-        estatus: true
+        estatus: true,
+        producto_id: false,
+        orden_id: false,
+        cantidad_total: false,
+        variation_desc: false
     });
 
     const apiUrl = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
@@ -20,16 +26,18 @@ const ResumenEnvio = () => {
     useEffect(() => {
         const fetchResumenEnvio = async () => {
             try {
-                const response = await axios.get(`${apiUrl}/empaque/resumenEnvio/${envio}`);
+                const response = await axios.get(`${apiUrl}/empaque/resumenEnvio/${envioId}`);
                 if (response.data.ok) {
                     const dataWithIds = response.data.data.map((item, index) => ({
                         ...item,
-                        id: index + 1 // ID basado en posición
+                        id: index + 1, // ID basado en posición
+                        escaneo_id: item.escaneo_id || item.caja_escaneo_id,
+                        escaneo_cantidad: item.escaneo_cantidad || item.caja_escaneo_cantidad
                     }));
                     setData(dataWithIds);
                 }
             } catch (error) {
-                const errorMessage = error.response.data.message;
+                const errorMessage = error.response?.data?.message || "Error al obtener datos";
                 Swal.fire({
                     title: 'Error',
                     text: errorMessage,
@@ -39,9 +47,9 @@ const ResumenEnvio = () => {
                     allowEscapeKey: true,
                 });
             }
-        }
+        };
         fetchResumenEnvio();
-    })
+    }, [envioId, apiUrl]);
 
 
     // Columnas DataGrid Resumen
@@ -49,7 +57,7 @@ const ResumenEnvio = () => {
         { field: "envio_id", headerName: "# Envío", type: "number", flex: 0.3, align: "left", headerAlign: "left" },
         { field: "escaneo_id", headerName: "# Escaneo", type: "text", flex: 1, align: "center", headerAlign: "center" },
         {
-            field: "cantidad_total",
+            field: "escaneo_cantidad",
             headerName: "Cantidad Escaneada",
             type: 'text',
             flex: 0.5,
@@ -64,15 +72,18 @@ const ResumenEnvio = () => {
             align: "center",
             headerAlign: "center",
         },
-        { field: 'inventory_id', headerName: "ML", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'title', headerName: "Titulo", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'sku', headerName: "SKU", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
+        { field: 'inventory_id', headerName: "ML", type: "text", flex: 1, align: "center", headerAlign: "center" },
+        { field: 'title', headerName: "Titulo", type: "text", flex: 3, align: "center", headerAlign: "center" },
+        { field: 'sku', headerName: "SKU", type: "text", flex: 1.5, align: "center", headerAlign: "center" },
         { field: 'variation_desc', headerName: "Variante", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
         { field: 'orden_id', headerName: "# Orden P", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'cantidad_a_producir', headerName: "Cantidad A Producir", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'cantidad_empacada', headerName: "Cantidad Empacada", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'orden_estatus', headerName: "Estatus Orden", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'cantidad_surtida', headerName: "Cantidad Surtida", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
+        { field: 'cantidad_billete', headerName: "Cantidad A\nSurtir", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_surtida', headerName: "Cantidad\nAsignada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'nombre_surtidor', headerName: "Surtío", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'nombre_operador', headerName: "Cantidad\nAsignada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_a_producir', headerName: "Asignado", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_empacada', headerName: "Cantidad\nEmpacada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'orden_estatus', headerName: "Estatus\nOrden", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center', align: "center" },
     ];
 
     return (
@@ -82,12 +93,19 @@ const ResumenEnvio = () => {
                 fontFamily: "Montserrat",
                 fontWeight: "bold",
                 textAlign: "center",
-                width: "90%",
+                width: "98%",
                 height: 500
             }}
             >
-                <h2>Resumen envio: </h2>
-                <DataGrid sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", fontFamily: "Montserrat", fontWeight: "bold" }}
+                <h2>Control de producción envío: {envioId}</h2>
+                <DataGrid sx={{
+                    borderRadius: 4,
+                    boxShadow: 24,
+                    borderWidth: 3,
+                    borderColor: "#1e88e5",
+                    fontFamily: "Montserrat",
+                    fontWeight: "bold"
+                }}
                     rows={data}
                     columns={columnsResumen}
                     showCellVerticalBorder
