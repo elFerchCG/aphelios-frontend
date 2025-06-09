@@ -18,7 +18,8 @@ const ResumenEnvio = () => {
         producto_id: false,
         orden_id: false,
         cantidad_total: false,
-        variation_desc: false
+        variation_desc: false,
+        nombre_surtidor: false,
     });
 
     const apiUrl = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
@@ -73,15 +74,16 @@ const ResumenEnvio = () => {
             headerAlign: "center",
         },
         { field: 'inventory_id', headerName: "ML", type: "text", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'title', headerName: "Titulo", type: "text", flex: 3, align: "center", headerAlign: "center" },
+        { field: 'sku_componente', headerName: "SKU (#Parte)", type: "text", flex: 1, align: "center", headerAlign: "center" },
         { field: 'sku', headerName: "SKU", type: "text", flex: 1.5, align: "center", headerAlign: "center" },
+        { field: 'title', headerName: "Titulo", type: "text", flex: 3, align: "center", headerAlign: "center" },
         { field: 'variation_desc', headerName: "Variante", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
         { field: 'orden_id', headerName: "# Orden P", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'cantidad_billete', headerName: "Cantidad A\nSurtir", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'cantidad_surtida', headerName: "Cantidad\nAsignada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_a_producir', headerName: "Enviar", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_billete', headerName: "Factura", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_surtida', headerName: "Piezas\nProcesadas", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'nombre_surtidor', headerName: "Surtío", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'nombre_operador', headerName: "Cantidad\nAsignada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'cantidad_a_producir', headerName: "Asignado", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'nombre_operador', headerName: "Asignado", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'cantidad_empacada', headerName: "Cantidad\nEmpacada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'orden_estatus', headerName: "Estatus\nOrden", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center', align: "center" },
     ];
