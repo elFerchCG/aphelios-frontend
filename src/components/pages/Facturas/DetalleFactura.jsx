@@ -486,7 +486,7 @@ const DetalleFactura = () => {
   const handleEjecutarReemplazoSku = async () => {
     try {
       await axios.post(`${apiUrl}/facturas/reemplazarSku`, {
-        componente_id_viejo: skuSeleccionado.componente_id, 
+        componente_id_viejo: skuSeleccionado.componente_id,
         nuevo_sku: nuevoSku,
         usuario_id: user.id_usuario,
       });
@@ -499,6 +499,25 @@ const DetalleFactura = () => {
       Swal.fire(
         "Error",
         error.response?.data?.message || "Error al reemplazar SKU",
+        "error"
+      );
+    }
+  };
+
+  const marcarComoNuevoProducto = async (facturaDetalleId) => {
+    try {
+      await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
+        factura_detalle_id: facturaDetalleId,
+      });
+
+      await Swal.fire("¡Marcado!", "Producto marcado como nuevo.", "success");
+
+      // Recargar visualización si aplica
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      Swal.fire(
+        "Error",
+        error.response?.data?.message || "No se pudo marcar como nuevo.",
         "error"
       );
     }
@@ -583,8 +602,17 @@ const DetalleFactura = () => {
             denyButtonText: "Cambio de SKU",
           }).then(async (result) => {
             if (result.isConfirmed) {
-              setProductoNuevo(true);
-              setOpenModal(true);
+              await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
+                factura_detalle_id: lineaId,
+              });
+
+              await Swal.fire(
+                "✅ Marcado",
+                "El producto fue marcado como 'nuevo producto'.",
+                "success"
+              );
+
+              fetchDetalleFactura(facturaId); // refresca la vista
             } else if (result.isDenied) {
               setModoCambioSku(true);
               const response = await axios.get(
