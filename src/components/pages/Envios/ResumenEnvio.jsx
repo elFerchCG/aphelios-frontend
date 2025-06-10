@@ -15,9 +15,8 @@ const ResumenEnvio = () => {
         escaneo_id: false,
         descripcion: true,
         estatus: true,
-        producto_id: false,
         orden_id: false,
-        cantidad_total: false,
+        cantidad_total: true,
         variation_desc: false,
         nombre_surtidor: false,
     });
@@ -33,7 +32,7 @@ const ResumenEnvio = () => {
                         ...item,
                         id: index + 1, // ID basado en posición
                         escaneo_id: item.escaneo_id || item.caja_escaneo_id,
-                        escaneo_cantidad: item.escaneo_cantidad || item.caja_escaneo_cantidad
+                        escaneo_cantidad: item.cantidad_total || item.cantidad_cajas_escaneos
                     }));
                     setData(dataWithIds);
                 }
@@ -55,13 +54,15 @@ const ResumenEnvio = () => {
 
     // Columnas DataGrid Resumen
     const columnsResumen = [
-        { field: "envio_id", headerName: "# Envío", type: "number", flex: 0.3, align: "left", headerAlign: "left" },
-        { field: "escaneo_id", headerName: "# Escaneo", type: "text", flex: 1, align: "center", headerAlign: "center" },
+        { field: "envio_id", headerName: "# Envío", type: "number", minWidth: 100, flex: 0.3, align: "left", headerAlign: "left" },
+        { field: "escaneo_id", headerName: "# Escaneo", type: "text", minWidth: 100, flex: 1, align: "center", headerAlign: "center" },
         {
             field: "escaneo_cantidad",
-            headerName: "Cantidad Escaneada",
+            headerName: "Cantidad\nEscaneada",
             type: 'text',
+            minWidth: 120,
             flex: 0.5,
+            headerClassName: 'header-wrap',
             align: "center",
             headerAlign: "center",
         },
@@ -69,34 +70,35 @@ const ResumenEnvio = () => {
             field: "producto_id",
             headerName: "# Producto",
             type: 'text',
+            minWidth: 100,
             flex: 0.5,
             align: "center",
             headerAlign: "center",
         },
-        { field: 'inventory_id', headerName: "ML", type: "text", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'sku_componente', headerName: "SKU (#Parte)", type: "text", flex: 1, align: "center", headerAlign: "center" },
-        { field: 'sku', headerName: "SKU", type: "text", flex: 1.5, align: "center", headerAlign: "center" },
-        { field: 'title', headerName: "Titulo", type: "text", flex: 3, align: "center", headerAlign: "center" },
+        { field: 'inventory_id', headerName: "ML", type: "text", minWidth: 150, flex: 1, align: "center", headerAlign: "center" },
+        { field: 'sku_componente', headerName: "SKU (#Parte)", type: "text", minWidth: 200, flex: 1, align: "center", headerAlign: "center" },
+        { field: 'sku', headerName: "SKU", type: "text", minWidth: 250, flex: 1.5, align: "center", headerAlign: "center" },
+        { field: 'title', headerName: "Titulo", type: "text", minWidth: 550, flex: 3, align: "center", headerAlign: "center" },
         { field: 'variation_desc', headerName: "Variante", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'orden_id', headerName: "# Orden P", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
-        { field: 'cantidad_a_producir', headerName: "Enviar", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'cantidad_billete', headerName: "Factura", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'cantidad_surtida', headerName: "Piezas\nProcesadas", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'nombre_surtidor', headerName: "Surtío", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'nombre_operador', headerName: "Asignado", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'cantidad_empacada', headerName: "Cantidad\nEmpacada", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'orden_estatus', headerName: "Estatus\nOrden", type: "text", flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center', align: "center" },
+        { field: 'orden_id', headerName: "# Orden P", type: "text", minWidth: 120, flex: 0.5, align: "center", headerAlign: "center" },
+        { field: 'cantidad_a_producir', headerName: "Enviar", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_billete', headerName: "Factura", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_surtida', headerName: "Piezas\nProcesadas", type: "text", minWidth: 120, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_empacada', headerName: "Cantidad\nEmpacada", type: "text", minWidth: 120, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'nombre_surtidor', headerName: "Surtío", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'nombre_operador', headerName: "Asignado", type: "text", minWidth: 120, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'estatus', headerName: "Estatus\nOrden", type: "text", minWidth: 120, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center', align: "center" },
     ];
 
     return (
         <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
             <div style={{
-                flexDirection: "row",
-                fontFamily: "Montserrat",
-                fontWeight: "bold",
-                textAlign: "center",
                 width: "98%",
-                height: 500
+                height: 500,
+                overflowX: "auto",
+                minWidth: "98%",
+                display: "flex",
+                flexDirection: "column"
             }}
             >
                 <h2>Control de producción envío: {envioId}</h2>
@@ -106,7 +108,8 @@ const ResumenEnvio = () => {
                     borderWidth: 3,
                     borderColor: "#1e88e5",
                     fontFamily: "Montserrat",
-                    fontWeight: "bold"
+                    fontWeight: "bold",
+                    minWidth: "98%"
                 }}
                     rows={data}
                     columns={columnsResumen}
