@@ -303,7 +303,7 @@ const DetalleFactura = () => {
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => {
-        const { pedido_id, orden_produccion_id, estatus } = params.row;
+        const { pedido_id, pedido_linea_id, estatus } = params.row;
 
         // Ocultar icono si la fila es "nuevo"
         if (estatus === "nuevo") return [];
