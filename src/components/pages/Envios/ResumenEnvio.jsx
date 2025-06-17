@@ -1,6 +1,6 @@
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
@@ -19,6 +19,7 @@ const ResumenEnvio = () => {
         cantidad_total: true,
         variation_desc: false,
         nombre_surtidor: false,
+        producto_id: false,
     });
 
     const apiUrl = process.env.NODE_ENV === 'production' ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
@@ -51,6 +52,20 @@ const ResumenEnvio = () => {
         fetchResumenEnvio();
     }, [envioId, apiUrl]);
 
+    const ordenesRepetidas = useMemo(() => {
+        const ordenIdCounts = {};
+        data.forEach(row => {
+            if (row.orden_id != null) {
+                ordenIdCounts[row.orden_id] = (ordenIdCounts[row.orden_id] || 0) + 1;
+            }
+        });
+
+        return new Set(
+            Object.entries(ordenIdCounts)
+                .filter(([_, count]) => count > 1)
+                .map(([orden_id]) => Number(orden_id))
+        );
+    }, [data]);
 
     // Columnas DataGrid Resumen
     const columnsResumen = [
@@ -109,7 +124,10 @@ const ResumenEnvio = () => {
                     borderColor: "#1e88e5",
                     fontFamily: "Montserrat",
                     fontWeight: "bold",
-                    minWidth: "98%"
+                    minWidth: "98%",
+                    '& .fila-repetida': {
+                        backgroundColor: '#FFF9C4' // Amarillo claro, puedes cambiarlo
+                    }
                 }}
                     rows={data}
                     columns={columnsResumen}
@@ -120,6 +138,9 @@ const ResumenEnvio = () => {
                     onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                     experimentalFeatures={{ newEditingApi: true }}
                     density="compact" // Establece el tamaño de las filas en compacto por defecto
+                    getRowClassName={(params) =>
+                        ordenesRepetidas.has(Number(params.row.orden_id)) ? 'fila-repetida' : ''
+                    }
                 />
             </div>
         </div>
