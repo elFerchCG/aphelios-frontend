@@ -306,7 +306,7 @@ const DetalleFactura = () => {
         const { pedido_id, orden_produccion_id, estatus } = params.row;
 
         // Ocultar icono si la fila es "nuevo"
-        if (estatus === "nuevo") return [];
+        if (estatus === "nuevo" || estatus === "devolver") return [];
 
         if (!pedido_id || !orden_produccion_id) {
           return [
@@ -368,149 +368,159 @@ const DetalleFactura = () => {
     }
   }, [openModal]);
 
-const handleGuardarSeleccion = async () => {
-  let advertencia = null;
-  let result = null;
-  let continuar = true;
+  const handleGuardarSeleccion = async () => {
+    let advertencia = null;
+    let result = null;
+    let continuar = true;
 
-  const seleccionadas = detalleData.filter((row) =>
-    selectionModel.includes(row.id)
-  );
+    const seleccionadas = detalleData.filter((row) =>
+      selectionModel.includes(row.id)
+    );
 
-  const pedido_linea_ids = seleccionadas.map((row) => row.id);
-  const totalPedido = seleccionadas.reduce(
-    (sum, item) => sum + parseFloat(item.cantidad),
-    0
-  );
-  const cantidadFacturaFloat = parseFloat(cantidadFactura);
-  const usuario_id = user.id_usuario;
+    const pedido_linea_ids = seleccionadas.map((row) => row.id);
+    const totalPedido = seleccionadas.reduce(
+      (sum, item) => sum + parseFloat(item.cantidad),
+      0
+    );
+    const cantidadFacturaFloat = parseFloat(cantidadFactura);
+    const usuario_id = user.id_usuario;
 
-  try {
-    if (cantidadFacturaFloat === totalPedido) {
-      await axios.post(`${apiUrl}/facturas/enlazarManual`, {
-        factura_detalle_id: lineaId,
-        pedido_linea_ids,
-        usuario_id,
-      });
-    } else if (cantidadFacturaFloat < totalPedido) {
-      if (detalleData.length > selectionModel.length) {
-        const advertenciaBack = await Swal.fire({
-          title: "🔄 Backorder detectado",
-          text: "Aún tienes líneas disponibles que podrías seleccionar. ¿Deseas elegir más antes de continuar?",
-          icon: "info",
+    try {
+      if (cantidadFacturaFloat === totalPedido) {
+        await axios.post(`${apiUrl}/facturas/enlazarManual`, {
+          factura_detalle_id: lineaId,
+          pedido_linea_ids,
+          usuario_id,
+        });
+      } else if (cantidadFacturaFloat < totalPedido) {
+        if (detalleData.length > selectionModel.length) {
+          const advertenciaBack = await Swal.fire({
+            title: "🔄 Backorder detectado",
+            text: "Aún tienes líneas disponibles que podrías seleccionar. ¿Deseas elegir más antes de continuar?",
+            icon: "info",
+            showCancelButton: true,
+            confirmButtonText: "Sí, seleccionar más",
+            cancelButtonText: "No, continuar con backorder",
+            allowOutsideClick: false,
+          });
+
+          if (advertenciaBack.isConfirmed) {
+            continuar = false;
+            return;
+          }
+        }
+
+        const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
+        const pedidosUnicos = [...new Set(pedidosSeleccionados)];
+
+        result = await Swal.fire({
+          title: "¿Deseas mantener el backorder?",
+          html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(
+            ", "
+          )}</strong>`,
+          icon: "question",
           showCancelButton: true,
-          confirmButtonText: "Sí, seleccionar más",
-          cancelButtonText: "No, continuar con backorder",
+          showDenyButton: true,
+          confirmButtonText: "Sí",
+          denyButtonText: "No",
+          cancelButtonText: "Cancelar",
           allowOutsideClick: false,
         });
 
-        if (advertenciaBack.isConfirmed) {
+        if (
+          result.isDismissed &&
+          result.dismiss === Swal.DismissReason.cancel
+        ) {
           continuar = false;
           return;
         }
-      }
 
-      const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
-      const pedidosUnicos = [...new Set(pedidosSeleccionados)];
+        const mantener_backorder = result.isConfirmed;
 
-      result = await Swal.fire({
-        title: "¿Deseas mantener el backorder?",
-        html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(", ")}</strong>`,
-        icon: "question",
-        showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonText: "Sí",
-        denyButtonText: "No",
-        cancelButtonText: "Cancelar",
-        allowOutsideClick: false,
-      });
+        await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
+          factura_detalle_id: lineaId,
+          pedido_linea_ids,
+          usuario_id,
+          mantener_backorder,
+        });
+      } else if (cantidadFacturaFloat > totalPedido) {
+        advertencia = await Swal.fire({
+          title: "⚠️ Excedente detectado",
+          text: `Existen otras líneas que podrías enlazar. ¿Deseas seleccionar más líneas antes de continuar?`,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Sí, seleccionar más",
+          cancelButtonText: "No, continuar con excedente",
+          allowOutsideClick: false,
+        });
 
-      if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
+        if (advertencia.isConfirmed) {
+          continuar = false;
+          return;
+        }
+
+        const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
+        const pedidosUnicos = [...new Set(pedidosSeleccionados)];
+
+        result = await Swal.fire({
+          title: "¿Deseas mantener el excedente?",
+          html: `El excedente será enlazado a los pedidos: <strong>${pedidosUnicos.join(
+            ", "
+          )}</strong>`,
+          icon: "question",
+          showCancelButton: true,
+          showDenyButton: true,
+          confirmButtonText: "Sí",
+          denyButtonText: "No",
+          cancelButtonText: "Cancelar",
+          allowOutsideClick: false,
+        });
+
+        if (
+          result.isDismissed &&
+          result.dismiss === Swal.DismissReason.cancel
+        ) {
+          continuar = false;
+          return;
+        }
+
+        const mantenerBackorder = result.isConfirmed;
+
+        await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
+          factura_detalle_id: lineaId,
+          lineasPedidoIds: pedido_linea_ids,
+          usuario_id,
+          mantenerBackorder,
+        });
+      } else {
+        await Swal.fire({
+          icon: "error",
+          title: "Enlace inválido",
+          text: "Verifica cantidades y selección.",
+        });
         continuar = false;
         return;
       }
 
-      const mantener_backorder = result.isConfirmed;
-
-      await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
-        factura_detalle_id: lineaId,
-        pedido_linea_ids,
-        usuario_id,
-        mantener_backorder,
+      await Swal.fire({
+        icon: "success",
+        title: "Enlace realizado correctamente",
       });
-    } else if (cantidadFacturaFloat > totalPedido) {
-      advertencia = await Swal.fire({
-        title: "⚠️ Excedente detectado",
-        text: `Existen otras líneas que podrías enlazar. ¿Deseas seleccionar más líneas antes de continuar?`,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sí, seleccionar más",
-        cancelButtonText: "No, continuar con excedente",
-        allowOutsideClick: false,
-      });
-
-      if (advertencia.isConfirmed) {
-        continuar = false;
-        return;
-      }
-
-      const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
-      const pedidosUnicos = [...new Set(pedidosSeleccionados)];
-
-      result = await Swal.fire({
-        title: "¿Deseas mantener el excedente?",
-        html: `El excedente será enlazado a los pedidos: <strong>${pedidosUnicos.join(", ")}</strong>`,
-        icon: "question",
-        showCancelButton: true,
-        showDenyButton: true,
-        confirmButtonText: "Sí",
-        denyButtonText: "No",
-        cancelButtonText: "Cancelar",
-        allowOutsideClick: false,
-      });
-
-      if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
-        continuar = false;
-        return;
-      }
-
-      const mantenerBackorder = result.isConfirmed;
-
-      await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
-        factura_detalle_id: lineaId,
-        lineasPedidoIds: pedido_linea_ids,
-        usuario_id,
-        mantenerBackorder,
-      });
-    } else {
+    } catch (error) {
       await Swal.fire({
         icon: "error",
-        title: "Enlace inválido",
-        text: "Verifica cantidades y selección.",
+        title: "Error al guardar",
+        text: error.response?.data?.message || "Error desconocido",
       });
       continuar = false;
-      return;
+    } finally {
+      if (continuar) {
+        handleCloseModal();
+        setOpenModal(false);
+        fetchDetalleFactura(facturaId);
+      }
     }
-
-    await Swal.fire({
-      icon: "success",
-      title: "Enlace realizado correctamente",
-    });
-  } catch (error) {
-    await Swal.fire({
-      icon: "error",
-      title: "Error al guardar",
-      text: error.response?.data?.message || "Error desconocido",
-    });
-    continuar = false;
-  } finally {
-    if (continuar) {
-      handleCloseModal();
-      setOpenModal(false);
-      fetchDetalleFactura(facturaId);
-    }
-  }
-};
+  };
 
   const handleEjecutarReemplazoSku = async () => {
     if (!skuSeleccionado || !selectedSku) return;
@@ -614,21 +624,36 @@ const handleGuardarSeleccion = async () => {
                 showCancelButton: true,
                 confirmButtonText: "Aceptar",
                 cancelButtonText: "Cancelar",
-                allowOutsideClick: false, // ❌ no se cierra por clic fuera
+                allowOutsideClick: false,
               });
 
               if (confirm.isConfirmed) {
-                await axios.put(`${apiUrl}/facturas/devolverProducto`, {
-                  factura_detalle_id: lineaId,
-                });
+                try {
+                  const response = await axios.put(
+                    `${apiUrl}/facturas/devolverProducto`,
+                    {
+                      factura_detalle_id: lineaId,
+                    }
+                  );
 
-                await Swal.fire(
-                  "🔄 Producto a devolver",
-                  "El producto fue marcado como 'a devolver'.",
-                  "info"
-                );
-
-                fetchDetalleFactura(facturaId);
+                  if (!response.data.error) {
+                    await Swal.fire(
+                      "🔄 Producto a devolver",
+                      "El producto fue marcado como 'a devolver'.",
+                      "info"
+                    );
+                    fetchDetalleFactura(facturaId);
+                  } else {
+                    throw new Error("Respuesta con error");
+                  }
+                } catch (err) {
+                  await Swal.fire(
+                    "❌ Error",
+                    "No se pudo marcar el producto como 'a devolver'.",
+                    "error"
+                  );
+                  console.error(err);
+                }
               }
             }
           });
@@ -739,7 +764,9 @@ const handleGuardarSeleccion = async () => {
           slots={{ toolbar: CustomToolbar }}
           isRowSelectable={(params) => params.row.estatus !== "nuevo"}
           getRowClassName={(params) =>
-            params.row.estatus === "nuevo" ? "row-disabled" : ""
+            params.row.estatus === "nuevo" || params.row.estatus === "devolver"
+              ? "row-disabled"
+              : ""
           }
         />
       </div>
