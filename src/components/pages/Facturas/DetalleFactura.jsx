@@ -1,4 +1,17 @@
-import { Box, Button, Modal, Tooltip, TextField } from "@mui/material";
+import {
+  Box,
+  Button,
+  Modal,
+  TextField,
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+} from "@mui/material";
+
+import CloseIcon from "@mui/icons-material/Close";
 
 import {
   DataGrid,
@@ -15,7 +28,12 @@ import InsertLinkIcon from "@mui/icons-material/InsertLink";
 import Typography from "@mui/material/Typography";
 import Swal from "sweetalert2";
 import { useParams, useLocation } from "react-router-dom";
-import BarraLateral from "../../layout/BarraLateral";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import LinkOffIcon from "@mui/icons-material/LinkOff";
+import NewReleasesIcon from "@mui/icons-material/NewReleases";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import { green, orange, grey } from "@mui/material/colors";
+import Tooltip from "@mui/material/Tooltip";
 
 const DetalleFactura = () => {
   const { facturaId } = useParams(); // Aquí obtienes ambos parámetros
@@ -25,8 +43,6 @@ const DetalleFactura = () => {
   const [dataProveedor, setDataProveedor] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [lineaId, setLineaId] = useState("");
-  const [pedidos, setPedidos] = useState([]);
-  const [detalles, setDetalles] = useState([]); // aquí guardas todas las respuestas
   const [detalleData, setDetalleData] = useState([]);
   const [selectionModel, setSelectionModel] = useState([]);
   const [selectedPedidoId, setSelectedPedidoId] = useState(null);
@@ -42,6 +58,7 @@ const DetalleFactura = () => {
   const [nuevoSku, setNuevoSku] = useState("");
   const [yaPreguntado, setYaPreguntado] = useState(false);
   const [openModalCambioSku, setOpenModalCambioSku] = useState(false);
+  const [busquedaSku, setBusquedaSku] = useState("");
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
@@ -50,11 +67,58 @@ const DetalleFactura = () => {
     estatus: true,
   });
 
-  const handleCloseModalCambioSku = () => {
-    setOpenModalCambioSku(false);
-    setSkuSeleccionado(null);
-    setNuevoSku("");
+  const estadoColumn = {
+    field: "estado_visual",
+    headerName: "Estado",
+    width: 70,
+    sortable: false,
+    filterable: false,
+    renderCell: (params) => {
+      const { estatus, pedido_id, factura_detalle_id } = params.row;
+      const estaLinkeado = !!pedido_id || !!factura_detalle_id;
+      let icon = null;
+
+      if (estaLinkeado) {
+        icon = (
+          <Tooltip title="Linkeado con éxito">
+            <CheckCircleIcon sx={{ color: green[600] }} />
+          </Tooltip>
+        );
+      } else if (estatus === "nuevo") {
+        icon = (
+          <Tooltip title="Producto nuevo (Mercadotecnica)">
+            <NewReleasesIcon sx={{ color: orange[600] }} />
+          </Tooltip>
+        );
+      } else if (estatus === "devolver") {
+        icon = (
+          <Tooltip title="Producto a devolver">
+            <LocalShippingIcon sx={{ color: grey[600] }} />
+          </Tooltip>
+        );
+      } else {
+        icon = (
+          <Tooltip title="No linkeado">
+            <LinkOffIcon sx={{ color: grey[500] }} />
+          </Tooltip>
+        );
+      }
+      return (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          {icon}
+        </Box>
+      );
+    },
   };
+
   useEffect(() => {
     const handleStorageChange = () => {
       setToken(localStorage.getItem("token"));
@@ -92,18 +156,6 @@ const DetalleFactura = () => {
       />
     </GridToolbarContainer>
   );
-
-  // Estilos del modal
-  const styleEnlazar = {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    bgcolor: "background.paper",
-    borderRadius: 4,
-    boxShadow: 24,
-    p: 2,
-  };
 
   useEffect(() => {
     fetchDetalleFactura(facturaId);
@@ -251,7 +303,10 @@ const DetalleFactura = () => {
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => {
-        const { pedido_id, pedido_linea_id } = params.row;
+        const { pedido_id, orden_produccion_id, estatus } = params.row;
+
+        // Ocultar icono si la fila es "nuevo"
+        if (estatus === "nuevo") return [];
 
         if (!pedido_id || !pedido_linea_id) {
           return [
@@ -269,6 +324,7 @@ const DetalleFactura = () => {
         return []; // No mostrar acciones si ambos existen
       },
     },
+    estadoColumn,
   ];
 
   const columnsDetalles = [
@@ -312,188 +368,164 @@ const DetalleFactura = () => {
     }
   }, [openModal]);
 
-  const handleGuardarSeleccion = async () => {
-    const seleccionadas = detalleData.filter((row) =>
-      selectionModel.includes(row.id)
-    );
+const handleGuardarSeleccion = async () => {
+  let advertencia = null;
+  let result = null;
+  let continuar = true;
 
-    const pedido_linea_ids = seleccionadas.map((row) => row.id);
-    const totalPedido = seleccionadas.reduce(
-      (sum, item) => sum + parseFloat(item.cantidad),
-      0
-    );
-    const cantidadFacturaFloat = parseFloat(cantidadFactura);
-    const usuario_id = user.id_usuario;
+  const seleccionadas = detalleData.filter((row) =>
+    selectionModel.includes(row.id)
+  );
 
-    try {
-      if (cantidadFacturaFloat === totalPedido) {
-        // Enlace manual exacto
-        await axios.post(`${apiUrl}/facturas/enlazarManual`, {
-          factura_detalle_id: lineaId,
-          pedido_linea_ids,
-          usuario_id,
-        });
-      } else if (cantidadFacturaFloat < totalPedido) {
-        // 🟡 Backorder — preguntar si mantener
-        const result = await Swal.fire({
-          title: "¿Deseas mantener el backorder?",
-          icon: "question",
+  const pedido_linea_ids = seleccionadas.map((row) => row.id);
+  const totalPedido = seleccionadas.reduce(
+    (sum, item) => sum + parseFloat(item.cantidad),
+    0
+  );
+  const cantidadFacturaFloat = parseFloat(cantidadFactura);
+  const usuario_id = user.id_usuario;
+
+  try {
+    if (cantidadFacturaFloat === totalPedido) {
+      await axios.post(`${apiUrl}/facturas/enlazarManual`, {
+        factura_detalle_id: lineaId,
+        pedido_linea_ids,
+        usuario_id,
+      });
+    } else if (cantidadFacturaFloat < totalPedido) {
+      if (detalleData.length > selectionModel.length) {
+        const advertenciaBack = await Swal.fire({
+          title: "🔄 Backorder detectado",
+          text: "Aún tienes líneas disponibles que podrías seleccionar. ¿Deseas elegir más antes de continuar?",
+          icon: "info",
           showCancelButton: true,
-          showDenyButton: true,
-          confirmButtonText: "Sí",
-          denyButtonText: "No",
-          cancelButtonText: "Cancelar",
+          confirmButtonText: "Sí, seleccionar más",
+          cancelButtonText: "No, continuar con backorder",
+          allowOutsideClick: false,
         });
 
-        if (result.isDismissed) return;
+        if (advertenciaBack.isConfirmed) {
+          continuar = false;
+          return;
+        }
+      }
 
-        const mantener_backorder = result.isConfirmed;
+      const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
+      const pedidosUnicos = [...new Set(pedidosSeleccionados)];
 
-        await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
-          factura_detalle_id: lineaId,
-          pedido_linea_ids,
-          usuario_id,
-          mantener_backorder,
-        });
-      } else if (cantidadFacturaFloat > totalPedido) {
-        // 🟠 Excedente — también preguntar
-        const result = await Swal.fire({
-          title: "¿Deseas mantener el backorder para el excedente?",
-          icon: "question",
-          showCancelButton: true,
-          showDenyButton: true,
-          confirmButtonText: "Sí",
-          denyButtonText: "No",
-          cancelButtonText: "Cancelar",
-        });
+      result = await Swal.fire({
+        title: "¿Deseas mantener el backorder?",
+        html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(", ")}</strong>`,
+        icon: "question",
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: "Sí",
+        denyButtonText: "No",
+        cancelButtonText: "Cancelar",
+        allowOutsideClick: false,
+      });
 
-        if (result.isDismissed) return;
-
-        const mantenerBackorder = result.isConfirmed;
-
-        await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
-          factura_detalle_id: lineaId,
-          lineasPedidoIds: pedido_linea_ids,
-          usuario_id,
-          mantenerBackorder,
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Enlace inválido",
-          text: "Verifica cantidades y selección.",
-        });
+      if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
+        continuar = false;
         return;
       }
 
-      Swal.fire({
-        icon: "success",
-        title: "Enlace realizado correctamente",
-      });
+      const mantener_backorder = result.isConfirmed;
 
-      setOpenModal(false);
-      fetchDetalleFactura(facturaId);
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error al guardar",
-        text: error.response?.data?.message || "Error desconocido",
-      });
-    } finally {
-      setOpenModal(false);
-      fetchDetalleFactura(facturaId);
-    }
-  };
-
-  const enlazarManual = async () => {
-    try {
-      await axios.post(`${apiUrl}/facturas/enlazarManual`, {
+      await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
         factura_detalle_id: lineaId,
-        pedido_linea_id: selectedPedidoLineaId,
-        usuario_id: user.id_usuario,
+        pedido_linea_ids,
+        usuario_id,
+        mantener_backorder,
       });
-      setOpenModal(false);
-      fetchDetalleFactura(facturaId);
-    } catch (error) {
-      const errorMessage = error.response.data.message;
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
+    } else if (cantidadFacturaFloat > totalPedido) {
+      advertencia = await Swal.fire({
+        title: "⚠️ Excedente detectado",
+        text: `Existen otras líneas que podrías enlazar. ¿Deseas seleccionar más líneas antes de continuar?`,
         icon: "warning",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-        target: document.getElementById("modal-enlazar"),
+        showCancelButton: true,
+        confirmButtonText: "Sí, seleccionar más",
+        cancelButtonText: "No, continuar con excedente",
+        allowOutsideClick: false,
       });
-    }
-  };
 
-  const agregarBackOrder = async () => {
-    const result = await Swal.fire({
-      title: "¿Mantener en backorder?",
-      text: "¿Deseas mantener el producto en backorder?",
-      icon: "question",
-      showDenyButton: true,
-      showCancelButton: true,
-      confirmButtonText: "Sí",
-      denyButtonText: "No",
-      cancelButtonText: "Cancelar",
-      target: document.getElementById("modal-enlazar"),
-    });
+      if (advertencia.isConfirmed) {
+        continuar = false;
+        return;
+      }
 
-    // Cancelar: cerrar sin hacer nada
-    if (result.isDismissed) {
+      const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
+      const pedidosUnicos = [...new Set(pedidosSeleccionados)];
+
+      result = await Swal.fire({
+        title: "¿Deseas mantener el excedente?",
+        html: `El excedente será enlazado a los pedidos: <strong>${pedidosUnicos.join(", ")}</strong>`,
+        icon: "question",
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonText: "Sí",
+        denyButtonText: "No",
+        cancelButtonText: "Cancelar",
+        allowOutsideClick: false,
+      });
+
+      if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
+        continuar = false;
+        return;
+      }
+
+      const mantenerBackorder = result.isConfirmed;
+
+      await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
+        factura_detalle_id: lineaId,
+        lineasPedidoIds: pedido_linea_ids,
+        usuario_id,
+        mantenerBackorder,
+      });
+    } else {
+      await Swal.fire({
+        icon: "error",
+        title: "Enlace inválido",
+        text: "Verifica cantidades y selección.",
+      });
+      continuar = false;
       return;
     }
 
-    // Determinar valor de mantener_backorder
-    const mantenerBackorder = result.isConfirmed ? true : false;
-
-    try {
-      await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
-        factura_detalle_id: lineaId,
-        pedido_linea_id: selectedPedidoLineaId,
-        mantener_backorder: mantenerBackorder,
-        usuario_id: user.id_usuario,
-      });
+    await Swal.fire({
+      icon: "success",
+      title: "Enlace realizado correctamente",
+    });
+  } catch (error) {
+    await Swal.fire({
+      icon: "error",
+      title: "Error al guardar",
+      text: error.response?.data?.message || "Error desconocido",
+    });
+    continuar = false;
+  } finally {
+    if (continuar) {
+      handleCloseModal();
       setOpenModal(false);
       fetchDetalleFactura(facturaId);
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || "Error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "warning",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-        target: document.getElementById("modal-enlazar"),
-      });
     }
-  };
-
-  const fetchSkusLibres = async () => {
-    try {
-      const response = await axios.get(
-        `${apiUrl}/facturas/componentes/skulibres`
-      );
-      setSkusLibres(response.data);
-    } catch (error) {
-      console.error("Error al obtener SKUs antiguos", error);
-    }
-  };
+  }
+};
 
   const handleEjecutarReemplazoSku = async () => {
+    if (!skuSeleccionado || !selectedSku) return;
     try {
       await axios.post(`${apiUrl}/facturas/reemplazarSku`, {
         componente_id_viejo: skuSeleccionado.componente_id,
-        nuevo_sku: nuevoSku,
+        nuevo_sku: selectedSku,
         usuario_id: user.id_usuario,
       });
 
       Swal.fire("¡Éxito!", "El SKU fue reemplazado correctamente", "success");
       setModoCambioSku(false);
       setOpenModalCambioSku(false);
+      setSkuSeleccionado(null);
+      setBusquedaSku("");
       fetchDetalleFactura(facturaId);
     } catch (error) {
       Swal.fire(
@@ -501,67 +533,6 @@ const DetalleFactura = () => {
         error.response?.data?.message || "Error al reemplazar SKU",
         "error"
       );
-    }
-  };
-
-  const marcarComoNuevoProducto = async (facturaDetalleId) => {
-    try {
-      await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
-        factura_detalle_id: facturaDetalleId,
-      });
-
-      await Swal.fire("¡Marcado!", "Producto marcado como nuevo.", "success");
-
-      // Recargar visualización si aplica
-      fetchDetalleFactura(facturaId);
-    } catch (error) {
-      Swal.fire(
-        "Error",
-        error.response?.data?.message || "No se pudo marcar como nuevo.",
-        "error"
-      );
-    }
-  };
-
-  const enlazarExcedente = async () => {
-    try {
-      await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
-        factura_detalle_id: lineaId,
-        pedido_linea_id: selectedPedidoLineaId,
-        usuario_id: user.id_usuario,
-      });
-      setOpenModal(false);
-      fetchDetalleFactura(facturaId);
-    } catch (error) {
-      const errorMessage = error.response.data.message;
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "warning",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-    }
-  };
-
-  const linkOrden = async (params) => {
-    const factura = Number(cantidadFactura);
-    const enlace = Number(params.row.cantidad);
-
-    if (isNaN(factura) || isNaN(enlace)) {
-      alert("Error: las cantidades no son válidas.");
-      return;
-    }
-
-    if (factura === enlace) {
-      await enlazarManual();
-    } else if (factura < enlace) {
-      await agregarBackOrder();
-    } else if (factura > enlace) {
-      await enlazarExcedente();
-    } else {
-      alert("Ocurrió un error inesperado al llamar el enlace");
     }
   };
 
@@ -588,38 +559,77 @@ const DetalleFactura = () => {
       setDetalleData(productosConIds);
 
       if (productosConIds.length === 0) {
-        // Primero cierra el modal para limpiar todo
         setOpenModal(false);
 
-        // Espera un pequeño delay para que React procese el cierre
         setTimeout(() => {
           Swal.fire({
             icon: "info",
-            title: "Producto no encontrado",
-            text: "Este SKU no coincide con ningún pedido. ¿Es un producto nuevo o un cambio de SKU?",
+            title: "Producto no encontrado en pedidos",
+            text: "Este SKU no coincide con ningún pedido. ¿Qué deseas hacer?",
             showDenyButton: true,
-            confirmButtonText: "Es nuevo",
-            denyButtonText: "Cambio de SKU",
+            showCancelButton: true,
+            confirmButtonText: "Producto nuevo",
+            denyButtonText: "Producto que cambió de SKU",
+            cancelButtonText: "Producto a devolver",
+            allowOutsideClick: false, // ❌ no se cierra por clic fuera
+            allowEscapeKey: true, // ✅ se puede cerrar con ESC
+            showCloseButton: true, // ✅ muestra la X arriba
           }).then(async (result) => {
             if (result.isConfirmed) {
-              await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
-                factura_detalle_id: lineaId,
+              const confirm = await Swal.fire({
+                title: "¿Estás seguro?",
+                text: "Se marcará el producto como 'Nuevo'.",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Aceptar",
+                cancelButtonText: "Cancelar",
+                allowOutsideClick: false, // ❌ no se cierra por clic fuera
               });
 
-              await Swal.fire(
-                "✅ Marcado",
-                "El producto fue marcado como 'nuevo producto'.",
-                "success"
-              );
+              if (confirm.isConfirmed) {
+                await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
+                  factura_detalle_id: lineaId,
+                });
 
-              fetchDetalleFactura(facturaId); // refresca la vista
+                await Swal.fire(
+                  "✅ Marcado",
+                  "El producto fue marcado como 'Nuevo'.",
+                  "success"
+                );
+
+                fetchDetalleFactura(facturaId);
+              }
             } else if (result.isDenied) {
               setModoCambioSku(true);
               const response = await axios.get(
                 `${apiUrl}/facturas/componentes/skulibres`
               );
               setSkusLibres(response.data);
-              setOpenModalCambioSku(true); // 🔥 abrir modal aparte
+              setOpenModalCambioSku(true);
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+              const confirm = await Swal.fire({
+                title: "¿Estás seguro?",
+                text: "Se marcará el producto como 'Devolver'.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Aceptar",
+                cancelButtonText: "Cancelar",
+                allowOutsideClick: false, // ❌ no se cierra por clic fuera
+              });
+
+              if (confirm.isConfirmed) {
+                await axios.put(`${apiUrl}/facturas/devolverProducto`, {
+                  factura_detalle_id: lineaId,
+                });
+
+                await Swal.fire(
+                  "🔄 Producto a devolver",
+                  "El producto fue marcado como 'a devolver'.",
+                  "info"
+                );
+
+                fetchDetalleFactura(facturaId);
+              }
             }
           });
         }, 300);
@@ -636,28 +646,6 @@ const DetalleFactura = () => {
     }
   };
 
-  const handleSelectPedido = (pedidoId) => {
-    // Buscamos la orden seleccionada en el arreglo de ordenes ya cargadas
-    const pedidoSeleccionado = pedidos.find(
-      (pedido) => pedido.pedido_id === pedidoId
-    );
-
-    if (pedidoSeleccionado) {
-      // Le agregamos un 'id' único a cada producto usando el índice
-      const productosConIndice = pedidoSeleccionado.productos.map(
-        (producto, index) => ({
-          ...producto,
-          id: index, // esto será usado por el DataGrid
-        })
-      );
-      setSelectedPedidoId(pedidoId);
-      setSelectedPedidoLineaId(pedidoSeleccionado.pedido_linea_id);
-      setDetalleData(productosConIndice);
-    } else {
-      setDetalleData([]); // si no hay productos, dejamos el grid vacío
-    }
-  };
-
   return (
     <div
       style={{
@@ -667,6 +655,13 @@ const DetalleFactura = () => {
         fontWeight: "bold",
       }}
     >
+      <style>
+        {`
+          .swal2-container {
+            z-index: 1500 !important;
+          }
+        `}
+      </style>
       <div
         style={{
           flexDirection: "row",
@@ -708,6 +703,7 @@ const DetalleFactura = () => {
             </Box>
           </Box>
         </Box>
+
         <DataGrid
           sx={{
             borderRadius: 4,
@@ -718,6 +714,16 @@ const DetalleFactura = () => {
             fontWeight: "bold",
             height: 400,
             mt: 2,
+            "& .row-disabled": {
+              backgroundColor: "#f0f0f0",
+              color: "#9e9e9e",
+              pointerEvents: "none",
+            },
+
+            "& .row-disabled .MuiSvgIcon-root": {
+              pointerEvents: "auto",
+              cursor: "help",
+            },
           }}
           rows={data}
           columns={columns}
@@ -731,295 +737,217 @@ const DetalleFactura = () => {
           experimentalFeatures={{ newEditingApi: true }}
           density="compact" // Establece el tamaño de las filas en compacto por defecto
           slots={{ toolbar: CustomToolbar }}
+          isRowSelectable={(params) => params.row.estatus !== "nuevo"}
+          getRowClassName={(params) =>
+            params.row.estatus === "nuevo" ? "row-disabled" : ""
+          }
         />
       </div>
       {/* Ventana Modal Details Componente*/}
-      <Modal id="modal-enlazar" open={openModal} onClose={handleCloseModal}>
-        <Box
-          sx={{
-            ...styleEnlazar,
-            display: "flex",
-            flexDirection: "column",
-            width: "80vw",
-            height: "80vh",
-          }}
-        >
-          {modoCambioSku ? (
-            // 🔁 Cambio de SKU
-            <>
-              <Typography
-                sx={{
-                  fontFamily: "Montserrat",
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  marginBottom: 3,
-                  color: "purple",
-                }}
-              >
-                🔁 Cambio de SKU — Producto recibido: {selectedSku}
-              </Typography>
-
-              <Typography sx={{ fontFamily: "Montserrat", mb: 2 }}>
-                Selecciona el SKU anterior desde los pedidos abiertos y escribe
-                el nuevo:
-              </Typography>
-
-              <DataGrid
-                rows={skusLibres}
-                columns={[
-                  { field: "sku", headerName: "SKU Antiguo", flex: 1 },
-                  { field: "descripcion", headerName: "Descripción", flex: 2 },
-                ]}
-                getRowId={(row) => row.componente_id}
-                onRowClick={(params) => setSkuSeleccionado(params.row)}
-                autoHeight
-                sx={{ mb: 2 }}
-              />
-
-              <TextField
-                fullWidth
-                label="Nuevo SKU"
-                value={nuevoSku}
-                onChange={(e) => setNuevoSku(e.target.value)}
-                sx={{ mb: 3 }}
-              />
-
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Button
-                  onClick={handleCloseModal}
-                  variant="outlined"
-                  color="primary"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={handleEjecutarReemplazoSku}
-                  variant="contained"
-                  color="success"
-                  disabled={!skuSeleccionado || !nuevoSku}
-                >
-                  Reemplazar SKU
-                </Button>
-              </Box>
-            </>
-          ) : productoNuevo ? (
-            // 🆕 Producto nuevo
-            <>
-              <Typography
-                sx={{
-                  fontFamily: "Montserrat",
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  marginBottom: 3,
-                  color: "orange",
-                }}
-              >
-                ⚠️ Producto nuevo detectado — SKU: {selectedSku}
-              </Typography>
-
-              <Typography sx={{ fontFamily: "Montserrat", mb: 2 }}>
-                Este producto no existe en los pedidos actuales ni en el
-                sistema. Puedes:
-              </Typography>
-
-              <ul style={{ fontFamily: "Montserrat", marginBottom: "2rem" }}>
-                <li>
-                  Registrar el producto en la base de datos (Mercadotecnia)
-                </li>
-                <li>Generar orden de entrada manual</li>
-                <li>
-                  O bien{" "}
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                    onClick={async () => {
-                      // Activa la visual de cambio de SKU
-                      setModoCambioSku(true);
-
-                      // Cargar SKUs disponibles
-                      const response = await axios.get(
-                        `${apiUrl}/componentes/skulibres`
-                      );
-                      setSkusLibres(response.data);
-                    }}
-                  >
-                    Cambiar SKU
-                  </Button>
-                </li>
-              </ul>
-
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Button
-                  onClick={handleCloseModal}
-                  variant="outlined"
-                  color="primary"
-                >
-                  Cancelar
-                </Button>
-
-                <Button
-                  onClick={() => {
-                    Swal.fire("⚙️ Próximamente: flujo de alta");
-                  }}
-                  variant="contained"
-                  color="success"
-                >
-                  Generar orden de entrada
-                </Button>
-              </Box>
-            </>
-          ) : (
-            // ✅ Coincidencias normales
-            <>
-              <Typography
-                sx={{
-                  fontFamily: "Montserrat",
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  marginBottom: "10px",
-                }}
-              >
-                Selecciona la línea a enlazar — SKU: {selectedSku}
-              </Typography>
-
-              <DataGrid
-                sx={{
-                  borderRadius: 4,
-                  boxShadow: 24,
-                  borderWidth: 3,
-                  borderColor: "#1e88e5",
-                  fontFamily: "Montserrat",
-                  fontWeight: "bold",
-                  height: 400,
-                  mt: 2,
-                }}
-                rows={detalleData}
-                columns={columnsDetalles}
-                checkboxSelection
-                disableRowSelectionOnClick
-                getRowId={(row) => row.id}
-                density="compact"
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                columnVisibilityModel={columnVisibilityModel}
-                onColumnVisibilityModelChange={(newModel) =>
-                  setColumnVisibilityModel(newModel)
-                }
-                selectionModel={selectionModel}
-                onRowSelectionModelChange={(newSelection) =>
-                  setSelectionModel(newSelection)
-                }
-                slots={{ toolbar: CustomToolbar }}
-              />
-
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginTop: 8,
-                }}
-              >
-                <Button
-                  onClick={handleCloseModal}
-                  variant="contained"
-                  color="primary"
-                >
-                  Cerrar
-                </Button>
-
-                <Button
-                  onClick={handleGuardarSeleccion}
-                  variant="contained"
-                  color="success"
-                  disabled={selectionModel.length === 0}
-                >
-                  Enlazar factura
-                </Button>
-              </Box>
-            </>
-          )}
-        </Box>
-      </Modal>
-
-      <Modal
-        open={openModalCambioSku}
-        onClose={() => setOpenModalCambioSku(false)}
+      <Dialog
+        id="modal-enlazar"
+        open={openModal}
+        onClose={() => {}} // evitamos que se cierre automáticamente
+        fullWidth
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: { xs: "95vw", md: "70vw" },
+            maxHeight: "90vh",
+          },
+        }}
       >
-        <Box
+        <DialogTitle
           sx={{
-            ...styleEnlazar,
+            fontFamily: "Montserrat",
+            fontWeight: "bold",
+            color: "primary.main",
             display: "flex",
-            flexDirection: "column",
-            width: "70vw",
-            height: "70vh",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <Typography
+          Selecciona la línea a enlazar — SKU: {selectedSku}
+          <IconButton onClick={handleCloseModal} aria-label="cerrar">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ p: 3 }}>
+          <DataGrid
+            rows={detalleData}
+            columns={columnsDetalles}
+            checkboxSelection
+            disableRowSelectionOnClick
+            getRowId={(row) => row.id}
+            density="compact"
+            showCellVerticalBorder
+            showColumnVerticalBorder
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(newModel) =>
+              setColumnVisibilityModel(newModel)
+            }
+            selectionModel={selectionModel}
+            onRowSelectionModelChange={(newSelection) =>
+              setSelectionModel(newSelection)
+            }
+            slots={{ toolbar: CustomToolbar }}
             sx={{
               fontFamily: "Montserrat",
               fontWeight: "bold",
-              textAlign: "center",
-              marginBottom: 3,
-              color: "purple",
+              borderRadius: 2,
+              border: 2,
+              borderColor: "#1e88e5",
+              height: "60vh",
+            }}
+          />
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={handleCloseModal}
+            variant="contained"
+            color="primary"
+          >
+            Cerrar
+          </Button>
+
+          <Button
+            onClick={handleGuardarSeleccion}
+            variant="contained"
+            color="success"
+            disabled={selectionModel.length === 0}
+          >
+            Enlazar factura
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openModalCambioSku}
+        fullWidth
+        maxWidth={false} // importante para permitir custom width
+        PaperProps={{
+          sx: {
+            width: { xs: "95vw", md: "70vw" },
+            maxHeight: "90vh",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontFamily: "Montserrat",
+            fontWeight: "bold",
+            color: "purple",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          🔁 Cambio de SKU — Producto recibido: {selectedSku}
+          <IconButton
+            onClick={() => {
+              setOpenModalCambioSku(false);
+              setSkuSeleccionado(null);
+              setBusquedaSku("");
             }}
           >
-            🔁 Cambio de SKU — Producto recibido: {selectedSku}
-          </Typography>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
 
+        <DialogContent
+          dividers
+          sx={{
+            p: 3,
+            overflow: "auto",
+          }}
+        >
           <Typography sx={{ fontFamily: "Montserrat", mb: 2 }}>
-            Selecciona el SKU anterior desde los componentes registrados y
-            escribe el nuevo:
+            Selecciona el SKU anterior desde los componentes registrados:
           </Typography>
-
-          {/* Aquí el scroll */}
-          <Box sx={{ height: 300, mb: 2 }}>
-            <DataGrid
-              rows={skusLibres}
-              columns={[
-                { field: "sku", headerName: "SKU Antiguo", flex: 1 },
-                { field: "descripcion", headerName: "Descripción", flex: 2 },
-              ]}
-              getRowId={(row) => row.componente_id}
-              onRowClick={(params) => setSkuSeleccionado(params.row)}
-              pageSize={10}
-              rowsPerPageOptions={[10, 25, 50]}
-              density="compact"
-              sx={{
-                fontFamily: "Montserrat",
-                fontWeight: "bold",
-              }}
-            />
-          </Box>
 
           <TextField
             fullWidth
-            label="Nuevo SKU"
-            value={nuevoSku}
-            onChange={(e) => setNuevoSku(e.target.value)}
-            sx={{ mb: 3 }}
+            label="Buscar SKU o descripción"
+            value={busquedaSku}
+            onChange={(e) => setBusquedaSku(e.target.value)}
+            sx={{ mb: 2 }}
           />
 
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Button
-              onClick={() => setOpenModalCambioSku(false)}
-              variant="outlined"
-              color="primary"
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleEjecutarReemplazoSku}
-              variant="contained"
-              color="success"
-              disabled={!(skuSeleccionado && nuevoSku.trim())}
-            >
-              Reemplazar SKU
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
+          <DataGrid
+            rows={skusLibres.filter(
+              (row) =>
+                row.sku.toLowerCase().includes(busquedaSku.toLowerCase()) ||
+                row.descripcion
+                  .toLowerCase()
+                  .includes(busquedaSku.toLowerCase())
+            )}
+            columns={[
+              {
+                field: "selected",
+                headerName: "",
+                width: 50,
+                sortable: false,
+                filterable: false,
+                renderCell: (params) =>
+                  skuSeleccionado?.componente_id ===
+                  params.row.componente_id ? (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        width: "100%",
+                        height: "100%",
+                      }}
+                    >
+                      <CheckCircleIcon sx={{ color: "green" }} />
+                    </Box>
+                  ) : null,
+              },
+              { field: "sku", headerName: "SKU Antiguo", flex: 1 },
+              { field: "descripcion", headerName: "Descripción", flex: 2 },
+            ]}
+            getRowId={(row) => row.componente_id}
+            onRowClick={(params) => setSkuSeleccionado(params.row)}
+            pageSize={10}
+            rowsPerPageOptions={[10, 25, 50]}
+            density="compact"
+            showColumnVerticalBorder
+            showCellVerticalBorder
+            sx={{
+              fontFamily: "Montserrat",
+              fontWeight: "bold",
+              border: 2,
+              borderColor: "#1976d2",
+              borderRadius: 2,
+              height: 300,
+            }}
+          />
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setOpenModalCambioSku(false);
+              setSkuSeleccionado(null); // También aquí
+              setBusquedaSku(""); // opcional, si quieres limpiar también el filtro
+            }}
+            color="primary"
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleEjecutarReemplazoSku}
+            variant="contained"
+            color="success"
+            disabled={!skuSeleccionado}
+          >
+            Reemplazar SKU
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
