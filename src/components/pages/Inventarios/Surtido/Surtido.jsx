@@ -60,7 +60,7 @@ const Surtido = () => {
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
         unique_id: false,
-        id_orden: false,
+        id_orden: true,
         id_detalle_orden: false,
         cantidad_recibida: false,
 
@@ -534,7 +534,7 @@ const Surtido = () => {
                             },
                             {
                                 field: "cantidad_a_contar",
-                                headerName: "Cantidad a recibir",
+                                headerName: "Cantidad a surtir",
                                 type: "number",
                                 flex: 1,
                                 editable: true,
@@ -592,12 +592,12 @@ const Surtido = () => {
 
                     <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
                         <FormControl fullWidth sx={{ width: 223, ml: "auto" }}>
-                            <InputLabel id="empacador-label">Empacador</InputLabel>
+                            <InputLabel id="operador-label">Operador</InputLabel>
                             <Select
-                                labelId="empacador-label"
-                                id="empacador"
+                                labelId="operador-label"
+                                id="operador"
                                 value={selectedUsuario ? selectedUsuario.id_usuario : ''}
-                                label="Empacador"
+                                label="Operador"
                                 onChange={handleSelectedUsuario}
                                 disabled={!habilitarAsignar}
                                 sx={{

@@ -9,76 +9,67 @@ import inventario from '../../images/inventory.png';
 import configuracion from '../../images/settings.png';
 import sesion from '../../images/sesion.png';
 import { useNavigate } from 'react-router-dom';
+import useAuthStore from '../../store/authStore';
 
 const Header = () => {
   const location = useLocation();
-  const isLoggedIn = !!localStorage.getItem('token');
-  let navigate = useNavigate();
+  const navigate = useNavigate();
+  const { token, user, logout } = useAuthStore();
+
+  if (!token || location.pathname === '/login') return null;
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     navigate('/login');
   };
 
-  const response = JSON.parse(localStorage.getItem('user'));
-  const user = response ? response.nombre : '';
-  const rolDescripcion = response ? response.rol_descripcion : '';
-
   return (
-    <>
-      {location.pathname !== '/login' && isLoggedIn && (
-        <header className="header">
-          {/* Contenedor izquierdo: íconos de navegación */}
-          <div className="left">
-            <div className="nav">
-              <NavLink to="/home" className="nav-link">
-                <img src={inicio} alt="Inicio" className="nav-icon" />
-                <span>Inicio</span>
-              </NavLink>
-              <NavLink to="/envios" className="nav-link">
-                <img src={envio} alt="Envios" className="nav-icon" />
-                <span>Envios</span>
-              </NavLink>
-              <NavLink to="/reCharts" className="nav-link">
-                <img src={reCharts} alt="reCharts" className="nav-icon" />
-                <span>Graficas</span>
-              </NavLink>
-              <NavLink to="/inventario" className="nav-link">
-                <img src={inventario} alt="Inventario" className="nav-icon" />
-                <span>Inventario</span>
-              </NavLink>
-              {['administrador', 'superUser'].includes(rolDescripcion) && (
-                <NavLink to="/configuraciones" className="nav-link">
-                  <img src={configuracion} alt="Configuracion" className="nav-icon" />
-                  <span>Configuracion</span>
-                </NavLink>
-              )}
-            </div>
-          </div>
+    <header className="header">
+      <div className="left">
+        <div className="nav">
+          <NavLink to="/home" className="nav-link">
+            <img src={inicio} alt="Inicio" className="nav-icon" />
+            <span>Inicio</span>
+          </NavLink>
+          <NavLink to="/envios" className="nav-link">
+            <img src={envio} alt="Envios" className="nav-icon" />
+            <span>Envios</span>
+          </NavLink>
+          <NavLink to="/reCharts" className="nav-link">
+            <img src={reCharts} alt="reCharts" className="nav-icon" />
+            <span>Graficas</span>
+          </NavLink>
+          <NavLink to="/inventario" className="nav-link">
+            <img src={inventario} alt="Inventario" className="nav-icon" />
+            <span>Inventario</span>
+          </NavLink>
+          {['administrador', 'superUser'].includes(user?.rol_descripcion) && (
+            <NavLink to="/configuraciones" className="nav-link">
+              <img src={configuracion} alt="Configuracion" className="nav-icon" />
+              <span>Configuracion</span>
+            </NavLink>
+          )}
+        </div>
+      </div>
 
-          {/* Contenedor central: logo */}
-          <div className="center">
-            <div className="logo-container">
-              <img src={logo} alt="logo" className="logo" />
-            </div>
-          </div>
+      <div className="center">
+        <div className="logo-container">
+          <img src={logo} alt="logo" className="logo" />
+        </div>
+      </div>
 
-          {/* Contenedor derecho: perfil y logout */}
-          <div className="right">
-            <div className="person-container">
-              <div className="person-nav">
-                <img src={sesion} alt="user" className="logo-person" />
-                <span className="letra-person">{user}</span>
-              </div>
-              <div className="person-nav">
-                <button className="logout-button" onClick={handleLogout}>Cerrar sesión</button>
-              </div>
-            </div>
+      <div className="right">
+        <div className="person-container">
+          <div className="person-nav">
+            <img src={sesion} alt="user" className="logo-person" />
+            <span className="letra-person">{user?.nombre}</span>
           </div>
-        </header>
-      )}
-    </>
+          <div className="person-nav">
+            <button className="logout-button" onClick={handleLogout}>Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+    </header>
   );
 };
 

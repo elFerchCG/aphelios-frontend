@@ -1,9 +1,8 @@
 import React from 'react';
 import Header from '../components/layout/Header';
-import { Routes, Route, BrowserRouter } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Proveedores from '../components/pages/Proveedores/Proveedores';
 import Usuarios from '../components/pages/Usuarios/Usuarios';
-import Login from '../components/login/Login';
 import Transacciones from '../components/pages/Inventarios/Transacciones/Transacciones';
 import Bodegas from '../components/pages/Inventarios/Bodegas/Bodegas';
 import Ventas from '../components/pages/Ventas/Ventas';
@@ -40,61 +39,57 @@ import Mercadotecnia from '../components/pages/Inventarios/Publicaciones/Mercado
 
 const Rutas = () => {
     return (
-        <div>
-            <BrowserRouter>
-                <Header />
-                <Routes>
-                    <Route path='/' element={<Login />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path='/proveedores' element={
-                        <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
-                            <Proveedores />
-                        </ProtectedRoute>
-                    } />
-                    <Route path='/usuarios' element={<Usuarios />} />
-                    <Route path='/ventas' element={
-                        <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
-                            <Ventas />
-                        </ProtectedRoute>
-                    } />
-                    <Route path='/transacciones' element={<Transacciones />} />
-                    <Route path='/bodegas' element={<Bodegas />} />
-                    <Route path='/existencias' element={<Existencias />} />
-                    <Route path='/traspasos' element={<Lineas />} />
-                    <Route path='/ordenBodega' element={<OrdenB />} />
-                    <Route path='/transaccionesInventario' element={<TransaccionesI />} />
-                    <Route path='/ordenes' element={<OrdenesRegistradas />} />
-                    <Route path='/configuraciones' element={<Configuracion />} />
-                    <Route path='/inventario' element={<Inventario />} />
-                    <Route path='/home' element={<Home />} />
-                    <Route path='/envios' element={<Envios />} />
-                    <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
-                    <Route path='/reCharts' element={<ReCharts />} />
-                    <Route path='/analisisVentas' element={<AnalisisVentas />} />
-                    <Route path='/conteociclico' element={<ConteoCiclico />} />
-                    <Route path='/ubicaciones' element={<Localidades />} />
-                    <Route path='/chartpronostico' element={<ChartPronostico />} />
-                    <Route path='/billetes' element={<Billetes />} />
-                    <Route path='/componentes' element={<Componentes />} />
-                    <Route path='/surtido' element={<Surtido />} />
-                    <Route path='/publicaciones' element={<Publicaciones />} />
-                    <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
-                    <Route path="/cargaFacturas" element={<CargaFacturas />} />
-                    <Route path="/facturas" element={<Facturas />} />
-                    <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
-                    <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<EmpaqueCajaAbierta />} />
-                    <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
-                    <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
-                    <Route path="/barraLateral" element={<BarraLateral />} />
-                    <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
-                    <Route path='*' element={
-                        <div>
-                            <h1>Usuario sin permisos suficientes!</h1>
-                        </div>
-                    } />
-                </Routes>
-            </BrowserRouter>
-        </div>
+        <>
+            <Header />
+            <Routes>
+                <Route path='/proveedores' element={
+                    <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
+                        <Proveedores />
+                    </ProtectedRoute>
+                } />
+                <Route path='/usuarios' element={<Usuarios />} />
+                <Route path='/ventas' element={
+                    <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
+                        <Ventas />
+                    </ProtectedRoute>
+                } />
+                <Route path='/transacciones' element={<Transacciones />} />
+                <Route path='/bodegas' element={<Bodegas />} />
+                <Route path='/existencias' element={<Existencias />} />
+                <Route path='/traspasos' element={<Lineas />} />
+                <Route path='/ordenBodega' element={<OrdenB />} />
+                <Route path='/transaccionesInventario' element={<TransaccionesI />} />
+                <Route path='/ordenes' element={<OrdenesRegistradas />} />
+                <Route path='/configuraciones' element={<Configuracion />} />
+                <Route path='/inventario' element={<Inventario />} />
+                <Route path='/home' element={<Home />} />
+                <Route path='/envios' element={<Envios />} />
+                <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
+                <Route path='/reCharts' element={<ReCharts />} />
+                <Route path='/analisisVentas' element={<AnalisisVentas />} />
+                <Route path='/conteociclico' element={<ConteoCiclico />} />
+                <Route path='/ubicaciones' element={<Localidades />} />
+                <Route path='/chartpronostico' element={<ChartPronostico />} />
+                <Route path='/billetes' element={<Billetes />} />
+                <Route path='/componentes' element={<Componentes />} />
+                <Route path='/surtido' element={<Surtido />} />
+                <Route path='/publicaciones' element={<Publicaciones />} />
+                <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
+                <Route path="/cargaFacturas" element={<CargaFacturas />} />
+                <Route path="/facturas" element={<Facturas />} />
+                <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
+                <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<EmpaqueCajaAbierta />} />
+                <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
+                <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
+                <Route path="/barraLateral" element={<BarraLateral />} />
+                <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
+                <Route path='*' element={
+                    <div>
+                        <h1>Usuario sin permisos suficientes!</h1>
+                    </div>
+                } />
+            </Routes>
+        </>
     )
 }
 
