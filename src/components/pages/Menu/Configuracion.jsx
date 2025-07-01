@@ -7,6 +7,7 @@ import movimientosI from '../../../images/movimientosI.png'
 import billetes from '../../../images/billetes.png'
 import componentes from '../../../images/componentes.png'
 import cargaFactura from "../../../images/cargaFactura.png"
+import pedidos from "../../../images/pedidos.png"
 import { NavLink } from 'react-router-dom'
 
 const Navegacion = () => {
@@ -20,6 +21,10 @@ const Navegacion = () => {
             <NavLink to="/componentes" className="nav-config">
                 <img src={componentes} alt='Componentes' className='nav-icon-config' />
                 <span>Componentes</span>
+            </NavLink>
+            <NavLink to="/pedidos" className="nav-config">
+                <img src={pedidos} alt='Pedidos' className='nav-icon-config' />
+                <span>Pedidos</span>
             </NavLink>
             <NavLink to="/cargaFacturas" className="nav-config">
                 <img src={cargaFactura} alt='Facturas' className='nav-icon-config' />
