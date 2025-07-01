@@ -290,8 +290,8 @@ const DetalleFactura = () => {
       headerAlign: "center",
     },
     {
-      field: "orden_produccion_id",
-      headerName: "# Orden\nProducción",
+      field: "pedido_linea_id",
+      headerName: "# Pedido Linea",
       type: "text",
       flex: 0.6,
       align: "center",
@@ -303,12 +303,12 @@ const DetalleFactura = () => {
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => {
-        const { pedido_id, orden_produccion_id, estatus } = params.row;
+        const { pedido_id, pedido_linea_id, estatus } = params.row;
 
         // Ocultar icono si la fila es "nuevo"
         if (estatus === "nuevo" || estatus === "devolver") return [];
 
-        if (!pedido_id || !orden_produccion_id) {
+        if (!pedido_id || !pedido_linea_id) {
           return [
             <Tooltip title="Enlazar manual" key={`facturas-${params.row.id}`}>
               <GridActionsCellItem

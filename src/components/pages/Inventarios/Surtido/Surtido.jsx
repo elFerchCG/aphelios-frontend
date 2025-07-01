@@ -1,8 +1,8 @@
 import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Modal, Select, TextField, Tooltip, Typography } from '@mui/material'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useMemo } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
-import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem, GridEditInputCell, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 
@@ -21,8 +21,10 @@ const getCurrentDateTime = () => {
 
 const Surtido = () => {
     const [data, setData] = useState([]);
+    const [componentes, setComponentes] = useState([]);
     const [sku, setSku] = useState('');
     const [usuarios, setUsuarios] = useState([]);
+    const [habilitarAsignar, setHabilitarAsignar] = useState(false);
     const [selectedUsuario, setSelectedUsuario] = useState('');
     const [selectedUsuarioNombre, setSelectedUsuarioNombre] = useState('');
     const [openAsignar, setOpenAsignar] = useState(false);
@@ -61,6 +63,7 @@ const Surtido = () => {
         id_orden: true,
         id_detalle_orden: false,
         cantidad_recibida: false,
+
     });
 
     const CustomToolbar = () => (
@@ -81,7 +84,7 @@ const Surtido = () => {
     // Estilos del modal
     const styleModalAsignar = {
         position: 'absolute',
-        width: "20%",
+        width: "70%",
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -110,6 +113,12 @@ const Surtido = () => {
         process.env.NODE_ENV === 'production'
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
+
+    useEffect(() => {
+        const todasContadas = componentes.every(comp => Number(comp.cantidad_contada) > 0);
+        setHabilitarAsignar(todasContadas);
+    }, [componentes]);
+
 
     useEffect(() => {
         const fetchUsuarios = async () => {
@@ -189,9 +198,10 @@ const Surtido = () => {
         }
     };
 
-    const handleOpenAsignar = (ordenId, detalleId) => {
+    const handleOpenAsignar = async (ordenId, detalleId) => {
         setSelectedOrdenId(ordenId);
         setSelectedDetalleId(detalleId);
+        await validarPaquete(ordenId);
         setOpenAsignar(true);
     };
 
@@ -199,6 +209,8 @@ const Surtido = () => {
         setOpenAsignar(false);
         setSelectedOrdenId(null); // Resetear el ID cuando se cierre
         setSelectedDetalleId(null); // Resetear id_detalle_orden también
+        setCantidadRecibida("");
+        setSelectedUsuario("");
     };
 
     const generarYDescargarTXT = async (data) => {
@@ -239,20 +251,23 @@ const Surtido = () => {
     const asignarLinea = async () => {
         try {
             const data = {
-                cantidad_surtida: cantidadRecibida,
-                operador: selectedUsuario.id_usuario
+                operador: selectedUsuario.id_usuario,
+                orden_id: componentes[0]?.orden_id
             }
-            await axios.post(`${apiUrl}/mrp/asignarLineaProduccion/${selectedDetalleId}`, data, {
+            const response = await axios.post(`${apiUrl}/mrp/asignarLineaProduccion`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            //await updateDetalleOrden();
-            await fetchValoresOrden();
-            setSku('');
-            setData([]); // <- limpia los datos mostrados en el DataGrid
-            handleCloseAsignar();
-            inputRef.current?.focus();
+            if (response.data.ok) {
+                setCantidadTicket();
+                //await updateDetalleOrden();
+                await fetchValoresOrden(response.data.cantidadEtiquetas);
+                setSku('');
+                setData([]); // <- limpia los datos mostrados en el DataGrid
+                handleCloseAsignar();
+                inputRef.current?.focus();
+            }
         } catch (error) {
             const errorMessage =
                 error?.response?.data?.message || 'Ocurrió un error inesperado';
@@ -269,28 +284,7 @@ const Surtido = () => {
         }
     }
 
-    // const updateDetalleOrden = async () => {
-    //     try {
-    //         const data = {
-    //             cantidad_surtida: cantidadRecibida
-    //         }
-    //         await axios.put(`${apiUrl}/mrp/actualizarDetalleOrden/${selectedDetalleId}`, data);
-    //     } catch (error) {
-    //         const errorMessage =
-    //             error?.response?.data?.message || 'Ocurrió un error inesperado';
-
-    //         Swal.fire({
-    //             title: 'Error',
-    //             text: errorMessage,
-    //             icon: 'error',
-    //             timer: 5000,
-    //             showCloseButton: true,
-    //             allowEscapeKey: true
-    //         });
-    //     }
-    // }
-
-    const fetchValoresOrden = async () => {
+    const fetchValoresOrden = async (cantidadEtiquetas) => {
         try {
             const response = await axios.get(`${apiUrl}/mrp/fetchOrden/${selectedOrdenId}`);
             if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
@@ -299,16 +293,14 @@ const Surtido = () => {
                 setTitleEtiqueta(result.title);
                 setInventoryIdEtiqueta(result.inventory_id);
                 setSkuPuroEtiqueta(result.sku_componente);
-                // Calcula la cantidad de etiquetas necesarias
-                const cantidadEtiquetas = cantidadRecibida / result.cantidad_billete;
-                setCantidadTicket(cantidadEtiquetas);
                 // Llamada correcta a generarYDescargarTXT pasando los datos necesarios
                 await generarYDescargarTXT({
                     sku: result.sku,
                     title: result.title,
                     inventory_id: result.inventory_id,  // Usa el campo correcto según tu lógica
-                    cantidadEtiquetas: cantidadEtiquetas // Asegura que se pase correctamente
+                    cantidadEtiquetas
                 });
+                console.log("Esta es la cantidad a imprimir de etiquetas:", cantidadEtiquetas);
             }
         } catch (error) {
             const errorMessage =
@@ -325,58 +317,92 @@ const Surtido = () => {
         }
     }
 
-    // const processRowUpdate = async (newRow, oldRow) => {
-    //     try {
-    //         // Enviar la actualización al backend
-    //         const response = await axios.put(`${apiUrl}/mrp/actualizarCantidad/${newRow.id_detalle_orden}`, {
-    //             cantidad_recibida: newRow.cantidad_recibida,
-    //         });
+    const ordenesRepetidas = useMemo(() => {
+        const counts = {};
+        data.forEach(row => {
+            if (row.id_orden != null) {
+                counts[row.id_orden] = (counts[row.id_orden] || 0) + 1;
+            }
+        });
 
-    //         if (response.data.ok) {
-    //             Swal.fire({
-    //                 title: 'Actualizado!',
-    //                 text: response.data.message,
-    //                 icon: 'success',
-    //                 showCloseButton: true,
-    //                 allowEscapeKey: true
-    //             });
-    //             return newRow; // Devuelve la fila actualizada
-    //         }
-    //     } catch (error) {
-    //         // Capturar errores del backend
-    //         const errorMessage = error.response?.data?.message || 'Error desconocido';
+        return new Set(
+            Object.entries(counts)
+                .filter(([_, count]) => count > 1)
+                .map(([id_orden]) => Number(id_orden))
+        );
+    }, [data]);
 
-    //         Swal.fire({
-    //             title: 'Error',
-    //             text: errorMessage,
-    //             icon: 'error',
-    //             showCloseButton: true,
-    //             allowEscapeKey: true
-    //         });
-
-    //         return oldRow; // Revertir cambios en la UI
-    //     }
-    // };
-
-    // const asignarOrdenUsuario = async () => {
-    //     if (!selectedOrdenId) return; // Evita llamadas con un ID nulo
-    //     console.log("Asignando orden con ID:", selectedOrdenId);
-    //     // Aquí puedes hacer la llamada a la API con idOrden
-    // }
-
-    // useEffect(() => {
-    //     if (cantidadTicket > 0) { // Evitar división por 0
-    //         setCantidadEtiquetas(cantidadRecibida / cantidadTicket);
-    //     } else {
-    //         setCantidadEtiquetas(0);
-    //     }
-    //     console.log("Esta es la cantidad de etiquetas a imprimir:", cantidadEtiquetas);
-    // }, [cantidadRecibida, cantidadTicket, cantidadEtiquetas]); // Se ejecuta cuando cambia alguno de los valores
-
-
-    const handleCantidadRecibida = (event) => {
-        setCantidadRecibida(parseInt(event.target.value));
+    const validarPaquete = async (id) => {
+        try {
+            const response = await axios.get(`${apiUrl}/mrp/validarPaquete/${id}`);
+            if (response.data.ok) {
+                setComponentes(response.data.paqueteCheck);
+                console.log("Este es el response:", response.data);
+            }
+        } catch (error) {
+            console.log("Ocurrio un error en validarPaquete:", error);
+        }
     }
+
+    const contarComponenteSurtido = async (row) => {
+        const response = await axios.put(`${apiUrl}/mrp/contarComponenteSurtido/${row.id}`, {
+            cantidad_contada: row.cantidad_a_contar
+        });
+        await validarPaquete(row.orden_id);
+
+        const message = response.data.message;
+        Swal.fire({
+            icon: 'success',
+            title: 'Cantidad actualizada',
+            text: message,
+            timer: 1000,
+            showConfirmButton: false,
+            target: document.getElementById("modal-asignar"),
+        });
+    }
+
+    const processRowUpdate = async (updatedRow, oldRow) => {
+        try {
+            // Llamar a handleUpdateLinea para realizar la actualización en la base de datos
+            await contarComponenteSurtido(updatedRow);
+
+            // Si todo sale bien, devolver la fila actualizada
+            return updatedRow;
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+            Swal.fire({
+                title: '¡No se pudo actualizar la linea!',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+                target: document.getElementById("modal-asignar"),
+            });
+            return oldRow;
+        }
+    };
+
+    // Manejador de errores global en DataGrid
+    const handleProcessRowUpdateError = (error) => {
+        const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+        Swal.fire({
+            title: "Error Global",
+            text: errorMessage,
+            icon: "error",
+            showCloseButton: true,
+            allowEscapeKey: true,
+        });
+    };
+
+    const isCellEditable = (params) => {
+        return (
+            params.field === 'cantidad_a_contar' &&
+            typeof params.row.sku === 'string' &&
+            params.row.sku.trim() !== ''
+        );
+    };
+
 
     const columns = [
         { field: "unique_id", headerName: "Folio linea", type: "text", flex: 1 },
@@ -392,16 +418,25 @@ const Surtido = () => {
             field: "actions",
             headerName: "Acciones",
             type: "actions",
-            getActions: (params) => [
-                <Tooltip title="Asignar" key={`asignar-${params.row.id_orden}`}>
-                    <GridActionsCellItem
-                        icon={<AssignmentIndIcon />}
-                        sx={{ color: "orange" }}
-                        onClick={() => handleOpenAsignar(params.row.id_orden, params.row.id_detalle_orden)}
-                        label='Asignar'
-                    />
-                </Tooltip>
-            ]
+            getActions: (params) => {
+                // Solo mostrar si esta es la PRIMERA fila con este id_orden
+                const isFirstInstance = !data.some((row, index) =>
+                    row.id_orden === params.row.id_orden && row.unique_id < params.row.unique_id
+                );
+
+                if (!isFirstInstance) return [];
+
+                return [
+                    <Tooltip title="Asignar" key={`asignar-${params.row.id_orden}`}>
+                        <GridActionsCellItem
+                            icon={<AssignmentIndIcon />}
+                            sx={{ color: "orange" }}
+                            onClick={() => handleOpenAsignar(params.row.id_orden, params.row.id_detalle_orden)}
+                            label='Asignar'
+                        />
+                    </Tooltip>
+                ];
+            }
         }
     ]
 
@@ -449,7 +484,18 @@ const Surtido = () => {
                         }}
                     />
                 </div>
-                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+                <DataGrid
+                    sx={{
+                        fontFamily: "Montserrat",
+                        fontWeight: "bold",
+                        borderRadius: 4,
+                        boxShadow: 24,
+                        borderWidth: 3,
+                        borderColor: "#1e88e5",
+                        '& .fila-repetida': {
+                            backgroundColor: '#FFF9C4',
+                        }
+                    }}
                     rows={data}
                     columns={columns}
                     showCellVerticalBorder
@@ -458,9 +504,13 @@ const Surtido = () => {
                     //processRowUpdate={processRowUpdate}
                     columnVisibilityModel={columnVisibilityModel}
                     onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
+                    disableRowSelectionOnClick
                     experimentalFeatures={{ newEditingApi: true }}
                     density="compact" // Establece el tamaño de las filas en compacto por defecto
                     slots={{ toolbar: CustomToolbar }}
+                    getRowClassName={(params) =>
+                        ordenesRepetidas.has(Number(params.row.id_orden)) ? 'fila-repetida' : ''
+                    }
                 />
             </div>
             <Modal id={'modal-asignar'} open={openAsignar} onClose={handleCloseAsignar}>
@@ -468,29 +518,94 @@ const Surtido = () => {
                     <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
                         Asignar orden
                     </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
-                        <TextField
-                            className='input'
-                            label="Cantidad"
-                            variant='outlined'
-                            type='number'
-                            value={cantidadRecibida}
-                            onChange={handleCantidadRecibida}
-                            inputProps={{
-                                min: 0,
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
+                    <DataGrid
+                        rows={componentes}
+                        columns={[
+                            { field: "id", headerName: "Folio detalle orden", flex: 1 },
+                            { field: "orden_id", headerName: "Folio orden", flex: 1 },
+                            { field: "sku", headerName: "SKU Componente", flex: 1 },
+                            { field: "descripcion", headerName: "Descripción", flex: 2 },
+                            {
+                                field: "cantidad_contada",
+                                headerName: "Cantidad contada",
+                                flex: 1,
+                                type: "number",
+
+                            },
+                            {
+                                field: "cantidad_a_contar",
+                                headerName: "Cantidad a surtir",
+                                type: "number",
+                                flex: 1,
+                                editable: true,
+                                cellClassName: 'celdaEditable',
+                                renderEditCell: (params) => {
+                                    return (
+                                        <GridEditInputCell
+                                            {...params}
+                                            type="number"
+                                            inputProps={{
+                                                min: 0, // Establecer el mínimo permitido en el input
+                                            }}
+                                            onWheel={(e) => e.target.blur()} // Evitar cambios accidentales con la rueda del mouse
+                                        />
+                                    );
                                 },
-                            }}
-                        />
-                        <FormControl fullWidth>
-                            <InputLabel>Usuario</InputLabel>
+                                preProcessEditCellProps: (params) => {
+                                    const { props } = params;
+
+                                    // Asegurar que el valor sea al menos 0
+                                    const value = Math.max(0, props.value);
+
+                                    const isValid = /^[0-9]+$/.test(value);
+
+                                    return {
+                                        ...props,
+                                        value, // Forzar el valor a 0 si es menor
+                                        error: !isValid,  // Marca la celda con error si la validación falla
+                                    };
+                                }
+                            },
+                        ]}
+                        getRowId={(row) => row.id}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        pageSize={10}
+                        rowsPerPageOptions={[10, 25, 50]}
+                        density="compact"
+                        disableRowSelectionOnClick
+                        onProcessRowUpdateError={handleProcessRowUpdateError} // Aquí añadimos el manejador global
+                        processRowUpdate={processRowUpdate}
+                        isCellEditable={isCellEditable}
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={{
+                            // Hide columns status and traderName, the other columns will remain visible
+                            id: false,
+                            orden_id: false,
+                        }}
+                        sx={{
+                            fontFamily: "Montserrat",
+                            fontWeight: "bold",
+                            mb: 5
+                        }}
+                    />
+
+                    <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
+                        <FormControl fullWidth sx={{ width: 223, ml: "auto" }}>
+                            <InputLabel id="operador-label">Operador</InputLabel>
                             <Select
-                                label="Usuario:"
+                                labelId="operador-label"
+                                id="operador"
                                 value={selectedUsuario ? selectedUsuario.id_usuario : ''}
+                                label="Operador"
                                 onChange={handleSelectedUsuario}
-                                style={{ backgroundColor: "white" }}
+                                disabled={!habilitarAsignar}
+                                sx={{
+                                    backgroundColor: !habilitarAsignar ? '#f0f0f0' : 'white',
+                                    '.MuiSelect-select': {
+                                        color: !habilitarAsignar ? '#9e9e9e' : 'black',
+                                    },
+                                }}
                             >
                                 {usuarios.map((usuario) => (
                                     <MenuItem key={usuario.id_usuario} value={usuario.id_usuario}>
@@ -502,7 +617,7 @@ const Surtido = () => {
                     </Box>
                     <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
                         <Button onClick={handleCloseAsignar} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
-                        <Button onClick={asignarLinea} variant="contained" color="success" sx={{ width: 190 }}>Asignar e Imprimir</Button>
+                        <Button onClick={asignarLinea} variant="contained" color="success" disabled={!habilitarAsignar} sx={{ width: 190 }}>Asignar e Imprimir</Button>
                     </Box>
                 </Box>
             </Modal>
