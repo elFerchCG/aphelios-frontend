@@ -35,8 +35,7 @@ import DetalleFactura from '../components/pages/Facturas/DetalleFactura';
 import BarraLateral from '../components/layout/BarraLateral';
 import ResumenEnvio from '../components/pages/Envios/ResumenEnvio';
 import Mercadotecnia from '../components/pages/Inventarios/Publicaciones/Mercadotecnia';
-import Pedidos from '../components/pages/Pedidos/Pedidos';
-
+import VistaPedidos from '../components/pages/Pedidos/Pedidos';
 
 
 const Rutas = () => {
@@ -85,7 +84,7 @@ const Rutas = () => {
                 <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
                 <Route path="/barraLateral" element={<BarraLateral />} />
                 <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
-                <Route path="/pedidos" element={<Pedidos/>}/>
+                <Route path="/pedidos" element={<VistaPedidos />} />
                 <Route path='*' element={
                     <div>
                         <h1>Usuario sin permisos suficientes!</h1>
