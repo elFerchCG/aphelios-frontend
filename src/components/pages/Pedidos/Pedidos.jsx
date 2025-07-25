@@ -7,9 +7,11 @@ import {
   TextField,
   Button,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import DetallePedidoModal from "./DetallePedidoModal";
+import { Link, useLocation } from "react-router-dom";
 
 const apiUrl =
   process.env.NODE_ENV === "production"
@@ -25,6 +27,11 @@ const VistaPedidos = () => {
   const [fechaFin, setFechaFin] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [detalleSeleccionado, setDetalleSeleccionado] = useState(null);
+  const [pedidoIdFiltro, setPedidoIdFiltro] = useState("");
+  const [facturaIdFiltro, setFacturaFiltro] = useState("");
+  const location = useLocation();
+  const proveedorNombre = location.state?.proveedorNombre;
+
 
   useEffect(() => {
     const fetchPedidos = async () => {
@@ -44,12 +51,21 @@ const VistaPedidos = () => {
   }, []);
 
   useEffect(() => {
+    if (location.state?.pedidoIdDesdeFactura) {
+    setPedidoIdFiltro(location.state.pedidoIdDesdeFactura.toString());   
+    
+    window.history.replaceState({}, document.title);
+  }
+  }, [location.state])
+
+  useEffect(() => {
     const lowerSearch = search.toLowerCase();
 
     const resultado = pedidos.filter((pedido) => {
       const coincideTexto = Object.values(pedido).some((valor) =>
         valor?.toString().toLowerCase().includes(lowerSearch)
       );
+      
 
       const fechaPedido = new Date(pedido.fecha_creacion)
         .toISOString()
@@ -61,11 +77,19 @@ const VistaPedidos = () => {
         (!desdeStr || fechaPedido >= desdeStr) &&
         (!hastaStr || fechaPedido <= hastaStr);
 
-      return coincideTexto && dentroDeRango;
+      const coincidePedidoId =
+         !pedidoIdFiltro || pedido.pedido_id.toString() === pedidoIdFiltro;
+
+       const coincideFacturaId = 
+          !facturaIdFiltro || pedido.factura_id?.toString() === facturaIdFiltro;
+
+      return coincideTexto && dentroDeRango && coincidePedidoId && coincideFacturaId;
+
+
     });
 
     setFilteredPedidos(resultado);
-  }, [search, pedidos, fechaInicio, fechaFin]);
+  }, [search, pedidos, fechaInicio, fechaFin, pedidoIdFiltro, facturaIdFiltro]);
 
   const abrirModalDetalle = async (row) => {
     const res = await axios.get(
@@ -79,6 +103,15 @@ const VistaPedidos = () => {
     setModalOpen(false);
     setDetalleSeleccionado(null);
   };
+
+  // const resultadoAgrupado = resultado.reduce((acc, pedido) => {
+  //   const id = pedido.pedido_id;
+  //   if (!acc[id]) acc[id] = [];
+  //   acc[id].push(pedido);
+  //   return acc;
+  // }, {});
+
+  // setFilteredPedidos(resultadoAgrupado);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     back_order: false,
@@ -138,6 +171,43 @@ const VistaPedidos = () => {
       minWidth: 150,
       flex: 0.8,
     },
+
+    {
+      field: "factura_id",
+      headerName: "Factura",
+      renderCell: (params) => {
+        const { value, row } = params;
+
+        if (!value) {
+          return <span>Pedido sin factura</span>;
+        }
+
+        return (
+          <Tooltip title="Haz clic para ver los detalles de la factura" arrow>
+
+          <Link
+            to={`/detalleFacturas/factura/${value}`}
+            state={{ proveedorNombre: row.proveedor_nombre }}
+            style={{
+              textDecoration: "none",
+              color: "#1976d2",
+              fontWeight: "bold",
+            }}
+          >
+            {value}
+          </Link>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      field: "numero_factura",
+      headerName: "Numero de linea de factura ",
+      minWidth: 180,
+      flex: 1,
+      renderCell: (params) =>
+        params.value ? params.value : "Pedido sin factura linkeada",
+    },
     {
       field: "back_order",
       headerName: "¿Tiene backorder?",
@@ -195,6 +265,22 @@ const VistaPedidos = () => {
           sx={{ width: "25rem", backgroundColor: "white" }}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+        />
+
+        <TextField
+          label="Filtrar por # Pedido"
+          variant="outlined"
+          sx={{ width: "12rem", backgroundColor: "white" }}
+          value={pedidoIdFiltro}
+          onChange={(e) => setPedidoIdFiltro(e.target.value)}
+        />
+
+        <TextField
+          label="Filtrar por # factura"
+          variant="outlined"
+          sx={{ width: "12rem", backgroundColor: "white" }}
+          value={facturaIdFiltro}
+          onChange={(e) => setFacturaFiltro(e.target.value)}
         />
 
         <TextField

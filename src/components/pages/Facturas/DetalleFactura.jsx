@@ -34,6 +34,7 @@ import NewReleasesIcon from "@mui/icons-material/NewReleases";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { green, orange, grey } from "@mui/material/colors";
 import Tooltip from "@mui/material/Tooltip";
+import { Link } from "react-router-dom";
 
 const DetalleFactura = () => {
   const { facturaId } = useParams(); // Aquí obtienes ambos parámetros
@@ -288,6 +289,25 @@ const DetalleFactura = () => {
       flex: 0.6,
       align: "center",
       headerAlign: "center",
+      renderCell: (params) => {
+        const { value, row } = params;
+
+        return (
+           <Tooltip title="Haz clic para ver los detalles del pedido" arrow>
+          <Link
+            to={`/pedidos`}
+            state={{ pedidoIdDesdeFactura: value }} 
+            style={{
+              textDecoration: "none",
+              color: "#1976d2",
+              fontWeight: "bold",
+            }}
+          >
+            {value}
+          </Link>
+             </Tooltip>
+        );
+      },
     },
     {
       field: "pedido_linea_id",
@@ -853,7 +873,7 @@ const DetalleFactura = () => {
       <Dialog
         open={openModalCambioSku}
         fullWidth
-        maxWidth={false} // importante para permitir custom width
+        maxWidth={false}
         PaperProps={{
           sx: {
             width: { xs: "95vw", md: "70vw" },

@@ -26,6 +26,15 @@ const style = {
 const formatFecha = (fecha) =>
   fecha ? new Date(fecha).toLocaleDateString() : "Sin fecha";
 
+const LabelValue = ({ label, value }) => (
+  <Grid item xs={6}>
+    <Typography variant="subtitle2" color="text.secondary">
+      {label}
+    </Typography>
+    <Typography variant="body1">{value}</Typography>
+  </Grid>
+);
+
 const DetallePedidoModal = ({ open, handleClose, detalle }) => {
   if (!detalle) return null;
 
@@ -34,115 +43,63 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
       <Box sx={style}>
         <IconButton
           onClick={handleClose}
-          sx={{
-            position: "absolute",
-            top: 10,
-            right: 10,
-            color: "#666",
-          }}
+          sx={{ position: "absolute", top: 10, right: 10, color: "#666" }}
         >
           <CloseIcon />
         </IconButton>
 
         <Typography variant="h5" align="center" gutterBottom>
-          Detalles del Pedido Línea #{detalle.pedido_linea_id} / Pedido #
-          {detalle.pedido_id}
+          Detalles del Pedido Línea #{detalle.pedido_linea_id} / Pedido #{detalle.pedido_id}
         </Typography>
 
         <Divider sx={{ mb: 2 }} />
 
-        <Typography variant="h6" gutterBottom>
+        {/* Resumen del Pedido */}
+        <Typography variant="h6" gutterBottom color="primary">
           📦 Resumen del Pedido
         </Typography>
-        <Grid container spacing={1}>
-          <Grid item xs={6}>
-            <b>Producto:</b> {detalle.componente_desc}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Pedida:</b> {detalle.cantidad_proveedor}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Recibida:</b> {detalle.cantidad_recibida}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Backorder:</b> {detalle.back_order === 1 ? "Sí" : "No"}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Backorder:</b> {detalle.cantidad_backorder}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Backorder:</b> {formatFecha(detalle.fecha_back)}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Pedido:</b> {formatFecha(detalle.pedido_fecha_creacion)}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Compromiso:</b>{" "}
-            {formatFecha(detalle.pedido_fecha_compromiso)}
-          </Grid>
+        <Grid container spacing={2}>
+          <LabelValue label="Producto:" value={detalle.componente_desc} />
+          <LabelValue label="Cantidad Pedida:" value={detalle.cantidad_proveedor} />
+          <LabelValue label="Cantidad Recibida:" value={detalle.cantidad_recibida} />
+          <LabelValue label="Backorder:" value={detalle.back_order === 1 ? "Sí" : "No"} />
+          <LabelValue label="Cantidad Backorder:" value={detalle.cantidad_backorder} />
+          <LabelValue label="Fecha Backorder:" value={formatFecha(detalle.fecha_back)} />
+          <LabelValue label="Fecha Pedido:" value={formatFecha(detalle.pedido_fecha_creacion)} />
+          <LabelValue label="Fecha Compromiso:" value={formatFecha(detalle.pedido_fecha_compromiso)} />
         </Grid>
 
         <Divider sx={{ my: 2 }} />
 
-        <Typography variant="h6" gutterBottom>
+        {/* Orden de Compra */}
+        <Typography variant="h6" gutterBottom color="primary">
           📄 Orden de Compra
         </Typography>
-        <Grid container spacing={1}>
-          <Grid item xs={6}>
-            <b>ID OC Detalle:</b> {detalle.orden_compra_detalle_id || "N/A"}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad OC:</b> {detalle.orden_compra_cantidad || "N/A"}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Recibo OC:</b>{" "}
-            {formatFecha(detalle.orden_compra_fecha_recibo)}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Estatus OC:</b> {detalle.orden_compra_estatus || "N/A"}
-          </Grid>
+        <Grid container spacing={2}>
+          <LabelValue label="ID OC Detalle:" value={detalle.orden_compra_detalle_id || "N/A"} />
+          <LabelValue label="Cantidad OC:" value={detalle.orden_compra_cantidad || "N/A"} />
+          <LabelValue label="Fecha Recibo OC:" value={formatFecha(detalle.orden_compra_fecha_recibo)} />
+          <LabelValue label="Estatus OC:" value={detalle.orden_compra_estatus || "N/A"} />
         </Grid>
 
         <Divider sx={{ my: 2 }} />
 
-        <Typography variant="h6" gutterBottom>
+        {/* Orden de Producción */}
+        <Typography variant="h6" gutterBottom color="primary">
           🏭 Orden de Producción
         </Typography>
-        <Grid container spacing={1}>
-          <Grid item xs={6}>
-            <b>ID Orden Producción:</b> {detalle.orden_produccion_id || "N/A"}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Tipo:</b> {detalle.tipo || "N/A"}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Asignación:</b> {formatFecha(detalle.fecha_asignacion)}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Billete:</b> {detalle.cantidad_billete}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Contada:</b> {detalle.cantidad_contada}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Surtida:</b> {detalle.cantidad_surtida}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad a Producir:</b> {detalle.cantidad_a_producir}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Empacada:</b> {detalle.cantidad_empacada}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Cantidad Retiro:</b> {detalle.cantidad_retiro}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Creación:</b>{" "}
-            {formatFecha(detalle.orden_produccion_fecha_creacion)}
-          </Grid>
-          <Grid item xs={6}>
-            <b>Fecha Finalización:</b> {formatFecha(detalle.fecha_finalizacion)}
-          </Grid>
+        <Grid container spacing={2}>
+          <LabelValue label="ID Orden Producción:" value={detalle.orden_produccion_id || "N/A"} />
+          <LabelValue label="Tipo:" value={detalle.tipo || "N/A"} />
+          <LabelValue label="Fecha Asignación:" value={formatFecha(detalle.fecha_asignacion)} />
+          <LabelValue label="Cantidad Billete:" value={detalle.cantidad_billete} />
+          <LabelValue label="Cantidad Contada:" value={detalle.cantidad_contada} />
+          <LabelValue label="Cantidad Surtida:" value={detalle.cantidad_surtida} />
+          <LabelValue label="Cantidad a Producir:" value={detalle.cantidad_a_producir} />
+          <LabelValue label="Cantidad Empacada:" value={detalle.cantidad_empacada} />
+          <LabelValue label="Cantidad Retiro:" value={detalle.cantidad_retiro} />
+          <LabelValue label="Fecha Creación:" value={formatFecha(detalle.orden_produccion_fecha_creacion)} />
+          <LabelValue label="Fecha Finalización:" value={formatFecha(detalle.fecha_finalizacion)} />
         </Grid>
       </Box>
     </Modal>

@@ -38,6 +38,7 @@ import Mercadotecnia from '../components/pages/Inventarios/Publicaciones/Mercado
 import Pedidos from '../components/pages/Pedidos/Pedidos';
 
 
+
 const Rutas = () => {
     return (
         <>
@@ -84,6 +85,7 @@ const Rutas = () => {
                 <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
                 <Route path="/barraLateral" element={<BarraLateral />} />
                 <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
+                <Route path="/pedidos" element={<Pedidos/>}/>
                 <Route path='*' element={
                     <div>
                         <h1>Usuario sin permisos suficientes!</h1>
