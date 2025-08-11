@@ -8,8 +8,8 @@ import apiUrl from '../../../config';
 
 export const Ventas = () => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [ setLoading] = useState(true);
+  const [setError] = useState(null);
 
   const url = `${apiUrl}/ventas`;
 
