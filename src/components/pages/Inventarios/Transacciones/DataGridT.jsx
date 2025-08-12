@@ -282,7 +282,7 @@ const DataGridT = () => {
                         label="Buscar tipo de transacción"
                         variant="outlined"
                         style={{
-                            maxWidth: '300px', // Ajusta el tamaño del TextField según sea necesario
+                            maxWidth: '380px', // Ajusta el tamaño del TextField según sea necesario
                             marginRight: 'auto', // Para que el TextField ocupe todo el espacio posible
                         }}
                     />
@@ -299,7 +299,7 @@ const DataGridT = () => {
                     </Button>
                 </div>
                 {/* DataGrid */}
-                <ThemeProvider theme={theme}>
+
                     <DataGrid
                         rows={rows}
                         columns={columns}
@@ -314,7 +314,7 @@ const DataGridT = () => {
                             rol_id: false,
                         }}
                     />
-                </ThemeProvider>
+             
             </div>
             {/* Modal para editar usuario */}
             < Dialog open={openModal} onClose={handleCloseModal} >
