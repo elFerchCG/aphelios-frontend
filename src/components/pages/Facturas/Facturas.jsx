@@ -57,36 +57,6 @@ const Facturas = () => {
         }
     };
 
-    // useEffect(() => {
-    //     // Filtra los envios en base al término de búsqueda
-    //     let filtered = data;
-
-    //     if (searchTerm) {
-    //         //const searchWords = searchTerm.toLowerCase().split(' ').filter(word => word);
-
-    //         filtered = filtered.filter(envio => {
-    //             const envioId = envio.id ? envio.id.toString() : '';
-    //             const envioDescripcion = envio.descripcion ? envio.descripcion.toLowerCase() : '';
-    //             const envioEstatus = envio.estatus ? envio.estatus.toLowerCase() : '';
-
-    //             // Verifica si todas las palabras están en el título
-    //             //const titleMatch = searchWords.every(word => productTitle.includes(word));
-
-    //             // Verifica si el término de búsqueda está en otras columnas
-    //             const otherColumnsMatch = (
-    //                 envioId.includes(searchTerm.toString()) ||
-    //                 envioDescripcion.includes(searchTerm.toLowerCase()) ||
-    //                 envioEstatus.includes(searchTerm.toLowerCase())
-    //             );
-
-    //             // El producto debe coincidir en el título o en alguna de las otras columnas
-    //             return otherColumnsMatch;
-    //         });
-    //     }
-
-    //     setFilteredEnvios(filtered);
-    // }, [searchTerm, data]);
-
 
     const handleDetallesFactura = (facturaId, proveedorNombre) => {
         navigate(`/detalleFacturas/factura/${facturaId}`, {
@@ -122,14 +92,13 @@ const Facturas = () => {
             <div style={{
                 flexDirection: "row",
                 fontFamily: "Montserrat",
-                fontWeight: "bold",
                 textAlign: "center",
                 width: "90%",
                 height: 500
             }}
             >
                 <h2>Facturas</h2>
-                <DataGrid sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", fontFamily: "Montserrat", fontWeight: "bold" }}
+                <DataGrid sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                     rows={data}
                     columns={columns}
                     showCellVerticalBorder

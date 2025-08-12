@@ -24,22 +24,24 @@ const style = {
 };
 
 const formatFecha = (fecha) =>
-  fecha ? new Date(fecha).toLocaleDateString() : "Sin fecha";
+  fecha ? new Date(fecha).toLocaleDateString("es-MX") : "N/A";
+
+const showNA = (v) => (v === null || v === undefined || v === "" ? "N/A" : v);
 
 const LabelValue = ({ label, value }) => (
   <Grid item xs={6}>
     <Typography variant="subtitle2" color="text.secondary">
       {label}
     </Typography>
-    <Typography variant="body1">{value}</Typography>
+    <Typography variant="body1">{showNA(value)}</Typography>
   </Grid>
 );
 
 const DetallePedidoModal = ({ open, handleClose, detalle }) => {
-  if (!detalle) return null;
+  if (!open || !detalle) return null; // doble guardia
 
   return (
-    <Modal open={open} onClose={() => {}} disableEscapeKeyDown>
+    <Modal open={open} onClose={handleClose}>
       <Box sx={style}>
         <IconButton
           onClick={handleClose}
@@ -49,7 +51,7 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
         </IconButton>
 
         <Typography variant="h5" align="center" gutterBottom>
-          Detalles del Pedido Línea #{detalle.pedido_linea_id} / Pedido #{detalle.pedido_id}
+          Detalles del Pedido Línea #{showNA(detalle.pedido_linea_id)} / Pedido #{showNA(detalle.pedido_id)}
         </Typography>
 
         <Divider sx={{ mb: 2 }} />
@@ -76,10 +78,10 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
           📄 Orden de Compra
         </Typography>
         <Grid container spacing={2}>
-          <LabelValue label="ID OC Detalle:" value={detalle.orden_compra_detalle_id || "N/A"} />
-          <LabelValue label="Cantidad OC:" value={detalle.orden_compra_cantidad || "N/A"} />
+          <LabelValue label="ID OC Detalle:" value={detalle.orden_compra_detalle_id} />
+          <LabelValue label="Cantidad OC:" value={detalle.orden_compra_cantidad} />
           <LabelValue label="Fecha Recibo OC:" value={formatFecha(detalle.orden_compra_fecha_recibo)} />
-          <LabelValue label="Estatus OC:" value={detalle.orden_compra_estatus || "N/A"} />
+          <LabelValue label="Estatus OC:" value={detalle.orden_compra_estatus} />
         </Grid>
 
         <Divider sx={{ my: 2 }} />
@@ -89,8 +91,8 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
           🏭 Orden de Producción
         </Typography>
         <Grid container spacing={2}>
-          <LabelValue label="ID Orden Producción:" value={detalle.orden_produccion_id || "N/A"} />
-          <LabelValue label="Tipo:" value={detalle.tipo || "N/A"} />
+          <LabelValue label="ID Orden Producción:" value={detalle.orden_produccion_id} />
+          <LabelValue label="Tipo:" value={detalle.tipo} />
           <LabelValue label="Fecha Asignación:" value={formatFecha(detalle.fecha_asignacion)} />
           <LabelValue label="Cantidad Billete:" value={detalle.cantidad_billete} />
           <LabelValue label="Cantidad Contada:" value={detalle.cantidad_contada} />
@@ -100,6 +102,30 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
           <LabelValue label="Cantidad Retiro:" value={detalle.cantidad_retiro} />
           <LabelValue label="Fecha Creación:" value={formatFecha(detalle.orden_produccion_fecha_creacion)} />
           <LabelValue label="Fecha Finalización:" value={formatFecha(detalle.fecha_finalizacion)} />
+        </Grid>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Factura asociada */}
+        <Typography variant="h6" gutterBottom color="primary">
+          🧾 Factura asociada
+        </Typography>
+        <Grid container spacing={2}>
+          <LabelValue label="Factura ID" value={detalle.factura_id} />
+          <LabelValue label="Factura Detalle ID" value={detalle.factura_detalle_id} />
+          <LabelValue
+            label="Serie/Folio"
+            value={
+              detalle.serie || detalle.folio
+                ? `${detalle.serie ?? ""} ${detalle.folio ?? ""}`.trim()
+                : "N/A"
+            }
+          />
+          <LabelValue label="Fecha factura" value={formatFecha(detalle.fecha_factura)} />
+          <LabelValue label="Estatus factura" value={detalle.factura_estatus} />
+          <LabelValue label="SKU (detalle)" value={detalle.factura_sku} />
+          <LabelValue label="Cantidad (detalle)" value={detalle.factura_cantidad} />
+          <LabelValue label="Precio (detalle)" value={detalle.factura_precio} />
         </Grid>
       </Box>
     </Modal>

@@ -59,6 +59,8 @@ const Componentes = () => {
         };
     }, []);
 
+    
+
     const apiUrl =
         process.env.NODE_ENV === 'production'
             ? process.env.REACT_APP_API_URL
@@ -153,39 +155,6 @@ const Componentes = () => {
         }
     }, [apiUrl, open]);
 
-    // useEffect(() => {
-    //     const fetchProductsComponente = async () => {
-    //         try {
-    //             const response = await axios.get(`${apiUrl}/componentes`);
-    //             if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-    //                 setRowsComponentes(response.data);
-    //                 setFilteredProductsComponente(response.data);
-    //             } else {
-    //                 Swal.fire({
-    //                     title: '!Productos no encontrados!',
-    //                     text: 'No se encontraron productos',
-    //                     icon: 'error',
-    //                     timer: 5000,
-    //                     showCloseButton: true,
-    //                     allowEscapeKey: true
-    //                 });
-    //             }
-    //         } catch (error) {
-    //             if (error.response && error.response.data && error.response.data.message) {
-    //                 const { messageText } = error.response.data.message;
-    //                 Swal.fire({
-    //                     title: 'Error',
-    //                     text: `Error: ${messageText}`,
-    //                     icon: 'error',
-    //                     timer: 5000,
-    //                     showCloseButton: true,
-    //                     allowEscapeKey: true
-    //                 });
-    //             }
-    //         }
-    //     }
-    //     fetchProductsComponente();
-    // }, [apiUrl]);
 
     useEffect(() => {
         const fetchComponentesTodos = async () => {
@@ -582,7 +551,37 @@ const Componentes = () => {
             });
         }
     }
+    
+    useEffect(() => {
+    const fetchBilletes = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/billetes`);
+            if (response.data && response.data.ok && Array.isArray(response.data.data)) {
+                setData(response.data.data); // llena tu DataGrid
+            } else {
+                Swal.fire({
+                    title: '¡Billetes no encontrados!',
+                    text: 'No se encontraron registros',
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: error?.response?.data?.message || 'Error al obtener billetes',
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+        }
+    };
 
+    fetchBilletes();
+}, [apiUrl]);
     useEffect(() => {
         // Filtra los productos en base al término de búsqueda
         let filtered = rowsProducts;
@@ -777,7 +776,7 @@ const Componentes = () => {
                     />
                     <div style={{ width: '100%', height: 500, overflowX: 'auto' }}>
                         <div style={{ minWidth: columnsProducts.length * 160 }}>
-                            <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+                            <DataGrid  sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                                 rows={filteredProducts}
                                 columns={columnsProducts}
                                 pageSize={5}
@@ -882,9 +881,9 @@ const Componentes = () => {
                         marginBottom: '10px'
                     }}
                         onClick={handleOpenAddComponent}
-                    >Agregar componente</Button>
+                    >Agregar billete</Button>
                 </div>
-                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+                <DataGrid  sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                     rows={data}
                     columns={columns}
                     showCellVerticalBorder
@@ -903,7 +902,7 @@ const Componentes = () => {
                 <Box sx={styleAddComponent}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center" }}>
-                            Agregar nuevo componente
+                            Agregar nuevo billete
                         </Typography>
                         <TextField
                             className='input'

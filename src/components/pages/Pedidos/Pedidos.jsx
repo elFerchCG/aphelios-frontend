@@ -32,7 +32,6 @@ const VistaPedidos = () => {
   const location = useLocation();
   const proveedorNombre = location.state?.proveedorNombre;
 
-
   useEffect(() => {
     const fetchPedidos = async () => {
       try {
@@ -52,11 +51,19 @@ const VistaPedidos = () => {
 
   useEffect(() => {
     if (location.state?.pedidoIdDesdeFactura) {
-    setPedidoIdFiltro(location.state.pedidoIdDesdeFactura.toString());   
-    
-    window.history.replaceState({}, document.title);
-  }
-  }, [location.state])
+      setPedidoIdFiltro(location.state.pedidoIdDesdeFactura.toString());
+
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (location.state?.buscarLineaPedido) {
+      setSearch(location.state.buscarLineaPedido.toString());
+
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const lowerSearch = search.toLowerCase();
@@ -65,7 +72,6 @@ const VistaPedidos = () => {
       const coincideTexto = Object.values(pedido).some((valor) =>
         valor?.toString().toLowerCase().includes(lowerSearch)
       );
-      
 
       const fechaPedido = new Date(pedido.fecha_creacion)
         .toISOString()
@@ -78,14 +84,14 @@ const VistaPedidos = () => {
         (!hastaStr || fechaPedido <= hastaStr);
 
       const coincidePedidoId =
-         !pedidoIdFiltro || pedido.pedido_id.toString() === pedidoIdFiltro;
+        !pedidoIdFiltro || pedido.pedido_id.toString() === pedidoIdFiltro;
 
-       const coincideFacturaId = 
-          !facturaIdFiltro || pedido.factura_id?.toString() === facturaIdFiltro;
+      const coincideFacturaId =
+        !facturaIdFiltro || pedido.factura_id?.toString() === facturaIdFiltro;
 
-      return coincideTexto && dentroDeRango && coincidePedidoId && coincideFacturaId;
-
-
+      return (
+        coincideTexto && dentroDeRango && coincidePedidoId && coincideFacturaId
+      );
     });
 
     setFilteredPedidos(resultado);
@@ -184,29 +190,20 @@ const VistaPedidos = () => {
 
         return (
           <Tooltip title="Haz clic para ver los detalles de la factura" arrow>
-
-          <Link
-            to={`/detalleFacturas/factura/${value}`}
-            state={{ proveedorNombre: row.proveedor_nombre }}
-            style={{
-              textDecoration: "none",
-              color: "#1976d2",
-              fontWeight: "bold",
-            }}
-          >
-            {value}
-          </Link>
+            <Link
+              to={`/detalleFacturas/factura/${value}`}
+              state={{ proveedorNombre: row.proveedor_nombre }}
+              style={{
+                textDecoration: "none",
+                color: "#1976d2",
+                fontWeight: "bold",
+              }}
+            >
+              {value}
+            </Link>
           </Tooltip>
         );
       },
-    },
-    {
-      field: "numero_factura",
-      headerName: "Numero de linea de factura ",
-      minWidth: 180,
-      flex: 1,
-      renderCell: (params) =>
-        params.value ? params.value : "Pedido sin factura linkeada",
     },
     {
       field: "back_order",

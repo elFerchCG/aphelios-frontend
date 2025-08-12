@@ -179,7 +179,7 @@ const DataGridE = () => {
                     />
                 </div>
                 <div style={{ width: '100%', height: '80%', overflowX: 'auto' }}>
-                    <ThemeProvider theme={theme}>
+                
                         <DataGrid
                             style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1500px" }}
                             rows={filteredExistencias}
@@ -207,7 +207,7 @@ const DataGridE = () => {
                             }} // Localización en español
                             slots={{ toolbar: CustomToolbar }}
                         />
-                    </ThemeProvider>
+              
                 </div>
             </div>
         </div>

@@ -527,7 +527,7 @@ const Componentes = () => {
                         onClick={handleOpenAddComponent}
                     >Agregar componente</Button>
                 </div>
-                <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }} sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+                <DataGrid sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                     rows={filteredProductsComponente}
                     columns={columnsProductsComponentes}
                     showCellVerticalBorder

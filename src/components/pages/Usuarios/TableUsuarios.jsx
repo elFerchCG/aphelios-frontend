@@ -294,7 +294,6 @@ const TableUsuarios = () => {
                 </div>
 
                 {/* DataGrid */}
-                <ThemeProvider theme={theme}>
                     <DataGrid
                         rows={rows}
                         columns={columns}
@@ -311,7 +310,6 @@ const TableUsuarios = () => {
                             rol_id: false,
                         }}
                     />
-                </ThemeProvider>
             </div>
             {/* Modal para editar usuario */}
             < Dialog open={openModal} onClose={handleCloseModal} >

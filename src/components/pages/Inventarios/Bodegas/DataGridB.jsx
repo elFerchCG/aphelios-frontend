@@ -543,7 +543,6 @@ const DataGridB = () => {
           </Button>
         </div>
         {/* DataGrid */}
-        <ThemeProvider theme={theme}>
           <DataGrid
             rows={rows}
             columns={columns}
@@ -560,7 +559,6 @@ const DataGridB = () => {
               activo: false
             }}
           />
-        </ThemeProvider>
       </div>
       {/* Modal para editar bodega */}
       < Dialog open={openModal} onClose={handleCloseModal} >

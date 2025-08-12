@@ -83,7 +83,7 @@ const DataGridTInventario = ({ filter }) => {
                 <h1>Transacciones de Inventario</h1>
             </div>
             <div style={{ height: 500, width: 'auto', margin: '30px' }}>
-                <ThemeProvider theme={theme}>
+    
                     <DataGrid
                         style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={data}
@@ -120,7 +120,7 @@ const DataGridTInventario = ({ filter }) => {
                             },
                         ]}
                     />
-                </ThemeProvider>
+            
             </div>
         </div>
     );

@@ -293,30 +293,52 @@ const DetalleFactura = () => {
         const { value, row } = params;
 
         return (
-           <Tooltip title="Haz clic para ver los detalles del pedido" arrow>
-          <Link
-            to={`/pedidos`}
-            state={{ pedidoIdDesdeFactura: value }} 
-            style={{
-              textDecoration: "none",
-              color: "#1976d2",
-              fontWeight: "bold",
-            }}
-          >
-            {value}
-          </Link>
-             </Tooltip>
+          <Tooltip title="Haz clic para ver los detalles del pedido" arrow>
+            <Link
+              to={`/pedidos`}
+              state={{ pedidoIdDesdeFactura: value }}
+              style={{
+                textDecoration: "none",
+                color: "#1976d2",
+                fontWeight: "bold",
+              }}
+            >
+              {value}
+            </Link>
+          </Tooltip>
         );
       },
     },
     {
       field: "pedido_linea_id",
-      headerName: "# Pedido Linea",
+      headerName: "# Pedido Línea",
       type: "text",
       flex: 0.6,
       align: "center",
       headerAlign: "center",
       headerClassName: "header-wrap",
+      renderCell: ({ value, row }) => {
+        if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
+        return (
+          <Tooltip title="Haz clic para ver los detalles de este producto en el pedido" arrow>
+            <Link
+              to="/pedidos"
+              state={{
+                buscarLineaPedido: String(value), // <-- lo mandamos como texto
+                // opcional: si también quieres llevar el pedido
+                pedidoIdDesdeFactura: row.pedido_id,
+              }}
+              style={{
+                textDecoration: "none",
+                color: "#1976d2",
+                fontWeight: "bold",
+              }}
+            >
+              {value}
+            </Link>
+          </Tooltip>
+        );
+      },
     },
     {
       field: "actions",
@@ -634,7 +656,7 @@ const DetalleFactura = () => {
               const response = await axios.get(
                 `${apiUrl}/facturas/componentes/skulibres`
               );
-              setSkusLibres(response.data);
+              setSkusLibres(response.data.data);
               setOpenModalCambioSku(true);
             } else if (result.dismiss === Swal.DismissReason.cancel) {
               const confirm = await Swal.fire({
@@ -736,14 +758,14 @@ const DetalleFactura = () => {
               </Typography>
               <Typography variant="body1">
                 <strong>Proveedor:</strong>{" "}
-                {dataProveedor?.razon_social || "Cargando..."}
+                {dataProveedor?.razon_social?.trim() || "N/A"}
               </Typography>
               <Typography variant="body1">
-                <strong>RFC:</strong> {dataProveedor?.rfc || "Cargando..."}
+                <strong>RFC:</strong> {dataProveedor?.rfc?.trim() || "N/A"}
               </Typography>
               <Typography variant="body1">
                 <strong>Correo:</strong>{" "}
-                {dataProveedor?.correo || "Cargando..."}
+                {dataProveedor?.correo?.trim() || "N/A"}
               </Typography>
             </Box>
           </Box>
@@ -755,8 +777,6 @@ const DetalleFactura = () => {
             boxShadow: 24,
             borderWidth: 3,
             borderColor: "#1e88e5",
-            fontFamily: "Montserrat",
-            fontWeight: "bold",
             height: 400,
             mt: 2,
             "& .row-disabled": {
@@ -806,9 +826,7 @@ const DetalleFactura = () => {
       >
         <DialogTitle
           sx={{
-            fontFamily: "Montserrat",
             fontWeight: "bold",
-            color: "primary.main",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -840,8 +858,6 @@ const DetalleFactura = () => {
             }
             slots={{ toolbar: CustomToolbar }}
             sx={{
-              fontFamily: "Montserrat",
-              fontWeight: "bold",
               borderRadius: 2,
               border: 2,
               borderColor: "#1e88e5",
@@ -883,15 +899,13 @@ const DetalleFactura = () => {
       >
         <DialogTitle
           sx={{
-            fontFamily: "Montserrat",
             fontWeight: "bold",
-            color: "purple",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
-          🔁 Cambio de SKU — Producto recibido: {selectedSku}
+          Cambio de SKU — Producto recibido: {selectedSku}
           <IconButton
             onClick={() => {
               setOpenModalCambioSku(false);
@@ -910,7 +924,7 @@ const DetalleFactura = () => {
             overflow: "auto",
           }}
         >
-          <Typography sx={{ fontFamily: "Montserrat", mb: 2 }}>
+          <Typography sx={{ mb: 2 }}>
             Selecciona el SKU anterior desde los componentes registrados:
           </Typography>
 
@@ -964,8 +978,6 @@ const DetalleFactura = () => {
             showColumnVerticalBorder
             showCellVerticalBorder
             sx={{
-              fontFamily: "Montserrat",
-              fontWeight: "bold",
               border: 2,
               borderColor: "#1976d2",
               borderRadius: 2,
@@ -978,8 +990,8 @@ const DetalleFactura = () => {
           <Button
             onClick={() => {
               setOpenModalCambioSku(false);
-              setSkuSeleccionado(null); // También aquí
-              setBusquedaSku(""); // opcional, si quieres limpiar también el filtro
+              setSkuSeleccionado(null);
+              setBusquedaSku("");
             }}
             color="primary"
           >
