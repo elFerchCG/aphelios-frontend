@@ -108,70 +108,55 @@ const CargaFacturas = () => {
     //     }
     // }
 
-    const handleFileUpload = async (file) => {
-        if (!file || !file.name.endsWith(".xml")) {
-            alert("Por favor, selecciona un archivo XML válido.");
-            return;
-        }
-    
-        setFileName(file.name);
-    
+    const handleFileUpload = async (files) => {
         const formData = new FormData();
-        formData.append("archivo_xml", file); // nombre del input: archivo_xml
-    
+        files.forEach(file => {
+            if (file.name.toLowerCase().endsWith(".xml")) {
+                formData.append("archivo_xml", file);
+            }
+        });
+
         try {
             const response = await axios.post(`${apiUrl}/facturas/cargarFactura`, formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
+                headers: { "Content-Type": "multipart/form-data" },
             });
-            const result = response.data.resultados[0]; // porque solo subes uno
-    
-            if (result && !result.error) {
-                setArchivo(result.archivo);
-                setMensajeCarga(result.mensaje);
-                setProveedorNombre(result.proveedor);
-                setTotalFactura(result.total_factura);
-                Swal.fire({
-                    title: "¡Éxito!",
-                    text: result.mensaje,
-                    icon: "success",
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true,
-                });
-            } else {
-                Swal.fire({
-                    title: "Error",
-                    text: result?.error || "Ocurrió un error al cargar la factura.",
-                    icon: "warning",
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true,
-                });
-            }
+
+            const resultados = response.data.resultados;
+            resultados.forEach(result => {
+                if (!result.error) {
+                    Swal.fire({
+                        title: "¡Éxito!",
+                        text: `${result.archivo} - ${result.mensaje}`,
+                        icon: "success",
+                        timer: 5000,
+                        showCloseButton: true,
+                    });
+                } else {
+                    Swal.fire({
+                        title: "Error",
+                        text: `${result.archivo} - ${result.error}`,
+                        icon: "warning",
+                        timer: 5000,
+                        showCloseButton: true,
+                    });
+                }
+            });
         } catch (error) {
-            const errorMessage = error.response?.data?.message || "Error en la carga.";
             Swal.fire({
                 title: "Error",
-                text: errorMessage,
-                icon: "warning",
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true,
+                text: error.response?.data?.message || "Error en la carga.",
+                icon: "error",
             });
         }
     };
-    
+
     const onDrop = useCallback((acceptedFiles) => {
-        if (acceptedFiles.length > 0) {
-            handleFileUpload(acceptedFiles[0]); // ya no es evento, es archivo directamente
-        }
+        handleFileUpload(acceptedFiles);
     }, []);
-    
+
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
-        multiple: false,
+        multiple: true, // ahora acepta varios
         accept: { 'text/xml': ['.xml'] }
     });
 
@@ -243,7 +228,7 @@ const CargaFacturas = () => {
                     </Typography>
                     {/* Datos simulados */}
                     <div style={{
-                            marginTop: "40px",
+                        marginTop: "40px",
                         background: "#fafafa",
                         border: "2px dashed #aaa",
                         borderRadius: "10px",
