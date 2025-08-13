@@ -14,7 +14,7 @@ const theme = createTheme({
         },
         columnHeaders: {
           backgroundColor: "#1e88e5",
-          color: "#fff",
+          color: "#000000ff",
           fontWeight: "bold",
         },
         row: {

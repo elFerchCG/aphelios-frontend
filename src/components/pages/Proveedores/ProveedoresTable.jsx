@@ -265,7 +265,6 @@ const ProveedoresTable = () => {
                     </Button>
                 </div>
                 {/* DataGrid */}
-                <ThemeProvider theme={theme}>
                     <DataGrid
                         rows={rows}
                         columns={columns}
@@ -280,7 +279,6 @@ const ProveedoresTable = () => {
                             estado: false
                         }}
                     />
-                </ThemeProvider>
                 {/* Modal para editar proveedor */}
                 < Dialog open={openModal} onClose={handleCloseModal} >
                     <DialogTitle>Editar Proveedor</DialogTitle>
