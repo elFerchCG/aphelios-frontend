@@ -36,6 +36,7 @@ import BarraLateral from '../components/layout/BarraLateral';
 import ResumenEnvio from '../components/pages/Envios/ResumenEnvio';
 import Mercadotecnia from '../components/pages/Inventarios/Publicaciones/Mercadotecnia';
 import VistaPedidos from '../components/pages/Pedidos/Pedidos';
+import Mrp from '../components/pages/Mrp/Mrp';
 
 
 const Rutas = () => {
@@ -85,6 +86,7 @@ const Rutas = () => {
                 <Route path="/barraLateral" element={<BarraLateral />} />
                 <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
                 <Route path="/pedidos" element={<VistaPedidos />} />
+                <Route path="/Mrp" element={<Mrp />} />
                 <Route path='*' element={
                     <div>
                         <h1>Usuario sin permisos suficientes!</h1>
