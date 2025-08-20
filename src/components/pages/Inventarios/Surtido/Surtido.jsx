@@ -1,10 +1,11 @@
-import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Modal, Select, TextField, Tooltip, Typography } from '@mui/material'
+import { Box, Button, FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Modal, OutlinedInput, Select, TextField, Tooltip, Typography } from '@mui/material'
 import React, { useEffect, useRef, useState, useMemo } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import { DataGrid, GridActionsCellItem, GridEditInputCell, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import Swal from 'sweetalert2';
 import axios from 'axios';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 
 
 const getCurrentDateTime = () => {
@@ -26,8 +27,13 @@ const Surtido = () => {
     const [usuarios, setUsuarios] = useState([]);
     const [habilitarAsignar, setHabilitarAsignar] = useState(false);
     const [selectedUsuario, setSelectedUsuario] = useState('');
-    const [selectedUsuarioNombre, setSelectedUsuarioNombre] = useState('');
     const [openAsignar, setOpenAsignar] = useState(false);
+    const [openImprimir, setOpenImprimir] = useState(false);
+    const [ml, setMl] = useState("");
+    const [titleEtiquetasModal, setTitleEtiquetasModal] = useState("");
+    const [skuEtiquetasModal, setSkuEtiquetasModal] = useState("");
+    const [cantidadEtiquetasModal, setCantidadEtiquetasModal] = useState("");
+    const [cantidadEtiquetas, setCantidadEtiquetas] = useState("");
     const [selectedOrdenId, setSelectedOrdenId] = useState(null);
     const [selectedDetalleId, setSelectedDetalleId] = useState(null);
     const [skuEtiqueta, setSkuEtiqueta] = useState('');
@@ -85,6 +91,19 @@ const Surtido = () => {
     const styleModalAsignar = {
         position: 'absolute',
         width: "70%",
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        bgcolor: 'background.paper',
+        borderRadius: 4,
+        boxShadow: 24,
+        p: 4,
+    };
+
+    // Estilos del modal etiquetas
+    const styleModalEtiquetas = {
+        position: 'absolute',
+        width: "20%",
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
@@ -213,11 +232,22 @@ const Surtido = () => {
         setSelectedUsuario("");
     };
 
+    const handleOpenImprimir = () => {
+        setOpenImprimir(true);
+    }
+
+    const handleCloseImprimir = () => {
+        setOpenImprimir(false);
+        setMl("");
+        setCantidadEtiquetasModal("");
+    };
+
     const generarYDescargarTXT = async (data) => {
         const { sku, title, inventory_id, cantidadEtiquetas } = data; // Extrae los valores desde la respuesta
 
         // Estructura del contenido del TXT con los valores reemplazados
-        const contenido = `^XA
+        const contenido =
+            `^XA
             ^CI28
             ^LH0,0
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
@@ -227,11 +257,11 @@ const Surtido = () => {
             ^FO21,145^A0N,18,18^FD^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FH\^FD${selectedUsuario.nombre}/env^FS
+            ^FT385,105^A0B,22,22^FHFD${selectedUsuario.nombre || user.nombre}/env^FS
             ^FO65,18^BY2^BCN,54,N,N
             ^FD${inventory_id}^FS
-        ^FT150,98^A0N,22,22^FH\^FD${inventory_id}^FS
-        ^FT149,98^A0N,22,22^FH\^FD${inventory_id}^FS
+        ^FT150,98^A0N,22,22^FHFD${inventory_id}^FS
+        ^FT149,98^A0N,22,22^FHFD${inventory_id}^FS
             ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
 
         // Crear un Blob con el contenido del archivo
@@ -281,6 +311,38 @@ const Surtido = () => {
                 allowEscapeKey: true
             });
             handleCloseAsignar();
+        }
+    }
+
+    const imprimirEtiquetas = async () => {
+        try {
+            const response = await axios.post(`${apiUrl}/mrp/imprimirEtiquetas`, {
+                inventory_id: ml
+            });
+            if (response.data.ok) {
+                setTitleEtiquetasModal(response.data.title);
+                setSkuEtiquetasModal(response.data.sku);
+                await generarYDescargarTXT({
+                    title: response.data.title,
+                    sku: response.data.sku,
+                    inventory_id: ml,
+                    cantidadEtiquetas: cantidadEtiquetasModal
+                });
+            }
+            handleCloseImprimir();
+        } catch (error) {
+            const errorMessage =
+                error?.response?.data?.message || 'Ocurrió un error inesperado';
+
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            handleCloseImprimir();
         }
     }
 
@@ -403,7 +465,6 @@ const Surtido = () => {
         );
     };
 
-
     const columns = [
         { field: "unique_id", headerName: "Folio linea", type: "text", flex: 1 },
         { field: 'id_orden', headerName: "# Orden", type: "number", flex: 1 },
@@ -446,28 +507,41 @@ const Surtido = () => {
                 <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <h1>Surtido</h1>
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-start", fontFamily: "Montserrat", fontWeight: "bold" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontFamily: "Montserrat",
+                        fontWeight: "bold",
+                        marginBottom: "10px",
+                    }}
+                >
                     <TextField
                         inputRef={inputRef}
                         id="outlined-basic"
-                        label="Buscar componente"
-                        variant='outlined'
+                        label="Ingresar SKU"
+                        variant="outlined"
                         sx={{
                             fontFamily: "Montserrat",
-                            width: '20rem',
-                            marginTop: "-20px",
-                            marginBottom: '10px',
+                            width: "20rem",
                             backgroundColor: "white",
                         }}
                         value={sku}
                         onChange={handleInputChange}
+                        onBlur={handleSearch}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                handleSearch(); // 👈 llama al presionar Enter
+                            }
+                        }}
                         InputProps={{
                             endAdornment: (
-                                <InputAdornment position='end'>
+                                <InputAdornment position="end">
                                     <SearchIcon
                                         style={{
-                                            cursor: 'pointer',
-                                            color: 'blue',
+                                            cursor: "pointer",
+                                            color: "blue",
                                         }}
                                         onClick={handleSearch}
                                     />
@@ -477,12 +551,20 @@ const Surtido = () => {
                         inputProps={{
                             style: {
                                 width: "20rem",
-                                height: '5px', // Altura interna del input
-                                backgroundColor: 'white',
-                                color: 'black',
+                                height: "5px", // Altura interna del input
+                                backgroundColor: "white",
+                                color: "black",
                             },
                         }}
                     />
+                    {['administrador'].includes(user?.rol_descripcion) && (
+                        <Button
+                            variant="contained"
+                            onClick={handleOpenImprimir}
+                        >
+                            Imprimir Etiqueta
+                        </Button>
+                    )}
                 </div>
                 <DataGrid
                     sx={{
@@ -618,6 +700,42 @@ const Surtido = () => {
                     <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
                         <Button onClick={handleCloseAsignar} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
                         <Button onClick={asignarLinea} variant="contained" color="success" disabled={!habilitarAsignar} sx={{ width: 190 }}>Asignar e Imprimir</Button>
+                    </Box>
+                </Box>
+            </Modal>
+            <Modal id={'modal-imprimir'} open={openImprimir} onClose={handleCloseImprimir}>
+                <Box sx={styleModalEtiquetas}>
+                    <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
+                        Imprimir Etiquetas
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', flexWrap: "wrap", gap: 2 }}>
+                        <FormControl sx={{ m: 1, width: '25ch' }} variant="outlined">
+                            <InputLabel>ML</InputLabel>
+                            <OutlinedInput
+                                type={'text'}
+                                label="ML"
+                                value={ml}
+                                onChange={(e) => setMl(e.target.value)}
+                                endAdornment={
+                                    <InputAdornment position='end'>
+                                        <QrCodeScannerIcon />
+                                    </InputAdornment>
+                                }
+                            />
+                        </FormControl>
+                        <FormControl sx={{ ml: 1, width: '15ch' }} variant="outlined">
+                            <InputLabel>Cantidad</InputLabel>
+                            <OutlinedInput
+                                type={'number'}
+                                label="Cantidad"
+                                value={cantidadEtiquetasModal}
+                                onChange={(e) => setCantidadEtiquetasModal(e.target.value)}
+                            />
+                        </FormControl>
+                    </Box>
+                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
+                        <Button onClick={handleCloseImprimir} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
+                        <Button onClick={imprimirEtiquetas} variant="contained" color="success" sx={{ width: 190 }}>Imprimir</Button>
                     </Box>
                 </Box>
             </Modal>

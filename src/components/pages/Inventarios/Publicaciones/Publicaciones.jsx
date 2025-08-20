@@ -1,6 +1,7 @@
 import { Box, Button, Modal, TextField, Tooltip, Typography } from '@mui/material';
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react'
 import Swal from 'sweetalert2';
@@ -35,10 +36,19 @@ const Publicaciones = () => {
             getActions: (params) => [
                 <Tooltip title="Mostrar detalles" key={`actions-${params.row.producto_id}`}>
                     <GridActionsCellItem
-                        icon={<OpenInNewIcon />}
-                        sx={{ color: "blue" }}
+                        icon={<ModeEditIcon />}
+                        sx={{ color: "orange" }}
                         onClick={() => handleOpenDetailsProduct(params.row.producto_id)}
                         label='Mostrar detalles'
+                    />
+                </Tooltip>,
+                <Tooltip title="Ver publicación" key={`link-${params.row.producto_id}`}>
+                    <GridActionsCellItem
+                        icon={<OpenInNewIcon />}
+                        sx={{ color: "green" }}
+                        onClick={() => window.open(params.row.permalink, "_blank")}
+                        label="Ver publicación"
+                        disabled={!params.row.permalink} // por si el campo viene nulo
                     />
                 </Tooltip>
             ]
@@ -273,7 +283,7 @@ const Publicaciones = () => {
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
                 confirmButtonText: 'Sí, actualizarlo!',
-                backdrop: false, 
+                backdrop: false,
             });
 
             if (result.isConfirmed) {

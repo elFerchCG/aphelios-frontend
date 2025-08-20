@@ -193,6 +193,41 @@ const EmpaqueCajaAbierta = () => {
         return () => clearTimeout(timeout); // Limpiar timeout si el usuario sigue escribiendo
     }, [inventoryId]);
 
+    const generarYDescargarTXT = async (data) => {
+        const { envio, numeroCaja } = data; // Extrae los valores desde la respuesta
+
+        // Estructura del contenido del TXT con los valores reemplazados
+        const contenido =
+            `^XA	
+            ^CI28	 
+            ^LH0,0	 
+            ^FO50,105^A0N,90,90^FD${numeroCaja}^FS
+            ^FO50,105^A0N,25,25^FD^FS	 
+            ^FB350,2,2	 
+            ^FO22,145^A0N,18,18^FD^FS
+            ^FO21,145^A0N,18,18^FD^FS
+            ^FB350,2,2	 
+            ^FT344,152^A0N,22,22^FH\^FD${user.nombre}^FS	
+            ^FO65,18^BY3^BCN,54,N,N	 
+            ^FD${envio}/${numeroCaja}^FS
+            ^FT207,105^A0N,30,30^FH\^FDENVIO:${envio}/${numeroCaja}
+            ^FT206,105^A0N,30,30^FH\^FDENVIO:${envio}/${numeroCaja}
+            ^PQ1,0,1,Y^XZ`;
+
+        // Crear un Blob con el contenido del archivo
+        const blob = new Blob([contenido], { type: "text/plain" });
+
+        // Crear un enlace de descarga
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `archivo_caja_numero:${numeroCaja}.txt`;
+
+        // Simular clic para iniciar la descarga
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleOpenCerrarCaja = async () => {
         // Validación de campos vacíos o cero
         const newErrors = {
@@ -225,6 +260,10 @@ const EmpaqueCajaAbierta = () => {
                 },
             );
             if (response.data.ok) {
+                await generarYDescargarTXT({
+                    envio: envioId,
+                    numeroCaja: visualIdCaja
+                })
                 handleCloseCerrarCaja();
                 navigate(`/empaque/${envioId}/detalle`)
             }
