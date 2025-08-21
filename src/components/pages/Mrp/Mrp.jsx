@@ -107,19 +107,33 @@ const generarPedidos = async () => {
   });
   if (!confirm.isConfirmed) return;
 
-  try {
     setSubmitting(true);
     setBusy(true);
 
-    const { data } = await axios.post(`${apiUrl}/mrp/ejecutarMrp`, {
+  try {
+    await axios.post(`${apiUrl}/mrp/ejecutarMrp`, {
       proveedor_id: Number(proveedorId),
       back_order: !!proveedorSel?.backorder,
     });
 
-    setBusy(false); 
+      setBusy(false);
+
     await Swal.fire("Listo", "Pedidos generados correctamente.", "success");
   } catch (err) {
+
+      setBusy(false);
     console.error("Error al generar pedidos", err);
+
+      // Si el backend bloqueó por ejecución duplicada hoy
+    if (err?.response?.status === 409) {
+      await Swal.fire(
+        "Ordenes Generadas hoy",
+        err?.response?.data?.message ||
+          "Ya se generaron órdenes para este proveedor hoy. Inténtalo mañana.",
+        "warning"
+      );
+      return;
+    }
 
     // 👇 muestra mensaje real del backend si existe
     const msg =
@@ -127,10 +141,9 @@ const generarPedidos = async () => {
       err?.response?.data?.error ||
       err?.message ||
       "No se pudieron generar los pedidos.";
-
-    setBusy(false); 
     await Swal.fire("Error", msg, "error");
   } finally {
+    setBusy(false); 
     setSubmitting(false);
   }
 };
@@ -251,10 +264,6 @@ const generarPedidos = async () => {
                 </div>
                 <div>
                   <strong>Surtido:</strong> {proveedorSel.surtido ?? "—"}
-                </div>
-                <div>
-                  <strong>MRP:</strong>{" "}
-                  {Number(proveedorSel.mrp) === 1 ? "Sí" : "No"}
                 </div>
               </Box>
             </>
