@@ -6,6 +6,7 @@ import { DataGrid, GridActionsCellItem, GridEditInputCell, GridToolbarColumnsBut
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 
 const getCurrentDateTime = () => {
@@ -470,7 +471,11 @@ const Surtido = () => {
         { field: 'id_orden', headerName: "# Orden", type: "number", flex: 1 },
         { field: 'id_detalle_orden', headerName: "# Detalle orden", type: "number", flex: 1 },
         { field: "componente_sku", headerName: "SKU Componente", type: "text", flex: 2 },
-        { field: "descripcion", headerName: "Descripcion", type: "text", flex: 2 },
+        {
+            field: "descripcion", headerName: "Descripcion", type: "text", flex: 2, renderCell: (params) => (
+                params.value ?? "Sin descripción"
+            )
+        },
         {
             field: "cantidad_recibida", headerName: "Cantidad Recibida", type: "number", flex: 1
         },
@@ -494,6 +499,15 @@ const Surtido = () => {
                             sx={{ color: "orange" }}
                             onClick={() => handleOpenAsignar(params.row.id_orden, params.row.id_detalle_orden)}
                             label='Asignar'
+                        />
+                    </Tooltip>,
+                    <Tooltip title="Ver publicación" key={`link-${params.row.permalink}`}>
+                        <GridActionsCellItem
+                            icon={<OpenInNewIcon />}
+                            sx={{ color: "green" }}
+                            onClick={() => window.open(params.row.permalink, "_blank")}
+                            label="Ver publicación"
+                            disabled={!params.row.permalink} // por si el campo viene nulo
                         />
                     </Tooltip>
                 ];

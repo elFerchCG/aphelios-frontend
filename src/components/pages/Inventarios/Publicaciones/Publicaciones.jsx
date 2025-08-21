@@ -1,10 +1,12 @@
-import { Box, Button, Modal, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, FormControl, InputAdornment, InputLabel, Modal, OutlinedInput, TextField, Tooltip, Typography } from '@mui/material';
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import axios from 'axios';
 import React, { useEffect, useState } from 'react'
 import Swal from 'sweetalert2';
+import LabelIcon from '@mui/icons-material/Label';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 
 
 const Publicaciones = () => {
@@ -19,6 +21,11 @@ const Publicaciones = () => {
     const [rowsProducts, setRowsProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [openImprimir, setOpenImprimir] = useState(false);
+    const [ml, setMl] = useState("");
+    const [titleEtiquetasModal, setTitleEtiquetasModal] = useState("");
+    const [skuEtiquetasModal, setSkuEtiquetasModal] = useState("");
+    const [cantidadEtiquetasModal, setCantidadEtiquetasModal] = useState("");
     const [columnsProducts, setColumnsProducts] = useState([
         { field: 'producto_id', headerName: 'Folio' },
         { field: 'tipo_publicacion', headerName: 'Tipo publicación', type: 'number' },
@@ -50,10 +57,111 @@ const Publicaciones = () => {
                         label="Ver publicación"
                         disabled={!params.row.permalink} // por si el campo viene nulo
                     />
-                </Tooltip>
-            ]
+                </Tooltip>,
+                // 👇 solo si existe inventory_id
+                ...(params.row.inventory_id
+                    ? [
+                        <Tooltip
+                            title="Imprimir etiquetas"
+                            key={`labels-${params.row.producto_id}`}
+                        >
+                            <GridActionsCellItem
+                                icon={<LabelIcon />}
+                                sx={{ color: "blue" }}
+                                onClick={() => handleOpenImprimir(params.row)}
+                                label="Imprimir etiquetas"
+                            />
+                        </Tooltip>,
+                    ]
+                    : []),
+            ],
         }
     ]);
+
+    const handleOpenImprimir = (row) => {
+        setMl(row.inventory_id);
+        setTitleEtiquetasModal(row.title);
+        setSkuEtiquetasModal(row.sku);
+        setOpenImprimir(true);
+    }
+
+    const handleCloseImprimir = () => {
+        setOpenImprimir(false);
+        setMl("");
+        setCantidadEtiquetasModal("");
+    };
+
+    const imprimirEtiquetas = async () => {
+        try {
+            await generarYDescargarTXT({
+                title: titleEtiquetasModal,
+                sku: skuEtiquetasModal,
+                inventory_id: ml,
+                cantidadEtiquetas: cantidadEtiquetasModal
+            });
+
+            handleCloseImprimir();
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'Ocurrió un error al generar las etiquetas',
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            handleCloseImprimir();
+        }
+    }
+
+    const generarYDescargarTXT = async (data) => {
+        const { sku, title, inventory_id, cantidadEtiquetas } = data; // Extrae los valores desde la respuesta
+
+        // Estructura del contenido del TXT con los valores reemplazados
+        const contenido =
+            `^XA
+            ^CI28
+            ^LH0,0
+            ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
+            ^FO22,165^A0N,25,25^FD^FS
+            ^FB350,2,2
+            ^FO22,145^A0N,18,18^FD^FS
+            ^FO21,145^A0N,18,18^FD^FS
+            ^FB350,2,2
+            ^FO22,105^A0N,20,20^FD${title}^FS
+            ^FT385,105^A0B,22,22^FHFD${user.nombre}/env^FS
+            ^FO65,18^BY2^BCN,54,N,N
+            ^FD${inventory_id}^FS
+        ^FT150,98^A0N,22,22^FHFD${inventory_id}^FS
+        ^FT149,98^A0N,22,22^FHFD${inventory_id}^FS
+            ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
+
+        // Crear un Blob con el contenido del archivo
+        const blob = new Blob([contenido], { type: "text/plain" });
+
+        // Crear un enlace de descarga
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `archivo_${inventory_id}.txt`;
+
+        // Simular clic para iniciar la descarga
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // Estilos del modal etiquetas
+    const styleModalEtiquetas = {
+        position: 'absolute',
+        width: "20%",
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        bgcolor: 'background.paper',
+        borderRadius: 4,
+        boxShadow: 24,
+        p: 4,
+    };
 
     const handleOpenDetailsProduct = (producto_id) => {
         setOpenDetailsProduct(true);
@@ -505,6 +613,43 @@ const Publicaciones = () => {
                     <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
                         <Button onClick={handleCloseDetailsProduct} variant="contained" color="primary">Cerrar</Button>
                         <Button onClick={() => handleUpdateDetailProducto(productoId)} variant="contained" color="success">Guardar</Button>
+                    </Box>
+                </Box>
+            </Modal>
+            {/* Modal para imprimir etiquetas */}
+            <Modal id={'modal-imprimir'} open={openImprimir} onClose={handleCloseImprimir}>
+                <Box sx={styleModalEtiquetas}>
+                    <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
+                        Imprimir Etiquetas
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', flexWrap: "wrap", gap: 2 }}>
+                        <FormControl sx={{ m: 1, width: '25ch' }} variant="outlined">
+                            <InputLabel>ML</InputLabel>
+                            <OutlinedInput
+                                type={'text'}
+                                label="ML"
+                                value={ml}
+                                onChange={(e) => setMl(e.target.value)}
+                                endAdornment={
+                                    <InputAdornment position='end'>
+                                        <QrCodeScannerIcon />
+                                    </InputAdornment>
+                                }
+                            />
+                        </FormControl>
+                        <FormControl sx={{ ml: 1, width: '15ch' }} variant="outlined">
+                            <InputLabel>Cantidad</InputLabel>
+                            <OutlinedInput
+                                type={'number'}
+                                label="Cantidad"
+                                value={cantidadEtiquetasModal}
+                                onChange={(e) => setCantidadEtiquetasModal(e.target.value)}
+                            />
+                        </FormControl>
+                    </Box>
+                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
+                        <Button onClick={handleCloseImprimir} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
+                        <Button onClick={imprimirEtiquetas} variant="contained" color="success" sx={{ width: 190 }}>Imprimir</Button>
                     </Box>
                 </Box>
             </Modal>

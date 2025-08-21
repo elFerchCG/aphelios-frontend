@@ -1,12 +1,11 @@
-import { Tooltip, Typography } from '@mui/material';
-import { GridActionsCellItem, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
+import { Typography } from '@mui/material';
+import { GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import { DataGrid, GridToolbarColumnsButton, GridToolbarContainer } from '@mui/x-data-grid'
 import React, { useEffect, useState } from 'react'
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import '../Inventarios/estilosPrueba.css'
 import { useParams } from 'react-router-dom';
-import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 
 
 const Empaque = () => {
@@ -16,7 +15,7 @@ const Empaque = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-        id: true,
+        id: false,
         inventory_id: true,
         orden: false,
         cantidad: true,
@@ -90,24 +89,9 @@ const Empaque = () => {
         { field: "id", headerName: "# Registro", type: "number", flex: 1 },
         { field: "inventory_id", headerName: "ML", type: "text", flex: 2 },
         { field: "orden", headerName: "# Orden", type: "text", flex: 1 },
-        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1 },
-        { field: "sku", headerName: "SKU", type: "text", flex: 2 },
-        { field: "title", headerName: "Descripción", type: "text", flex: 3 },
-        {
-            field: "actions",
-            headerName: "Acciones",
-            type: "actions",
-            getActions: (params) => [
-                <Tooltip title="Eliminar escaneo" key={`escaneos-${params.row.id}`}>
-                    <GridActionsCellItem
-                        icon={<DeleteForeverRoundedIcon />}
-                        sx={{ color: "red" }}
-                        label="Elimiar escaneo"
-                    //onClick={() => handleOpenModal(params)}
-                    />
-                </Tooltip>
-            ],
-        }
+        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center', align: "center" },
+        { field: "sku", headerName: "SKU", type: "text", flex: 3 },
+        { field: "title", headerName: "Descripción", type: "text", flex: 5, align: "left" }
     ]
 
     const totalCantidad = data.reduce((acc, row) => acc + Number(row.cantidad || 0), 0);
