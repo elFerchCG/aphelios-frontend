@@ -17,9 +17,13 @@ import {
   Divider,
   Stack,
   Alert,
+  Tooltip,
+  Chip,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
+import { DataGrid, GridToolbarContainer } from "@mui/x-data-grid";
 import FullScreenLoader from "../../../components/loaders/FullScreenLoader";
+import InfoOutlined from "@mui/icons-material/InfoOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 const apiUrl =
   process.env.NODE_ENV === "production"
@@ -32,6 +36,7 @@ const MrpSimple = () => {
   const [loadingMrp, setLoadingMrp] = useState(false);
   const [loadingProv, setLoadingProv] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [rowSelectionModel, setRowSelectionModel] = useState([]);
 
   // formulario
   const [proveedorId, setProveedorId] = useState("");
@@ -42,6 +47,9 @@ const MrpSimple = () => {
       proveedores.find((p) => String(p.id_proveedor) === String(proveedorId)),
     [proveedores, proveedorId]
   );
+
+  const backorderActivo = !!proveedorSel?.backorder;
+  const tieneProveedor = Boolean(proveedorId && proveedorSel);
 
   // cargar proveedores activos
   useEffect(() => {
@@ -63,40 +71,92 @@ const MrpSimple = () => {
   }, []);
 
   // cargar MRP cuando se seleccione proveedor
+  // useEffect(() => {
+  //   let cancel = false;
+
+  //   const fetchMrp = async () => {
+  //     // si no hay proveedor seleccionado, limpia la tabla
+  //     if (!proveedorId) {
+  //       setMrp([]);
+  //       setLoadingMrp(false);
+  //       return;
+  //     }
+  //     setLoadingMrp(true);
+  //     try {
+  //       const { data } = await axios.get(`${apiUrl}/mrp`, {
+  //         params: { proveedor_id: Number(proveedorId) },
+  //       });
+  //       if (!cancel) setMrp(Array.isArray(data) ? data : []);
+  //     } catch (err) {
+  //       console.error("Error cargando MRP", err);
+  //       Swal.fire("Error", "No se pudo cargar el MRP del proveedor.", "error");
+  //     } finally {
+  //       if (!cancel) setLoadingMrp(false);
+  //     }
+  //   };
+
+  //   fetchMrp();
+  //   return () => {
+  //     cancel = true;
+  //   };
+  // }, [proveedorId]);
+
   useEffect(() => {
-    let cancel = false;
-
-    const fetchMrp = async () => {
-      // si no hay proveedor seleccionado, limpia la tabla
-      if (!proveedorId) {
-        setMrp([]);
-        setLoadingMrp(false);
-        return;
-      }
-      setLoadingMrp(true);
-      try {
-        const { data } = await axios.get(`${apiUrl}/mrp`, {
-          params: { proveedor_id: Number(proveedorId) },
-        });
-        if (!cancel) setMrp(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error cargando MRP", err);
-        Swal.fire("Error", "No se pudo cargar el MRP del proveedor.", "error");
-      } finally {
-        if (!cancel) setLoadingMrp(false);
-      }
-    };
-
-    fetchMrp();
-    return () => {
-      cancel = true;
-    };
+    setRowSelectionModel([]);
+    cargarMrpDelProveedor();
   }, [proveedorId]);
 
-  useEffect(() => {
-    cargarMrpDelProveedor(); /* eslint-disable-next-line */
-  }, [proveedorId]);
+  // Mapea rowId => orden_id para deduplicar
+  const rowIdToOrdenId = useMemo(() => {
+    const m = new Map();
+    (Array.isArray(mrp) ? mrp : []).forEach((r) => {
+      const key = r?.op_detalle_id
+        ? `opd-${r.op_detalle_id}`
+        : r?.orden_id
+        ? `op-${r.orden_id}`
+        : null;
+      if (key) m.set(key, r.orden_id);
+    });
+    return m;
+  }, [mrp]);
 
+  const ordenesSeleccionadas = useMemo(() => {
+    const set = new Set();
+    rowSelectionModel.forEach((rid) => {
+      const oid = rowIdToOrdenId.get(rid);
+      if (oid) set.add(oid);
+    });
+    return Array.from(set); // array de orden_id únicos
+  }, [rowSelectionModel, rowIdToOrdenId]);
+
+  const TablaToolbar = ({ tieneProveedor, backorderActivo, seleccionadas }) => {
+    if (!tieneProveedor) return null;
+    return (
+      <GridToolbarContainer sx={{ px: 1, py: 1 }}>
+        <Alert
+          severity={backorderActivo ? "info" : "warning"}
+          icon={<InfoOutlinedIcon />}
+          sx={{ width: "100%" }}
+        >
+          {backorderActivo ? (
+            <Box>
+              <strong>¿Cerrar órdenes?</strong> Selecciona con las casillas, usa
+              <b> CERRAR ORDEN</b> (fila) o{" "}
+              <b>CERRAR SELECCIONADAS / CERRAR TODAS</b>. Después, el stock se
+              actualiza automáticamente.
+              <Chip
+                sx={{ ml: 1 }}
+                size="small"
+                label={`Seleccionadas: ${seleccionadas}`}
+              />
+            </Box>
+          ) : (
+            <span>Proveedor sin backorder: la tabla es solo lectura.</span>
+          )}
+        </Alert>
+      </GridToolbarContainer>
+    );
+  };
 
   const generarPedidos = async () => {
     if (!proveedorId) {
@@ -190,10 +250,9 @@ const MrpSimple = () => {
         "Stocks de Mercado Libre actualizados.",
         "success"
       );
-      
+
       setBusy(false);
 
-      
       // refresca la tabla MRP
       await cargarMrpDelProveedor();
     } catch (err) {
@@ -217,35 +276,306 @@ const MrpSimple = () => {
       const { data } = await axios.get(`${apiUrl}/mrp`, {
         params: { proveedor_id: Number(proveedorId) },
       });
-      setMrp(Array.isArray(data) ? data : []);
+
+      setMrp(Array.isArray(data?.ordenes) ? data.ordenes : []);
     } catch {
-      Swal.fire("Error", "No se pudo cargar el MRP del proveedor.", "error");
+      Swal.fire(
+        "Error",
+        "No se pudieron cargar las órdenes abiertas.",
+        "error"
+      );
     } finally {
       setLoadingMrp(false);
     }
   };
 
+  const handleCerrarOrden = async (row) => {
+    const ordenId = row?.orden_id;
+    if (!ordenId) {
+      await Swal.fire("Atención", "No se encontró el ID de la OP.", "warning");
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: "Cerrar orden",
+      text: `¿Cerrar la OP #${ordenId}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBusy(true);
+      // ⚠️ Ajusta la ruta a tu backend:
+      await axios.post(`${apiUrl}/mrp/op/cerrar`, {
+        orden_id: Number(ordenId),
+      });
+      await Swal.fire("Listo", `OP #${ordenId} cerrada.`, "success");
+      await cargarMrpDelProveedor();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "No se pudo cerrar la orden.";
+      await Swal.fire("Error", msg, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cerrarLinea = async (row) => {
+    const payload = row?.op_detalle_id
+      ? { op_detalle_id: Number(row.op_detalle_id) }
+      : row?.detalle_orden_compra_id
+      ? { orden_compra_detalle_id: Number(row.detalle_orden_compra_id) }
+      : row?.pedido_linea_id
+      ? { pedido_linea_id: Number(row.pedido_linea_id) }
+      : null;
+
+    if (!payload) {
+      await Swal.fire(
+        "Atención",
+        "No encontré un ID de línea para cerrar.",
+        "info"
+      );
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: "Cerrar línea",
+      text: `¿Cerrar esta línea? (Numero de Orden de Produccion #${
+        row?.orden_id ?? "?"
+      })`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBusy(true);
+      await axios.post(`${apiUrl}/mrp/linea/cerrar`, payload);
+      setBusy(false);
+      await Swal.fire("Listo", "Línea cerrada y stock recalculado.", "success");
+      await cargarMrpDelProveedor();
+    } catch (err) {
+      setBusy(false);
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "No se pudo cerrar la línea.";
+      await Swal.fire("Error", msg, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCerrarSeleccionadas = async () => {
+    if (!backorderActivo) return;
+    if (rowSelectionModel.length === 0) {
+      await Swal.fire("Atención", "Selecciona al menos una línea.", "info");
+      return;
+    }
+
+    const bulk = {
+      op_detalle_ids: [],
+      orden_compra_detalle_ids: [],
+      pedido_linea_ids: [],
+    };
+
+    rowSelectionModel.forEach((rid) => {
+      const row = mrp.find(
+        (r) =>
+          (r.op_detalle_id
+            ? `opd-${r.op_detalle_id}`
+            : r.orden_id
+            ? `op-${r.orden_id}`
+            : `row-${r.producto_id ?? "x"}`) === rid
+      );
+      if (!row) return;
+      if (row.op_detalle_id)
+        bulk.op_detalle_ids.push(Number(row.op_detalle_id));
+      else if (row.detalle_orden_compra_id)
+        bulk.orden_compra_detalle_ids.push(Number(row.detalle_orden_compra_id));
+      else if (row.pedido_linea_id)
+        bulk.pedido_linea_ids.push(Number(row.pedido_linea_id));
+    });
+
+    const confirm = await Swal.fire({
+      title: "Cerrar seleccionadas",
+      text: `Se cerrarán ${
+        bulk.op_detalle_ids.length +
+        bulk.orden_compra_detalle_ids.length +
+        bulk.pedido_linea_ids.length
+      } línea(s).`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar",
+      cancelButtonText: "Cancelar",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBusy(true);
+      await axios.post(`${apiUrl}/mrp/lineas/cerrar`, bulk);
+      setBusy(false);
+      await Swal.fire(
+        "Listo",
+        "Líneas cerradas y stock recalculado.",
+        "success"
+      );
+      setRowSelectionModel([]);
+      await cargarMrpDelProveedor();
+    } catch (err) {
+      setBusy(false);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "No se pudieron cerrar las líneas.";
+      await Swal.fire("Error", msg, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCerrarTodas = async () => {
+    if (!backorderActivo) return;
+
+    const confirm = await Swal.fire({
+      title: "Cerrar TODAS las órdenes",
+      text: `Se cerrarán todas las líneas/órdenes abiertas del proveedor.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar todas",
+      cancelButtonText: "Cancelar",
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBusy(true);
+      await axios.post(`${apiUrl}/mrp/cerrarTodoProveedorBackorder`, {
+        proveedor_id: Number(proveedorId),
+      });
+      setBusy(false);
+      await Swal.fire(
+        "Listo",
+        "Cierre total ejecutado y stock actualizado.",
+        "success"
+      );
+      setRowSelectionModel([]);
+      await cargarMrpDelProveedor();
+    } catch (err) {
+      setBusy(true);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "No se pudo cerrar todo.";
+      await Swal.fire("Error", msg, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const columns = [
-    { field: "id", headerName: "ID", minWidth: 90 },
-    { field: "producto_id", headerName: "Producto ID", minWidth: 120 },
-    { field: "seguridad", headerName: "Seguridad", minWidth: 120 },
-    { field: "punto_reorden", headerName: "Punto Reorden", minWidth: 140 },
-    { field: "maximo", headerName: "Máximo", minWidth: 120 },
-    { field: "stock_total", headerName: "Stock Total", minWidth: 120 },
-    { field: "pedido", headerName: "Pedido", minWidth: 100 },
-    { field: "retiro", headerName: "Retiro", minWidth: 100 },
+    { field: "orden_id", headerName: "Orden de Produccion", minWidth: 160 },
+    { field: "producto_id", headerName: "Numero de Producto", minWidth: 160 },
     {
-      field: "fecha",
-      headerName: "Fecha",
+      field: "cantidad_a_producir",
+      headerName: "Cantidad a Producir",
+      type: "number",
+      minWidth: 130,
+    },
+    { field: "estatus_op", headerName: "Estatus", minWidth: 130 },
+    {
+      field: "fecha_creacion_op",
+      headerName: "Fecha creación",
+      minWidth: 220,
+      renderHeader: () => (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <span>Fecha creación</span>
+          <Tooltip
+            title="Tip: abre el menú de columna (⋮) para filtrar por fecha."
+            arrow
+          >
+            <InfoOutlinedIcon
+              fontSize="small"
+              sx={{ color: "text.secondary", cursor: "help" }}
+            />
+          </Tooltip>
+        </Box>
+      ),
+    },
+
+    // OP Detalle
+    {
+      field: "cantidad_billete",
+      headerName: "Cant. Billete",
+      minWidth: 120,
+      type: "number",
+    },
+
+    // Pedido + líneas
+    { field: "pedido_id", headerName: "Pedido", minWidth: 100 },
+    { field: "pedido_fecha_creacion", headerName: "F. Pedido", minWidth: 160 },
+
+    {
+      field: "avance",
+      headerName: "Avance",
+      type: "number",
       minWidth: 150,
+      valueGetter: (params) => {
+        const row = params?.row ?? {};
+        const s = Number(row.total_componentes_surtidos ?? 0);
+        const t = Number(row.total_componentes_solicitados ?? 0);
+        return t > 0 ? Math.round((s / t) * 100) : 0;
+      },
+      valueFormatter: ({ value }) => `${value ?? 0}%`,
+      sortComparator: (a, b) => (a ?? 0) - (b ?? 0),
+      // 2) Header con tooltip + icono
+      renderHeader: () => (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <span>Avance</span>
+          <Tooltip
+            title="Avance = (surtidos ÷ solicitados) × 100. 0% = sin recepción registrada."
+            arrow
+          >
+            <InfoOutlined
+              fontSize="small"
+              sx={{ color: "text.secondary", cursor: "help" }}
+            />
+          </Tooltip>
+        </Box>
+      ),
     },
-    { field: "stock_fisico", headerName: "Stock Físico", minWidth: 120 },
+
     {
-      field: "stock_mercado_libre",
-      headerName: "Stock Mercado Libre",
-      minWidth: 180,
+      field: "acciones",
+      headerName: "Acciones",
+      sortable: false,
+      filterable: false,
+      minWidth: 140,
+      renderCell: (params) => {
+        const r = params?.row ?? {};
+        const tieneIdLinea =
+          r.op_detalle_id || r.detalle_orden_compra_id || r.pedido_linea_id;
+        return (
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            onClick={() => cerrarLinea(r)}
+            disabled={!backorderActivo || !tieneIdLinea}
+          >
+            Cerrar línea
+          </Button>
+        );
+      },
     },
-    { field: "stock_en_camino", headerName: "Stock en camino", minWidth: 150 },
   ];
 
   return (
@@ -338,7 +668,9 @@ const MrpSimple = () => {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Actualiza las existencias de Mercado Libre y recalcula el
-                  stock total para el proveedor seleccionado.
+                  stock total de manera global (para todos los productos de
+                  Mercado Libre). Por lo que este proceso si lo deseas,{" "}
+                  <strong>solo debe ser generado una vez.</strong>
                 </Typography>
                 <Button
                   variant="outlined"
@@ -350,20 +682,60 @@ const MrpSimple = () => {
                 </Button>
               </Stack>
 
-              {/* Paso 2 */}
+              {/* Paso 2 (opcional) solo si SÍ acepta backorder */}
+              {backorderActivo && (
+                <Stack spacing={1}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                    Paso 2 · (Opcional) Cerrar órdenes abiertas
+                  </Typography>
+                  <Alert severity="info" variant="outlined">
+                    Si este proveedor acepta backorder, puedes elegir cerrar
+                    una, varias o todas las órdenes abiertas
+                    <strong> antes</strong> de generar nuevas. Al cerrar, se
+                    actualizará el stock en camino y el total.
+                    <strong>
+                      {" "}
+                      Todo esto lo puedes hacer en la tabla de abajo
+                    </strong>
+                  </Alert>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      onClick={handleCerrarSeleccionadas}
+                      disabled={ordenesSeleccionadas.length === 0 || busy}
+                    >
+                      Cerrar seleccionadas
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      onClick={handleCerrarTodas}
+                      disabled={(mrp?.length ?? 0) === 0 || busy}
+                    >
+                      Cerrar todas
+                    </Button>
+                  </Stack>
+                </Stack>
+              )}
+
+              {/* Paso 3 si hay backorder, si no, sigue siendo Paso 2 */}
               <Stack spacing={1}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Paso 2 · Generar órdenes
+                  {backorderActivo
+                    ? "Paso 3 · Generar órdenes"
+                    : "Paso 2 · Generar órdenes"}
                 </Typography>
                 <Alert severity="warning" variant="outlined">
                   Antes de generar órdenes, recuerda{" "}
-                  <strong>refrescar stocks ML (Paso 1)</strong>.
+                  <strong>refrescar stocks ML (Paso 1)</strong>
+                  {backorderActivo &&
+                    " y cerrar las órdenes que desees (Paso 2)."}
                 </Alert>
                 <Typography variant="body2" color="text.secondary">
-                  Si el proveedor no acepta backorder, se cerrarán
-                  automáticamente las órdenes/pedidos/OP pendientes antes de
-                  generar nuevas. Luego se actualizará “stock en camino” y se
-                  crearán las órdenes correspondientes.
+                  {backorderActivo
+                    ? "Tras cerrar las órdenes que elijas (opcional), se actualizará el stock y podrás generar nuevas órdenes."
+                    : "Si el proveedor no acepta backorder, se cerrarán automáticamente las órdenes pendientes antes de generar nuevas."}
                 </Typography>
                 <Button
                   variant="contained"
@@ -392,12 +764,44 @@ const MrpSimple = () => {
         <DataGrid
           rows={mrp}
           columns={columns}
-          getRowId={(row) => row.id}
+          getRowId={(row) =>
+            row?.op_detalle_id
+              ? `opd-${row.op_detalle_id}`
+              : row?.orden_id
+              ? `op-${row.orden_id}`
+              : `row-${row?.producto_id ?? "x"}`
+          }
           pageSize={10}
           rowsPerPageOptions={[10, 25, 50]}
           autoHeight
           density="compact"
-          sx={{ borderRadius: 2, boxShadow: 2 }}
+          disableRowSelectionOnClick
+          checkboxSelection={backorderActivo} // ⬅️ sólo si hay backorder
+          rowSelectionModel={rowSelectionModel}
+          onRowSelectionModelChange={(m) => setRowSelectionModel(m)}
+          getRowClassName={() => (!backorderActivo ? "row-disabled" : "")}
+          sx={{
+            borderRadius: 2,
+            boxShadow: 2,
+            "& .row-disabled": {
+              opacity: 0.5,
+              pointerEvents: "none",
+              filter: "grayscale(100%)",
+            },
+          }}
+          slots={
+            tieneProveedor
+              ? {
+                  toolbar: () => (
+                    <TablaToolbar
+                      tieneProveedor={tieneProveedor}
+                      backorderActivo={backorderActivo}
+                      seleccionadas={ordenesSeleccionadas.length}
+                    />
+                  ),
+                }
+              : undefined // ⬅️ sin toolbar si no hay proveedor
+          }
         />
       )}
       <FullScreenLoader open={busy} text="Cargando..." />
