@@ -37,10 +37,12 @@ const MrpSimple = () => {
   const [loadingProv, setLoadingProv] = useState(true);
   const [busy, setBusy] = useState(false);
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
+  const [mlInfo, setMlInfo] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const isBlocking = busy || submitting;
 
   // formulario
   const [proveedorId, setProveedorId] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const proveedorSel = useMemo(
     () =>
@@ -48,8 +50,51 @@ const MrpSimple = () => {
     [proveedores, proveedorId]
   );
 
+  const daysOutLocal = useMemo(() => {
+    if (!mlInfo?.max) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const last = new Date(mlInfo.max);
+    last.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.floor((today - last) / 86400000));
+  }, [mlInfo?.max]);
+
+  const dias = mlInfo?.daysOutdated ?? daysOutLocal;
+
+  const pluralDias = (n) => (n === 1 ? "1 día" : `${n} días`);
+
   const backorderActivo = !!proveedorSel?.backorder;
   const tieneProveedor = Boolean(proveedorId && proveedorSel);
+  const fmtDT = (s) =>
+    s
+      ? new Date(s).toLocaleString("es-MX", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : "—";
+
+  const fetchMlInfo = async () => {
+    try {
+      const { data } = await axios.get(`${apiUrl}/mrp/ml/lastUpdate`);
+      setMlInfo(data);
+    } catch (e) {
+      // opcional: mostrar alerta suave
+      setMlInfo(null);
+    }
+  };
+
+  const isSameLocalDay = (a, b) => {
+    const da = new Date(a);
+    da.setHours(0, 0, 0, 0);
+    const db = new Date(b);
+    db.setHours(0, 0, 0, 0);
+    return da.getTime() === db.getTime();
+  };
+
+  const lastUpdatedIsToday = useMemo(() => {
+    if (!mlInfo?.ok || !mlInfo?.max) return false;
+    return isSameLocalDay(mlInfo.max, new Date());
+  }, [mlInfo]);
 
   // cargar proveedores activos
   useEffect(() => {
@@ -105,6 +150,19 @@ const MrpSimple = () => {
     setRowSelectionModel([]);
     cargarMrpDelProveedor();
   }, [proveedorId]);
+
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!isBlocking) return;
+      e.preventDefault();
+      e.returnValue = ""; // ← necesario para que el navegador muestre el prompt
+    };
+    window.addEventListener("beforeunload", onBeforeUnload, { capture: true });
+    return () =>
+      window.removeEventListener("beforeunload", onBeforeUnload, {
+        capture: true,
+      });
+  }, [isBlocking]);
 
   // Mapea rowId => orden_id para deduplicar
   const rowIdToOrdenId = useMemo(() => {
@@ -231,6 +289,10 @@ const MrpSimple = () => {
     }
   };
 
+  useEffect(() => {
+    fetchMlInfo();
+  }, []);
+
   const actualizarStocksML = async () => {
     try {
       if (!proveedorId) {
@@ -241,20 +303,46 @@ const MrpSimple = () => {
         );
         return;
       }
+
+      // Si ya se actualizó hoy, pedir confirmación fuerte
+      if (lastUpdatedIsToday && mlInfo?.total > 0) {
+        const hora = new Date(mlInfo.max).toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        const { isConfirmed } = await Swal.fire({
+          icon: "question",
+          title: "¿Actualizar stocks otra vez hoy?",
+          html: `
+          La última actualización de Mercado Libre fue <b>hoy a las ${hora}</b>.<br/>
+          Este proceso tarda <b>~10 minutos</b> y afecta a <b>todos</b> los productos.<br/><br/>
+          ¿Seguro que quieres ejecutarlo de nuevo?
+        `,
+          showCancelButton: true,
+          confirmButtonText: "Sí, actualizar",
+          cancelButtonText: "Cancelar",
+          focusCancel: true,
+        });
+
+        if (!isConfirmed) return;
+      }
+
       setBusy(true);
       await axios.post(`${apiUrl}/mrp/refreshMl`, {
         proveedor_id: Number(proveedorId),
       });
+
+      setBusy(false);
       await Swal.fire(
         "Listo",
         "Stocks de Mercado Libre actualizados.",
         "success"
       );
 
-      setBusy(false);
-
       // refresca la tabla MRP
       await cargarMrpDelProveedor();
+      await fetchMlInfo();
     } catch (err) {
       await Swal.fire(
         "Error",
@@ -279,6 +367,8 @@ const MrpSimple = () => {
 
       setMrp(Array.isArray(data?.ordenes) ? data.ordenes : []);
     } catch {
+      setBusy(false);
+      
       Swal.fire(
         "Error",
         "No se pudieron cargar las órdenes abiertas.",
@@ -481,6 +571,16 @@ const MrpSimple = () => {
     }
   };
 
+  const daysOutdatedLocal = useMemo(() => {
+    if (!mlInfo?.max) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const last = new Date(mlInfo.max);
+    last.setHours(0, 0, 0, 0);
+    const diff = Math.floor((today - last) / (24 * 60 * 60 * 1000));
+    return Math.max(diff, 0);
+  }, [mlInfo?.max]);
+
   const columns = [
     { field: "orden_id", headerName: "Orden de Produccion", minWidth: 160 },
     { field: "producto_id", headerName: "Numero de Producto", minWidth: 160 },
@@ -664,7 +764,7 @@ const MrpSimple = () => {
               {/* Paso 1 */}
               <Stack spacing={1}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Paso 1 · Actualizar stocks ML
+                  Paso 1 · Actualizar stocks Mercado Libre
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Actualiza las existencias de Mercado Libre y recalcula el
@@ -672,6 +772,37 @@ const MrpSimple = () => {
                   Mercado Libre). Por lo que este proceso si lo deseas,{" "}
                   <strong>solo debe ser generado una vez.</strong>
                 </Typography>
+                {/* Indicador de última actualización */}
+                {mlInfo?.ok && (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span style={{ fontSize: 14 }}>
+                      <strong>Última actualización Mercado Libre:</strong>{" "}
+                      {mlInfo.total === 0 ? "sin datos" : fmtDT(mlInfo.max)}
+                      {mlInfo.total > 0 &&
+                        mlInfo.sameDay &&
+                        " · datos consistentes (mismo día)"}
+                    </span>
+                  </Box>
+                )}
+
+                {/* Advertencia si NO es el mismo día */}
+                {/* {mlInfo?.ok && mlInfo.total > 0 && !mlInfo.sameDay && (
+                  <Alert severity="warning" sx={{ maxWidth: 720 }}>
+                    Los registros de Mercado Libre no corresponden al mismo día
+                    ({fmtDT(mlInfo.min)} → {fmtDT(mlInfo.max)}). Te recomendamos
+                    <strong> actualizar stocks ML ahora</strong>.
+                  </Alert>
+                )} */}
+                {mlInfo?.ok && mlInfo.total > 0 && dias > 0 && (
+                  <Alert
+                    severity={dias >= 7 ? "error" : "warning"}
+                    sx={{ maxWidth: 720 }}
+                  >
+                    Tus registros de Mercado Libre están desactualizados por{" "}
+                    <strong>{dias === 1 ? "1 día" : `${dias} días`}</strong>.
+                  </Alert>
+                )}
+
                 <Button
                   variant="outlined"
                   onClick={actualizarStocksML}
