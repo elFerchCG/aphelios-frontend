@@ -162,8 +162,32 @@ const VistaPedidos = () => {
     {
       field: "componente_desc",
       headerName: "Producto",
-      minWidth: 150,
+      minWidth: 300,
       flex: 1,
+    },
+    {
+      field: "componente_sku",
+      headerName: "SKU",
+      minWidth: 130,
+    },
+    {
+      field: "mlm",
+      headerName: "MLM",
+      minWidth: 140,
+      renderCell: ({ value }) => (
+        <span
+          style={{
+            display: "block", // para poder elipsis si quieres
+            margin: 0, // SIN márgenes
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            lineHeight: "inherit", // respeta el line-height de la celda
+          }}
+        >
+          {value ?? "—"}
+        </span>
+      ),
     },
     {
       field: "cantidad_proveedor",

@@ -368,7 +368,7 @@ const MrpSimple = () => {
       setMrp(Array.isArray(data?.ordenes) ? data.ordenes : []);
     } catch {
       setBusy(false);
-      
+
       Swal.fire(
         "Error",
         "No se pudieron cargar las órdenes abiertas.",
@@ -583,7 +583,33 @@ const MrpSimple = () => {
 
   const columns = [
     { field: "orden_id", headerName: "Orden de Produccion", minWidth: 160 },
-    { field: "producto_id", headerName: "Numero de Producto", minWidth: 160 },
+    // NUEVAS
+    { field: "componente_sku", headerName: "SKU componente", minWidth: 160 },
+    {
+      field: "mlm",
+      headerName: "MLM",
+      minWidth: 140,
+      renderCell: ({ value }) => (
+        <span
+          style={{
+            display: "block", // para poder elipsis si quieres
+            margin: 0, // SIN márgenes
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            lineHeight: "inherit", // respeta el line-height de la celda
+          }}
+        >
+          {value ?? "—"}
+        </span>
+      ),
+    },
+    {
+      field: "pub_title",
+      headerName: "Título publicación",
+      minWidth: 350,
+      flex: 1,
+    },
     {
       field: "cantidad_a_producir",
       headerName: "Cantidad a Producir",
@@ -780,7 +806,7 @@ const MrpSimple = () => {
                       {mlInfo.total === 0 ? "sin datos" : fmtDT(mlInfo.max)}
                       {mlInfo.total > 0 &&
                         mlInfo.sameDay &&
-                        " · datos consistentes (mismo día)"}
+                        " · datos consistentes (mismo día. Aqui se refiere a que todos los registros que tenemos del stock de mercado libre, estan actualizados del mismo dia no que son actuales.)"}
                     </span>
                   </Box>
                 )}
