@@ -173,15 +173,14 @@ const DataGridE = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
-                            maxWidth: '300px', // Ajusta el tamaño del TextField según sea necesario
+                            minWidth: '400px', // Ajusta el tamaño del TextField según sea necesario
                             marginRight: 'auto', // Para que el TextField ocupe todo el espacio posible
                         }}
                     />
                 </div>
-                <div style={{ width: '100%', height: '80%', overflowX: 'auto' }}>
-                
+                <div style={{ width: '100%', height: 500, overflowX: 'auto' }}>
                         <DataGrid
-                            style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1500px" }}
+                            sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                             rows={filteredExistencias}
                             columns={columns}
                             showCellVerticalBorder
@@ -189,6 +188,7 @@ const DataGridE = () => {
                             getRowId={(row) => row.id}
                             experimentalFeatures={{ newEditingApi: true }}
                             columnVisibilityModel={columnVisibilityModel}
+                            density="compact"
                             onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                             localeText={{
                                 ...GRID_DEFAULT_LOCALE_TEXT, ...{

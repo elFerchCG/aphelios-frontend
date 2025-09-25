@@ -1657,7 +1657,7 @@ const TableOrdenes = () => {
         { field: 'id', headerName: 'ID', type: 'number', hide: true },
         { field: 'producto_id', headerName: 'ID', type: 'number', flex: 1 },
         {
-            field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', flex: 0.4, cellClassName: 'celdaEditable',
+            field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', flex: 0.5, cellClassName: 'celdaEditable',
             renderEditCell: (params) => {
                 return (
                     <GridEditInputCell
@@ -1698,7 +1698,7 @@ const TableOrdenes = () => {
             field: 'actions',
             headerName: 'Acciones',
             type: 'actions',
-            flex: 0.4,
+            flex: 0.5,
             getActions: (params) => {
                 if (!params || !params.row) {
                     console.error('Error: params o params.row es null o undefined');

@@ -65,7 +65,6 @@ const Rutas = () => {
                 <Route path='/configuraciones' element={<Configuracion />} />
                 <Route path='/inventario' element={<Inventario />} />
                 <Route path='/home' element={<Home />} />
-                <Route path='/envios' element={<Envios />} />
                 <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
                 <Route path='/reCharts' element={<ReCharts />} />
                 <Route path='/analisisVentas' element={<AnalisisVentas />} />
@@ -76,12 +75,13 @@ const Rutas = () => {
                 <Route path='/componentes' element={<Componentes />} />
                 <Route path='/surtido' element={<Surtido />} />
                 <Route path='/publicaciones' element={<Publicaciones />} />
-                <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
                 <Route path="/cargaFacturas" element={<CargaFacturas />} />
                 <Route path="/facturas" element={<Facturas />} />
-                <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
-                <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<EmpaqueCajaAbierta />} />
                 <Route path='/detalleFacturas/factura/:facturaId' element={<DetalleFactura />} />
+                <Route path='/envios' element={<Envios />} />
+                <Route path="/empaque/:envioId/detalle" element={<EnvioDetalle />} />
+                <Route path='/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<EmpaqueCajaAbierta />} />
+                <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
                 <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
                 <Route path="/barraLateral" element={<BarraLateral />} />
                 <Route path="/mercadoTecnia" element={<Mercadotecnia />} />

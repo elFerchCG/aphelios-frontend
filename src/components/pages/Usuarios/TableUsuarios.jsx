@@ -237,7 +237,7 @@ const TableUsuarios = () => {
         { field: 'rol_id', headerName: 'Rol ID', flex: 1 },
         { field: 'rol_descripcion', headerName: 'Rol', flex: 1 },
         {
-            field: 'actions', headerName: 'Acciones', type: 'actions', flex: 1, getActions: (params) => [
+            field: 'actions', headerName: 'Acciones', type: 'actions', flex: 0.5, getActions: (params) => [
                 <Tooltip title='Ver detalles' >
                     <GridActionsCellItem
                         icon={<EditNoteIcon />}
@@ -260,6 +260,7 @@ const TableUsuarios = () => {
                     height: '500px',
                     width: 'auto',
                     margin: '30px',
+                    marginTop: '-30px'
                 }}
             >
                 {/* Contenedor flex para el TextField y el Button */}

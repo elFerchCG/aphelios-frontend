@@ -511,6 +511,7 @@ const DataGridB = () => {
           height: '500px',
           width: 'auto',
           margin: '30px',
+          marginTop: '-30px'
         }}>
         {/* Contenedor flex para el TextField y el Button */}
         <div
