@@ -6,6 +6,7 @@ import DetailsIcon from '@mui/icons-material/Details';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs'; 
+import BreadcrumbsNav from './BreadcrumbsNav';
 
 const Facturas = () => {
     const [data, setData] = useState([]);
@@ -98,6 +99,7 @@ const Facturas = () => {
             }}
             >
                 <h2>Facturas</h2>
+                <BreadcrumbsNav />
                 <DataGrid sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
                     rows={data}
                     columns={columns}

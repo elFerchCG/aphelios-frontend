@@ -1,4 +1,4 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Tooltip } from '@mui/material';
+import { Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Tooltip } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid'
 import axios from 'axios';
 import React from 'react'
@@ -228,12 +228,19 @@ const DataGridT = () => {
 
     const columns = [
         { field: 'id', headerName: 'Folio', flex: 1 },
-        { field: 'descripcion', headerName: 'Descripción', flex: 1 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 3 },
         { field: 'categoria', headerName: 'Categoria', flex: 1 },
         { field: 'activo', headerName: 'Activo', flex: 1 },
-        { field: 'activo_descripcion', headerName: 'Activo', flex: 1 },
+        { 
+            field: 'activo_descripcion', headerName: 'Activo', flex: 0.8,
+            renderCell: (params) => (
+                params.value === "Sí"
+                ? <Chip label="Activo" color="success" size="small" />
+                : <Chip label="Inactivo" color="default" size="small" />
+            ) 
+        },
         { field: 'rol_id', headerName: 'Rol', flex: 1 },
-        { field: 'rol_descripcion', headerName: 'Rol', flex: 1 },
+        { field: 'rol_descripcion', headerName: 'Rol', flex: 0.8 },
         {
             field: 'actions', headerName: 'Acciones', type: 'actions', width: 150, getActions: (params) => [
                 <Tooltip title='Ver detalles' >
@@ -266,6 +273,7 @@ const DataGridT = () => {
                     height: '500px',
                     width: 'auto',
                     margin: '30px',
+                    marginTop: '-30px'
                 }}
             >
                 {/* Contenedor flex para el TextField y el Button */}
@@ -282,7 +290,7 @@ const DataGridT = () => {
                         label="Buscar tipo de transacción"
                         variant="outlined"
                         style={{
-                            maxWidth: '380px', // Ajusta el tamaño del TextField según sea necesario
+                            minWidth: '350px', // Ajusta el tamaño del TextField según sea necesario
                             marginRight: 'auto', // Para que el TextField ocupe todo el espacio posible
                         }}
                     />
@@ -310,6 +318,7 @@ const DataGridT = () => {
                         getRowId={(row) => row.id}
                         experimentalFeatures={{ newEditingApi: true }}
                         columnVisibilityModel={{
+                            id: false,
                             activo: false,
                             rol_id: false,
                         }}

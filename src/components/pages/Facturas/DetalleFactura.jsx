@@ -35,6 +35,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { green, orange, grey } from "@mui/material/colors";
 import Tooltip from "@mui/material/Tooltip";
 import { Link } from "react-router-dom";
+import BreadcrumbsNav from "./BreadcrumbsNav";
 
 const DetalleFactura = () => {
   const { facturaId } = useParams(); // Aquí obtienes ambos parámetros
@@ -739,6 +740,7 @@ const DetalleFactura = () => {
           height: 500,
         }}
       >
+        <BreadcrumbsNav />
         <h2>Detalle Factura {facturaId}</h2>
         <Box
           display="flex"

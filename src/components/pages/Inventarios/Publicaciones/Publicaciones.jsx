@@ -243,8 +243,8 @@ const Publicaciones = () => {
     const [columnVisibilityModelProducts, setColumnVisibilityModelProducts] = useState({
         producto_id: false,
         tipo_publicacion: false,
-        id: false,
-        catalog_id: false,
+        id: true,
+        catalog_id: true,
         variation_id: false,
     })
 
@@ -477,7 +477,7 @@ const Publicaciones = () => {
 
     return (
         <div>
-            <div className='DataG' style={{ height: 500, width: "90%" }}>
+            <div className='DataG' style={{ height: 500, width: "90%", marginTop: '-20px' }}>
                 <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <h1>Publicaciones</h1>
                 </div>
@@ -623,13 +623,14 @@ const Publicaciones = () => {
                         Imprimir Etiquetas
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', flexWrap: "wrap", gap: 2 }}>
-                        <FormControl sx={{ m: 1, width: '25ch' }} variant="outlined">
+                        <FormControl sx={{ m: 1, width: '25ch' }} variant="outlined" >
                             <InputLabel>ML</InputLabel>
                             <OutlinedInput
                                 type={'text'}
                                 label="ML"
                                 value={ml}
                                 onChange={(e) => setMl(e.target.value)}
+                                disabled
                                 endAdornment={
                                     <InputAdornment position='end'>
                                         <QrCodeScannerIcon />
@@ -644,6 +645,7 @@ const Publicaciones = () => {
                                 label="Cantidad"
                                 value={cantidadEtiquetasModal}
                                 onChange={(e) => setCantidadEtiquetasModal(e.target.value)}
+                                inputProps={{ min: 1 }}
                             />
                         </FormControl>
                     </Box>

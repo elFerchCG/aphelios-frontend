@@ -6,7 +6,7 @@ import EditNoteIcon from '@mui/icons-material/EditNote';
 import Swal from 'sweetalert2';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Tooltip } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid'
-
+import { Chip } from "@mui/material";
 
 const ProveedoresTable = () => {
     const apiUrl =
@@ -31,6 +31,7 @@ const ProveedoresTable = () => {
         razon_social: '',
         rfc: '',
         correo: '',
+        backorder: '',
         estado: '',
         sku_proveedor: ''
     });
@@ -40,6 +41,7 @@ const ProveedoresTable = () => {
         razon_social: "",
         rfc: "",
         correo: "",
+        backorder: "",
         estado: "",
         sku_proveedor: ""
     })
@@ -131,6 +133,16 @@ const ProveedoresTable = () => {
         });
     };
 
+    const handleChangeBackOrder = (e) => {
+        const selectedBack = e.target.value;
+        const descripcionBack = selectedBack === 1 ? 'Activo' : 'Inactivo';
+        setProveedorData({
+            ...proveedorData,
+            backorder: selectedBack,
+            back_descripcion: descripcionBack,
+        });
+    };
+
     const addProveedor = async () => {
         try {
             const response = await axios.post(`${apiUrl}/proveedores/`, {
@@ -138,6 +150,7 @@ const ProveedoresTable = () => {
                 rfc: newProveedorData.rfc,
                 correo: newProveedorData.correo,
                 estado: newProveedorData.estado,
+                backorder: newProveedorData.backorder,
                 sku_proveedor: newProveedorData.sku_proveedor
             });
             if (response.data.ok) {
@@ -173,6 +186,7 @@ const ProveedoresTable = () => {
                 rfc: proveedorData.rfc,
                 correo: proveedorData.correo,
                 estado: proveedorData.estado,
+                backorder: proveedorData.backorder,
                 sku_proveedor: proveedorData.sku_proveedor
             });
             if (response.status === 200) {
@@ -207,6 +221,14 @@ const ProveedoresTable = () => {
         { field: 'rfc', headerName: 'RFC', flex: 1 },
         { field: 'correo', headerName: 'Correo', flex: 1 },
         { field: 'estado', headerName: 'Estatus', flex: 1 },
+        {
+            field: 'backorder', headerName: 'Back Order', flex: 1,
+            renderCell: (params) => (
+                params.value === 1
+                    ? <Chip label="Activo" color="success" size="small" />
+                    : <Chip label="Inactivo" color="default" size="small" />
+            )
+        },
         { field: 'sku_proveedor', headerName: 'SKU', flex: 1 },
         {
             field: 'actions', headerName: 'Acciones', type: 'actions', flex: 1, getActions: (params) => [
@@ -232,6 +254,7 @@ const ProveedoresTable = () => {
                     height: '500px',
                     width: 'auto',
                     margin: '30px',
+                    marginTop: '-30px'
                 }}
             >
                 {/* Contenedor flex para el TextField y el Button */}
@@ -265,20 +288,20 @@ const ProveedoresTable = () => {
                     </Button>
                 </div>
                 {/* DataGrid */}
-                    <DataGrid
-                        rows={rows}
-                        columns={columns}
-                        pageSize={5}
-                        disableColumnResize={false}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        getRowId={(row) => row.id_proveedor}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id_proveedor: false,
-                            estado: false
-                        }}
-                    />
+                <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    pageSize={5}
+                    disableColumnResize={false}
+                    showCellVerticalBorder
+                    showColumnVerticalBorder
+                    getRowId={(row) => row.id_proveedor}
+                    experimentalFeatures={{ newEditingApi: true }}
+                    columnVisibilityModel={{
+                        id_proveedor: false,
+                        estado: false
+                    }}
+                />
                 {/* Modal para editar proveedor */}
                 < Dialog open={openModal} onClose={handleCloseModal} >
                     <DialogTitle>Editar Proveedor</DialogTitle>
@@ -311,6 +334,16 @@ const ProveedoresTable = () => {
                             value={proveedorData.sku_proveedor}
                             onChange={(e) => setProveedorData({ ...proveedorData, sku_proveedor: e.target.value })}
                         />
+                        <FormControl fullWidth margin="normal">
+                            <InputLabel>{'Back Order'}</InputLabel>
+                            <Select
+                                value={proveedorData.backorder}
+                                onChange={handleChangeBackOrder}
+                            >
+                                <MenuItem value={1}>Activo</MenuItem>
+                                <MenuItem value={0}>Inactivo</MenuItem>
+                            </Select>
+                        </FormControl>
                         <FormControl fullWidth margin="normal">
                             <InputLabel>{'Estatus'}</InputLabel>
                             <Select
@@ -363,6 +396,16 @@ const ProveedoresTable = () => {
                             value={newProveedorData.sku_proveedor}
                             onChange={(e) => setNewProveedorData({ ...newProveedorData, sku_proveedor: e.target.value })}
                         />
+                        <FormControl fullWidth margin="normal">
+                            <InputLabel>{'Back Order'}</InputLabel>
+                            <Select
+                                value={newProveedorData.backorder}
+                                onChange={(e) => setNewProveedorData({ ...newProveedorData, backorder: e.target.value })}
+                            >
+                                <MenuItem value={1}>Activo</MenuItem>
+                                <MenuItem value={0}>Inactivo</MenuItem>
+                            </Select>
+                        </FormControl>
                         <FormControl fullWidth margin="normal">
                             <InputLabel>{'Estatus'}</InputLabel>
                             <Select

@@ -1,5 +1,4 @@
 import { Typography } from '@mui/material'
-import { GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import axios from 'axios';
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useDropzone } from "react-dropzone";
@@ -7,27 +6,15 @@ import BackupSharpIcon from '@mui/icons-material/BackupSharp';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
+import BreadcrumbsNav from './BreadcrumbsNav';
 
 const CargaFacturas = () => {
-    //const [data, setData] = useState([]);
-    //const [openModal, setOpenModal] = useState(true);
-    //const [rfc, setRfc] = useState('');
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
     const [fileName, setFileName] = useState("");
     const [archivo, setArchivo] = useState("");
-    const [mensajeCarga, setMensajeCarga] = useState("");
     const [proveedorNombre, setProveedorNombre] = useState("");
     const [totalFactura, setTotalFactura] = useState("");
-    // const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-    //     sku: true,
-    //     title: true,
-    //     cantidad: true,
-    //     precio: true,
-    //     total: true,
-    //     orden_id: true,
-    //     linea_id: true,
-    // });
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -49,64 +36,6 @@ const CargaFacturas = () => {
         process.env.NODE_ENV === 'production'
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
-
-    // const CustomToolbar = () => (
-    //     <GridToolbarContainer>
-    //         {/* Mantener solo los botones necesarios */}
-    //         <GridToolbarColumnsButton />  {/* Botón de Columnas */}
-    //         <GridToolbarFilterButton />   {/* Botón de Filtros */}
-    //         <GridToolbarDensitySelector />{/* Botón de Densidad */}
-    //         <GridToolbarExport
-    //             csvOptions={{
-    //                 fileName: "exported_data",
-    //                 utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
-    //             }}
-    //         />
-    //     </GridToolbarContainer>
-    // );
-
-    // Estilos del modal
-    // const styleModal = {
-    //     position: 'absolute',
-    //     width: "20%",
-    //     top: '50%',
-    //     left: '50%',
-    //     transform: 'translate(-50%, -50%)',
-    //     bgcolor: 'background.paper',
-    //     borderRadius: 4,
-    //     boxShadow: 24,
-    //     p: 4,
-    // };
-
-    // const handleCloseModal = () => {
-    //     setOpenModal(false);
-    // }
-
-    // const handleRfc = (event) => {
-    //     const rfcVar = event.target.value;
-    //     setRfc(rfcVar);
-    // }
-
-    // const fetchRfc = async () => {
-    //     setOpenModal(false);
-    //     try {
-    //         const response = await axios.get(`${apiUrl}/facturas/rfc/${rfc}`);
-    //         if (response.data && Array.isArray(response.data.facturas)) {
-    //             // Extraer los detalles de cada factura y unirlos en un solo array
-    //             const detalles = response.data.facturas.flatMap(factura => factura.detalles);
-    //             setData(detalles);
-    //         }
-    //     } catch (error) {
-    //         Swal.fire({
-    //             title: 'Error',
-    //             text: `Error: ${error.message}`,
-    //             icon: 'error',
-    //             timer: 5000,
-    //             showCloseButton: true,
-    //             allowEscapeKey: true
-    //         });
-    //     }
-    // }
 
     const handleFileUpload = async (files) => {
         const formData = new FormData();
@@ -160,24 +89,9 @@ const CargaFacturas = () => {
         accept: { 'text/xml': ['.xml'] }
     });
 
-    // const handleButtonClick = () => {
-    //     fileInputRef.current.click();
-    // };
-
     const handleMostrarFacturas = () => {
         navigate(`/facturas`)
     };
-
-    // const columns = [
-    //     { field: "id", headerName: "Folio Linea", type: "number" },
-    //     { field: "sku", headerName: "SKU", type: "text", flex: 2 },
-    //     { field: "title", headerName: "Descripción", type: "text", flex: 3 },
-    //     { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1 },
-    //     { field: "precio", headerName: "Precio", type: "number", flex: 1 },
-    //     { field: "total", headerName: "Total", type: "number", flex: 1 },
-    //     { field: "orden_id", headerName: "# Orden", type: "number", },
-    //     { field: "linea_id", headerName: "# Linea", type: "number" }
-    // ]
 
     return (
         <div>
