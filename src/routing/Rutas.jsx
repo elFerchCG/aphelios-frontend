@@ -37,6 +37,7 @@ import ResumenEnvio from '../components/pages/Envios/ResumenEnvio';
 import Mercadotecnia from '../components/pages/Inventarios/Publicaciones/Mercadotecnia';
 import VistaPedidos from '../components/pages/Pedidos/Pedidos';
 import Mrp from '../components/pages/Mrp/Mrp';
+import Graficas from '../components/pages/Graficas/DashboardAphelios';
 
 
 const Rutas = () => {
@@ -87,6 +88,7 @@ const Rutas = () => {
                 <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
                 <Route path="/pedidos" element={<VistaPedidos />} />
                 <Route path="/Mrp" element={<Mrp />} />
+                <Route path="/graficas" element={<Graficas />} />
                 <Route path='*' element={
                     <div>
                         <h1>Usuario sin permisos suficientes!</h1>
