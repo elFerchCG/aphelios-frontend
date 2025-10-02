@@ -1,0 +1,183 @@
+/* Contenedor general */
+.dashboard-wrap {
+  padding-bottom: 24px;
+}
+
+/* Secciones con separación clara */
+.board-section {
+  margin-top: 22px;
+}
+
+.board-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 2px 10px 2px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.board-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.board-subtitle {
+  color: #64748b;
+  font-size: 12px;
+  margin: 0;
+}
+
+
+/* Grid de tarjetas: se auto-ajusta a 1, 2 o 3 columnas según ancho disponible */
+.score-grid-3 {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+  margin-top: 16px; 
+}
+
+
+/* Card contenedor */
+.meli-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;       
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.06);
+  overflow: hidden;                   
+  padding: 20px 22px;
+}
+
+/* Línea/acento superior */
+.meli-card--accent::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;                   
+  height: 4px;                         
+  background: linear-gradient(90deg, #2563eb, #0ea5e9, #10b981);
+}
+
+/* Header con título + filtros */
+.meli-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eef2f7;    
+}
+
+.body-soft-bg { background: #f8fafc; }
+
+.meli-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.meli-subtitle {
+  margin: 2px 0 0;
+  color: #6b7280; /* gris */
+  font-size: 13px;
+}
+
+/* Filtros */
+.meli-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.meli-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.meli-select {
+  appearance: none;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  min-width: 90px;
+  outline: none;
+  transition: border 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+.meli-select:focus {
+  border-color: #2563eb;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.meli-button {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: transform 80ms ease, box-shadow 120ms ease, background 160ms ease;
+}
+.meli-button:hover { background: #1d4ed8; }
+.meli-button:active { transform: translateY(1px); }
+.meli-button:disabled { opacity: 0.6; cursor: default; }
+
+.meli-alert {
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: 13px;
+}
+
+/* Chart wrapper */
+.meli-chart {
+  width: 100%;
+  height: 440px;
+}
+
+/* separa el score card del header/top bar */
+.score-grid {
+  margin-top: 18px;     
+}
+
+/* (opcional) si quieres que la línea de acento se vea más gruesa */
+.meli-card--accent::before {
+  height: 6px;          
+}
+
+/* en tu meliVentas.css (o un nuevo styles/score.css) */
+.score-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+@media (min-width: 1100px) {
+  .score-grid {
+    grid-template-columns: 1fr 1fr; /* dos cards lado a lado */
+  }
+}
+
+
+/* Ajustes responsivos (opcional) */
+@media (max-width: 1280px) {
+  .meli-chart { height: 360px; }
+}
+@media (max-width: 960px) {
+  .meli-chart { height: 320px; }
+}
+

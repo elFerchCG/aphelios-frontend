@@ -12,6 +12,8 @@ import {
   Cell,
 } from "recharts";
 
+import './styles/meliVentas.css';
+
 const currency = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
@@ -34,18 +36,18 @@ export default function GraficaMeliVentas() {
     setLoading(true);
     setError("");
     try {
-      // ⬇️ ajusta la ruta si tu backend usa /analiticas en lugar de /analytics
       const res = await axios.get(`${apiUrl}/analiticas/meli/ventas`, {
         params: { anio, mes },
       });
 
-      const r = (res.data?.raw || [])[0] || {
-        ventas_netas: 0,
-        costo: 0,
-        comision: 0,
-        envio: 0,
-        utilidad: 0,
-      };
+      const r =
+        (res.data?.raw || [])[0] || {
+          ventas_netas: 0,
+          costo: 0,
+          comision: 0,
+          envio: 0,
+          utilidad: 0,
+        };
 
       setDetalle([
         { name: "Ventas (sin IVA)", value: r.ventas_netas },
@@ -67,66 +69,74 @@ export default function GraficaMeliVentas() {
   }, [anio, mes]);
 
   const colors = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#0ea5e9"];
-
-  // Headroom para que las etiquetas no se salgan del área
   const maxValue = Math.max(0, ...detalle.map((d) => d.value || 0));
-  const domainMax = Math.ceil(maxValue * 1.15); // 15% aire a la derecha
+  const domainMax = Math.ceil(maxValue * 1.15);
 
   return (
-    <div style={{ width: "100%", maxWidth: 1000, margin: "0 auto" }}>
-      <h2 style={{ marginBottom: 8 }}>Ventas MeLi por mes</h2>
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <label>
-          Año:&nbsp;
-          <select value={anio} onChange={(e) => setAnio(Number(e.target.value))}>
-            <option value={2024}>2024</option>
-            <option value={2025}>2025</option>
-          </select>
-        </label>
-        <label>
-          Mes:&nbsp;
-          <select value={mes} onChange={(e) => setMes(Number(e.target.value))}>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {i + 1}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button onClick={fetchData} disabled={loading}>
-          {loading ? "Cargando..." : "Actualizar"}
-        </button>
-      </div>
-
-      {error && (
-        <div style={{ color: "crimson", marginBottom: 8 }}>
-          Error: {String(error)}
+    <section className="meli-card meli-card--accent">
+      {/* Header */}
+      <header className="meli-header">
+        <div>
+          <h2 className="meli-title">Ventas MeLi por mes</h2>
+          <p className="meli-subtitle">Montos en MXN — Ventas sin IVA</p>
         </div>
-      )}
 
-      <div style={{ width: "100%", height: 420 }}>
+        {/* Filtros */}
+        <div className="meli-filters">
+          <label className="meli-field">
+            <span>Año</span>
+            <select
+              className="meli-select"
+              value={anio}
+              onChange={(e) => setAnio(Number(e.target.value))}
+            >
+              <option value={2024}>2024</option>
+              <option value={2025}>2025</option>
+            </select>
+          </label>
+
+          <label className="meli-field">
+            <span>Mes</span>
+            <select
+              className="meli-select"
+              value={mes}
+              onChange={(e) => setMes(Number(e.target.value))}
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button className="meli-button" onClick={fetchData} disabled={loading}>
+            {loading ? "Cargando…" : "Actualizar"}
+          </button>
+        </div>
+      </header>
+
+      {error && <div className="meli-alert">⚠️ {String(error)}</div>}
+
+      <div className="meli-chart">
         <ResponsiveContainer>
-          {/* layout='vertical' = barras horizontales */}
           <BarChart
             data={detalle}
             layout="vertical"
-            margin={{ top: 8, right: 160, bottom: 8, left: 16 }} // más espacio a la derecha
+            margin={{ top: 8, right: 220, bottom: 8, left: 16 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               type="number"
-              domain={[0, domainMax]} // headroom
+              domain={[0, domainMax]}
               tickFormatter={(v) => currency.format(v)}
             />
             <YAxis type="category" dataKey="name" width={160} />
             <Tooltip formatter={(v, n) => [currency.format(v), n]} />
-
             <Bar dataKey="value" name="Monto">
               {detalle.map((_, i) => (
                 <Cell key={i} fill={colors[i % colors.length]} />
               ))}
-              {/* etiqueta al final; si aún se saliera, cambia a position="insideRight" */}
               <LabelList
                 dataKey="value"
                 position="right"
@@ -137,6 +147,6 @@ export default function GraficaMeliVentas() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </section>
   );
 }
