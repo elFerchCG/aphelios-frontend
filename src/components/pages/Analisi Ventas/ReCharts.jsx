@@ -2,7 +2,7 @@ import React from 'react'
 import '../../../estilos/configuracion.css'
 import ventas from '../../../images/ventas.png';
 import pronostico from '../../../images/pronostico.png';
-import graficas from '../../../images/graficas.png'
+import scoreCard from '../../../images/scoreCard.png'
 import { NavLink } from 'react-router-dom'
 
 const ReCharts = () => {
@@ -17,8 +17,8 @@ const ReCharts = () => {
                 <span>Pronostico</span>
             </NavLink>
             <NavLink to="/graficas" className="nav-config">
-                <img src={graficas} alt="graficas" className="nav-icon-config" />
-                <span>Graficas</span>
+                <img src={scoreCard} alt="scoreCard" className="nav-icon-config" />
+                <span>Score Card</span>
             </NavLink>
         </div>
     )

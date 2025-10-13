@@ -78,8 +78,8 @@ export default function GraficaStockPastel() {
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius="55%"
-              outerRadius="82%"
+              innerRadius="50%"
+              outerRadius="80%"
               startAngle={90}
               endAngle={-270}
               labelLine={false}

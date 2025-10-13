@@ -20,13 +20,15 @@
 .board-title {
   font-size: 22px;
   font-weight: 800;
-  margin: 0;
+  margin: 1;
+  margin-left: 5px;
 }
 
 .board-subtitle {
   color: #64748b;
-  font-size: 12px;
-  margin: 0;
+  font-size: 14px;
+  margin: 2;
+  margin-right: 7px;
 }
 
 
