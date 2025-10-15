@@ -110,6 +110,22 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
       {error && <div className="meli-alert">⚠️ {String(error)}</div>}
 
       <div className="meli-chart">
+         {loading && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,255,255,0.65)",
+              zIndex: 1,
+              fontWeight: 600,
+            }}
+          >
+            Cargando…
+          </div>
+        )}
         <ResponsiveContainer>
           <PieChart margin={{ top: 8, right: 16, bottom: 40, left: 16 }}>
             <Pie

@@ -52,6 +52,30 @@
   padding: 20px 22px;
 }
 
+.legend-inline {
+  display: flex;
+  flex-wrap: wrap;   /* rompe en varias líneas si no cabe */
+  gap: 12px 20px;    /* separación entre items (fila, columna) */
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  color: #374151;    /* gris medio */
+}
+
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 8px;
+}
+
 /* Línea/acento superior */
 .meli-card--accent::before {
   content: "";

@@ -54,7 +54,6 @@ export default function GraficaMeliVentas() {
         { name: "Costo", value: r.costo },
         { name: "Comisión", value: r.comision },
         { name: "Envío", value: r.envio },
-        { name: "Utilidad", value: r.utilidad },
       ]);
     } catch (e) {
       setError(e?.response?.data?.error || e.message);
@@ -119,6 +118,22 @@ export default function GraficaMeliVentas() {
       {error && <div className="meli-alert">⚠️ {String(error)}</div>}
 
       <div className="meli-chart">
+         {loading && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,255,255,0.65)",
+              zIndex: 1,
+              fontWeight: 600,
+            }}
+          >
+            Cargando…
+          </div>
+        )}
         <ResponsiveContainer>
           <BarChart
             data={detalle}

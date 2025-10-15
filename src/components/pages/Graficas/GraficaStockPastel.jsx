@@ -7,6 +7,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import axios from "axios";
 
 const currency = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -14,18 +15,37 @@ const currency = new Intl.NumberFormat("es-MX", {
   maximumFractionDigits: 2,
 });
 
-// Mock de valores por bucket (puedes hacer que lea de API luego)
+const apiUrl =
+  process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : process.env.REACT_APP_API_URL_LOCAL;
+
+// --- helpers de UI ---
+const COLORS = {
+  rojo: "#ef4444",
+  amarillo: "#f59e0b",
+  verde: "#10b981",
+  azul: "#3b82f6",
+};
+
+const NOMBRE = {
+  rojo: "Rojo (≤ Seguridad)",
+  amarillo: "Amarillo (≤ Reorden)",
+  verde: "Verde (≤ Máximo)",
+  azul: "Azul (> Máximo)",
+};
+
+// Mock temporal por si no hay backend
 function buildMockStock() {
-  // valores en MXN (ej. valor inventario por categoría)
   const rojo = Math.round(0.14 * 1_000_000 + Math.random() * 100_000);
   const amarillo = Math.round(0.27 * 1_000_000 + Math.random() * 100_000);
   const verde = Math.round(0.31 * 1_000_000 + Math.random() * 100_000);
   const azul = Math.round(0.28 * 1_000_000 + Math.random() * 100_000);
   return [
-    { key: "rojo",     name: "Rojo (≤ Seguridad)",                value: rojo,     color: "#ef4444" },
-    { key: "amarillo", name: "Amarillo (≤ Reorden)",               value: amarillo, color: "#f59e0b" },
-    { key: "verde",    name: "Verde (≤ Máximo)",                   value: verde,    color: "#10b981" },
-    { key: "azul",     name: "Azul (> Máximo)",                    value: azul,     color: "#3b82f6" },
+    { key: "rojo", name: NOMBRE.rojo, value: rojo, color: COLORS.rojo },
+    { key: "amarillo", name: NOMBRE.amarillo, value: amarillo, color: COLORS.amarillo },
+    { key: "verde", name: NOMBRE.verde, value: verde, color: COLORS.verde },
+    { key: "azul", name: NOMBRE.azul, value: azul, color: COLORS.azul },
   ];
 }
 
@@ -33,27 +53,46 @@ export default function GraficaStockPastel() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Total para el centro del donut
   const total = useMemo(
-    () => data.reduce((a, b) => a + (b.value || 0), 0),
+    () => data.reduce((acc, d) => acc + (Number(d.value) || 0), 0),
     [data]
   );
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Cuando tengas API, reemplaza por:
-      // const res = await fetch(`${apiUrl}/analytics/stock/buckets`);
-      // const json = await res.json();
-      // setData(json.data);
-      setData(buildMockStock());
+      if (!apiUrl) {
+        setData(buildMockStock());
+        return;
+      }
+
+      // Respuesta esperada del backend:
+      // { data: [{ bucket, valor_mxn, items, unidades }, ...], total_mxn }
+      const { data: resp } = await axios.get(
+        `${apiUrl}/analiticas/stock/buckets`,
+        { params: { soloConStock: 1 } } 
+      );
+
+      const series = (resp?.data ?? []).map((b) => ({
+        key: b.bucket,
+        name: NOMBRE[b.bucket] ?? b.bucket,
+        value: Number(b.valor_mxn || 0),
+        color: COLORS[b.bucket] ?? "#999999",
+      }));
+
+      setData(series.length ? series : buildMockStock());
     } catch (e) {
+      console.error("Error cargando buckets de stock:", e);
       setData(buildMockStock());
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []); // carga inicial
 
   return (
     <section className="meli-card meli-card--accent">
@@ -72,6 +111,22 @@ export default function GraficaStockPastel() {
       </header>
 
       <div className="meli-chart">
+                 {loading && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,255,255,0.65)",
+              zIndex: 1,
+              fontWeight: 600,
+            }}
+          >
+            Cargando…
+          </div>
+        )}
         <ResponsiveContainer>
           <PieChart margin={{ top: 8, right: 16, bottom: 40, left: 16 }}>
             <Pie
@@ -83,9 +138,8 @@ export default function GraficaStockPastel() {
               startAngle={90}
               endAngle={-270}
               labelLine={false}
-              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
             >
-              {data.map((d, i) => (
+              {data.map((d) => (
                 <Cell key={d.key} fill={d.color} />
               ))}
             </Pie>
@@ -117,7 +171,7 @@ export default function GraficaStockPastel() {
               verticalAlign="bottom"
               align="center"
               formatter={(value, entry) =>
-                `${value} — ${currency.format(entry.payload.value)}`
+                `${value} — ${currency.format(entry?.payload?.value ?? 0)}`
               }
             />
           </PieChart>
