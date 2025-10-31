@@ -1316,24 +1316,30 @@ const TableOrdenes = () => {
         setSearchTerm(sku);
     }
 
+    
+
     useEffect(() => {
+        const isAdmin = user?.rol_id === 1; 
+
         if (estatus === 'abierto') {
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
             setEnableRevertir(false);
             setHabilitarTraspaso(false);
-            if (user?.rol_id === rolMovimiento) {
+            
+
+            if (user?.rol_id === rolMovimiento || isAdmin) {
                 setHabilitarDescripcion(true);
                 setHabilitarBuscador(true);
                 setEnableCancel(true);
             }
-            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada) {
+            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada || isAdmin ) {
                 setEnableConfirm(true);
             }
-            else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp) {
+            else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp || isAdmin) {
                 setEnableConfirm(true);
             }
-            else if (categoriaTemp === 'transferencia' && user?.rol_id === rolIdTemp) {
+            else if (categoriaTemp === 'transferencia' && user?.rol_id === rolIdTemp || isAdmin) {
                 setEnableConfirm(true);
             } else {
                 setEnableConfirm(false);
@@ -1347,22 +1353,23 @@ const TableOrdenes = () => {
             setHabilitarDescripcion(false);
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
-            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada) {
+            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada || isAdmin) {
                 setEnableProcess(true);
             }
-            else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp) {
+            else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp || isAdmin) {
                 setEnableProcess(true);
             }
-            else if (categoriaTemp === 'transferencia' && user?.rol_id === rolIdTempEntrada) {
+            else if (categoriaTemp === 'transferencia' && user?.rol_id === rolIdTempEntrada || isAdmin) {
                 setEnableProcess(true);
             }
-            if (user?.rol_id === rolMovimiento) {
+            if (user?.rol_id === rolMovimiento || isAdmin) {
                 setEnableRevertir(true);
             }
         }
         if (estatus === 'procesado') {
             setEnableRevertir(false);
             setEnableProcess(false);
+            setEnableConfirm(false);
             setHabilitarTraspaso(false);
             setHabilitarDescripcion(false);
             setBodegaSalidaHabilitada(false);
