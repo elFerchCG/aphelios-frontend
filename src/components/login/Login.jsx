@@ -65,9 +65,45 @@ const Login = () => {
   }, [logout, navigate]);
 
   return (
-    <div className='layoutLogin'>
-      <img src={logo} alt="logo" className="logoAphelios" />
-      <div className='cuerpoLogin' onKeyDown={handleKeyDown}>
+    <div
+      className='layoutLogin'
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        padding: '2vw',
+        boxSizing: 'border-box',
+      }}
+    >
+      <img
+        src={logo}
+        alt="logo"
+        className="logoAphelios"
+        style={{
+          // 🔑 CAMBIO CLAVE: Fija el tamaño con px para que no cambie con el zoom
+          width: '180px',
+          maxWidth: '220px',
+          minWidth: '100px',
+          height: 'auto',
+          marginBottom: '2vh', // Esto ahora no afecta la posición
+        }}
+      />
+
+      <div
+        className='cuerpoLogin'
+        onKeyDown={handleKeyDown}
+        style={{
+          width: '100%',
+          maxWidth: '28vw',        // escala con la pantalla
+          minWidth: '280px',       // nunca más pequeño que esto
+          padding: '2vw',
+          boxSizing: 'border-box',
+          transform: 'scale(1)',   // mantiene proporción visual si luego quieres ajustar zoom
+          transition: 'all 0.3s ease',
+        }}
+      >
         <TextField
           className='itemLogin'
           variant="standard"
@@ -75,11 +111,10 @@ const Login = () => {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           sx={{
-            marginBottom: '20px', width: '100%'
+            marginBottom: '20px',
+            width: '100%',
           }}
-          InputLabelProps={{
-            shrink: true,  // Forzar que el label se mantenga arriba
-          }}
+          InputLabelProps={{ shrink: true }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -88,6 +123,7 @@ const Login = () => {
             ),
           }}
         />
+
         <TextField
           className='itemLogin'
           variant='standard'
@@ -95,16 +131,16 @@ const Login = () => {
           type='password'
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          sx={{
-            width: '100%'
-          }}
+          sx={{ width: '100%' }}
           InputProps={{
-            startAdornment:
+            startAdornment: (
               <InputAdornment position='start'>
                 <LockOutlinedIcon sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
               </InputAdornment>
+            )
           }}
         />
+
         <Button
           variant='contained'
           className='botonLogin'
@@ -112,11 +148,14 @@ const Login = () => {
           sx={{
             borderRadius: '20px',
             width: '100%',
-            boxShadow: '0px 0px 30px 20px rgba(0, 0, 0, 0.30)'
-          }}>INICIAR SESIÓN</Button>
+            boxShadow: '0px 0px 30px 20px rgba(0, 0, 0, 0.30)',
+          }}
+        >
+          INICIAR SESIÓN
+        </Button>
       </div>
     </div>
-  )
+  );
 }
 
 export default Login

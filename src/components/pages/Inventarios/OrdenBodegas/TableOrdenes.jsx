@@ -1,7 +1,7 @@
 import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, GridToolbar } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Box, Button, FormControl, InputAdornment, InputLabel, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
+import { Autocomplete, Box, Button, FormControl, InputAdornment, InputLabel, ListSubheader, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
 import '../../../../estilos/barraAcciones.css'; // Importar el archivo CSS
 import confirmOrden from '../../../../images/confirm.png';
 import processOrden from '../../../../images/process.png';
@@ -35,6 +35,8 @@ const getCurrentDateTime = () => {
 };
 
 const TableOrdenes = () => {
+    // Estado adicional para controlar el valor del input
+    const [inputValueUbicacion, setInputValueUbicacion] = useState('');
     const [bodegaSalida, setBodegaSalida] = useState([]);
     const [bodegaEntrada, setBodegaEntrada] = useState([]);
     const [productoSku, setProductoSku] = useState('');
@@ -86,6 +88,8 @@ const TableOrdenes = () => {
     const [open, setOpen] = useState(false);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchTermUbicacion, setSearchTermUbicacion] = useState('');
+
 
     const bodegaSalidaRef = useRef(null);
     const bodegaEntradaRef = useRef(null);
@@ -1550,8 +1554,8 @@ const TableOrdenes = () => {
                 localidad_entrada: linea.localidad_entrada_descripcion,
                 localidad_salida_id: linea.localidad_salida_id,
                 localidad_entrada_id: linea.localidad_entrada_id,
-                existencias_origen: linea.existencias_origen,
-                existencias_destino: linea.existencias_destino
+                existencias_origen: linea.existencias_origen || 0,
+                existencias_destino: linea.existencias_destino || 0,
             }));
             // Limpia las filas actuales y luego añade las nuevas filas
             setRows(dataGridRows);
@@ -1622,6 +1626,8 @@ const TableOrdenes = () => {
 
         setFilteredProducts(filtered);
     }, [searchTerm, rowsProducts]);
+
+
 
     const columnsProducts = [
         {
@@ -1991,25 +1997,77 @@ const TableOrdenes = () => {
                         </Select>
                     </FormControl>
                     <label>Ubicación entrada:</label>
-                    <FormControl sx={{ m: 1, width: "130px" }} size='small'>
-                        <InputLabel>Ubicación de entrada</InputLabel>
-                        <Select
-                            label="Ubicación de entrada"
-                            disabled={!ubicacionEntradaHabilitada}
-                            value={selectedUbicacionEntrada}
-                            onChange={handleUbicacionSelectEntrada}
-                            ref={ubicacionEntradaRef}
-                            style={{ backgroundColor: ubicacionEntradaHabilitada ? 'white' : '#f0f0f0' }}
-                        >
-                            {ubicacionEntrada
-                                .sort((a, b) => b.cantidad - a.cantidad)
-                                .map((ubicacion, index) => (
-                                    <MenuItem key={index} value={ubicacion.id}>
-                                        {`${ubicacion.descripcion} : ${ubicacion.cantidad}`}
-                                    </MenuItem>
-                                ))}
-                        </Select>
-                    </FormControl>
+                    <Autocomplete
+                        disabled={!ubicacionEntradaHabilitada}
+                        options={ubicacionEntrada
+                            .sort((a, b) => {
+                                const aCantidad = a.cantidad || 0;
+                                const bCantidad = b.cantidad || 0;
+                                // Prioriza cantidad > 0
+                                if (bCantidad > 0 && aCantidad === 0) return 1;
+                                if (aCantidad > 0 && bCantidad === 0) return -1;
+                                // Si ambos tienen cantidad > 0, ordenar por cantidad descendente
+                                if (aCantidad > 0 && bCantidad > 0) return bCantidad - aCantidad;
+                                // Si ambos 0 o undefined, ordenar alfabéticamente
+                                return a.descripcion.localeCompare(b.descripcion, 'es', { sensitivity: 'base' });
+                            })
+                        }
+                        getOptionLabel={(option) => `${option.descripcion} : ${option.cantidad ?? 0}`}
+                        value={ubicacionEntrada.find(u => u.id === selectedUbicacionEntrada) || null}
+                        onChange={(event, newValue) => {
+                            // ✅ Si borran la ubicación (X), limpiar existencia destino
+                            if (!newValue) {
+                                handleUbicacionSelectEntrada({ target: { value: "" } });
+                                setExistenciaProductoDestino(""); // o 0 según lo uses
+                                setInputValueUbicacion("");
+                                return;
+                            }
+
+                            // ✅ Si seleccionan una ubicación normal
+                            handleUbicacionSelectEntrada({ target: { value: newValue.id } });
+
+                            // limpiar input del buscador
+                            setInputValueUbicacion('');
+                        }}
+                        inputValue={inputValueUbicacion}
+                        onInputChange={(event, newInputValue) => setInputValueUbicacion(newInputValue)}
+                        renderOption={(props, option) => (
+                            <li
+                                {...props}
+                                style={{
+                                    backgroundColor: option.cantidad > 0 ? '#FFF59D' : 'white', // amarillo suave
+                                    fontWeight: option.cantidad > 0 ? 'bold' : 'normal',
+                                    borderBottom: '1px solid #eee',
+                                    padding: '4px 8px',
+                                }}
+                            >
+                                {`${option.descripcion} : ${option.cantidad ?? 0}`}
+                            </li>
+                        )}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Ubicación de entrada"
+                                variant="standard" // mismo estilo que tu Select
+                                size="small"       // mismo tamaño
+                                sx={{
+                                    backgroundColor: ubicacionEntradaHabilitada ? 'white' : '#f0f0f0',
+                                    mr: 1
+                                }}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon fontSize="small" />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                        )}
+                        clearOnBlur
+                        clearOnEscape
+                        sx={{ width: "180px" }}
+                    />
                     <label className='label-existencias-origen'>Existencias Origen:</label>
                     <TextField sx={{ width: "80px" }} value={existenciaProducto} disabled />
                     <label>Cantidad:</label>
@@ -2068,7 +2126,7 @@ const TableOrdenes = () => {
                             },
                         }}
                     />
-                    <label className='label-existencias-destino'>Existencias Destino:</label>
+                    <label className='label-existencias-destino' sx={{ ml: 5 }}>Existencias Destino:</label>
                     <TextField sx={{ width: "80px" }} value={existenciaProductoDestino} disabled />
                     <Button
                         variant='contained'

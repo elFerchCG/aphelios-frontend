@@ -31,6 +31,21 @@ const DataGridTInventario = ({ filter }) => {
 
     const url = `${apiUrl}/inventario/transacciones`;
 
+    const [columnVisibilityModelTransacciones, setColumnVisibilityModelTransacciones] = useState({
+        transaccion_id: false,
+        orden_id: false,
+        tipo: true,
+        sku: true,
+        inventory_id: true,
+        localidad_id: true,
+        cantidad: true,
+        inventario_inicial: true,
+        inventario_final: true,
+        fecha_transaccion: true,
+        usuario_autorizacion: true,
+        usuario_transaccion: true,
+    })
+
     const columns = [
         // { field: 'id', headerName: 'ID', flex: 1 },
         {
@@ -83,44 +98,42 @@ const DataGridTInventario = ({ filter }) => {
                 <h1>Transacciones de Inventario</h1>
             </div>
             <div style={{ height: 500, width: 'auto', margin: '30px' }}>
-    
-                    <DataGrid
-                        style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
-                        rows={data}
-                        columns={columns}
-                        pageSize={5}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        getRowId={(row) => row.transaccion_id}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id: false,
-                            localidad_id: false,
-                        }}
-                        localeText={{
-                            ...GRID_DEFAULT_LOCALE_TEXT, ...{
-                                toolbarColumns: 'Columnas',
-                                toolbarDensity: 'Densidad',
-                                toolbarExport: 'Exportar',
-                                toolbarFilters: 'Filtros',
-                                filterPanelOperator: 'Operador',
-                                toolbarFiltersTooltipHide: 'Ocultar filtros',
-                                toolbarFiltersTooltipShow: 'Mostrar filtros',
-                                footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
-                                footerTotalVisibleRows: (visibleCount, totalCount) =>
-                                    `${visibleCount} de ${totalCount}`,
-                                footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
-                            }
-                        }} // Localización en español
-                        slots={{ toolbar: GridToolbar }}
-                        sortModel={[
-                            {
-                                field: 'linea_orden_id',
-                                sort: 'desc',
-                            },
-                        ]}
-                    />
-            
+
+                <DataGrid
+                    style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
+                    rows={data}
+                    columns={columns}
+                    pageSize={5}
+                    showCellVerticalBorder
+                    showColumnVerticalBorder
+                    getRowId={(row) => row.transaccion_id}
+                    experimentalFeatures={{ newEditingApi: true }}
+                    columnVisibilityModel={columnVisibilityModelTransacciones}
+                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelTransacciones(newModel)}
+                    localeText={{
+                        ...GRID_DEFAULT_LOCALE_TEXT, ...{
+                            toolbarColumns: 'Columnas',
+                            toolbarDensity: 'Densidad',
+                            toolbarExport: 'Exportar',
+                            toolbarFilters: 'Filtros',
+                            filterPanelOperator: 'Operador',
+                            toolbarFiltersTooltipHide: 'Ocultar filtros',
+                            toolbarFiltersTooltipShow: 'Mostrar filtros',
+                            footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
+                            footerTotalVisibleRows: (visibleCount, totalCount) =>
+                                `${visibleCount} de ${totalCount}`,
+                            footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
+                        }
+                    }} // Localización en español
+                    slots={{ toolbar: GridToolbar }}
+                    sortModel={[
+                        {
+                            field: 'linea_orden_id',
+                            sort: 'desc',
+                        },
+                    ]}
+                />
+
             </div>
         </div>
     );

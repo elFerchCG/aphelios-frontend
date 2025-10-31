@@ -35,10 +35,12 @@ const Header = () => {
             <img src={envio} alt="Envios" className="nav-icon" />
             <span>Envios</span>
           </NavLink>
-          <NavLink to="/reCharts" className="nav-link">
-            <img src={reCharts} alt="reCharts" className="nav-icon" />
-            <span>Graficas</span>
-          </NavLink>
+          {['administrador'].includes(user?.rol_descripcion) && (
+            <NavLink to="/reCharts" className="nav-link">
+              <img src={reCharts} alt="reCharts" className="nav-icon" />
+              <span>Graficas</span>
+            </NavLink>
+          )}
           <NavLink to="/inventario" className="nav-link">
             <img src={inventario} alt="Inventario" className="nav-icon" />
             <span>Inventario</span>

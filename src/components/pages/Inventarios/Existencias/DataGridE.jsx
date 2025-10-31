@@ -2,10 +2,12 @@ import React from 'react'
 import { DataGrid, GridToolbarContainer, GridToolbarExport, GRID_DEFAULT_LOCALE_TEXT, GridToolbarColumnsButton, GridToolbarFilterButton, GridToolbarDensitySelector } from '@mui/x-data-grid';
 import { useState } from 'react';
 import { useEffect } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import Swal from 'sweetalert2';
 import axios from 'axios';
-import { TextField } from '@mui/material';
+import { TextField, Button } from '@mui/material';
+import useAuthStore from '../../../../store/authStore';
 
 
 const theme = createTheme({
@@ -18,6 +20,49 @@ const DataGridE = () => {
     const [data, setData] = useState([]);
     const [filteredExistencias, setFilteredExistencias] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [excelFile, setExcelFile] = useState(null);
+
+    const { token, user } = useAuthStore();
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await axios.post(`${apiUrl}/inventario/existencias/ajustarExistencias`, formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            console.log("Respuesta de carga excel:", response);
+
+            if (response.data.ok) {
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: 'Las existencias se han ajustado correctamente.',
+                    icon: 'success',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+        } catch (error) {
+            const errorMessage = error.response.data.message;
+            Swal.fire({
+                title: '¡Error!',
+                text: errorMessage || 'Hubo un problema al cargar el archivo Excel.',
+                icon: 'error',
+                confirmButtonText: 'Aceptar'
+            });
+        }
+    };
+
+    const handleUploadClick = () => {
+        document.getElementById('excelInput').click();
+    };
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
         id: false,
@@ -142,7 +187,7 @@ const DataGridE = () => {
     }, [searchTerm, data]);
 
     return (
-        <div className='contenido'  >
+        <div className='contenido'>
             <div className='encabezado'>
                 <h1>Existencias</h1>
             </div>
@@ -157,12 +202,13 @@ const DataGridE = () => {
                     marginRight: '30px'
                 }}
             >
-                {/* Contenedor flex para el TextField y el Button */}
+                {/* Contenedor flex para TextField y Botón */}
                 <div
                     style={{
                         display: 'flex',
-                        alignItems: 'center', // Para alinear ambos elementos a la misma altura
-                        marginBottom: '10px', // Espacio entre el formulario y el DataGrid
+                        alignItems: 'center',
+                        marginBottom: '10px',
+                        justifyContent: 'space-between',
                     }}
                 >
                     {/* TextField alineado a la izquierda */}
@@ -173,41 +219,60 @@ const DataGridE = () => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
-                            minWidth: '400px', // Ajusta el tamaño del TextField según sea necesario
-                            marginRight: 'auto', // Para que el TextField ocupe todo el espacio posible
+                            minWidth: '400px',
+                            marginRight: '20px',
                         }}
                     />
+                    {['administrador'].includes(user?.rol_descripcion) && (
+                        <>
+                            <input
+                                id="excelInput"
+                                type="file"
+                                accept=".xlsx, .csv"
+                                style={{ display: 'none' }}
+                                onChange={handleFileChange}
+                            />
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                startIcon={<CloudUploadIcon />}
+                                onClick={handleUploadClick}
+                            >
+                                Cargar Existencias
+                            </Button>
+                        </>
+                    )}
                 </div>
                 <div style={{ width: '100%', height: 500, overflowX: 'auto' }}>
-                        <DataGrid
-                            sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
-                            rows={filteredExistencias}
-                            columns={columns}
-                            showCellVerticalBorder
-                            showColumnVerticalBorder
-                            getRowId={(row) => row.id}
-                            experimentalFeatures={{ newEditingApi: true }}
-                            columnVisibilityModel={columnVisibilityModel}
-                            density="compact"
-                            onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
-                            localeText={{
-                                ...GRID_DEFAULT_LOCALE_TEXT, ...{
-                                    toolbarColumns: 'Columnas',
-                                    toolbarDensity: 'Densidad',
-                                    toolbarExport: 'Exportar',
-                                    toolbarFilters: 'Filtros',
-                                    filterPanelOperator: 'Operador',
-                                    toolbarFiltersTooltipHide: 'Ocultar filtros',
-                                    toolbarFiltersTooltipShow: 'Mostrar filtros',
-                                    footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
-                                    footerTotalVisibleRows: (visibleCount, totalCount) =>
-                                        `${visibleCount} de ${totalCount}`,
-                                    footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
-                                }
-                            }} // Localización en español
-                            slots={{ toolbar: CustomToolbar }}
-                        />
-              
+                    <DataGrid
+                        sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5" }}
+                        rows={filteredExistencias}
+                        columns={columns}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        getRowId={(row) => row.id}
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={columnVisibilityModel}
+                        density="compact"
+                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
+                        localeText={{
+                            ...GRID_DEFAULT_LOCALE_TEXT, ...{
+                                toolbarColumns: 'Columnas',
+                                toolbarDensity: 'Densidad',
+                                toolbarExport: 'Exportar',
+                                toolbarFilters: 'Filtros',
+                                filterPanelOperator: 'Operador',
+                                toolbarFiltersTooltipHide: 'Ocultar filtros',
+                                toolbarFiltersTooltipShow: 'Mostrar filtros',
+                                footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
+                                footerTotalVisibleRows: (visibleCount, totalCount) =>
+                                    `${visibleCount} de ${totalCount}`,
+                                footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
+                            }
+                        }} // Localización en español
+                        slots={{ toolbar: CustomToolbar }}
+                    />
+
                 </div>
             </div>
         </div>
