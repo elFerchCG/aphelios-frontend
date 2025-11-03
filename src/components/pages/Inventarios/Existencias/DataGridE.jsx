@@ -1,28 +1,37 @@
-import React from 'react'
 import { DataGrid, GridToolbarContainer, GridToolbarExport, GRID_DEFAULT_LOCALE_TEXT, GridToolbarColumnsButton, GridToolbarFilterButton, GridToolbarDensitySelector } from '@mui/x-data-grid';
 import { useState } from 'react';
 import { useEffect } from 'react';
-import { createTheme } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import { TextField, Button } from '@mui/material';
 import useAuthStore from '../../../../store/authStore';
+import CircularProgressWithLabel from './circularProgress';
 
-
-const theme = createTheme({
-    palette: {
-        primary: { main: '#1976d2' },
-    },
-});
 
 const DataGridE = () => {
     const [data, setData] = useState([]);
     const [filteredExistencias, setFilteredExistencias] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [excelFile, setExcelFile] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
+
 
     const { token, user } = useAuthStore();
+
+    const overlayStyle = {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        backgroundColor: "rgba(0, 0, 0, 0.66)", // fondo semitransparente elegante
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999, // ✅ por encima de TODO
+    };
+
 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
@@ -31,15 +40,30 @@ const DataGridE = () => {
         const formData = new FormData();
         formData.append('file', file);
 
+        setLoading(true);
+        setProgress(0);
+
+        // Simular progreso (incremento cada 300 ms)
+        const interval = setInterval(() => {
+            setProgress((old) => {
+                if (old >= 95) return 95; // No llegar a 100 hasta que el backend responda
+                return old + 5;
+            });
+        }, 300);
+
         try {
             const response = await axios.post(`${apiUrl}/inventario/existencias/ajustarExistencias`, formData, {
                 headers: {
-                    "Content-Type": "multipart/form-data",
-                    Authorization: `Bearer ${token}`
+                    "Content-Type": "multipart/form-data"
                 }
             });
 
-            console.log("Respuesta de carga excel:", response);
+            clearInterval(interval);
+            setProgress(100);
+
+            setTimeout(() => setLoading(false), 300);
+
+            document.getElementById("excelInput").value = "";
 
             if (response.data.ok) {
                 Swal.fire({
@@ -48,8 +72,15 @@ const DataGridE = () => {
                     icon: 'success',
                     confirmButtonText: 'Aceptar'
                 });
+
+                fetchExistencias();
             }
         } catch (error) {
+            clearInterval(interval);
+            setLoading(false);
+
+            document.getElementById("excelInput").value = "";
+
             const errorMessage = error.response.data.message;
             Swal.fire({
                 title: '¡Error!',
@@ -93,7 +124,6 @@ const DataGridE = () => {
         </GridToolbarContainer>
     );
 
-
     const apiUrl =
         process.env.NODE_ENV === 'production'
             ? process.env.REACT_APP_API_URL
@@ -132,6 +162,37 @@ const DataGridE = () => {
         }
         fetchExistencias();
     }, [apiUrl]);
+
+    const fetchExistencias = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/inventario/existencias`);
+            if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+                setData(response.data);
+                setFilteredExistencias(response.data);
+            } else {
+                Swal.fire({
+                    title: '!Existencias no encontradas!',
+                    text: 'No se encontraron existencias',
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const { messageText } = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: `Error: ${messageText}`,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    }
 
     const columns = [
         { field: 'cantidad', headerName: 'Cantidad', type: 'number', flex: 0.5 },
@@ -240,6 +301,11 @@ const DataGridE = () => {
                             >
                                 Cargar Existencias
                             </Button>
+                            {loading && (
+                                <div style={overlayStyle}>
+                                    <CircularProgressWithLabel value={progress} />
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

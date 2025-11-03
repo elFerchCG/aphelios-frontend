@@ -43,7 +43,8 @@ const DataGridTInventario = ({ filter }) => {
         tipo: true,
         sku: true,
         inventory_id: true,
-        localidad_id: true,
+        localidad_id: false,
+        localidad_descripcion: true,
         cantidad: true,
         inventario_inicial: true,
         inventario_final: true,
@@ -85,6 +86,7 @@ const DataGridTInventario = ({ filter }) => {
     },
     { field: "inventory_id", headerName: "ML", type: "text", flex: 2 },
     { field: "localidad_id", headerName: "Ubicación", type: "number", flex: 1 },
+    { field: "localidad_descripcion", headerName: "Ubicación", type: "number", flex: 1 },
     {
       field: "cantidad",
       headerName: "Cantidad",
