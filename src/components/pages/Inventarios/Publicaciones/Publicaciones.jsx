@@ -15,7 +15,6 @@ const Publicaciones = () => {
     const [openDetailsProduct, setOpenDetailsProduct] = useState(false);
     const [productoId, setProductoId] = useState('');
     const [invSeguridad, setInvSeguridad] = useState('');
-    const [invProveedor, setInvProveedor] = useState('');
     const [invMaximo, setInvMaximo] = useState('');
     const [invRetiros, setInvRetiros] = useState('');
     const [rowsProducts, setRowsProducts] = useState([]);
@@ -28,14 +27,11 @@ const Publicaciones = () => {
     const [cantidadEtiquetasModal, setCantidadEtiquetasModal] = useState("");
     const [columnsProducts, setColumnsProducts] = useState([
         { field: 'producto_id', headerName: 'Folio' },
-        { field: 'tipo_publicacion', headerName: 'Tipo publicación', type: 'number' },
         { field: 'id', headerName: '#Publicación', type: 'text', minWidth: 150 },
         { field: 'catalog_id', headerName: '#Catálogo', type: 'text', minWidth: 150 },
         { field: 'title', headerName: 'Título', type: 'text', maxWidth: 490 },
         { field: 'sku', headerName: 'SKU', type: 'text', maxWidth: 350 },
-        { field: 'variation_id', headerName: '#Variación', minWidth: 150 },
         { field: 'inventory_id', headerName: 'ML', type: 'text', minWidth: 150 },
-        { field: 'variation_desc', headerName: 'Variante', type: 'text', maxWidth: 300 },
         {
             field: "actions",
             headerName: "Acciones",
@@ -177,7 +173,6 @@ const Publicaciones = () => {
                 const producto = response.data.data[0];
                 console.log("Esta es la respuesta del componente:", producto);
                 setInvSeguridad(producto.inv_seguridad);
-                setInvProveedor(producto.inv_proveedor);
                 setInvMaximo(producto.inv_maximo);
                 setInvRetiros(producto.inv_retiros);
             } else {
@@ -245,7 +240,10 @@ const Publicaciones = () => {
         tipo_publicacion: false,
         id: true,
         catalog_id: true,
-        variation_id: false,
+        title: true,
+        sku: true,
+        inventory_id: true,
+        actions: true,
     })
 
     useEffect(() => {
@@ -321,9 +319,7 @@ const Publicaciones = () => {
                 const productCatalog = product.catalog_id ? product.catalog_id.toLowerCase() : '';
                 const productTitle = product.title ? product.title.toLowerCase() : '';
                 const productSku = product.sku ? product.sku.toLowerCase() : '';
-                const productVariation = product.variation_id ? product.variation_id.toLowerCase() : '';
                 const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
-                const productVariationDesc = product.variation_desc ? product.variation_desc.toLowerCase() : '';
 
                 // Verifica si todas las palabras están en el título
                 const titleMatch = searchWords.every(word => productTitle.includes(word));
@@ -333,9 +329,7 @@ const Publicaciones = () => {
                     productMLM.includes(searchTerm.toLowerCase()) ||
                     productCatalog.includes(searchTerm.toLowerCase()) ||
                     productSku.includes(searchTerm.toLowerCase()) ||
-                    productVariation.includes(searchTerm.toLowerCase()) ||
-                    productInventoryId.includes(searchTerm.toLowerCase()) ||
-                    productVariationDesc.includes(searchTerm.toLowerCase())
+                    productInventoryId.includes(searchTerm.toLowerCase())
                 );
 
                 // El producto debe coincidir en el título o en alguna de las otras columnas
@@ -400,7 +394,6 @@ const Publicaciones = () => {
 
                     const data = {
                         inv_seguridad: invSeguridad,
-                        inv_proveedor: invProveedor,
                         inv_maximo: invMaximo,
                         inv_retiros: invRetiros
                     };
@@ -456,10 +449,6 @@ const Publicaciones = () => {
 
     const handleDetailSeguridad = (event) => {
         setInvSeguridad(parseFloat(event.target.value));
-    }
-
-    const handleDetailProveedor = (event) => {
-        setInvProveedor(parseFloat(event.target.value));
     }
 
     const handleDetailMaximo = (event) => {
@@ -519,32 +508,6 @@ const Publicaciones = () => {
                         Publicación
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
-                        {/* <TextField
-                            className='input'
-                            label="SKU"
-                            variant='outlined'
-                            value={componenteSku}
-                            onChange={handleDetailSku}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        />
-                        <TextField
-                            className='input'
-                            label="Descripción"
-                            variant='outlined'
-                            value={componenteDescripcion}
-                            onChange={handleDetailDesc}
-                            inputProps={{
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        /> */}
                         <TextField
                             className='input'
                             label="Inventario Seguridad"
@@ -552,22 +515,6 @@ const Publicaciones = () => {
                             type='number'
                             value={invSeguridad}
                             onChange={handleDetailSeguridad}
-                            inputProps={{
-                                step: "0.1",
-                                min: 0,
-                                style: {
-                                    backgroundColor: 'white',
-                                    color: 'black',
-                                },
-                            }}
-                        />
-                        <TextField
-                            className='input'
-                            label="Inventario Proveedor"
-                            variant='outlined'
-                            type='number'
-                            value={invProveedor}
-                            onChange={handleDetailProveedor}
                             inputProps={{
                                 step: "0.1",
                                 min: 0,

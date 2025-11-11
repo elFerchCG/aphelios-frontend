@@ -46,13 +46,13 @@ const Rutas = () => {
             <Header />
             <Routes>
                 <Route path='/proveedores' element={
-                    <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
+                    <ProtectedRoute allowedRoles={['administrador']}>
                         <Proveedores />
                     </ProtectedRoute>
                 } />
                 <Route path='/usuarios' element={<Usuarios />} />
                 <Route path='/ventas' element={
-                    <ProtectedRoute allowedRoles={['administrador', 'superUser']}>
+                    <ProtectedRoute allowedRoles={['administrador']}>
                         <Ventas />
                     </ProtectedRoute>
                 } />

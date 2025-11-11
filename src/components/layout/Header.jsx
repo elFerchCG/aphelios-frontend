@@ -45,7 +45,7 @@ const Header = () => {
             <img src={inventario} alt="Inventario" className="nav-icon" />
             <span>Inventario</span>
           </NavLink>
-          {['administrador', 'superUser'].includes(user?.rol_descripcion) && (
+          {['administrador'].includes(user?.rol_descripcion) && (
             <NavLink to="/configuraciones" className="nav-link">
               <img src={configuracion} alt="Configuracion" className="nav-icon" />
               <span>Configuracion</span>
