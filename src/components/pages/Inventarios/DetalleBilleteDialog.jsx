@@ -77,20 +77,20 @@ function DetalleBilleteDialog({
       headerName: "Acciones",
       type: "actions",
     getActions: (params) => [
-      <Tooltip
-        key={`upd-comp-${params.id}`}
-        title="Actualizar componente"
-      >
-       <GridActionsCellItem
-          icon={<RefreshIcon />}
-          label="Actualizar componente"
-          onClick={() => {
-            console.log("Click actualizar", params.row); 
-            onUpdateComponent && onUpdateComponent(params.row);
-          }}
-          showInMenu={false}
-        />
-      </Tooltip>,
+      // <Tooltip
+      //   key={`upd-comp-${params.id}`}
+      //   title="Actualizar componente"
+      // >
+      //  <GridActionsCellItem
+      //     icon={<RefreshIcon />}
+      //     label="Actualizar componente"
+      //     onClick={() => {
+      //       console.log("Click actualizar", params.row); 
+      //       onUpdateComponent && onUpdateComponent(params.row);
+      //     }}
+      //     showInMenu={false}
+      //   />
+      // </Tooltip>,
 
       <Tooltip
         key={`del-comp-${params.id}`}

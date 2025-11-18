@@ -347,34 +347,72 @@ const Componentes = () => {
     }
   };
 
-const handleSaveUpdateComponent = async (values) => {
-  console.log("✅ Valores que llegan de ActualizarComponenteDialog:", values);
-
-  const {
-    componenteId,
-    descripcion,
-    proveedor_id,
-    multiplo,
-    factor_conversion,
-  } = values;
-
-  try {
-    const { data } = await axios.put(
-      `${apiUrl}/billetes/${componenteId}/componente`,  
-      {
-        descripcion,
-        proveedor_id,        
-        multiplo,
-        factor_conversion,
-      }
+  const fetchComponentesBillete = async (billeteId) => {
+    const { data } = await axios.get(
+      `${apiUrl}/billetes/${billeteId}/componentes`
     );
+  };
 
-    // resto de la lógica...
-  } catch (error) {
-    console.error("❌ Error al actualizar componente:", error);
-  }
-};
+  const handleSaveUpdateComponent = async (values) => {
+    //console.log("✅ Valores que llegan de ActualizarComponenteDialog:", values);
 
+    const {
+      componenteId,
+      descripcion,
+      proveedor_id,
+      multiplo,
+      factor_conversion,
+    } = values;
+
+    // opcional: cerrar el modal de edición para que el Swal no quede atrás
+    setOpenEditComp(false);
+    setOpenDetalle(false);
+
+    try {
+      const { data } = await axios.put(
+        `${apiUrl}/billetes/${componenteId}/componente`,
+        {
+          descripcion,
+          proveedor_id,
+          multiplo,
+          factor_conversion,
+        }
+      );
+
+      console.log("Respuesta del backend al actualizar componente:", data);
+
+      // si tu endpoint ya devuelve ok=true
+      if (data?.ok === false) {
+        await Swal.fire(
+          "Error",
+          data.message || "No se pudo actualizar el componente.",
+          "error"
+        );
+        setOpenDetalle(true);
+        return;
+      }
+
+      await Swal.fire(
+        "Componente actualizado",
+        "Los datos del componente se actualizaron correctamente.",
+        "success"
+      );
+
+      if (billeteSeleccionado?.billete_id) {
+        await fetchComponentesBillete(billeteSeleccionado.billete_id);
+      }
+
+      setOpenDetalle(true);
+    } catch (error) {
+      console.error("❌ Error al actualizar componente:", error);
+
+      const msg =
+        error?.response?.data?.message || "Error al actualizar el componente.";
+
+      await Swal.fire("Error", msg, "error");
+      setOpenDetalle(true);
+    }
+  };
 
   const fetchBilleteDetalle = async (billeteId) => {
     try {
