@@ -81,12 +81,13 @@ function DetalleBilleteDialog({
         key={`upd-comp-${params.id}`}
         title="Actualizar componente"
       >
-        <GridActionsCellItem
+       <GridActionsCellItem
           icon={<RefreshIcon />}
           label="Actualizar componente"
-          onClick={() =>
-            onUpdateComponent && onUpdateComponent(params.row)
-          }
+          onClick={() => {
+            console.log("Click actualizar", params.row); 
+            onUpdateComponent && onUpdateComponent(params.row);
+          }}
           showInMenu={false}
         />
       </Tooltip>,

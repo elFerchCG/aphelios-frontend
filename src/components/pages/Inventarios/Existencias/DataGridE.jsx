@@ -52,7 +52,7 @@ const DataGridE = () => {
         }, 300);
 
         try {
-            const response = await axios.post(`${apiUrl}/inventario/existencias/ajustarExistencias`, formData, {
+            const response = await axios.post(`${apiUrl}/inventario/existencias/existenciasCsv`, formData, {
                 headers: {
                     "Content-Type": "multipart/form-data"
                 }

@@ -27,6 +27,7 @@ import BulkBilletesButton from "./BulkBilletesButton";
 import InfoIcon from "@mui/icons-material/Info";
 import DetalleBilleteDialog from "./DetalleBilleteDialog";
 import AgregarComponenteDialog from "./AgregarComponenteDialog.jsx";
+import ActualizarComponenteDialog from "./ActualizarComponenteDialog.jsx";
 
 const Componentes = () => {
   const [data, setData] = useState([]);
@@ -58,6 +59,9 @@ const Componentes = () => {
   const [openAddComp, setOpenAddComp] = useState(false);
   const [billeteParaAgregar, setBilleteParaAgregar] = useState(null);
   const [listaComponentes, setListaComponentes] = useState([]);
+  const [openEditComp, setOpenEditComp] = useState(false);
+  const [componenteEditando, setComponenteEditando] = useState(null);
+  const [listaProveedores, setListaProveedores] = useState([]);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     billete_id: false,
@@ -178,6 +182,19 @@ const Componentes = () => {
   const handleCloseDetalle = () => {
     setOpenDetalle(false);
     setBilleteSeleccionado(null);
+  };
+
+  const handleUpdateComponent = async (rowComponente) => {
+    // rowComponente viene de la tabla de componentes del billete
+    console.log("handleUpdateComponent llamado con:", rowComponente);
+
+    // traer proveedores solo una vez o cada vez, como prefieras
+    if (listaProveedores.length === 0) {
+      await fetchProveedores();
+    }
+
+    setComponenteEditando(rowComponente);
+    setOpenEditComp(true);
   };
 
   const handleDeleteComponent = async (rowComponente) => {
@@ -307,7 +324,7 @@ const Componentes = () => {
         "Error al enlazar el componente al billete";
       await Swal.fire("Error", msg, "error");
 
-       setOpenDetalle(true);
+      setOpenDetalle(true);
     }
   };
 
@@ -330,10 +347,34 @@ const Componentes = () => {
     }
   };
 
-  const handleUpdateComponent = (billete) => {
-    // aquí llamas a tu endpoint para recargar los componentes del billete
-    // y actualizas billeteSeleccionado en el estado
-  };
+const handleSaveUpdateComponent = async (values) => {
+  console.log("✅ Valores que llegan de ActualizarComponenteDialog:", values);
+
+  const {
+    componenteId,
+    descripcion,
+    proveedor_id,
+    multiplo,
+    factor_conversion,
+  } = values;
+
+  try {
+    const { data } = await axios.put(
+      `${apiUrl}/billetes/${componenteId}/componente`,  
+      {
+        descripcion,
+        proveedor_id,        
+        multiplo,
+        factor_conversion,
+      }
+    );
+
+    // resto de la lógica...
+  } catch (error) {
+    console.error("❌ Error al actualizar componente:", error);
+  }
+};
+
 
   const fetchBilleteDetalle = async (billeteId) => {
     try {
@@ -352,11 +393,24 @@ const Componentes = () => {
     }
   };
 
-  const listaProveedores = [
-    { id: 1, nombre: "test1" },
-    { id: 2, nombre: "test2" },
-    { id: 3, nombre: "test3" },
-  ];
+  const fetchProveedores = async () => {
+    try {
+      const { data } = await axios.get(`${apiUrl}/proveedores/`);
+
+      const proveedores = Array.isArray(data) ? data : [];
+
+      console.log(" Proveedores recibidos:", proveedores); // 👈 AQUI
+
+      setListaProveedores(proveedores);
+    } catch (error) {
+      console.error("Error al obtener proveedores:", error);
+      // opcional: Swal.fire(...)
+    }
+  };
+
+  useEffect(() => {
+    console.log("🔄 listaProveedores actualizada:");
+  }, [listaProveedores]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -1234,15 +1288,24 @@ const Componentes = () => {
         billete={billeteSeleccionado}
         onDeleteComponent={handleDeleteComponent}
         onAddComponent={handleOpenComponents}
-        onUpdateComponents={handleUpdateComponent}
+        onUpdateComponent={handleUpdateComponent}
       />
 
-      {/* Ventana Modal Agregar componentes*/}
+      {/* Ventana Modal Agregar componente*/}
       <AgregarComponenteDialog
         open={openAddComp}
         onClose={handleCloseAddComponents}
         onSave={handleSaveComponente}
         listaComponentes={listaComponentes}
+      />
+
+      {/* Ventana Modal actualizar componente*/}
+      <ActualizarComponenteDialog
+        open={openEditComp}
+        onClose={() => setOpenEditComp(false)}
+        componente={componenteEditando}
+        onSave={handleSaveUpdateComponent}
+        listaProveedores={listaProveedores}
       />
 
       {/* Ventana Modal Productos*/}
