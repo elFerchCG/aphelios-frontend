@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback  } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import "../../../estilos/billetes.css";
 import SearchIcon from "@mui/icons-material/Search";
 import {
@@ -24,6 +24,9 @@ import {
   Typography,
 } from "@mui/material";
 import BulkBilletesButton from "./BulkBilletesButton";
+import InfoIcon from "@mui/icons-material/Info";
+import DetalleBilleteDialog from "./DetalleBilleteDialog";
+import AgregarComponenteDialog from "./AgregarComponenteDialog.jsx";
 
 const Componentes = () => {
   const [data, setData] = useState([]);
@@ -49,8 +52,12 @@ const Componentes = () => {
   const [inputActivo, setInputActivo] = useState(null);
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
-  const [reloadKey, setReloadKey] = useState(0); 
-
+  const [reloadKey, setReloadKey] = useState(0);
+  const [openDetalle, setOpenDetalle] = useState(false);
+  const [billeteSeleccionado, setBilleteSeleccionado] = useState(null);
+  const [openAddComp, setOpenAddComp] = useState(false);
+  const [billeteParaAgregar, setBilleteParaAgregar] = useState(null);
+  const [listaComponentes, setListaComponentes] = useState([]);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     billete_id: false,
@@ -140,6 +147,217 @@ const Componentes = () => {
     setCantidad("");
   };
 
+  const handleOpenDetalle = (row) => async () => {
+    try {
+      // Llamadas en paralelo
+      const [detalleRes, componentesRes] = await Promise.all([
+        axios.get(`${apiUrl}/billetes/${row.billete_id}/detalle`),
+        axios.get(`${apiUrl}/billetes/${row.billete_id}/componentes`),
+      ]);
+
+      const detalle = Array.isArray(detalleRes.data.data)
+        ? detalleRes.data.data[0]
+        : detalleRes.data.data;
+
+      const componentes = componentesRes.data.ok
+        ? componentesRes.data.data
+        : [];
+
+      setBilleteSeleccionado({
+        ...row, // lo que venía de la tabla principal
+        ...detalle, // publicacionId, productoTitulo, productoSku, permalink, etc
+        componentes, // aquí van los componentes para el DataGrid del diálogo
+      });
+
+      setOpenDetalle(true);
+    } catch (error) {
+      console.error("Error al abrir detalle de billete:", error);
+    }
+  };
+
+  const handleCloseDetalle = () => {
+    setOpenDetalle(false);
+    setBilleteSeleccionado(null);
+  };
+
+  const handleDeleteComponent = async (rowComponente) => {
+    const { billeteId, sku, descripcion } = rowComponente;
+
+    setOpenDetalle(false);
+
+    const result = await Swal.fire({
+      title: "¿Eliminar componente?",
+      html: `
+      <p>Se eliminará el siguiente componente del billete:</p>
+      <p><strong>SKU:</strong> ${sku || "N/A"}</p>
+      <p><strong>Descripción:</strong> ${descripcion || "N/A"}</p>
+    `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!result.isConfirmed) {
+      setOpenDetalle(true);
+      return;
+    }
+
+    try {
+      const { data } = await axios.delete(
+        `${apiUrl}/billetes/${billeteId}/componente`
+      );
+
+      if (!data.ok) {
+        Swal.fire("Atención", data.message || "No se pudo eliminar", "info");
+        setOpenDetalle(true);
+        return;
+      }
+
+      await Swal.fire({
+        title: "Componente eliminado",
+        html: `
+        <p>Se eliminó correctamente:</p>
+        <p><strong>SKU:</strong> ${sku || "N/A"}</p>
+        <p><strong>Descripción:</strong> ${descripcion || "N/A"}</p>
+      `,
+        icon: "success",
+      });
+
+      // refrescar componentes: puedes volver a llamar al endpoint de componentes
+      const compRes = await axios.get(
+        `${apiUrl}/billetes/${billeteSeleccionado.billete_id}/componentes`
+      );
+
+      setBilleteSeleccionado((prev) => ({
+        ...prev,
+        componentes: compRes.data.ok ? compRes.data.data : [],
+      }));
+
+      setOpenDetalle(true);
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        "Error al eliminar el componente del billete";
+
+      Swal.fire("Error", msg, "error");
+    }
+  };
+
+  const handleOpenAddComponents = (billete) => {
+    setBilleteParaAgregar(billete);
+    setOpenAddComp(true);
+  };
+
+  const handleCloseAddComponents = () => {
+    setOpenAddComp(false);
+    setBilleteParaAgregar(null);
+  };
+
+  const handleSaveComponente = async (values) => {
+    if (!billeteParaAgregar) return;
+
+    // 1) Cerramos los diálogos para que el Swal quede libre
+    setOpenAddComp(false);
+    setOpenDetalle(false);
+
+    try {
+      const { data } = await axios.post(
+        `${apiUrl}/billetes/${billeteParaAgregar.billete_id}/componente`,
+        {
+          sku: values.sku, // identificamos componente existente por SKU
+          // si quieres que el usuario pueda definir esto desde el modal:
+          cantidad: 1.0,
+          tipo: "ensamble",
+        }
+      );
+
+      if (!data.ok) {
+        await Swal.fire(
+          "Error",
+          data.message || "No se pudo enlazar el componente al billete",
+          "error"
+        );
+
+        setOpenDetalle(true);
+        return;
+      }
+
+      await Swal.fire(
+        "Componente enlazado",
+        `Se enlazó correctamente el componente con SKU ${data.data.sku}`,
+        "success"
+      );
+
+      // Refrescar componentes del billete
+      const compRes = await axios.get(
+        `${apiUrl}/billetes/${billeteParaAgregar.billete_id}/componentes`
+      );
+
+      setBilleteSeleccionado((prev) => ({
+        ...prev,
+        componentes: compRes.data.ok ? compRes.data.data : [],
+      }));
+
+      setOpenDetalle(true);
+      setBilleteParaAgregar(null);
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message ||
+        "Error al enlazar el componente al billete";
+      await Swal.fire("Error", msg, "error");
+
+       setOpenDetalle(true);
+    }
+  };
+
+  const handleOpenComponents = async (billete) => {
+    setBilleteParaAgregar(billete);
+
+    try {
+      // Puedes evitar volver a cargar si ya tienes la lista
+      if (listaComponentes.length === 0) {
+        const { data } = await axios.get(`${apiUrl}/componentes/todos`);
+        if (data.ok) {
+          setListaComponentes(data.data || []);
+        }
+      }
+
+      setOpenAddComp(true);
+    } catch (error) {
+      console.error("Error al obtener componentes:", error);
+      // opcional: Swal de error
+    }
+  };
+
+  const handleUpdateComponent = (billete) => {
+    // aquí llamas a tu endpoint para recargar los componentes del billete
+    // y actualizas billeteSeleccionado en el estado
+  };
+
+  const fetchBilleteDetalle = async (billeteId) => {
+    try {
+      const { data } = await axios.get(
+        `${apiUrl}/billetes/${billeteId}/detalle`
+      );
+
+      if (data.ok) {
+        setBilleteSeleccionado((prev) => ({
+          ...prev,
+          ...data.data,
+        }));
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const listaProveedores = [
+    { id: 1, nombre: "test1" },
+    { id: 2, nombre: "test2" },
+    { id: 3, nombre: "test3" },
+  ];
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -185,7 +403,7 @@ const Componentes = () => {
   }, [apiUrl, open]);
 
   useEffect(() => {
-    const fetchComponentesTodos =  async () => {
+    const fetchComponentesTodos = async () => {
       try {
         const response = await axios.get(`${apiUrl}/componentes/todos`);
         if (
@@ -667,7 +885,7 @@ const Componentes = () => {
     }
   };
 
-const fetchBilletes = useCallback(async () => {
+  const fetchBilletes = useCallback(async () => {
     try {
       const response = await axios.get(`${apiUrl}/billetes`);
       if (response?.data?.ok && Array.isArray(response.data.data)) {
@@ -699,8 +917,7 @@ const fetchBilletes = useCallback(async () => {
   }, [fetchBilletes, reloadKey]); // <- se re-ejecuta cuando subes archivo OK
 
   // Este callback se lo pasas al botón; lo llamas cuando el upload termina bien
-  const handleBulkSuccess = () => setReloadKey(k => k + 1);
-
+  const handleBulkSuccess = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
     // Filtra los productos en base al término de búsqueda
@@ -982,6 +1199,17 @@ const fetchBilletes = useCallback(async () => {
       getActions: (params) => {
         return [
           <Tooltip
+            title="Ver detalles del billete"
+            key={`details-${params.id}`}
+          >
+            <GridActionsCellItem
+              icon={<InfoIcon />}
+              label="Detalles"
+              onClick={handleOpenDetalle(params.row)}
+            />
+          </Tooltip>,
+
+          <Tooltip
             title="Borrar componente del billete"
             key={`delete-${params.row.billete_id}`}
           >
@@ -999,6 +1227,24 @@ const fetchBilletes = useCallback(async () => {
 
   return (
     <div>
+      {/* Ventana Modal componentes*/}
+      <DetalleBilleteDialog
+        open={openDetalle}
+        onClose={handleCloseDetalle}
+        billete={billeteSeleccionado}
+        onDeleteComponent={handleDeleteComponent}
+        onAddComponent={handleOpenComponents}
+        onUpdateComponents={handleUpdateComponent}
+      />
+
+      {/* Ventana Modal Agregar componentes*/}
+      <AgregarComponenteDialog
+        open={openAddComp}
+        onClose={handleCloseAddComponents}
+        onSave={handleSaveComponente}
+        listaComponentes={listaComponentes}
+      />
+
       {/* Ventana Modal Productos*/}
       <Modal open={open} onClose={handleCloseSearchProducts}>
         <Box sx={modalStyle}>
