@@ -62,6 +62,7 @@ const Componentes = () => {
   const [openEditComp, setOpenEditComp] = useState(false);
   const [componenteEditando, setComponenteEditando] = useState(null);
   const [listaProveedores, setListaProveedores] = useState([]);
+  
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     billete_id: false,
@@ -184,18 +185,45 @@ const Componentes = () => {
     setBilleteSeleccionado(null);
   };
 
-  const handleUpdateComponent = async (rowComponente) => {
-    // rowComponente viene de la tabla de componentes del billete
-    console.log("handleUpdateComponent llamado con:", rowComponente);
+  const handleShowAlertBillete = async ({ type, title, text }) => {
+  // 1) Cerramos el dialog
+  setOpenDetalle(false);
 
-    // traer proveedores solo una vez o cada vez, como prefieras
-    if (listaProveedores.length === 0) {
-      await fetchProveedores();
-    }
+  // 2) Mostramos el Swal
+  await Swal.fire({
+    icon: type,         
+    title: title,
+    text: text,
+    timer: type === "success" ? 1500 : undefined,
+    showConfirmButton: type !== "success",
+  });
 
-    setComponenteEditando(rowComponente);
-    setOpenEditComp(true);
-  };
+  // 3) (Opcional) recargar billetes antes de reabrir
+  fetchBilletes();
+
+  // 4) Volvemos a abrir el dialog con el mismo billete
+  setOpenDetalle(true);
+};
+
+  const handleAfterUpdateCantidad = () => {
+  // 1) cerramos el dialog
+  setOpenDetalle(false);
+
+  // 2) mostramos el SweetAlert
+  Swal.fire({
+    icon: "success",
+    title: "Actualizado",
+    text: "Cantidad actualizada correctamente",
+    timer: 1500,
+    showConfirmButton: false,
+  }).then(() => {
+    // 3) (opcional) recargamos data
+    fetchBilletes();
+
+    // 4) reabrimos el modal si quieres seguir viendo el mismo billete
+    setOpenDetalle(true);
+  });
+};
 
   const handleDeleteComponent = async (rowComponente) => {
     const { billeteId, sku, descripcion } = rowComponente;
@@ -261,10 +289,64 @@ const Componentes = () => {
     }
   };
 
-  const handleOpenAddComponents = (billete) => {
-    setBilleteParaAgregar(billete);
-    setOpenAddComp(true);
-  };
+
+const handleUpdateComponents= async (row) => {
+  try {
+    const productoId   = row.producto_id;
+    const componenteId = row.componente_id;
+    const tipo         = row.tipo;
+    const cantidadNum  = Number(row.cantidad);
+
+    if (
+      !productoId ||
+      !componenteId ||
+      !tipo ||
+      !Number.isFinite(cantidadNum) ||
+      cantidadNum <= 0
+    ) {
+      return;
+    }
+
+    const resp = await axios.put(`${apiUrl}/componentes/billetes/cantidad`, {
+      producto_id: productoId,
+      componente_id: componenteId,
+      tipo,
+      cantidad: cantidadNum,
+    });
+
+    if (!resp.data || !resp.data.ok) {
+      throw new Error(resp.data?.message || "No se pudo actualizar la cantidad");
+    }
+
+    const lineaBack = resp.data.data;
+
+    // actualizar el billeteSeleccionado en memoria
+    setBilleteSeleccionado((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        componentes: prev.componentes.map((comp) =>
+          comp.producto_id === productoId &&
+          comp.componente_id === componenteId &&
+          comp.tipo === tipo
+            ? { ...comp, cantidad: lineaBack.cantidad }
+            : comp
+        ),
+      };
+    });
+  } catch (error) {
+    console.error("Error al actualizar cantidad del componente:", error);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text:
+        error.response?.data?.message ||
+        error.message ||
+        "Error al actualizar cantidad",
+    });
+  }
+};
+
 
   const handleCloseAddComponents = () => {
     setOpenAddComp(false);
@@ -1326,7 +1408,7 @@ const Componentes = () => {
         billete={billeteSeleccionado}
         onDeleteComponent={handleDeleteComponent}
         onAddComponent={handleOpenComponents}
-        onUpdateComponent={handleUpdateComponent}
+        onShowAlert={handleShowAlertBillete}
       />
 
       {/* Ventana Modal Agregar componente*/}
