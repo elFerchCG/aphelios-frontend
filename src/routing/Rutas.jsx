@@ -38,6 +38,7 @@ import Mercadotecnia from '../components/pages/Inventarios/Publicaciones/Mercado
 import VistaPedidos from '../components/pages/Pedidos/Pedidos';
 import Mrp from '../components/pages/Mrp/Mrp';
 import Graficas from '../components/pages/Graficas/DashboardAphelios';
+import TableOrdenes from '../components/pages/Inventarios/OrdenBodegas/TableOrdenes';
 
 
 const Rutas = () => {
@@ -66,6 +67,7 @@ const Rutas = () => {
                 <Route path='/configuraciones' element={<Configuracion />} />
                 <Route path='/inventario' element={<Inventario />} />
                 <Route path='/home' element={<Home />} />
+                <Route path='/ordenes-de-bodega' element={<TableOrdenes />} />
                 <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
                 <Route path='/reCharts' element={<ReCharts />} />
                 <Route path='/analisisVentas' element={<AnalisisVentas />} />

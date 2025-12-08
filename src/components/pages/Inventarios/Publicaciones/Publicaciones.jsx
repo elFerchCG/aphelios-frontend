@@ -29,9 +29,34 @@ const Publicaciones = () => {
         { field: 'producto_id', headerName: 'Folio' },
         { field: 'id', headerName: '#Publicación', type: 'text', minWidth: 150 },
         { field: 'catalog_id', headerName: '#Catálogo', type: 'text', minWidth: 150 },
+        { field: 'family_id', headerName: '#Familia', type: 'text', minWidth: 150 },
+        { field: 'user_product_id', headerName: 'User Product', type: 'text', minWidth: 150 },
         { field: 'title', headerName: 'Título', type: 'text', maxWidth: 490 },
         { field: 'sku', headerName: 'SKU', type: 'text', maxWidth: 350 },
         { field: 'inventory_id', headerName: 'ML', type: 'text', minWidth: 150 },
+        { field: 'available_quantity', headerName: 'Stock disponible', type: 'number', minWidth: 130 },
+        { field: 'status', headerName: 'Estatus', type: 'text', minWidth: 100 },
+        {
+            field: 'logistic_type', headerName: 'Logistica', type: 'text', minWidth: 100,
+            renderCell: (params) => {
+                const value = params.value.logistic_type;
+                return value === 'fulfillment'
+                    ? 'FULL'
+                    : value === 'cross_docking'
+                        ? 'ME'
+                        : 'ME'
+            }
+        },
+        { field: 'costo', headerName: 'Costo', type: 'number', minWidth: 100 },
+        {
+            field: 'free_shipping', headerName: 'Envio Gratis', type: 'number', minWidth: 100,
+            renderCell: (params) => {
+                const value = params.value;
+
+                return value === 1 ? 'Sí' : 'No';
+            }
+        },
+        { field: 'costo_envio', headerName: 'Costo de envio', type: 'number', minWidth: 120 },
         {
             field: "actions",
             headerName: "Acciones",
@@ -240,6 +265,14 @@ const Publicaciones = () => {
         tipo_publicacion: false,
         id: true,
         catalog_id: true,
+        family_id: false,
+        user_product_id: false,
+        available_quantity: false,
+        status: false,
+        logistic_type: false,
+        costo: false,
+        free_shipping: false,
+        costo_envio: false,
         title: true,
         sku: true,
         inventory_id: true,
@@ -317,9 +350,13 @@ const Publicaciones = () => {
             filtered = filtered.filter(product => {
                 const productMLM = product.id ? product.id.toLowerCase() : '';
                 const productCatalog = product.catalog_id ? product.catalog_id.toLowerCase() : '';
+                const family_id = product.family_id ? product.family_id.toLowerCase() : '';
+                const user_product_id = product.user_product_id ? product.user_product_id.toLowerCase() : '';
                 const productTitle = product.title ? product.title.toLowerCase() : '';
                 const productSku = product.sku ? product.sku.toLowerCase() : '';
                 const productInventoryId = product.inventory_id ? product.inventory_id.toLowerCase() : '';
+                const status = product.status ? product.status.toLowerCase() : '';
+                const logistic_type = product.logistic_type ? product.logistic_type.toLowerCase() : '';
 
                 // Verifica si todas las palabras están en el título
                 const titleMatch = searchWords.every(word => productTitle.includes(word));
@@ -328,8 +365,12 @@ const Publicaciones = () => {
                 const otherColumnsMatch = (
                     productMLM.includes(searchTerm.toLowerCase()) ||
                     productCatalog.includes(searchTerm.toLowerCase()) ||
+                    family_id.includes(searchTerm.toLowerCase()) ||
+                    user_product_id.includes(searchTerm.toLowerCase()) ||
                     productSku.includes(searchTerm.toLowerCase()) ||
-                    productInventoryId.includes(searchTerm.toLowerCase())
+                    productInventoryId.includes(searchTerm.toLowerCase()) ||
+                    status.includes(searchTerm.toLowerCase()) ||
+                    logistic_type.includes(searchTerm.toLowerCase())
                 );
 
                 // El producto debe coincidir en el título o en alguna de las otras columnas

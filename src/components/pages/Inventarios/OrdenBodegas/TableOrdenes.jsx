@@ -21,6 +21,8 @@ import { read, utils } from 'xlsx';
 import { useRef } from 'react';
 import apiUrl from '../../../../config';
 import '../../Inventarios/estilosPrueba.css'
+import { useNavigate } from "react-router-dom";
+
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -90,6 +92,7 @@ const TableOrdenes = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchTermUbicacion, setSearchTermUbicacion] = useState('');
 
+    const navigate = useNavigate();
 
     const bodegaSalidaRef = useRef(null);
     const bodegaEntradaRef = useRef(null);
@@ -1156,21 +1159,32 @@ const TableOrdenes = () => {
             if (result.isConfirmed) {
                 try {
                     // Eliminar la línea en el backend
-                    await axios.delete(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`, {
+                    const response = await axios.delete(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/lineas/${id}`, {
                         headers: {
                             'Authorization': `Bearer ${token}`
                         }
                     });
-                    fetchOrderSelected(idOrder);
+                    if (response.data.orderDeleted) {
+                        const mensaje = response.data.mensaje;
+                        Swal.fire({
+                            title: '¡Eliminado!',
+                            text: mensaje,
+                            icon: 'success'
+                        });
+                        navigate('/ordenes-de-bodega');
+                        return;
+                    }
 
                     Swal.fire({
-                        title: '¡Eliminado!',
-                        text: 'Tu línea ha sido eliminada.',
-                        icon: 'success'
+                        title: "¡Eliminado!",
+                        text: response.data.mensaje,
+                        icon: "success",
                     });
+
+                    fetchOrderSelected(idOrder); // Recargar la orden que sí sigue existiendo
                 } catch (error) {
-                    if (error.response && error.response.data && error.response.data.message) {
-                        const errorMessage = error.response.data.message;
+                    if (error.response && error.response.data && error.response.data.mensaje) {
+                        const errorMessage = error.response.data.mensaje;
                         Swal.fire({
                             title: 'Error',
                             text: errorMessage,
@@ -1316,24 +1330,24 @@ const TableOrdenes = () => {
         setSearchTerm(sku);
     }
 
-    
+
 
     useEffect(() => {
-        const isAdmin = user?.rol_id === 1; 
+        const isAdmin = user?.rol_id === 1;
 
         if (estatus === 'abierto') {
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
             setEnableRevertir(false);
             setHabilitarTraspaso(false);
-            
+
 
             if (user?.rol_id === rolMovimiento || isAdmin) {
                 setHabilitarDescripcion(true);
                 setHabilitarBuscador(true);
                 setEnableCancel(true);
             }
-            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada || isAdmin ) {
+            if (categoriaTemp === 'entrada' && user?.rol_id === rolIdTempEntrada || isAdmin) {
                 setEnableConfirm(true);
             }
             else if (categoriaTemp === 'salida' && user?.rol_id === rolIdTemp || isAdmin) {
@@ -1535,16 +1549,16 @@ const TableOrdenes = () => {
                     'Authorization': `Bearer ${token}`
                 }
             });
-            setIdOrder(response.data.data.orden.id);
-            setEstatus(response.data.data.orden.estatus);
-            setSelectedBodegaSalida(response.data.data.orden.bodega_salida_id);
-            setSelectedBodegaEntrada(response.data.data.orden.bodega_entrada_id);
-            setRolIdTemp(response.data.data.rol_id_salida);
-            setRolIdTempEntrada(response.data.data.rol_id_entrada);
-            setDescripcion(response.data.data.orden.descripcion);
-            setSelectedTraspasoId(response.data.data.orden.tipo_transaccion_id);
-            setCategoriaTemp(response.data.data.orden.categoria);
-            setRolMovimiento(response.data.data.rol_id_tipo_transaccion);
+            setIdOrder(response.data.data.orden.id ?? '');
+            setEstatus(response.data.data.orden.estatus ?? '');
+            setSelectedBodegaSalida(response.data.data.orden.bodega_salida_id ?? '');
+            setSelectedBodegaEntrada(response.data.data.orden.bodega_entrada_id ?? '');
+            setRolIdTemp(response.data.data.rol_id_salida ?? '');
+            setRolIdTempEntrada(response.data.data.rol_id_entrada ?? '');
+            setDescripcion(response.data.data.orden.descripcion ?? '');
+            setSelectedTraspasoId(response.data.data.orden.tipo_transaccion_id ?? '');
+            setCategoriaTemp(response.data.data.orden.categoria ?? '');
+            setRolMovimiento(response.data.data.rol_id_tipo_transaccion ?? '');
 
             setHabilitarBuscador(user.rol_id === response.data.data.rol_id_tipo_transaccion && response.data.data.orden.estatus === 'abierto');
             //  setHabilitarComentario(user.rol_id === response.data.data.rol_id_entrada && response.data.data.orden.estatus === 'abierto');
@@ -1764,6 +1778,17 @@ const TableOrdenes = () => {
             },
         },
     ];
+
+    useEffect(() => {
+        // Verifica si el ID actual de la ubicación existe en las opciones
+        const exists = ubicacionEntrada.some(u => u.id === selectedUbicacionEntrada);
+
+        if (!exists) {
+            setSelectedUbicacionEntrada('');
+            setInputValueUbicacion('');
+        }
+    }, [ubicacionEntrada, selectedUbicacionEntrada]);
+
 
     return (
         <div>
@@ -2020,7 +2045,10 @@ const TableOrdenes = () => {
                             })
                         }
                         getOptionLabel={(option) => `${option.descripcion} : ${option.cantidad ?? 0}`}
-                        value={ubicacionEntrada.find(u => u.id === selectedUbicacionEntrada) || null}
+                        value={
+                            ubicacionEntrada.find(u => u.id === selectedUbicacionEntrada)
+                            || null
+                        }
                         onChange={(event, newValue) => {
                             // ✅ Si borran la ubicación (X), limpiar existencia destino
                             if (!newValue) {
