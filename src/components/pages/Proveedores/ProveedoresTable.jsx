@@ -298,8 +298,7 @@ const ProveedoresTable = () => {
                     getRowId={(row) => row.id_proveedor}
                     experimentalFeatures={{ newEditingApi: true }}
                     columnVisibilityModel={{
-                        id_proveedor: false,
-                        estado: false
+                        estado: false,
                     }}
                 />
                 {/* Modal para editar proveedor */}
