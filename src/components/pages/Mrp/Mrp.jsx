@@ -333,7 +333,7 @@ const MrpSimple = () => {
     let fakePct = 0;
     let serverPct = 0;
 
-    let jobId = null; // ✅ vive en toda la función
+    let jobId = null; 
 
     const stopFake = () => {
       if (fakeTimer) clearInterval(fakeTimer);

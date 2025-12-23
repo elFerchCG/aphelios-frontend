@@ -31,6 +31,7 @@ export default function ProcesosPage({ onResumeJob }) {
   const theme = useTheme();
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailJobId, setDetailJobId] = useState(null);
+  const [fakeMap, setFakeMap] = useState({});
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -60,6 +61,76 @@ export default function ProcesosPage({ onResumeJob }) {
     const t = setInterval(fetchJobs, 3000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setFakeMap((prev) => {
+        const next = { ...prev };
+
+        for (const j of jobs) {
+          const status = String(j.status || "").toLowerCase();
+          const serverPct = Number(j.progress || 0);
+          const id = j.job_id;
+
+          const canFake =
+            (status === "pending" || status === "running") && serverPct < 40;
+
+          if (!canFake) {
+            if (next[id] != null) delete next[id];
+            continue;
+          }
+
+          const currentFake = Number(next[id] ?? 0);
+
+          if (currentFake < 39) next[id] = currentFake + 1;
+        }
+
+        return next;
+      });
+    }, 30000); 
+
+    return () => clearInterval(t);
+  }, [jobs]);
+
+  setInterval(() => {
+  setFakeMap((prev) => {
+    const next = { ...prev };
+
+    for (const j of jobs) {
+      const status = String(j.status || "").toLowerCase();
+      const serverPct = Number(j.progress || 0);
+      const id = j.job_id;
+
+      const canFake =
+        (status === "pending" || status === "running") && serverPct < 40;
+
+      if (!canFake) {
+        delete next[id];
+        continue;
+      }
+
+      const currentFake = Number(next[id] ?? 0);
+
+      if (currentFake < 39) next[id] = currentFake + 1;
+    }
+
+    return next;
+  });
+}, 30000); 
+
+  const getDisplayPct = (j) => {
+    const status = String(j.status || "").toLowerCase();
+    const serverPct = Number(j.progress || 0);
+    const fakePct = Number(fakeMap[j.job_id] ?? 0);
+
+    if (status === "done") return 100;
+
+    if (status === "error") return 100;
+
+    if (serverPct >= 40) return serverPct;
+
+    return Math.min(39, Math.max(serverPct, fakePct));
+  };
 
   const running = useMemo(
     () =>
@@ -98,21 +169,14 @@ export default function ProcesosPage({ onResumeJob }) {
 
   return (
     <Box sx={{ p: 3 }}>
-      <JobDetailDialog
-        open={detailOpen}
-        jobId={detailJobId}
-        onClose={closeDetail}
-        prettyType={prettyType}
-        statusColor={statusColor}
-        statusLabel={statusLabel}
-      />
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Box>
           <Typography variant="h5">Centro de procesos</Typography>
           <Typography variant="body2" sx={{ opacity: 0.7 }}>
-            Procesos en ejecución, terminados y con error.
+            Running, Done y con Error.
           </Typography>
         </Box>
+
         <Button variant="contained" onClick={fetchJobs} disabled={loading}>
           Refrescar
         </Button>
@@ -182,7 +246,7 @@ export default function ProcesosPage({ onResumeJob }) {
 
         {current.map((j) => {
           const barColor = statusColor(j.status);
-          const pct = Number(j.progress || 0);
+          const pct = getDisplayPct(j);
 
           return (
             <Paper key={j.job_id} sx={{ p: 2 }}>
@@ -200,14 +264,16 @@ export default function ProcesosPage({ onResumeJob }) {
                   <Stack spacing={1}>
                     <Typography sx={{ fontWeight: 700 }}>
                       {prettyType(j.job_type)}
-                      {j.proveedor_id ? ` · Proveedor ${j.proveedor_razon_social}` : ""}
+                      {j.proveedor_razon_social
+                        ? ` · ${j.proveedor_razon_social}`
+                        : ""}
                     </Typography>
 
                     <Typography variant="body2">
                       {j.message || "Procesando…"}
                     </Typography>
 
-                    {String(j.status).toLowerCase() !== "error" ? (
+                    {String(j.status).toLowerCase() !== "error" && (
                       <>
                         <LinearProgress
                           variant="determinate"
@@ -219,9 +285,11 @@ export default function ProcesosPage({ onResumeJob }) {
                             "& .MuiLinearProgress-bar": {
                               bgcolor: barColor,
                               borderRadius: 999,
+                              transition: "transform 600ms linear",
                             },
                           }}
                         />
+
                         <Stack direction="row" justifyContent="space-between">
                           <Typography
                             variant="caption"
@@ -232,7 +300,9 @@ export default function ProcesosPage({ onResumeJob }) {
                           <Typography variant="caption">{pct}%</Typography>
                         </Stack>
                       </>
-                    ) : (
+                    )}
+
+                    {String(j.status).toLowerCase() === "error" && (
                       <Typography variant="body2" sx={{ color: "error.main" }}>
                         {j.error || "Error desconocido"}
                       </Typography>
@@ -241,7 +311,7 @@ export default function ProcesosPage({ onResumeJob }) {
                     <Button
                       size="small"
                       variant="contained"
-                      onClick={() => openDetail(j.job_id)}
+                      onClick={() => openDetail(j.job_id)} // 👈 recomendado usar tu openDetail
                     >
                       Ver detalle
                     </Button>
@@ -252,6 +322,16 @@ export default function ProcesosPage({ onResumeJob }) {
           );
         })}
       </Stack>
+
+      {/* Modal detalle */}
+      <JobDetailDialog
+        open={detailOpen}
+        jobId={detailJobId}
+        onClose={closeDetail}
+        prettyType={prettyType}
+        statusColor={(s) => statusColor(s)} // si tu dialog espera color
+        statusLabel={statusLabel}
+      />
     </Box>
   );
 }
