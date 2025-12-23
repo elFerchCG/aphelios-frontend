@@ -1,7 +1,7 @@
 import React from 'react'
 import '../../../estilos/configuracion.css'
 import order from '../../../images/order.png'
-import orderBuy from '../../../images/orderBuy.png'
+// import orderBuy from '../../../images/orderBuy.png'
 import transacciones from '../../../images/transacciones.png'
 import existencias from '../../../images/existencias.png'
 import publicaciones from '../../../images/publicaciones.png'
@@ -15,10 +15,10 @@ const Inventario = () => {
                 <img src={order} alt="Usuarios" className="nav-icon-config" />
                 <span>Ordenes</span>
             </NavLink>
-            <NavLink to="/ordenescompra" className="nav-config">
+            {/* <NavLink to="/ordenescompra" className="nav-config">
                 <img src={orderBuy} alt="Ordenes Compra" className="nav-icon-config" />
                 <span>Ordenes Compra</span>
-            </NavLink>
+            </NavLink> */}
             <NavLink to="/publicaciones" className="nav-config">
                 <img src={publicaciones} alt="Publicaciones" className='nav-icon-config' />
                 <span>Publicaciones</span>

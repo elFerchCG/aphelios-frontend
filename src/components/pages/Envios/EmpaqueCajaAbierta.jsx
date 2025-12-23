@@ -394,74 +394,75 @@ const EmpaqueCajaAbierta = () => {
         }
     }
 
-    const processRowUpdate = async (newRow, oldRow) => {
-        try {
-            // Enviar la actualización al backend
-            const response = await axios.put(`${apiUrl}/empaque/actualizarCantidadEscaneo/${newRow.id}`, {
-                cantidad: newRow.cantidad,
-            });
+    // const processRowUpdate = async (newRow, oldRow) => {
+    //     try {
+    //         // Enviar la actualización al backend
+    //         const response = await axios.put(`${apiUrl}/empaque/actualizarCantidadEscaneo/${newRow.id}`, {
+    //             cantidad: newRow.cantidad,
+    //         });
 
-            if (response.data.ok) {
-                Swal.fire({
-                    title: 'Actualizado!',
-                    text: response.data.message,
-                    icon: 'success',
-                    timer: 3000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-                return newRow; // Devuelve la fila actualizada
-            }
-        } catch (error) {
-            // Capturar errores del backend
-            const errorMessage = error.response?.data?.message || 'Error desconocido';
+    //         if (response.data.ok) {
+    //             Swal.fire({
+    //                 title: 'Actualizado!',
+    //                 text: response.data.message,
+    //                 icon: 'success',
+    //                 timer: 3000,
+    //                 showCloseButton: true,
+    //                 allowEscapeKey: true
+    //             });
+    //             return newRow; // Devuelve la fila actualizada
+    //         }
+    //     } catch (error) {
+    //         // Capturar errores del backend
+    //         const errorMessage = error.response?.data?.message || 'Error desconocido';
 
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true
-            });
+    //         Swal.fire({
+    //             title: 'Error',
+    //             text: errorMessage,
+    //             icon: 'error',
+    //             timer: 5000,
+    //             showCloseButton: true,
+    //             allowEscapeKey: true
+    //         });
 
-            return oldRow; // Revertir cambios en la UI
-        }
-    };
+    //         return oldRow; // Revertir cambios en la UI
+    //     }
+    // };
 
     const columns = [
         { field: "id", headerName: "# Escaneo", type: "number", flex: 1 },
         { field: "inventory_id", headerName: "ML", type: "text", flex: 1 },
         { field: "orden", headerName: "# Orden", type: "text", flex: 1 },
-        {
-            field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center', editable: true, cellClassName: "celdaEditable",
-            renderEditCell: (params) => {
-                return (
-                    <GridEditInputCell
-                        {...params}
-                        type="number"
-                        inputProps={{
-                            min: 1,
-                        }}
-                        onWheel={(e) => e.target.blur()}
-                    />
-                )
-            },
-            preProcessEditCellProps: (params) => {
-                const { props } = params;
+        // {
+        //     field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center', editable: true, cellClassName: "celdaEditable",
+        //     renderEditCell: (params) => {
+        //         return (
+        //             <GridEditInputCell
+        //                 {...params}
+        //                 type="number"
+        //                 inputProps={{
+        //                     min: 1,
+        //                 }}
+        //                 onWheel={(e) => e.target.blur()}
+        //             />
+        //         )
+        //     },
+        //     preProcessEditCellProps: (params) => {
+        //         const { props } = params;
 
-                // Asegurar que el valor sea al menos 0
-                const value = Math.max(1, props.value);
+        //         // Asegurar que el valor sea al menos 0
+        //         const value = Math.max(1, props.value);
 
-                const isValid = /^[1-9]+$/.test(value);
+        //         const isValid = /^[1-9]+$/.test(value);
 
-                return {
-                    ...props,
-                    value, // Forzar el valor a 0 si es menor
-                    error: !isValid,  // Marca la celda con error si la validación falla
-                };
-            }
-        },
+        //         return {
+        //             ...props,
+        //             value, // Forzar el valor a 0 si es menor
+        //             error: !isValid,  // Marca la celda con error si la validación falla
+        //         };
+        //     }
+        // },
+        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center' },
         { field: "sku", headerName: "SKU", type: "text", flex: 3 },
         { field: "title", headerName: "Descripción", type: "text", flex: 5 },
         {
@@ -531,7 +532,7 @@ const EmpaqueCajaAbierta = () => {
                     showCellVerticalBorder
                     showColumnVerticalBorder
                     getRowId={(row) => row.id}
-                    processRowUpdate={processRowUpdate}
+                    //processRowUpdate={processRowUpdate}
                     columnVisibilityModel={columnVisibilityModel}
                     onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                     experimentalFeatures={{ newEditingApi: true }}

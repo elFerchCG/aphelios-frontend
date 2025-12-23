@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Button, InputAdornment, TextField } from '@mui/material';
+import { Button, FormControl, IconButton, InputAdornment, InputLabel, OutlinedInput } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import logo from '../../images/Logo aphelios blanco.png';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
@@ -10,13 +10,28 @@ import Swal from 'sweetalert2';
 import apiUrl from '../../config';
 import { jwtDecode } from 'jwt-decode';
 import useAuthStore from '../../store/authStore';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 
 const Login = () => {
   const [nombre, setNombre] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
   const navigate = useNavigate();
   const { setSession, logout } = useAuthStore();
+
+  const handleClickShowPassword = () => {
+    setShowPassword((prev) => !prev);
+  }
+
+  const handleMouseDownPassword = (event) => {
+    event.preventDefault();
+  };
+
+  const handleMouseUpPassword = (event) => {
+    event.preventDefault();
+  };
+
 
   const handleLogin = async () => {
     try {
@@ -104,43 +119,50 @@ const Login = () => {
           transition: 'all 0.3s ease',
         }}
       >
-        <TextField
-          className='itemLogin'
-          variant="standard"
-          label="Usuario"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          sx={{
-            marginBottom: '20px',
-            width: '100%',
-          }}
-          InputLabelProps={{ shrink: true }}
-          InputProps={{
-            startAdornment: (
+        <FormControl sx={{ m: 1, width: '100%' }} variant="outlined" className='itemLogin'>
+          <InputLabel htmlFor="outlined-adornment-username">Usuario</InputLabel>
+          <OutlinedInput
+            id="outlined-adornment-username"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            startAdornment={
               <InputAdornment position="start">
                 <AccountCircleOutlinedIcon sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
               </InputAdornment>
-            ),
-          }}
-        />
-
-        <TextField
-          className='itemLogin'
-          variant='standard'
-          label='Contraseña'
-          type='password'
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          sx={{ width: '100%' }}
-          InputProps={{
-            startAdornment: (
+            }
+            label="Usuario"
+          />
+        </FormControl>
+        <FormControl sx={{ m: 1, width: '100%' }} variant="outlined" className='itemLogin'>
+          <InputLabel htmlFor="outlined-adornment-password">Contraseña</InputLabel>
+          <OutlinedInput
+            id="outlined-adornment-password"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            startAdornment={
               <InputAdornment position='start'>
                 <LockOutlinedIcon sx={{ color: 'action.active', mr: 1, my: 0.5 }} />
               </InputAdornment>
-            )
-          }}
-        />
-
+            }
+            endAdornment={
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label={
+                    showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  }
+                  onClick={handleClickShowPassword}
+                  onMouseDown={handleMouseDownPassword}
+                  onMouseUp={handleMouseUpPassword}
+                  edge="end"
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            }
+            label="Contraseña"
+          />
+        </FormControl>
         <Button
           variant='contained'
           className='botonLogin'

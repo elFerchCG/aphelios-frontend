@@ -14,37 +14,29 @@ const ProveedoresTable = () => {
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
 
-    const theme = createTheme({
-        palette: {
-            primary: { main: '#1976d2' },
-        },
-    });
+    const initialProveedorData = {
+        id_proveedor: '',
+        razon_social: '',
+        rfc: '',
+        correo: '',
+        backorder: 1, // 👈 siempre número
+        estado: 1,    // 👈 siempre número
+        sku_proveedor: ''
+    };
+
+    const initialNewProveedorData = {
+        razon_social: '',
+        rfc: '',
+        correo: '',
+        sku_proveedor: ''
+    };
 
     const [rows, setRows] = useState([]);
     const [openModal, setOpenModal] = useState(false);
     const [openModalPost, setOpenModalPost] = useState(false);
     const [selectedProveedor, setSelectedProveedor] = useState('');
-
-
-    const [proveedorData, setProveedorData] = useState({ // Datos del usuario en los campos
-        id_proveedor: '',
-        razon_social: '',
-        rfc: '',
-        correo: '',
-        backorder: '',
-        estado: '',
-        sku_proveedor: ''
-    });
-
-    const [newProveedorData, setNewProveedorData] = useState({
-        id_proveedor: '',
-        razon_social: "",
-        rfc: "",
-        correo: "",
-        backorder: "",
-        estado: "",
-        sku_proveedor: ""
-    })
+    const [proveedorData, setProveedorData] = useState(initialProveedorData);
+    const [newProveedorData, setNewProveedorData] = useState(initialNewProveedorData);
 
     const fetchProveedores = async () => {
         try {
@@ -106,13 +98,17 @@ const ProveedoresTable = () => {
     const handleOpenModal = (proveedor) => {
         setSelectedProveedor(proveedor);
         setProveedorData({
-            ...proveedor
-        })
+            ...initialProveedorData,
+            ...proveedor,
+            estado: proveedor.estado ?? 1,
+            backorder: proveedor.backorder ?? 1,
+        });
         setOpenModal(true);
     }
 
     const handleCloseModal = () => {
         setOpenModal(false);
+        setProveedorData(initialProveedorData);
     };
 
     const handleOpenModalPost = () => {
@@ -124,22 +120,16 @@ const ProveedoresTable = () => {
     };
 
     const handleChangeEstado = (e) => {
-        const selectedEstado = e.target.value;
-        const descripcionEstado = selectedEstado === 1 ? 'Activo' : 'Inactivo';
         setProveedorData({
             ...proveedorData,
-            estado: selectedEstado,
-            estado_descripcion: descripcionEstado,
+            estado: e.target.value,
         });
     };
 
     const handleChangeBackOrder = (e) => {
-        const selectedBack = e.target.value;
-        const descripcionBack = selectedBack === 1 ? 'Activo' : 'Inactivo';
         setProveedorData({
             ...proveedorData,
-            backorder: selectedBack,
-            back_descripcion: descripcionBack,
+            backorder: e.target.value,
         });
     };
 
@@ -149,11 +139,11 @@ const ProveedoresTable = () => {
                 razon_social: newProveedorData.razon_social,
                 rfc: newProveedorData.rfc,
                 correo: newProveedorData.correo,
-                estado: newProveedorData.estado,
-                backorder: newProveedorData.backorder,
                 sku_proveedor: newProveedorData.sku_proveedor
             });
             if (response.data.ok) {
+                handleCloseModalPost();                 // 👈 primero cerrar modal
+                setNewProveedorData(initialNewProveedorData);
                 Swal.fire({
                     title: 'Proveedor creado',
                     text: 'El nuevo proveedor se ha creado correctamente',
@@ -163,11 +153,10 @@ const ProveedoresTable = () => {
                     allowEscapeKey: true
                 });
                 fetchProveedores();
-                setNewProveedorData('');
-                handleCloseModalPost();
             }
         } catch (error) {
-            setNewProveedorData('');
+            handleCloseModalPost();
+            setNewProveedorData(initialNewProveedorData);
             Swal.fire({
                 title: 'Error',
                 text: 'Hubo un problema al crear el proveedor',
@@ -181,37 +170,14 @@ const ProveedoresTable = () => {
 
     const handleSaveChanges = async () => {
         try {
-            const response = await axios.put(`${apiUrl}/proveedores/${proveedorData.id_proveedor}`, {
-                razon_social: proveedorData.razon_social,
-                rfc: proveedorData.rfc,
-                correo: proveedorData.correo,
-                estado: proveedorData.estado,
-                backorder: proveedorData.backorder,
-                sku_proveedor: proveedorData.sku_proveedor
-            });
-            if (response.status === 200) {
-                Swal.fire({
-                    title: 'Proveedor actualizado',
-                    text: 'Los cambios se guardaron correctamente',
-                    icon: 'success',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-                setProveedorData('');
-                fetchProveedores();
-                setOpenModal(false);
-            }
+            await axios.put(`${apiUrl}/proveedores/${proveedorData.id_proveedor}`, proveedorData);
+            Swal.fire('Actualizado', 'Proveedor actualizado correctamente', 'success');
+            fetchProveedores();
+            setProveedorData(initialProveedorData);
+            setOpenModal(false);
         } catch (error) {
-            setProveedorData('');
-            Swal.fire({
-                title: 'Error',
-                text: 'Hubo un problema al guardar los cambios',
-                icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true
-            });
+            Swal.fire('Error', 'Hubo un problema al guardar', 'error');
+            setProveedorData(initialProveedorData);
         }
     };
 
@@ -235,10 +201,12 @@ const ProveedoresTable = () => {
                 <Tooltip title='Ver detalles' >
                     <GridActionsCellItem
                         icon={<EditNoteIcon />}
+                        label="Editar proveedor"
                         sx={{ color: 'green' }}
                         onClick={() => handleOpenModal(params.row)}
                     />
-                </Tooltip>],
+                </Tooltip>
+            ],
         },
     ];
 
@@ -302,51 +270,34 @@ const ProveedoresTable = () => {
                     }}
                 />
                 {/* Modal para editar proveedor */}
-                < Dialog open={openModal} onClose={handleCloseModal} >
+                <Dialog open={openModal} onClose={handleCloseModal} >
                     <DialogTitle>Editar Proveedor</DialogTitle>
                     <DialogContent>
                         <TextField
-                            label={'Razón social'}
+                            label="Razón social"
                             fullWidth
                             margin="normal"
                             value={proveedorData.razon_social}
-                            onChange={(e) => setProveedorData({ ...proveedorData, razon_social: e.target.value })}
+                            onChange={(e) =>
+                                setProveedorData({ ...proveedorData, razon_social: e.target.value })
+                            }
                         />
-                        <TextField
-                            label={'RFC'}
-                            fullWidth
-                            margin="normal"
-                            value={proveedorData.rfc}
-                            onChange={(e) => setProveedorData({ ...proveedorData, rfc: e.target.value })}
-                        />
-                        <TextField
-                            label={'Correo'}
-                            fullWidth
-                            margin="normal"
-                            value={proveedorData.correo}
-                            onChange={(e) => setProveedorData({ ...proveedorData, correo: e.target.value })}
-                        />
-                        <TextField
-                            label={'SKU'}
-                            fullWidth
-                            margin="normal"
-                            value={proveedorData.sku_proveedor}
-                            onChange={(e) => setProveedorData({ ...proveedorData, sku_proveedor: e.target.value })}
-                        />
+
                         <FormControl fullWidth margin="normal">
-                            <InputLabel>{'Back Order'}</InputLabel>
+                            <InputLabel>Back Order</InputLabel>
                             <Select
-                                value={proveedorData.backorder}
+                                value={proveedorData.backorder ?? ''}
                                 onChange={handleChangeBackOrder}
                             >
                                 <MenuItem value={1}>Activo</MenuItem>
                                 <MenuItem value={0}>Inactivo</MenuItem>
                             </Select>
                         </FormControl>
+
                         <FormControl fullWidth margin="normal">
-                            <InputLabel>{'Estatus'}</InputLabel>
+                            <InputLabel>Estatus</InputLabel>
                             <Select
-                                value={proveedorData.estado}
+                                value={proveedorData.estado ?? ''}
                                 onChange={handleChangeEstado}
                             >
                                 <MenuItem value={1}>Activo</MenuItem>
@@ -354,15 +305,12 @@ const ProveedoresTable = () => {
                             </Select>
                         </FormControl>
                     </DialogContent>
+
                     <DialogActions>
-                        <Button onClick={handleCloseModal} color="primary">
-                            Cancelar
-                        </Button>
-                        <Button onClick={handleSaveChanges} color="primary">
-                            Guardar
-                        </Button>
+                        <Button onClick={handleCloseModal}>Cancelar</Button>
+                        <Button onClick={handleSaveChanges}>Guardar</Button>
                     </DialogActions>
-                </Dialog >
+                </Dialog>
                 {/* Modal para crear proveedor */}
                 < Dialog open={openModalPost} onClose={handleCloseModalPost} >
                     <DialogTitle>Crear Proveedor</DialogTitle>
@@ -395,26 +343,6 @@ const ProveedoresTable = () => {
                             value={newProveedorData.sku_proveedor}
                             onChange={(e) => setNewProveedorData({ ...newProveedorData, sku_proveedor: e.target.value })}
                         />
-                        <FormControl fullWidth margin="normal">
-                            <InputLabel>{'Back Order'}</InputLabel>
-                            <Select
-                                value={newProveedorData.backorder}
-                                onChange={(e) => setNewProveedorData({ ...newProveedorData, backorder: e.target.value })}
-                            >
-                                <MenuItem value={1}>Activo</MenuItem>
-                                <MenuItem value={0}>Inactivo</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <FormControl fullWidth margin="normal">
-                            <InputLabel>{'Estatus'}</InputLabel>
-                            <Select
-                                value={newProveedorData.estado}
-                                onChange={(e) => setNewProveedorData({ ...newProveedorData, estado: e.target.value })}
-                            >
-                                <MenuItem value={1}>Activo</MenuItem>
-                                <MenuItem value={0}>Inactivo</MenuItem>
-                            </Select>
-                        </FormControl>
                     </DialogContent>
                     <DialogActions>
                         <Button onClick={handleCloseModalPost} color="primary">

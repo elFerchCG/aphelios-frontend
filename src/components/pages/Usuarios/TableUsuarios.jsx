@@ -1,24 +1,16 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Tooltip } from '@mui/material';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid'
 import axios from 'axios';
-import React from 'react'
 import { useEffect } from 'react';
 import { useState } from 'react';
 import Swal from 'sweetalert2';
 import EditNoteIcon from '@mui/icons-material/EditNote';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
 
 const TableUsuarios = () => {
     const apiUrl =
         process.env.NODE_ENV === 'production'
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
-
-    const theme = createTheme({
-        palette: {
-            primary: { main: '#1976d2' },
-        },
-    });
 
     const [rows, setRows] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -37,7 +29,6 @@ const TableUsuarios = () => {
     const [newUserData, setNewUserData] = useState({
         nombre: '',
         password: "",
-        estado: 1,
         rol_id: ""
     })
 
@@ -198,8 +189,7 @@ const TableUsuarios = () => {
             const response = await axios.post(`${apiUrl}/auth/register`, {
                 nombre: newUserData.nombre,
                 password: newUserData.password,
-                rol_id: newUserData.rol_id,
-                estado: newUserData.estado
+                rol_id: newUserData.rol_id
             });
             if (response.data.ok) {
                 Swal.fire({
@@ -241,10 +231,12 @@ const TableUsuarios = () => {
                 <Tooltip title='Ver detalles' >
                     <GridActionsCellItem
                         icon={<EditNoteIcon />}
+                        label='Editar usuario'
                         sx={{ color: 'green' }}
                         onClick={() => handleOpenModal(params.row)}
                     />
-                </Tooltip>],
+                </Tooltip>
+            ],
         },
     ];
 
@@ -295,22 +287,22 @@ const TableUsuarios = () => {
                 </div>
 
                 {/* DataGrid */}
-                    <DataGrid
-                        rows={rows}
-                        columns={columns}
-                        pageSize={5}
-                        disableColumnResize={false}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        getRowId={(row) => row.id_usuario}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id_usuario: false,
-                            password: false,
-                            estado: false,
-                            rol_id: false,
-                        }}
-                    />
+                <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    pageSize={5}
+                    disableColumnResize={false}
+                    showCellVerticalBorder
+                    showColumnVerticalBorder
+                    getRowId={(row) => row.id_usuario}
+                    experimentalFeatures={{ newEditingApi: true }}
+                    columnVisibilityModel={{
+                        id_usuario: false,
+                        password: false,
+                        estado: false,
+                        rol_id: false,
+                    }}
+                />
             </div>
             {/* Modal para editar usuario */}
             < Dialog open={openModal} onClose={handleCloseModal} >
@@ -424,16 +416,6 @@ const TableUsuarios = () => {
                             ) : (
                                 <MenuItem defaultValue="" disabled>No hay roles disponibles</MenuItem>
                             )}
-                        </Select>
-                    </FormControl>
-                    <FormControl fullWidth margin="normal">
-                        <InputLabel>{'Estatus'}</InputLabel>
-                        <Select
-                            value={newUserData.estado !== undefined ? newUserData.estado : ''}
-                            onChange={(e) => setNewUserData({ ...newUserData, estado: e.target.value })}
-                        >
-                            <MenuItem value={1}>Activo</MenuItem>
-                            <MenuItem value={0}>Inactivo</MenuItem>
                         </Select>
                     </FormControl>
                 </DialogContent>

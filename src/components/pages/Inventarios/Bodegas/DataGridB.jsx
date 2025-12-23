@@ -1,5 +1,5 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid'
+import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid'
 import axios from 'axios';
 import React from 'react'
 import { useEffect } from 'react';
@@ -60,23 +60,44 @@ const DataGridB = () => {
     Nombre: '',
     Tipo: "",
     Neteable: "",
-    rol_id: "",
-    activo: 1
+    rol_id: ""
   })
 
   const [ubicacionData, setUbicacionData] = useState({
     id: '',
     descripcion: "",
     disponible: "",
-    bodega_id: "",
     activo: ""
   })
 
   const [newUbicacionData, setNewUbicacionData] = useState({
     descripcion: '',
     disponible: "",
-    bodega_id: "",
-    activo: 1
+    bodega_id: ""
+  })
+
+  const CustomToolbar = () => (
+    <GridToolbarContainer>
+      {/* Mantener solo los botones necesarios */}
+      <GridToolbarColumnsButton />  {/* Botón de Columnas */}
+      <GridToolbarFilterButton />   {/* Botón de Filtros */}
+      <GridToolbarDensitySelector />{/* Botón de Densidad */}
+      <GridToolbarExport
+        csvOptions={{
+          fileName: "ubicaciones_exportadas",
+          utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
+        }}
+      />
+    </GridToolbarContainer>
+  );
+
+  const [columnVisibilityModelProducts, setColumnVisibilityModelProducts] = useState({
+    id: false,
+    descripcion: true,
+    disponible: false,
+    bodega_nombre: false,
+    activo: false,
+    actions: true,
   })
 
   const fetchUbicaciones = async () => {
@@ -209,7 +230,6 @@ const DataGridB = () => {
         tipo: newBodegaData.Tipo,
         neteable: newBodegaData.Neteable,
         rol_id: newBodegaData.rol_id,
-        activo: newBodegaData.activo
       });
       if (response.data.ok) {
         Swal.fire({
@@ -332,12 +352,12 @@ const DataGridB = () => {
       setBodegaData('');
       const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
-          title: 'Error',
-          text: errorMessage,
-          icon: 'error',
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true
+        title: 'Error',
+        text: errorMessage,
+        icon: 'error',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true
       });
       setOpenModal(false);
     }
@@ -356,7 +376,6 @@ const DataGridB = () => {
       const response = await axios.put(`${apiUrl}/inventario/localidades/${ubicacionData.id}`, {
         descripcion: ubicacionData.descripcion,
         disponible: ubicacionData.disponible,
-        bodega_id: ubicacionData.bodega_id,
         activo: ubicacionData.activo
       });
       if (response.data.ok) {
@@ -441,20 +460,20 @@ const DataGridB = () => {
 
     // Aplica el filtro de búsqueda
     if (searchTerm) {
-        filtered = filtered.filter(ubicacion =>
-          ubicacion.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) 
-        );
+      filtered = filtered.filter(ubicacion =>
+        ubicacion.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
 
     setFilteredUbicaciones(filtered);
-}, [searchTerm, rowsUbicaciones]);
+  }, [searchTerm, rowsUbicaciones]);
 
   const columns = [
     { field: 'id', headerName: 'Folio', flex: 1 },
     { field: 'Nombre', headerName: 'Nombre', flex: 1 },
     { field: 'Tipo', headerName: 'Tipo', flex: 1 },
     { field: 'Neteable', headerName: 'Estado', flex: 1 },
-    { field: 'activo', headerName: 'Rol ID', flex: 1 },
+    { field: 'activo', headerName: 'Estatus', flex: 1 },
     { field: 'rol_id', headerName: 'Rol', flex: 1 },
     { field: 'rol_descripcion', headerName: 'Rol', flex: 1 },
     {
@@ -482,9 +501,19 @@ const DataGridB = () => {
   const columnsUbicaciones = [
     { field: 'id', headerName: 'Folio', flex: 1 },
     { field: 'descripcion', headerName: 'Descripción', flex: 1 },
-    { field: 'disponible', headerName: 'Disponible para venta', flex: 1 },
-    { field: 'bodega_id', headerName: 'Bodega ID', flex: 1 },
-    { field: 'activo', headerName: 'Activo', flex: 1 },
+    {
+      field: 'disponible', headerName: 'Disponible para venta', flex: 1,
+      renderCell: (params) => {
+        return params.value === 1 ? 'Sí' : 'No';
+      }
+    },
+    { field: 'bodega_nombre', headerName: 'Bodega', flex: 1 },
+    {
+      field: 'activo', headerName: 'Activo', flex: 1,
+      renderCell: (params) => {
+        return params.value === 1 ? 'Sí' : 'No';
+      }
+    },
     {
       field: 'actions', headerName: 'Acciones', type: 'actions', flex: 1, getActions: (params) => [
         <Tooltip title='Ver detalles' >
@@ -544,22 +573,22 @@ const DataGridB = () => {
           </Button>
         </div>
         {/* DataGrid */}
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            pageSize={5}
-            disableColumnResize={false}
-            showCellVerticalBorder
-            showColumnVerticalBorder
-            getRowId={(row) => row.id}
-            experimentalFeatures={{ newEditingApi: true }}
-            columnVisibilityModel={{
-              id: false,
-              rol_id: false,
-              Neteable: false,
-              activo: false
-            }}
-          />
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          pageSize={5}
+          disableColumnResize={false}
+          showCellVerticalBorder
+          showColumnVerticalBorder
+          getRowId={(row) => row.id}
+          experimentalFeatures={{ newEditingApi: true }}
+          columnVisibilityModel={{
+            id: false,
+            rol_id: false,
+            Neteable: false,
+            activo: false
+          }}
+        />
       </div>
       {/* Modal para editar bodega */}
       < Dialog open={openModal} onClose={handleCloseModal} >
@@ -689,16 +718,6 @@ const DataGridB = () => {
               )}
             </Select>
           </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{'Estatus'}</InputLabel>
-            <Select
-              value={newBodegaData.activo}
-              onChange={(e) => setNewBodegaData({ ...newBodegaData, activo: e.target.value })}
-            >
-              <MenuItem value={1}>Activo</MenuItem>
-              <MenuItem value={0}>Inactivo</MenuItem>
-            </Select>
-          </FormControl>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseModalPost} color="primary">
@@ -757,13 +776,11 @@ const DataGridB = () => {
                 showCellVerticalBorder
                 showColumnVerticalBorder
                 getRowId={(row) => row.id}
+                columnVisibilityModel={columnVisibilityModelProducts}
+                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelProducts(newModel)}
                 experimentalFeatures={{ newEditingApi: true }}
-                columnVisibilityModel={{
-                  id: false,
-                  disponible: false,
-                  bodega_id: false,
-                  activo: false
-                }}
+                density="compact" // Establece el tamaño de las filas en compacto por defecto
+                slots={{ toolbar: CustomToolbar }}
               />
             </ThemeProvider>
             <Button onClick={handleCloseModalUbicaciones} variant="contained" color="primary"

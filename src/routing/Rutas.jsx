@@ -16,7 +16,7 @@ import Inventario from '../components/pages/Menu/Inventario';
 import ProtectedRoute from './ProtectedRoute';
 import Home from '../components/pages/Menu/Home';
 import Envios from '../components/pages/Envios/Envios';
-import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/TableOrdenesCompra';
+// import TableOrdenesCompra from '../components/pages/Inventarios/OrdenCompras/TableOrdenesCompra';
 import AnalisisVentas from '../components/pages/Analisi Ventas/AnalisisVentas';
 import ConteoCiclico from '../components/pages/Inventarios/OrdenBodegas/ConteoCiclico';
 import Localidades from '../components/pages/Inventarios/Localidades/Localidades';
@@ -68,7 +68,7 @@ const Rutas = () => {
                 <Route path='/inventario' element={<Inventario />} />
                 <Route path='/home' element={<Home />} />
                 <Route path='/ordenes-de-bodega' element={<TableOrdenes />} />
-                <Route path='/ordenesCompra' element={<TableOrdenesCompra />} />
+                {/* <Route path='/ordenesCompra' element={<TableOrdenesCompra />} /> */}
                 <Route path='/reCharts' element={<ReCharts />} />
                 <Route path='/analisisVentas' element={<AnalisisVentas />} />
                 <Route path='/conteociclico' element={<ConteoCiclico />} />

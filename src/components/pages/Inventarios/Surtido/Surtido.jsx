@@ -29,6 +29,7 @@ const Surtido = () => {
     const [habilitarAsignar, setHabilitarAsignar] = useState(false);
     const [selectedUsuario, setSelectedUsuario] = useState('');
     const [openAsignar, setOpenAsignar] = useState(false);
+    const [openSurtirNoFull, setOpenSurtirNoFull] = useState(false);
     const [openImprimir, setOpenImprimir] = useState(false);
     const [ml, setMl] = useState("");
     const [titleEtiquetasModal, setTitleEtiquetasModal] = useState("");
@@ -70,6 +71,7 @@ const Surtido = () => {
         id_orden: true,
         id_detalle_orden: false,
         cantidad_recibida: false,
+        permitir_full: false,
 
     });
 
@@ -225,12 +227,24 @@ const Surtido = () => {
         setOpenAsignar(true);
     };
 
+    const handleOpenSurtirNoFull = async (ordenId, detalleId) => {
+        setSelectedOrdenId(ordenId);
+        setSelectedDetalleId(detalleId);
+        await validarPaquete(ordenId);
+        setOpenSurtirNoFull(true);
+    };
+
     const handleCloseAsignar = () => {
         setOpenAsignar(false);
         setSelectedOrdenId(null); // Resetear el ID cuando se cierre
         setSelectedDetalleId(null); // Resetear id_detalle_orden también
         setCantidadRecibida("");
         setSelectedUsuario("");
+    };
+
+    const handleCloseSurtirNoFull = () => {
+        setOpenSurtirNoFull(false);
+        setSelectedDetalleId(null);
     };
 
     const handleOpenImprimir = () => {
@@ -258,11 +272,11 @@ const Surtido = () => {
             ^FO21,145^A0N,18,18^FD^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FHFD${selectedUsuario.nombre || user.nombre}/env^FS
+            ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}/env^FS
             ^FO65,18^BY2^BCN,54,N,N
             ^FD${inventory_id}^FS
-        ^FT150,98^A0N,22,22^FHFD${inventory_id}^FS
-        ^FT149,98^A0N,22,22^FHFD${inventory_id}^FS
+        ^FT150,98^A0N,22,22^FH^FD${inventory_id}^FS
+        ^FT149,98^A0N,22,22^FH^FD${inventory_id}^FS
             ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
 
         // Crear un Blob con el contenido del archivo
@@ -278,6 +292,37 @@ const Surtido = () => {
         link.click();
         document.body.removeChild(link);
     };
+
+    const imprimirEtiquetasNoFULL = async () => {
+        try {
+            const data = {
+                orden_id: componentes[0]?.orden_id
+            }
+            const response = await axios.post(`${apiUrl}/mrp/imprimirEtiquetasNoFull`, data, {
+            });
+            if (response.data.ok) {
+                setCantidadTicket();
+                await fetchValoresOrden(response.data.cantidadEtiquetas);
+                setSku('');
+                setData([]); // <- limpia los datos mostrados en el DataGrid
+                handleCloseSurtirNoFull();
+                inputRef.current?.focus();
+            }
+        } catch (error) {
+            const errorMessage =
+                error?.response?.data?.message || 'Ocurrió un error inesperado';
+
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            handleCloseSurtirNoFull();
+        }
+    }
 
     const asignarLinea = async () => {
         try {
@@ -300,8 +345,7 @@ const Surtido = () => {
                 inputRef.current?.focus();
             }
         } catch (error) {
-            const errorMessage =
-                error?.response?.data?.message || 'Ocurrió un error inesperado';
+            const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
 
             Swal.fire({
                 title: 'Error',
@@ -332,9 +376,7 @@ const Surtido = () => {
             }
             handleCloseImprimir();
         } catch (error) {
-            const errorMessage =
-                error?.response?.data?.message || 'Ocurrió un error inesperado';
-
+            const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
             Swal.fire({
                 title: 'Error',
                 text: errorMessage,
@@ -354,20 +396,19 @@ const Surtido = () => {
                 const result = response.data.data[0];
                 setSkuEtiqueta(result.sku);
                 setTitleEtiqueta(result.title);
-                setInventoryIdEtiqueta(result.inventory_id);
+                setInventoryIdEtiqueta(result.inventory_id || 'ME N/A');
                 setSkuPuroEtiqueta(result.sku_componente);
                 // Llamada correcta a generarYDescargarTXT pasando los datos necesarios
                 await generarYDescargarTXT({
                     sku: result.sku,
                     title: result.title,
-                    inventory_id: result.inventory_id,  // Usa el campo correcto según tu lógica
+                    inventory_id: result.inventory_id || 'ME N/A',  // Usa el campo correcto según tu lógica
                     cantidadEtiquetas
                 });
                 console.log("Esta es la cantidad a imprimir de etiquetas:", cantidadEtiquetas);
             }
         } catch (error) {
-            const errorMessage =
-                error?.response?.data?.message || 'Ocurrió un error inesperado';
+            const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
 
             Swal.fire({
                 title: 'Error',
@@ -380,20 +421,20 @@ const Surtido = () => {
         }
     }
 
-    const ordenesRepetidas = useMemo(() => {
-        const counts = {};
-        data.forEach(row => {
-            if (row.id_orden != null) {
-                counts[row.id_orden] = (counts[row.id_orden] || 0) + 1;
-            }
-        });
+    // const ordenesRepetidas = useMemo(() => {
+    //     const counts = {};
+    //     data.forEach(row => {
+    //         if (row.id_orden != null) {
+    //             counts[row.id_orden] = (counts[row.id_orden] || 0) + 1;
+    //         }
+    //     });
 
-        return new Set(
-            Object.entries(counts)
-                .filter(([_, count]) => count > 1)
-                .map(([id_orden]) => Number(id_orden))
-        );
-    }, [data]);
+    //     return new Set(
+    //         Object.entries(counts)
+    //             .filter(([_, count]) => count > 1)
+    //             .map(([id_orden]) => Number(id_orden))
+    //     );
+    // }, [data]);
 
     const validarPaquete = async (id) => {
         try {
@@ -424,6 +465,23 @@ const Surtido = () => {
         });
     }
 
+    const contarComponenteSurtidoNoFull = async (row) => {
+        const response = await axios.put(`${apiUrl}/mrp/surtirME/${row.id}`, {
+            cantidad_contada: row.cantidad_a_contar
+        });
+        await validarPaquete(row.orden_id);
+
+        const message = response.data.message;
+        Swal.fire({
+            icon: 'success',
+            title: 'Cantidad actualizada',
+            text: message,
+            timer: 1000,
+            showConfirmButton: false,
+            target: document.getElementById("modal-surtirNoFull"),
+        });
+    };
+
     const processRowUpdate = async (updatedRow, oldRow) => {
         try {
             // Llamar a handleUpdateLinea para realizar la actualización en la base de datos
@@ -441,6 +499,28 @@ const Surtido = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
                 target: document.getElementById("modal-asignar"),
+            });
+            return oldRow;
+        }
+    };
+
+    const processRowUpdateNoFull = async (updatedRow, oldRow) => {
+        try {
+            // Llamar a handleUpdateLinea para realizar la actualización en la base de datos
+            await contarComponenteSurtidoNoFull(updatedRow);
+
+            // Si todo sale bien, devolver la fila actualizada
+            return updatedRow;
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+            Swal.fire({
+                title: '¡No se pudo actualizar la linea!',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+                target: document.getElementById("modal-surtirNoFull"),
             });
             return oldRow;
         }
@@ -479,6 +559,17 @@ const Surtido = () => {
         {
             field: "cantidad_recibida", headerName: "Cantidad Recibida", type: "number", flex: 1
         },
+        {
+            field: "logistic_type", headerName: "Logística", type: "text", flex: 1,
+            renderCell: (params) => {
+                if (params.value === 'fulfillment' || params.row.permitir_full === 1) {
+                    return 'Full';
+                } else {
+                    return 'Mercado Envíos';
+                }
+            }
+        },
+        { field: "permitir_full", headerName: "Permitir Full", type: "text", flex: 1 },
         { field: "tipo", headerName: "Tipo", type: "text", flex: 1 },
         {
             field: "actions",
@@ -492,13 +583,23 @@ const Surtido = () => {
 
                 if (!isFirstInstance) return [];
 
+                const esFull = params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1;
+
                 return [
-                    <Tooltip title="Asignar" key={`asignar-${params.row.id_orden}`}>
+                    <Tooltip
+                        title={esFull ? "Surtir componente Full" : "Surtir y empacar Mercado Envíos"}
+                        key={`surtir-${params.row.id_detalle_orden}`}>
                         <GridActionsCellItem
                             icon={<AssignmentIndIcon />}
-                            sx={{ color: "orange" }}
-                            onClick={() => handleOpenAsignar(params.row.id_orden, params.row.id_detalle_orden)}
-                            label='Asignar'
+                            sx={{ color: esFull ? "orange" : "red" }}
+                            onClick={() => {
+                                if (esFull) {
+                                    handleOpenAsignar(params.row.id_orden, params.row.id_detalle_orden);
+                                } else {
+                                    handleOpenSurtirNoFull(params.row.id_orden, params.row.id_detalle_orden);
+                                }
+                            }}
+                            label={esFull ? "Surtir" : "Surtir y empacar"}
                         />
                     </Tooltip>,
                     <Tooltip title="Ver publicación" key={`link-${params.row.permalink}`}>
@@ -587,10 +688,22 @@ const Surtido = () => {
                         borderRadius: 4,
                         boxShadow: 24,
                         borderWidth: 3,
-                        borderColor: "#1e88e5",
+                        '& .fila-full': {
+                            backgroundColor: '#E8F5E9', // verde claro
+                            '&:hover': {
+                                backgroundColor: '#C8E6C9',
+                            },
+                        },
+                        '& .fila-no-full': {
+                            backgroundColor: '#FDECEA', // rojo claro
+                            '&:hover': {
+                                backgroundColor: '#F9D6D5',
+                            },
+                        },
+                        // si quieres mantener esto
                         '& .fila-repetida': {
                             backgroundColor: '#FFF9C4',
-                        }
+                        },
                     }}
                     rows={data}
                     columns={columns}
@@ -604,9 +717,12 @@ const Surtido = () => {
                     experimentalFeatures={{ newEditingApi: true }}
                     density="compact" // Establece el tamaño de las filas en compacto por defecto
                     slots={{ toolbar: CustomToolbar }}
-                    getRowClassName={(params) =>
-                        ordenesRepetidas.has(Number(params.row.id_orden)) ? 'fila-repetida' : ''
-                    }
+                    getRowClassName={(params) => {
+                        if (params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1) {
+                            return 'fila-full';
+                        }
+                        return 'fila-no-full';
+                    }}
                 />
             </div>
             <Modal id={'modal-asignar'} open={openAsignar} onClose={handleCloseAsignar}>
@@ -717,6 +833,89 @@ const Surtido = () => {
                     </Box>
                 </Box>
             </Modal>
+            {/* Modal para surtir productos ME */}
+            <Modal id={'modal-surtirNoFull'} open={openSurtirNoFull} onClose={handleCloseSurtirNoFull}>
+                <Box sx={styleModalAsignar}>
+                    <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
+                        Surtir y empacar Mercado Envíos
+                    </Typography>
+                    <DataGrid
+                        rows={componentes}
+                        columns={[
+                            { field: "id", headerName: "Folio detalle orden", flex: 1 },
+                            { field: "orden_id", headerName: "Folio orden", flex: 1 },
+                            { field: "sku", headerName: "SKU Componente", flex: 1 },
+                            { field: "descripcion", headerName: "Descripción", flex: 2 },
+                            {
+                                field: "cantidad_contada",
+                                headerName: "Cantidad contada",
+                                flex: 1,
+                                type: "number",
+
+                            },
+                            {
+                                field: "cantidad_a_contar",
+                                headerName: "Cantidad a surtir",
+                                type: "number",
+                                flex: 1,
+                                editable: true,
+                                cellClassName: 'celdaEditable',
+                                renderEditCell: (params) => {
+                                    return (
+                                        <GridEditInputCell
+                                            {...params}
+                                            type="number"
+                                            inputProps={{
+                                                min: 0, // Establecer el mínimo permitido en el input
+                                            }}
+                                            onWheel={(e) => e.target.blur()} // Evitar cambios accidentales con la rueda del mouse
+                                        />
+                                    );
+                                },
+                                preProcessEditCellProps: (params) => {
+                                    const { props } = params;
+
+                                    // Asegurar que el valor sea al menos 0
+                                    const value = Math.max(0, props.value);
+
+                                    const isValid = /^[0-9]+$/.test(value);
+
+                                    return {
+                                        ...props,
+                                        value, // Forzar el valor a 0 si es menor
+                                        error: !isValid,  // Marca la celda con error si la validación falla
+                                    };
+                                }
+                            },
+                        ]}
+                        getRowId={(row) => row.id}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        pageSize={10}
+                        rowsPerPageOptions={[10, 25, 50]}
+                        density="compact"
+                        disableRowSelectionOnClick
+                        onProcessRowUpdateError={handleProcessRowUpdateError} // Aquí añadimos el manejador global
+                        processRowUpdate={processRowUpdateNoFull}
+                        isCellEditable={isCellEditable}
+                        experimentalFeatures={{ newEditingApi: true }}
+                        columnVisibilityModel={{
+                            id: false,
+                            orden_id: false,
+                        }}
+                        sx={{
+                            fontFamily: "Montserrat",
+                            fontWeight: "bold",
+                            mb: 5
+                        }}
+                    />
+                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
+                        <Button onClick={handleCloseSurtirNoFull} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
+                        <Button onClick={imprimirEtiquetasNoFULL} variant="contained" color="success" disabled={!habilitarAsignar} sx={{ width: 190 }}>Imprimir etiqueta</Button>
+                    </Box>
+                </Box>
+            </Modal>
+
             <Modal id={'modal-imprimir'} open={openImprimir} onClose={handleCloseImprimir}>
                 <Box sx={styleModalEtiquetas}>
                     <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>

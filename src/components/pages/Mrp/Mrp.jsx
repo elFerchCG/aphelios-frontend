@@ -68,9 +68,9 @@ const MrpSimple = () => {
   const fmtDT = (s) =>
     s
       ? new Date(s).toLocaleString("es-MX", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
       : "—";
 
   const fetchMlInfo = async () => {
@@ -80,6 +80,37 @@ const MrpSimple = () => {
     } catch (e) {
       // opcional: mostrar alerta suave
       setMlInfo(null);
+    }
+  };
+
+  const actualizarPublicacionesManual = async () => {
+    try {
+      setBusy(true);
+
+      const response = await axios.post(
+        `${apiUrl}/mrp/actualizarPublicacionesManual`,
+      );
+
+      Swal.fire({
+        title: "Actualizacion exitosa!",
+        text: response.data?.message || "Publicaciones actualizadas.",
+        icon: "success",
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: error?.response?.data?.message || "No se pudo actualizar.",
+        icon: "error",
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+    } finally {
+      setBusy(false); // ⭐ apagar carga SIEMPRE
     }
   };
 
@@ -171,8 +202,8 @@ const MrpSimple = () => {
       const key = r?.op_detalle_id
         ? `opd-${r.op_detalle_id}`
         : r?.orden_id
-        ? `op-${r.orden_id}`
-        : null;
+          ? `op-${r.orden_id}`
+          : null;
       if (key) m.set(key, r.orden_id);
     });
     return m;
@@ -228,9 +259,8 @@ const MrpSimple = () => {
 
     const confirm = await Swal.fire({
       title: "¿Generar pedidos?",
-      text: `Proveedor: ${
-        proveedorSel?.razon_social || proveedorId
-      } · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"}`,
+      text: `Proveedor: ${proveedorSel?.razon_social || proveedorId
+        } · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"}`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, generar",
@@ -272,7 +302,7 @@ const MrpSimple = () => {
         await Swal.fire(
           "Órdenes generadas hoy",
           err?.response?.data?.message ||
-            "Ya se generaron órdenes para este proveedor hoy. Inténtalo mañana.",
+          "Ya se generaron órdenes para este proveedor hoy. Inténtalo mañana.",
           "warning"
         );
         return;
@@ -420,10 +450,10 @@ const MrpSimple = () => {
     const payload = row?.op_detalle_id
       ? { op_detalle_id: Number(row.op_detalle_id) }
       : row?.detalle_orden_compra_id
-      ? { orden_compra_detalle_id: Number(row.detalle_orden_compra_id) }
-      : row?.pedido_linea_id
-      ? { pedido_linea_id: Number(row.pedido_linea_id) }
-      : null;
+        ? { orden_compra_detalle_id: Number(row.detalle_orden_compra_id) }
+        : row?.pedido_linea_id
+          ? { pedido_linea_id: Number(row.pedido_linea_id) }
+          : null;
 
     if (!payload) {
       await Swal.fire(
@@ -436,9 +466,8 @@ const MrpSimple = () => {
 
     const confirm = await Swal.fire({
       title: "Cerrar línea",
-      text: `¿Cerrar esta línea? (Numero de Orden de Produccion #${
-        row?.orden_id ?? "?"
-      })`,
+      text: `¿Cerrar esta línea? (Numero de Orden de Produccion #${row?.orden_id ?? "?"
+        })`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, cerrar",
@@ -484,8 +513,8 @@ const MrpSimple = () => {
           (r.op_detalle_id
             ? `opd-${r.op_detalle_id}`
             : r.orden_id
-            ? `op-${r.orden_id}`
-            : `row-${r.producto_id ?? "x"}`) === rid
+              ? `op-${r.orden_id}`
+              : `row-${r.producto_id ?? "x"}`) === rid
       );
       if (!row) return;
       if (row.op_detalle_id)
@@ -498,11 +527,10 @@ const MrpSimple = () => {
 
     const confirm = await Swal.fire({
       title: "Cerrar seleccionadas",
-      text: `Se cerrarán ${
-        bulk.op_detalle_ids.length +
+      text: `Se cerrarán ${bulk.op_detalle_ids.length +
         bulk.orden_compra_detalle_ids.length +
         bulk.pedido_linea_ids.length
-      } línea(s).`,
+        } línea(s).`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, cerrar",
@@ -828,15 +856,21 @@ const MrpSimple = () => {
                     <strong>{dias === 1 ? "1 día" : `${dias} días`}</strong>.
                   </Alert>
                 )}
-
-                <Button
-                  variant="outlined"
-                  onClick={actualizarStocksML}
-                  disabled={!proveedorId || submitting || busy}
-                  sx={{ alignSelf: "flex-start" }}
-                >
-                  Actualizar stocks ML
-                </Button>
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="outlined"
+                    onClick={actualizarStocksML}
+                    disabled={!proveedorId || submitting || busy}
+                  >
+                    Actualizar stocks ML
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={actualizarPublicacionesManual}
+                  >
+                    Actualizar publicaciones
+                  </Button>
+                </Stack>
               </Stack>
 
               {/* Paso 2 (opcional) solo si SÍ acepta backorder */}
@@ -925,8 +959,8 @@ const MrpSimple = () => {
             row?.op_detalle_id
               ? `opd-${row.op_detalle_id}`
               : row?.orden_id
-              ? `op-${row.orden_id}`
-              : `row-${row?.producto_id ?? "x"}`
+                ? `op-${row.orden_id}`
+                : `row-${row?.producto_id ?? "x"}`
           }
           pageSize={10}
           rowsPerPageOptions={[10, 25, 50]}
@@ -949,14 +983,14 @@ const MrpSimple = () => {
           slots={
             tieneProveedor
               ? {
-                  toolbar: () => (
-                    <TablaToolbar
-                      tieneProveedor={tieneProveedor}
-                      backorderActivo={backorderActivo}
-                      seleccionadas={ordenesSeleccionadas.length}
-                    />
-                  ),
-                }
+                toolbar: () => (
+                  <TablaToolbar
+                    tieneProveedor={tieneProveedor}
+                    backorderActivo={backorderActivo}
+                    seleccionadas={ordenesSeleccionadas.length}
+                  />
+                ),
+              }
               : undefined // ⬅️ sin toolbar si no hay proveedor
           }
         />

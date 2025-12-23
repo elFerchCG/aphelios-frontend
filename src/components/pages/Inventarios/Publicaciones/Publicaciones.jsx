@@ -39,12 +39,13 @@ const Publicaciones = () => {
         {
             field: 'logistic_type', headerName: 'Logistica', type: 'text', minWidth: 100,
             renderCell: (params) => {
-                const value = params.value.logistic_type;
-                return value === 'fulfillment'
-                    ? 'FULL'
-                    : value === 'cross_docking'
-                        ? 'ME'
-                        : 'ME'
+                if (params.value === 'fulfillment') {
+                    return 'FULL';
+                } else if (params.value === 'cross_docking') {
+                    return 'ME';
+                } else {
+                    return 'ME';
+                }
             }
         },
         { field: 'costo', headerName: 'Costo', type: 'number', minWidth: 100 },
@@ -233,7 +234,7 @@ const Publicaciones = () => {
             <GridToolbarDensitySelector />{/* Botón de Densidad */}
             <GridToolbarExport
                 csvOptions={{
-                    fileName: "productos",
+                    fileName: "publicaciones_exportadas",
                     utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
                 }}
             />

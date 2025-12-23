@@ -14,31 +14,27 @@ const DataGridT = () => {
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
 
-    const theme = createTheme({
-        palette: {
-            primary: { main: '#1976d2' },
-        },
-    });
+    const initialTransaccionData = {
+        id: '',
+        descripcion: '',
+        categoria: '',
+        activo: '',
+        rol_id: ''
+    };
+
+    const initialNewTransaccionData = {
+        descripcion: '',
+        categoria: '',
+        rol_id: ''
+    };
 
     const [rows, setRows] = useState([]);
     const [roles, setRoles] = useState([]);
     const [openModal, setOpenModal] = useState(false);
     const [selectedTransaccion, setSelectedTransaccion] = useState(null);
     const [openModalPost, setOpenModalPost] = useState(false);
-    const [transaccionData, setTransaccionData] = useState({
-        id: '',
-        descripcion: '',
-        categoria: '',
-        activo: '',
-        rol_id: ''
-    })
-
-    const [newTransaccionData, setNewTransaccionData] = useState({
-        descripcion: '',
-        categoria: '',
-        //activo: 1,
-        rol_id: ''
-    })
+    const [transaccionData, setTransaccionData] = useState(initialTransaccionData);
+    const [newTransaccionData, setNewTransaccionData] = useState(initialNewTransaccionData);
 
     const fetchTiposTransacciones = async () => {
         try {
@@ -122,14 +118,17 @@ const DataGridT = () => {
     const handleOpenModal = (transaccion) => {
         setSelectedTransaccion(transaccion);
         setTransaccionData({
+            ...initialTransaccionData,
             ...transaccion,
             rol_descripcion: getRolDescripcion(transaccion.rol_id),
+            activo_descripcion: transaccion.activo === 1 ? 'Activo' : 'Inactivo',
         });
         setOpenModal(true);
     };
 
     const handleCloseModal = () => {
         setOpenModal(false);
+        setTransaccionData(initialTransaccionData);
     };
 
     const handleOpenModalPost = () => {
@@ -138,6 +137,7 @@ const DataGridT = () => {
 
     const handleCloseModalPost = () => {
         setOpenModalPost(false);
+        setTransaccionData(initialTransaccionData);
     };
 
     const getRolDescripcion = (rolId) => {
@@ -231,13 +231,13 @@ const DataGridT = () => {
         { field: 'descripcion', headerName: 'Descripción', flex: 3 },
         { field: 'categoria', headerName: 'Categoria', flex: 1 },
         { field: 'activo', headerName: 'Activo', flex: 1 },
-        { 
+        {
             field: 'activo_descripcion', headerName: 'Activo', flex: 0.8,
             renderCell: (params) => (
                 params.value === "Sí"
-                ? <Chip label="Activo" color="success" size="small" />
-                : <Chip label="Inactivo" color="default" size="small" />
-            ) 
+                    ? <Chip label="Activo" color="success" size="small" />
+                    : <Chip label="Inactivo" color="default" size="small" />
+            )
         },
         { field: 'rol_id', headerName: 'Rol', flex: 1 },
         { field: 'rol_descripcion', headerName: 'Rol', flex: 0.8 },
@@ -246,6 +246,7 @@ const DataGridT = () => {
                 <Tooltip title='Ver detalles' >
                     <GridActionsCellItem
                         icon={<EditNoteIcon />}
+                        label="Editar tipo de transacción"
                         sx={{ color: 'green' }}
                         onClick={() => handleOpenModal(params.row)}
                     />
@@ -308,22 +309,22 @@ const DataGridT = () => {
                 </div>
                 {/* DataGrid */}
 
-                    <DataGrid
-                        rows={rows}
-                        columns={columns}
-                        pageSize={5}
-                        disableColumnResize={false}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        getRowId={(row) => row.id}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id: false,
-                            activo: false,
-                            rol_id: false,
-                        }}
-                    />
-             
+                <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    pageSize={5}
+                    disableColumnResize={false}
+                    showCellVerticalBorder
+                    showColumnVerticalBorder
+                    getRowId={(row) => row.id}
+                    experimentalFeatures={{ newEditingApi: true }}
+                    columnVisibilityModel={{
+                        id: false,
+                        activo: false,
+                        rol_id: false,
+                    }}
+                />
+
             </div>
             {/* Modal para editar usuario */}
             < Dialog open={openModal} onClose={handleCloseModal} >

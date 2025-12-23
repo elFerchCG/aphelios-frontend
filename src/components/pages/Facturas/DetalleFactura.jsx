@@ -11,6 +11,7 @@ import {
   IconButton,
 } from "@mui/material";
 
+import FlashAutoIcon from '@mui/icons-material/FlashAuto';
 import CloseIcon from "@mui/icons-material/Close";
 
 import {
@@ -64,9 +65,11 @@ const DetalleFactura = () => {
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
+    producto_id: false,
     linea_id: false,
     descripcion: true,
     estatus: true,
+    permitir_full: false,
   });
 
   const estadoColumn = {
@@ -229,6 +232,36 @@ const DetalleFactura = () => {
     setOpenModal(true);
   };
 
+  const handleHabilitarFull = (params) => {
+    //setProductoId(params.row.producto_id);
+    habilitarFullManual(params.row.producto_id);
+  };
+
+  const habilitarFullManual = async (productoId) => {
+    try {
+      await axios.put(`${apiUrl}/facturas/habilitarFull/${productoId}`);
+      Swal.fire({
+        title: "¡Éxito!",
+        text: "Producto habilitado para FULL correctamente.",
+        icon: "success",
+        timer: 3000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || "Error al habilitar el producto";
+      Swal.fire({
+        title: "Error",
+        text: errorMessage,
+        icon: "error",
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+    }
+  };
+
   const handleCloseModal = () => {
     setOpenModal(false);
     setLineaId("");
@@ -246,6 +279,14 @@ const DetalleFactura = () => {
     {
       field: "id",
       headerName: "Folio",
+      type: "number",
+      flex: 0.6,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
+      field: "producto_id",
+      headerName: "Producto ID",
       type: "number",
       flex: 0.6,
       align: "center",
@@ -342,17 +383,49 @@ const DetalleFactura = () => {
       },
     },
     {
+      field: "logistic_type", headerName: "Logística", type: "text", flex: 0.6, align: "center", headerAlign: "center",
+      renderCell: (params) => {
+        if (params.value !== 'fulfillment' && params.row.permitir_full === 0) {
+          return 'ME';
+        } else {
+          return 'FULL';
+        }
+      }
+    },
+    {
+      field: "permitir_full",
+      headerName: "Permitir FULL",
+      type: "text",
+      flex: 0.8,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
       field: "actions",
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => {
-        const { pedido_id, pedido_linea_id, estatus } = params.row;
+        const { pedido_id, pedido_linea_id, estatus, logistic_type, permitir_full } = params.row;
 
         // Ocultar icono si la fila es "nuevo"
         if (estatus === "nuevo" || estatus === "devolver") return [];
 
+        const actions = [];
+
+        if (logistic_type !== 'fulfillment' && permitir_full === 0) {
+          actions.push(
+            <Tooltip title="Habilitar FULL" key={`me-action-${params.row.producto_id}`}>
+              <GridActionsCellItem
+                icon={<FlashAutoIcon sx={{ color: "green" }} />}
+                onClick={() => handleHabilitarFull(params)}
+                showInMenu={true}
+              />
+            </Tooltip>,
+          );
+        }
+
         if (!pedido_id || !pedido_linea_id) {
-          return [
+          actions.push(
             <Tooltip title="Enlazar manual" key={`facturas-${params.row.id}`}>
               <GridActionsCellItem
                 icon={<InsertLinkIcon />}
@@ -361,10 +434,10 @@ const DetalleFactura = () => {
                 onClick={() => handleOpenModal(params)}
               />
             </Tooltip>,
-          ];
+          );
         }
 
-        return []; // No mostrar acciones si ambos existen
+        return actions; // No mostrar acciones si ambos existen
       },
     },
     estadoColumn,
@@ -791,11 +864,18 @@ const DetalleFactura = () => {
               pointerEvents: "auto",
               cursor: "help",
             },
+            '& .fila-no-full': {
+              backgroundColor: '#FDECEA', // rojo claro
+              '&:hover': {
+                backgroundColor: '#F9D6D5',
+              },
+            },
           }}
           rows={data}
           columns={columns}
           showCellVerticalBorder
           showColumnVerticalBorder
+          disableRowSelectionOnClick
           getRowId={(row) => row.id}
           columnVisibilityModel={columnVisibilityModel}
           onColumnVisibilityModelChange={(newModel) =>
@@ -805,18 +885,22 @@ const DetalleFactura = () => {
           density="compact" // Establece el tamaño de las filas en compacto por defecto
           slots={{ toolbar: CustomToolbar }}
           isRowSelectable={(params) => params.row.estatus !== "nuevo"}
-          getRowClassName={(params) =>
-            params.row.estatus === "nuevo" || params.row.estatus === "devolver"
-              ? "row-disabled"
-              : ""
-          }
+          getRowClassName={(params) => {
+            if (params.row.estatus === "nuevo" || params.row.estatus === "devolver") {
+              return "row-disabled";
+            }
+            if (params.row.logistic_type !== 'fulfillment' && params.row.permitir_full === 0) {
+              return 'fila-no-full';
+            }
+            return "";
+          }}
         />
       </div>
       {/* Ventana Modal Details Componente*/}
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => {}} // evitamos que se cierre automáticamente
+        onClose={() => { }} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -955,7 +1039,7 @@ const DetalleFactura = () => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                  params.row.componente_id ? (
+                    params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",
