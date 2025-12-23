@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import {
@@ -39,7 +40,15 @@ const MrpSimple = () => {
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
   const [mlInfo, setMlInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const isBlocking = busy || submitting;
+  const [isBlocking, setIsBlocking] = useState(false);
+
+  const [loaderOpen, setLoaderOpen] = useState(false);
+  const [loaderText, setLoaderText] = useState("Procesando…");
+  const [loaderPct, setLoaderPct] = useState(0);
+  const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const usuario_id = user?.id_usuario;
 
   // formulario
   const [proveedorId, setProveedorId] = useState("");
@@ -49,6 +58,20 @@ const MrpSimple = () => {
       proveedores.find((p) => String(p.id_proveedor) === String(proveedorId)),
     [proveedores, proveedorId]
   );
+
+  const openLoader = (text = "Procesando…", pct = 0) => {
+    setLoaderText(text);
+    setLoaderPct(pct);
+    setLoaderOpen(true);
+    setIsBlocking(true);
+  };
+
+  const closeLoader = () => {
+    setLoaderOpen(false);
+    setIsBlocking(false);
+    setLoaderText("Procesando…");
+    setLoaderPct(0);
+  };
 
   const daysOutLocal = useMemo(() => {
     if (!mlInfo?.max) return 0;
@@ -183,17 +206,15 @@ const MrpSimple = () => {
   }, [proveedorId]);
 
   useEffect(() => {
-    const onBeforeUnload = (e) => {
-      if (!isBlocking) return;
+    window.onbeforeunload = (e) => {
       e.preventDefault();
-      e.returnValue = ""; // ← necesario para que el navegador muestre el prompt
+      e.returnValue = " ";
+      return " ";
     };
-    window.addEventListener("beforeunload", onBeforeUnload, { capture: true });
-    return () =>
-      window.removeEventListener("beforeunload", onBeforeUnload, {
-        capture: true,
-      });
-  }, [isBlocking]);
+    return () => {
+      window.onbeforeunload = null;
+    };
+  }, []);
 
   // Mapea rowId => orden_id para deduplicar
   const rowIdToOrdenId = useMemo(() => {
@@ -269,35 +290,46 @@ const MrpSimple = () => {
     if (!confirm.isConfirmed) return;
 
     setSubmitting(true);
+
     try {
-      // 1) si NO acepta backorder, cerrar pendientes
+      openLoader("Preparando generación de pedidos…", 1);
+
+      // 1) cerrar pendientes (si no acepta backorder)
       if (!proveedorSel?.backorder) {
-        setBusy(true);
+        setLoaderText("Cerrando pendientes sin backorder…");
+        setLoaderPct(15);
+
         await axios.post(`${apiUrl}/mrp/cerrarPorProveedorSinBackorder`, {
           proveedor_id: Number(proveedorId),
         });
-        setBusy(false);
       }
 
-      // 2) actualizar en_camino + total (filtrado por proveedor)
-      setBusy(true);
+      // 2) refresh camino + total
+      setLoaderText("Actualizando existencias en camino y stock total…");
+      setLoaderPct(45);
+
       await axios.post(`${apiUrl}/mrp/refreshCaminoYTotal`, {
         proveedor_id: Number(proveedorId),
       });
-      setBusy(false);
 
-      // 3) ejecutar MRP (OP/OC/pedidos y excels)
-      setBusy(true);
+      // 3) ejecutar MRP
+      setLoaderText("Ejecutando MRP y generando órdenes/archivos…");
+      setLoaderPct(75);
+
       await axios.post(`${apiUrl}/mrp/ejecutarMrp`, {
         proveedor_id: Number(proveedorId),
         back_order: !!proveedorSel?.backorder,
       });
-      setBusy(false);
 
+      setLoaderText("Finalizando…");
+      setLoaderPct(100);
+
+      closeLoader();
       await Swal.fire("Listo", "Pedidos generados correctamente.", "success");
       await cargarMrpDelProveedor();
     } catch (err) {
-      setBusy(false);
+      closeLoader();
+
       if (err?.response?.status === 409) {
         await Swal.fire(
           "Órdenes generadas hoy",
@@ -307,15 +339,16 @@ const MrpSimple = () => {
         );
         return;
       }
+
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
         "No se pudieron generar los pedidos.";
+
       await Swal.fire("Error", msg, "error");
     } finally {
       setSubmitting(false);
-      setBusy(false);
     }
   };
 
@@ -324,6 +357,29 @@ const MrpSimple = () => {
   }, []);
 
   const actualizarStocksML = async () => {
+    let pollTimer = null;
+    let fakeTimer = null;
+
+    let fakePct = 0;
+    let serverPct = 0;
+
+    let jobId = null; 
+
+    const stopFake = () => {
+      if (fakeTimer) clearInterval(fakeTimer);
+      fakeTimer = null;
+    };
+
+    const startFake = () => {
+      if (fakeTimer) return;
+      fakeTimer = setInterval(() => {
+        if (serverPct < 40 && fakePct < 39) {
+          fakePct += 1;
+          setLoaderPct((prev) => Math.max(prev, fakePct, serverPct));
+        }
+      }, 10000);
+    };
+
     try {
       if (!proveedorId) {
         await Swal.fire(
@@ -334,7 +390,7 @@ const MrpSimple = () => {
         return;
       }
 
-      // Si ya se actualizó hoy, pedir confirmación fuerte
+      // Confirmación “hoy”
       if (lastUpdatedIsToday && mlInfo?.total > 0) {
         const hora = new Date(mlInfo.max).toLocaleTimeString("es-MX", {
           hour: "2-digit",
@@ -346,7 +402,7 @@ const MrpSimple = () => {
           title: "¿Actualizar stocks otra vez hoy?",
           html: `
           La última actualización de Mercado Libre fue <b>hoy a las ${hora}</b>.<br/>
-          Este proceso tarda <b>~10 minutos</b> y afecta a <b>todos</b> los productos.<br/><br/>
+          Este proceso tarda <b>~10-15 minutos</b> y afecta a <b>todos</b> los productos.<br/><br/>
           ¿Seguro que quieres ejecutarlo de nuevo?
         `,
           showCancelButton: true,
@@ -358,29 +414,116 @@ const MrpSimple = () => {
         if (!isConfirmed) return;
       }
 
-      setBusy(true);
-      await axios.post(`${apiUrl}/mrp/refreshMl`, {
+      // ✅ 1) dispara job (sin try/catch interno)
+      const resp = await axios.post(`${apiUrl}/mrp/refreshMl`, {
         proveedor_id: Number(proveedorId),
+        usuario_id,
       });
 
-      setBusy(false);
+      // Si ya había uno corriendo, el back debería responder 200 con reused:true
+      if (resp.data?.reused) {
+        await Swal.fire({
+          icon: "info",
+          title: "Proceso ya en ejecución",
+          text:
+            resp.data?.message ||
+            "Ya hay una actualización de stocks en curso. Ve al Centro de procesos para ver el avance.",
+          confirmButtonText: "Ir a procesos",
+          showCancelButton: true,
+          cancelButtonText: "Cerrar",
+        }).then((r) => {
+          if (r.isConfirmed) navigate("/procesos");
+        });
+
+        return;
+      }
+
+      jobId = resp.data?.jobId;
+      if (!jobId) throw new Error("No se recibió jobId del servidor.");
+
+      // ✅ 2) abre tu loader
+      fakePct = 0;
+      serverPct = 0;
+      setLoaderPct(0);
+      setLoaderText("Sincronizando Mercado Libre… (puede tardar 10–15 min)");
+      setLoaderOpen(true);
+      startFake();
+
+      // ✅ 3) polling
+      const poll = async () => {
+        const r = await axios.get(`${apiUrl}/job/${jobId}`);
+        const job = r.data?.job;
+
+        const msg = job?.message || "Procesando…";
+        serverPct = Number(job?.progress ?? 0);
+
+        if (serverPct >= 40) stopFake();
+
+        const pctToShow =
+          serverPct >= 40 ? serverPct : Math.max(serverPct, fakePct);
+
+        setLoaderText(msg);
+        setLoaderPct(pctToShow);
+
+        if (job?.status === "done") return { done: true };
+        if (job?.status === "error")
+          throw new Error(job?.error || "Error en el job");
+        return { done: false };
+      };
+
+      while (true) {
+        const { done } = await poll();
+        if (done) break;
+        await new Promise((r) => (pollTimer = setTimeout(r, 1500)));
+      }
+
+      stopFake();
+      setLoaderOpen(false);
+
       await Swal.fire(
         "Listo",
         "Stocks de Mercado Libre actualizados.",
         "success"
       );
 
-      // refresca la tabla MRP
       await cargarMrpDelProveedor();
       await fetchMlInfo();
     } catch (err) {
+      stopFake();
+      setLoaderOpen(false);
+
+      // ✅ si el back decide mandar 409 en vez de reused:true
+      if (
+        err?.response?.status === 409 &&
+        err?.response?.data?.code === "JOB_ALREADY_RUNNING"
+      ) {
+        await Swal.fire({
+          icon: "info",
+          title: "Proceso ya en ejecución",
+          text:
+            err.response.data.message ||
+            "Ya hay una actualización de stocks en curso. Ve al Centro de procesos para ver el avance.",
+          confirmButtonText: "Ir a procesos",
+          showCancelButton: true,
+          cancelButtonText: "Cerrar",
+        }).then((r) => {
+          if (r.isConfirmed) navigate("/procesos");
+        });
+
+        return;
+      }
+
       await Swal.fire(
         "Error",
-        err?.response?.data?.message || "No se pudo actualizar el stock ML.",
+        err?.response?.data?.message ||
+          err?.message ||
+          "No se pudo actualizar el stock ML.",
         "error"
       );
     } finally {
-      setBusy(false);
+      if (pollTimer) clearTimeout(pollTimer);
+      stopFake();
+      setLoaderOpen(false);
     }
   };
 
@@ -995,7 +1138,11 @@ const MrpSimple = () => {
           }
         />
       )}
-      <FullScreenLoader open={busy} text="Cargando..." />
+      <FullScreenLoader
+        open={loaderOpen}
+        text={loaderText}
+        progress={loaderPct}
+      />
     </Box>
   );
 };
