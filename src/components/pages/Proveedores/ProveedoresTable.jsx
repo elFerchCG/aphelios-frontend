@@ -46,8 +46,8 @@ const ProveedoresTable = () => {
     });
 
     const initialInventariosMRP = {
-        inv_seguridad: 1.0,
-        inv_maximo: 1.0,
+        inv_seguridad: "1.0",
+        inv_maximo: "1.0",
     };
 
     const [inventariosMRPData, setInventariosMRPData] = useState(initialInventariosMRP);
@@ -508,50 +508,63 @@ const ProveedoresTable = () => {
                 <Box sx={styleModalInventarios}>
                     <h2 id="modal-modal-title">Ajustar inventarios MASIVO MRP- {selectedProveedor?.razon_social ?? ""}</h2>
                     <TextField
-                        required
-                        inputRef={seguridadRef}
-                        id="seguridad-field"
                         label="Inventario de seguridad"
+                        type="number"
                         fullWidth
                         margin="normal"
-                        type="number"
                         value={inventariosMRPData.inv_seguridad}
                         inputProps={{
                             min: 0,
-                            step: 1,
-                            inputMode: "numeric",
-                            pattern: "[0-9]*",
+                            step: 0.5,
+                            inputMode: "decimal",
                         }}
                         onChange={(e) => {
                             const v = e.target.value;
-                            if (v === "" || /^\d+$/.test(v)) {
+
+                            // Permite vacío
+                            if (v === "") {
                                 setInventariosMRPData({
                                     ...inventariosMRPData,
-                                    inv_seguridad: v === "" ? "" : Number(v),
+                                    inv_seguridad: "",
+                                });
+                                return;
+                            }
+
+                            // Permite 1 decimal máximo
+                            if (/^\d+(\.\d)?$/.test(v)) {
+                                setInventariosMRPData({
+                                    ...inventariosMRPData,
+                                    inv_seguridad: v, // 👈 se guarda como string
                                 });
                             }
                         }}
                     />
                     <TextField
-                        required
-                        id="maximo-field"
                         label="Inventario máximo"
+                        type="number"
                         fullWidth
                         margin="normal"
-                        type="number"
                         value={inventariosMRPData.inv_maximo}
                         inputProps={{
                             min: 0,
-                            step: 1,
-                            inputMode: "numeric",
-                            pattern: "[0-9]*",
+                            step: 0.5,
+                            inputMode: "decimal",
                         }}
                         onChange={(e) => {
                             const v = e.target.value;
-                            if (v === "" || /^\d+$/.test(v)) {
+
+                            if (v === "") {
                                 setInventariosMRPData({
                                     ...inventariosMRPData,
-                                    inv_maximo: v === "" ? "" : Number(v),
+                                    inv_maximo: "",
+                                });
+                                return;
+                            }
+
+                            if (/^\d+(\.\d)?$/.test(v)) {
+                                setInventariosMRPData({
+                                    ...inventariosMRPData,
+                                    inv_maximo: v,
                                 });
                             }
                         }}
@@ -561,7 +574,6 @@ const ProveedoresTable = () => {
                             display: "flex",
                             flexDirection: "row",
                             justifyContent: "space-between",
-
                         }}
                     >
                         <Button
