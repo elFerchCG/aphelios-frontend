@@ -88,7 +88,7 @@ const Rutas = () => {
                 <Route path='/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja' element={<Empaque />} />
                 <Route path='/resumenEnvio/envio/:envioId' element={<ResumenEnvio />} />
                 <Route path="/barraLateral" element={<BarraLateral />} />
-                <Route path="/mercadoTecnia" element={<Mercadotecnia />} />
+                <Route path="/nuevosProductos" element={<Mercadotecnia />} />
                 <Route path="/pedidos" element={<VistaPedidos />} />
                 <Route path="/Mrp" element={<Mrp />} />
                 <Route path="/graficas" element={<Graficas />} />

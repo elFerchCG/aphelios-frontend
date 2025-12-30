@@ -1,12 +1,13 @@
 import React from 'react'
-import { useEffect, useState } from 'react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import Swal from 'sweetalert2';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Tooltip } from '@mui/material';
-import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid'
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
+import { DataGrid, GridActionsCellItem, GridToolbar } from '@mui/x-data-grid'
 import { Chip } from "@mui/material";
+import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import { set } from 'date-fns';
 
 const ProveedoresTable = () => {
     const apiUrl =
@@ -19,8 +20,9 @@ const ProveedoresTable = () => {
         razon_social: '',
         rfc: '',
         correo: '',
-        backorder: 1, // 👈 siempre número
-        estado: 1,    // 👈 siempre número
+        surtido: 1,
+        backorder: 1,
+        estado: 1,
         sku_proveedor: ''
     };
 
@@ -34,9 +36,65 @@ const ProveedoresTable = () => {
     const [rows, setRows] = useState([]);
     const [openModal, setOpenModal] = useState(false);
     const [openModalPost, setOpenModalPost] = useState(false);
-    const [selectedProveedor, setSelectedProveedor] = useState('');
+    const [selectedProveedor, setSelectedProveedor] = useState(null);
     const [proveedorData, setProveedorData] = useState(initialProveedorData);
     const [newProveedorData, setNewProveedorData] = useState(initialNewProveedorData);
+
+    const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+        id_proveedor: false,
+        estado: false,
+    });
+
+    const initialInventariosMRP = {
+        inv_seguridad: 1.0,
+        inv_maximo: 1.0,
+    };
+
+    const [inventariosMRPData, setInventariosMRPData] = useState(initialInventariosMRP);
+
+
+
+    const [openModalInventarios, setOpenModalInventarios] = useState(false);
+    const handleOpenModalInventarios = (proveedor) => {
+        setSelectedProveedor(proveedor);
+        setOpenModalInventarios(true);
+    };
+    const handleCloseModalInventarios = () => {
+        setOpenModalInventarios(false);
+        setSelectedProveedor(null);
+    };
+
+    const styleModalInventarios = {
+        fontFamily: "Montserrat",
+        fontWeight: "bold",
+        position: 'absolute',
+        textAlign: 'center',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: 500,
+        bgcolor: 'background.paper',
+        border: '2px solid #1e88e5',
+        borderRadius: 4,
+        boxShadow: 24,
+        p: 4,
+    };
+
+    const seguridadRef = useRef(null);
+
+    useEffect(() => {
+        if (openModalInventarios) {
+            setInventariosMRPData(initialInventariosMRP);
+        }
+    }, [openModalInventarios]);
+
+    useEffect(() => {
+        if (openModalInventarios) {
+            setTimeout(() => {
+                seguridadRef.current?.focus();
+            }, 100);
+        }
+    }, [openModalInventarios]);
 
     const fetchProveedores = async () => {
         try {
@@ -101,6 +159,7 @@ const ProveedoresTable = () => {
             ...initialProveedorData,
             ...proveedor,
             estado: proveedor.estado ?? 1,
+            surtido: proveedor.surtido ?? 1,
             backorder: proveedor.backorder ?? 1,
         });
         setOpenModal(true);
@@ -125,6 +184,13 @@ const ProveedoresTable = () => {
             estado: e.target.value,
         });
     };
+
+    const handleChangeSurtido = (e) => {
+        setProveedorData({
+            ...proveedorData,
+            surtido: e.target.value,
+        });
+    }
 
     const handleChangeBackOrder = (e) => {
         setProveedorData({
@@ -181,29 +247,73 @@ const ProveedoresTable = () => {
         }
     };
 
+    const handleSaveInventariosMRP = async () => {
+        try {
+            const payload = {
+                inv_seguridad: Number(inventariosMRPData.inv_seguridad).toFixed(1),
+                inv_maximo: Number(inventariosMRPData.inv_maximo).toFixed(1),
+            };
+
+            await axios.put(`${apiUrl}/proveedores/inventariosMRP/${selectedProveedor.id_proveedor}`,
+                payload
+            );
+
+            setOpenModalInventarios(false);
+            Swal.fire('Actualizado', 'Todas las publicaciones se han actualizado correctamente', 'success');
+            fetchProveedores();
+        } catch (error) {
+            setOpenModalInventarios(false);
+            Swal.fire('Error', 'Hubo un problema al guardar', 'error');
+        }
+    };
+
     const columns = [
         { field: 'id_proveedor', headerName: 'Folio', flex: 1 },
-        { field: 'razon_social', headerName: 'Razón Social', flex: 1 },
-        { field: 'rfc', headerName: 'RFC', flex: 1 },
+        { field: 'razon_social', headerName: 'Razón Social', flex: 1.5 },
+        { field: 'rfc', headerName: 'RFC', flex: 0.5 },
         { field: 'correo', headerName: 'Correo', flex: 1 },
-        { field: 'estado', headerName: 'Estatus', flex: 1 },
         {
-            field: 'backorder', headerName: 'Back Order', flex: 1,
+            field: 'estado', headerName: 'Estatus', flex: 0.5,
             renderCell: (params) => (
                 params.value === 1
                     ? <Chip label="Activo" color="success" size="small" />
                     : <Chip label="Inactivo" color="default" size="small" />
             )
         },
-        { field: 'sku_proveedor', headerName: 'SKU', flex: 1 },
         {
-            field: 'actions', headerName: 'Acciones', type: 'actions', flex: 1, getActions: (params) => [
+            field: 'backorder', headerName: 'Back Order', flex: 0.5,
+            renderCell: (params) => (
+                params.value === 1
+                    ? <Chip label="Activo" color="success" size="small" />
+                    : <Chip label="Inactivo" color="default" size="small" />
+            )
+        },
+        { field: 'sku_proveedor', headerName: 'SKU', flex: 0.3 },
+        {
+            field: 'surtido', headerName: 'Tiempo Proveedor', flex: 0.3, align: 'center', renderHeader: () => (
+                <Box textAlign="center">
+                    Tiempo
+                    <br />
+                    Proveedor
+                </Box>
+            ),
+        },
+        {
+            field: 'actions', headerName: 'Acciones', type: 'actions', flex: 0.5, getActions: (params) => [
                 <Tooltip title='Ver detalles' >
                     <GridActionsCellItem
                         icon={<EditNoteIcon />}
                         label="Editar proveedor"
                         sx={{ color: 'green' }}
                         onClick={() => handleOpenModal(params.row)}
+                    />
+                </Tooltip>,
+                <Tooltip title='Ajustar inventarios' >
+                    <GridActionsCellItem
+                        icon={<HourglassTopIcon />}
+                        label="Inventarios"
+                        sx={{ color: 'orange' }}
+                        onClick={() => handleOpenModalInventarios(params.row)}
                     />
                 </Tooltip>
             ],
@@ -239,7 +349,7 @@ const ProveedoresTable = () => {
                         label="Buscar proveedor"
                         variant="outlined"
                         style={{
-                            maxWidth: '300px', // Ajusta el tamaño del TextField según sea necesario
+                            minWidth: '300px', // Ajusta el tamaño del TextField según sea necesario
                             marginRight: 'auto', // Para que el TextField ocupe todo el espacio posible
                         }}
                     />
@@ -259,15 +369,16 @@ const ProveedoresTable = () => {
                 <DataGrid
                     rows={rows}
                     columns={columns}
-                    pageSize={5}
-                    disableColumnResize={false}
                     showCellVerticalBorder
                     showColumnVerticalBorder
                     getRowId={(row) => row.id_proveedor}
+                    columnVisibilityModel={columnVisibilityModel}
+                    onColumnVisibilityModelChange={(newModel) =>
+                        setColumnVisibilityModel(newModel)
+                    }
                     experimentalFeatures={{ newEditingApi: true }}
-                    columnVisibilityModel={{
-                        estado: false,
-                    }}
+                    density="compact" // Establece el tamaño de las filas en compacto por defecto
+                    slots={{ toolbar: GridToolbar }}
                 />
                 {/* Modal para editar proveedor */}
                 <Dialog open={openModal} onClose={handleCloseModal} >
@@ -282,7 +393,38 @@ const ProveedoresTable = () => {
                                 setProveedorData({ ...proveedorData, razon_social: e.target.value })
                             }
                         />
+                        <TextField
+                            required
+                            id="surtido-field"
+                            label="Surtido MRP"
+                            fullWidth
+                            margin="normal"
+                            type="number"
+                            value={proveedorData.surtido ?? ""}
+                            inputProps={{
+                                min: 0,
+                                step: 1,
+                                inputMode: "numeric",
+                                pattern: "[0-9]*",
+                            }}
+                            onChange={(e) => {
+                                const value = e.target.value;
 
+                                // Permite vacío para poder borrar
+                                if (value === "") {
+                                    setProveedorData({ ...proveedorData, surtido: "" });
+                                    return;
+                                }
+
+                                // Solo enteros positivos
+                                if (/^\d+$/.test(value)) {
+                                    setProveedorData({
+                                        ...proveedorData,
+                                        surtido: Number(value),
+                                    });
+                                }
+                            }}
+                        />
                         <FormControl fullWidth margin="normal">
                             <InputLabel>Back Order</InputLabel>
                             <Select
@@ -354,6 +496,91 @@ const ProveedoresTable = () => {
                     </DialogActions>
                 </Dialog >
             </div>
+            <Modal
+                open={openModalInventarios}
+                onClose={handleCloseModalInventarios}
+                keepMounted
+                disableAutoFocus
+                disableEnforceFocus
+                aria-labelledby="modal-modal-title"
+                aria-describedby="modal-modal-description"
+            >
+                <Box sx={styleModalInventarios}>
+                    <h2 id="modal-modal-title">Ajustar inventarios MASIVO MRP- {selectedProveedor?.razon_social ?? ""}</h2>
+                    <TextField
+                        required
+                        inputRef={seguridadRef}
+                        id="seguridad-field"
+                        label="Inventario de seguridad"
+                        fullWidth
+                        margin="normal"
+                        type="number"
+                        value={inventariosMRPData.inv_seguridad}
+                        inputProps={{
+                            min: 0,
+                            step: 1,
+                            inputMode: "numeric",
+                            pattern: "[0-9]*",
+                        }}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || /^\d+$/.test(v)) {
+                                setInventariosMRPData({
+                                    ...inventariosMRPData,
+                                    inv_seguridad: v === "" ? "" : Number(v),
+                                });
+                            }
+                        }}
+                    />
+                    <TextField
+                        required
+                        id="maximo-field"
+                        label="Inventario máximo"
+                        fullWidth
+                        margin="normal"
+                        type="number"
+                        value={inventariosMRPData.inv_maximo}
+                        inputProps={{
+                            min: 0,
+                            step: 1,
+                            inputMode: "numeric",
+                            pattern: "[0-9]*",
+                        }}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || /^\d+$/.test(v)) {
+                                setInventariosMRPData({
+                                    ...inventariosMRPData,
+                                    inv_maximo: v === "" ? "" : Number(v),
+                                });
+                            }
+                        }}
+                    />
+                    <Box
+                        sx={{
+                            display: "flex",
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+
+                        }}
+                    >
+                        <Button
+                            onClick={handleCloseModalInventarios}
+                            variant="contained"
+                            color="primary"
+                        >
+                            Cerrar
+                        </Button>
+                        <Button
+                            onClick={handleSaveInventariosMRP}
+                            variant="contained"
+                            color="success"
+                        >
+                            Guardar
+                        </Button>
+                    </Box>
+                </Box>
+            </Modal>
         </div>
     )
 }

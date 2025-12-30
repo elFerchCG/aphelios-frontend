@@ -1,8 +1,6 @@
 .content {
     display: flex;
     margin: auto;
-    margin-top: 150px;
-    margin-bottom: 150px;
     justify-content: left;
     align-items: left;
     width: 600px;

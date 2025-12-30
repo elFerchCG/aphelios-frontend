@@ -257,41 +257,80 @@ const Surtido = () => {
         setCantidadEtiquetasModal("");
     };
 
-    const generarYDescargarTXT = async (data) => {
-        const { sku, title, inventory_id, cantidadEtiquetas } = data; // Extrae los valores desde la respuesta
+    // const generarYDescargarTXT = async (data) => {
+    //     const { sku, title, inventory_id, cantidadEtiquetas } = data; // Extrae los valores desde la respuesta
 
-        // Estructura del contenido del TXT con los valores reemplazados
-        const contenido =
-            `^XA
+    //     // Estructura del contenido del TXT con los valores reemplazados
+    //     const contenido =
+    //         `^XA
+    //         ^CI28
+    //         ^LH0,0
+    //         ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
+    //         ^FO22,165^A0N,25,25^FD^FS
+    //         ^FB350,2,2
+    //         ^FO22,145^A0N,18,18^FD^FS
+    //         ^FO21,145^A0N,18,18^FD^FS
+    //         ^FB350,2,2
+    //         ^FO22,105^A0N,20,20^FD${title}^FS
+    //         ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}/env^FS
+    //         ^FO65,18^BY2^BCN,54,N,N
+    //         ^FD${inventory_id}^FS
+    //     ^FT150,98^A0N,22,22^FH^FD${inventory_id}^FS
+    //     ^FT149,98^A0N,22,22^FH^FD${inventory_id}^FS
+    //         ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
+
+    //     // Crear un Blob con el contenido del archivo
+    //     const blob = new Blob([contenido], { type: "text/plain" });
+
+    //     // Crear un enlace de descarga
+    //     const link = document.createElement("a");
+    //     link.href = URL.createObjectURL(blob);
+    //     link.download = `archivo_${inventory_id}.txt`;
+
+    //     // Simular clic para iniciar la descarga
+    //     document.body.appendChild(link);
+    //     link.click();
+    //     document.body.removeChild(link);
+    // };
+
+    const generarYDescargarTXT = async (data) => {
+        const { sku, title, inventory_id, cantidadEtiquetas } = data;
+
+        // Bloque condicional para inventory_id
+        const bloqueInventory = inventory_id
+            ? `
+            ^FO65,18^BY2^BCN,54,N,N
+            ^FD${inventory_id}^FS
+            ^FT150,98^A0N,22,22^FH^FD${inventory_id}^FS
+            ^FT149,98^A0N,22,22^FH^FD${inventory_id}^FS
+            `
+            : ``; // Si es null, no imprime nada
+
+        const contenido = `
+            ^XA
             ^CI28
             ^LH0,0
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
-            ^FO22,165^A0N,25,25^FD^FS
-            ^FB350,2,2
-            ^FO22,145^A0N,18,18^FD^FS
-            ^FO21,145^A0N,18,18^FD^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
             ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}/env^FS
-            ^FO65,18^BY2^BCN,54,N,N
-            ^FD${inventory_id}^FS
-        ^FT150,98^A0N,22,22^FH^FD${inventory_id}^FS
-        ^FT149,98^A0N,22,22^FH^FD${inventory_id}^FS
-            ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
 
-        // Crear un Blob con el contenido del archivo
+            ${bloqueInventory}
+
+            ^PQ${cantidadEtiquetas},0,1,Y
+            ^XZ
+            `;
+
         const blob = new Blob([contenido], { type: "text/plain" });
-
-        // Crear un enlace de descarga
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `archivo_${inventory_id}.txt`;
+        link.download = `archivo_${inventory_id ?? "sin_inventory"}.txt`;
 
-        // Simular clic para iniciar la descarga
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
+
 
     const imprimirEtiquetasNoFULL = async () => {
         try {
@@ -306,11 +345,9 @@ const Surtido = () => {
                 setSku('');
                 setData([]); // <- limpia los datos mostrados en el DataGrid
                 handleCloseSurtirNoFull();
-                inputRef.current?.focus();
             }
         } catch (error) {
-            const errorMessage =
-                error?.response?.data?.message || 'Ocurrió un error inesperado';
+            const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
 
             Swal.fire({
                 title: 'Error',
@@ -396,13 +433,13 @@ const Surtido = () => {
                 const result = response.data.data[0];
                 setSkuEtiqueta(result.sku);
                 setTitleEtiqueta(result.title);
-                setInventoryIdEtiqueta(result.inventory_id || 'ME N/A');
+                setInventoryIdEtiqueta(result.inventory_id);
                 setSkuPuroEtiqueta(result.sku_componente);
                 // Llamada correcta a generarYDescargarTXT pasando los datos necesarios
                 await generarYDescargarTXT({
                     sku: result.sku,
                     title: result.title,
-                    inventory_id: result.inventory_id || 'ME N/A',  // Usa el campo correcto según tu lógica
+                    inventory_id: result.inventory_id,
                     cantidadEtiquetas
                 });
                 console.log("Esta es la cantidad a imprimir de etiquetas:", cantidadEtiquetas);

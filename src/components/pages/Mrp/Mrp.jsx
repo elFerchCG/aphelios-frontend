@@ -47,6 +47,10 @@ const MrpSimple = () => {
   const [loaderPct, setLoaderPct] = useState(0);
   const navigate = useNavigate();
 
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+    permitir_full: false,
+  });
+
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const usuario_id = user?.id_usuario;
 
@@ -108,11 +112,15 @@ const MrpSimple = () => {
 
   const actualizarPublicacionesManual = async () => {
     try {
-      setBusy(true);
+      setLoaderText("Actualizando publicaciones…");
+      setLoaderPct(null);      // sin barra, solo spinner
+      setLoaderOpen(true);     // 🔥 ABRE LOADER
 
       const response = await axios.post(
         `${apiUrl}/mrp/actualizarPublicacionesManual`,
       );
+
+      setLoaderOpen(false);    // 🔥 CIERRA LOADER
 
       Swal.fire({
         title: "Actualizacion exitosa!",
@@ -124,6 +132,8 @@ const MrpSimple = () => {
       });
 
     } catch (error) {
+      setLoaderOpen(false);    // 🔥 CIERRA LOADER SIEMPRE
+
       Swal.fire({
         title: "Error",
         text: error?.response?.data?.message || "No se pudo actualizar.",
@@ -363,7 +373,7 @@ const MrpSimple = () => {
     let fakePct = 0;
     let serverPct = 0;
 
-    let jobId = null; 
+    let jobId = null;
 
     const stopFake = () => {
       if (fakeTimer) clearInterval(fakeTimer);
@@ -516,8 +526,8 @@ const MrpSimple = () => {
       await Swal.fire(
         "Error",
         err?.response?.data?.message ||
-          err?.message ||
-          "No se pudo actualizar el stock ML.",
+        err?.message ||
+        "No se pudo actualizar el stock ML.",
         "error"
       );
     } finally {
@@ -776,6 +786,24 @@ const MrpSimple = () => {
       ),
     },
     {
+      field: "logistic_type",
+      headerName: "Logística",
+      minWidth: 100,
+      renderCell: (params) => {
+        if (params.value !== 'fulfillment' && params.row.permitir_full === 0) {
+          return 'ME';
+        } else {
+          return 'FULL';
+        }
+      }
+    },
+    {
+      field: "permitir_full",
+      headerName: "Permitir Full",
+      minWidth: 150,
+      flex: 1
+    },
+    {
       field: "pub_title",
       headerName: "Título publicación",
       minWidth: 350,
@@ -1010,6 +1038,7 @@ const MrpSimple = () => {
                   <Button
                     variant="outlined"
                     onClick={actualizarPublicacionesManual}
+                    disabled={loaderOpen}
                   >
                     Actualizar publicaciones
                   </Button>
@@ -1084,60 +1113,96 @@ const MrpSimple = () => {
           </Box>
         </CardContent>
       </Card>
+      <Box sx={{ height: 460, width: "100%" }}>
+        {loadingMrp ? (
+          <Box
+            height="100%"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <CircularProgress />
+          </Box>
+        ) : (
+          <DataGrid
+            sx={{
+              fontFamily: "Montserrat",
+              fontWeight: "bold",
+              height: "100%",
+              borderRadius: 2,
+              boxShadow: 2,
 
-      {loadingMrp ? (
-        <Box
-          height={360}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <CircularProgress />
-        </Box>
-      ) : (
-        <DataGrid
-          rows={mrp}
-          columns={columns}
-          getRowId={(row) =>
-            row?.op_detalle_id
-              ? `opd-${row.op_detalle_id}`
-              : row?.orden_id
-                ? `op-${row.orden_id}`
-                : `row-${row?.producto_id ?? "x"}`
-          }
-          pageSize={10}
-          rowsPerPageOptions={[10, 25, 50]}
-          autoHeight
-          density="compact"
-          disableRowSelectionOnClick
-          checkboxSelection={backorderActivo} // ⬅️ sólo si hay backorder
-          rowSelectionModel={rowSelectionModel}
-          onRowSelectionModelChange={(m) => setRowSelectionModel(m)}
-          getRowClassName={() => (!backorderActivo ? "row-disabled" : "")}
-          sx={{
-            borderRadius: 2,
-            boxShadow: 2,
-            "& .row-disabled": {
-              opacity: 0.5,
-              pointerEvents: "none",
-              filter: "grayscale(100%)",
-            },
-          }}
-          slots={
-            tieneProveedor
-              ? {
-                toolbar: () => (
-                  <TablaToolbar
-                    tieneProveedor={tieneProveedor}
-                    backorderActivo={backorderActivo}
-                    seleccionadas={ordenesSeleccionadas.length}
-                  />
-                ),
+              // 🔒 filas deshabilitadas
+              "& .MuiDataGrid-row.row-disabled": {
+                opacity: 0.5,
+                pointerEvents: "none",
+                filter: "grayscale(100%)",
+              },
+
+              // 🔴 FILAS NO FULL (ESTE ES EL BUENO)
+              "& .MuiDataGrid-row.fila-no-full .MuiDataGrid-cell": {
+                backgroundColor: "#FDECEA",
+              },
+
+              // 🔴 hover correcto
+              "& .MuiDataGrid-row.fila-no-full:hover .MuiDataGrid-cell": {
+                backgroundColor: "#F9D6D5",
+              },
+            }}
+            rows={mrp}
+            columns={columns}
+            getRowId={(row) =>
+              row?.op_detalle_id
+                ? `opd-${row.op_detalle_id}`
+                : row?.orden_id
+                  ? `op-${row.orden_id}`
+                  : `row-${row?.producto_id ?? "x"}`
+            }
+            pageSize={10}
+            rowsPerPageOptions={[10, 25, 50]}
+            density="compact"
+            disableRowSelectionOnClick
+            showCellVerticalBorder
+            showColumnVerticalBorder
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={(newModel) =>
+              setColumnVisibilityModel(newModel)
+            }
+            checkboxSelection={backorderActivo} // ⬅️ sólo si hay backorder
+            rowSelectionModel={rowSelectionModel}
+            onRowSelectionModelChange={(m) => setRowSelectionModel(m)}
+            getRowClassName={(params) => {
+              // 1. Si NO hay backorder activo → deshabilitar fila
+              if (!backorderActivo) {
+                return "row-disabled";
               }
-              : undefined // ⬅️ sin toolbar si no hay proveedor
-          }
-        />
-      )}
+
+              // 2. Si NO es fulfillment y permitir_full = 0 → fila roja
+              if (
+                params.row.logistic_type !== "fulfillment" &&
+                params.row.permitir_full === 0
+              ) {
+                return "fila-no-full";
+              }
+              return "";
+            }}
+            slots={
+              tieneProveedor
+                ? {
+                  toolbar: () => (
+                    <TablaToolbar
+                      tieneProveedor={tieneProveedor}
+                      backorderActivo={backorderActivo}
+                      seleccionadas={ordenesSeleccionadas.length}
+                    />
+                  ),
+                }
+                : undefined // ⬅️ sin toolbar si no hay proveedor
+            }
+          />
+        )}
+      </Box>
+
       <FullScreenLoader
         open={loaderOpen}
         text={loaderText}
