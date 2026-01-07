@@ -30,6 +30,8 @@ const ProveedoresTable = () => {
         razon_social: '',
         rfc: '',
         correo: '',
+        surtido: 1,
+        backorder: 1,
         sku_proveedor: ''
     };
 
@@ -185,12 +187,12 @@ const ProveedoresTable = () => {
         });
     };
 
-    const handleChangeSurtido = (e) => {
-        setProveedorData({
-            ...proveedorData,
-            surtido: e.target.value,
-        });
-    }
+    // const handleChangeSurtido = (e) => {
+    //     setProveedorData({
+    //         ...proveedorData,
+    //         surtido: e.target.value,
+    //     });
+    // }
 
     const handleChangeBackOrder = (e) => {
         setProveedorData({
@@ -205,6 +207,8 @@ const ProveedoresTable = () => {
                 razon_social: newProveedorData.razon_social,
                 rfc: newProveedorData.rfc,
                 correo: newProveedorData.correo,
+                surtido: newProveedorData.surtido,
+                backorder: newProveedorData.backorder,
                 sku_proveedor: newProveedorData.sku_proveedor
             });
             if (response.data.ok) {
@@ -385,6 +389,7 @@ const ProveedoresTable = () => {
                     <DialogTitle>Editar Proveedor</DialogTitle>
                     <DialogContent>
                         <TextField
+                            required
                             label="Razón social"
                             fullWidth
                             margin="normal"
@@ -392,6 +397,21 @@ const ProveedoresTable = () => {
                             onChange={(e) =>
                                 setProveedorData({ ...proveedorData, razon_social: e.target.value })
                             }
+                        />
+                        <TextField
+                            required
+                            label={'RFC'}
+                            fullWidth
+                            margin="normal"
+                            value={proveedorData.rfc}
+                            onChange={(e) => setProveedorData({ ...proveedorData, rfc: e.target.value })}
+                        />
+                        <TextField
+                            label={'Correo'}
+                            fullWidth
+                            margin="normal"
+                            value={proveedorData.correo}
+                            onChange={(e) => setProveedorData({ ...proveedorData, correo: e.target.value })}
                         />
                         <TextField
                             required
@@ -428,6 +448,7 @@ const ProveedoresTable = () => {
                         <FormControl fullWidth margin="normal">
                             <InputLabel>Back Order</InputLabel>
                             <Select
+                                required
                                 value={proveedorData.backorder ?? ''}
                                 onChange={handleChangeBackOrder}
                             >
@@ -435,7 +456,6 @@ const ProveedoresTable = () => {
                                 <MenuItem value={0}>Inactivo</MenuItem>
                             </Select>
                         </FormControl>
-
                         <FormControl fullWidth margin="normal">
                             <InputLabel>Estatus</InputLabel>
                             <Select
@@ -458,6 +478,7 @@ const ProveedoresTable = () => {
                     <DialogTitle>Crear Proveedor</DialogTitle>
                     <DialogContent>
                         <TextField
+                            required
                             label={'Razón social'}
                             fullWidth
                             margin="normal"
@@ -465,6 +486,7 @@ const ProveedoresTable = () => {
                             onChange={(e) => setNewProveedorData({ ...newProveedorData, razon_social: e.target.value })}
                         />
                         <TextField
+                            required
                             label={'RFC'}
                             fullWidth
                             margin="normal"
@@ -478,6 +500,49 @@ const ProveedoresTable = () => {
                             value={newProveedorData.correo}
                             onChange={(e) => setNewProveedorData({ ...newProveedorData, correo: e.target.value })}
                         />
+                        <TextField
+                            required
+                            id="surtido-field"
+                            label="Surtido MRP"
+                            fullWidth
+                            margin="normal"
+                            type="number"
+                            value={newProveedorData.surtido ?? ""}
+                            inputProps={{
+                                min: 0,
+                                step: 1,
+                                inputMode: "numeric",
+                                pattern: "[0-9]*",
+                            }}
+                            onChange={(e) => {
+                                const value = e.target.value;
+
+                                // Permite vacío para poder borrar
+                                if (value === "") {
+                                    setNewProveedorData({ ...newProveedorData, surtido: "" });
+                                    return;
+                                }
+
+                                // Solo enteros positivos
+                                if (/^\d+$/.test(value)) {
+                                    setNewProveedorData({
+                                        ...newProveedorData,
+                                        surtido: Number(value),
+                                    });
+                                }
+                            }}
+                        />
+                        <FormControl fullWidth margin="normal">
+                            <InputLabel>Back Order</InputLabel>
+                            <Select
+                                required
+                                value={newProveedorData.backorder ?? ''}
+                                onChange={(e) => setNewProveedorData({ ...newProveedorData, backorder: e.target.value })}
+                            >
+                                <MenuItem value={1}>Activo</MenuItem>
+                                <MenuItem value={0}>Inactivo</MenuItem>
+                            </Select>
+                        </FormControl>
                         <TextField
                             label={'SKU'}
                             fullWidth

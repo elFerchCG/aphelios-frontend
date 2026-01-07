@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTheme } from "@mui/material/styles";
 import JobDetailDialog from "./JobDetailDialog";
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import {
   Box,
   Typography,
@@ -12,9 +13,17 @@ import {
   Divider,
   Tabs,
   Tab,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Chip,
 } from "@mui/material";
 
 import { JobsApi } from "../../../api/jobsApi";
+import axios from "axios";
+
 
 const prettyType = (t) => {
   const map = {
@@ -24,6 +33,11 @@ const prettyType = (t) => {
   return map[t] || t;
 };
 
+const apiUrl =
+  process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : process.env.REACT_APP_API_URL_LOCAL;
+
 export default function ProcesosPage({ onResumeJob }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -32,6 +46,56 @@ export default function ProcesosPage({ onResumeJob }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailJobId, setDetailJobId] = useState(null);
   const [fakeMap, setFakeMap] = useState({});
+
+  // Hooks y funciones para listrar y descargar archivos MRP
+  const [archivosMRP, setArchivosMRP] = useState([]);
+  const [archivosLoading, setArchivosLoading] = useState(false);
+
+
+  const fetchArchivosMRP = async () => {
+    setArchivosLoading(true);
+    try {
+      const res = await axios.get(`${apiUrl}/mrp/listarArchivosMRP`);
+      const data = res.data;
+      if (data.ok === true) {
+        setArchivosMRP(data.archivos);
+      }
+    } finally {
+      setArchivosLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 3) {
+      fetchArchivosMRP();
+    }
+  }, [tab]);
+
+  const archivosPorProveedor = archivosMRP.reduce((acc, a) => {
+    const pid = a.proveedor_id ?? "sin_proveedor";
+
+    if (!acc[pid]) {
+      acc[pid] = {
+        proveedor: a.proveedor_nombre || "Sin proveedor",
+        items: [],
+      };
+    }
+
+    acc[pid].items.push(a);
+    return acc;
+  }, {});
+
+  const descargarArchivo = async (archivoId) => {
+    const res = await axios.get(`${apiUrl}/mrp/descargarArchivoMRP/${archivoId}/descargar`);
+    const data = res.data;
+
+    if (!data.ok) {
+      alert("No se pudo descargar el archivo");
+      return;
+    }
+
+    window.open(data.url, "_blank");
+  };
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -87,36 +151,36 @@ export default function ProcesosPage({ onResumeJob }) {
 
         return next;
       });
-    }, 30000); 
+    }, 30000);
 
     return () => clearInterval(t);
   }, [jobs]);
 
-  setInterval(() => {
-  setFakeMap((prev) => {
-    const next = { ...prev };
+  // setInterval(() => {
+  //   setFakeMap((prev) => {
+  //     const next = { ...prev };
 
-    for (const j of jobs) {
-      const status = String(j.status || "").toLowerCase();
-      const serverPct = Number(j.progress || 0);
-      const id = j.job_id;
+  //     for (const j of jobs) {
+  //       const status = String(j.status || "").toLowerCase();
+  //       const serverPct = Number(j.progress || 0);
+  //       const id = j.job_id;
 
-      const canFake =
-        (status === "pending" || status === "running") && serverPct < 40;
+  //       const canFake =
+  //         (status === "pending" || status === "running") && serverPct < 40;
 
-      if (!canFake) {
-        delete next[id];
-        continue;
-      }
+  //       if (!canFake) {
+  //         delete next[id];
+  //         continue;
+  //       }
 
-      const currentFake = Number(next[id] ?? 0);
+  //       const currentFake = Number(next[id] ?? 0);
 
-      if (currentFake < 39) next[id] = currentFake + 1;
-    }
+  //       if (currentFake < 39) next[id] = currentFake + 1;
+  //     }
 
-    return next;
-  });
-}, 30000); 
+  //     return next;
+  //   });
+  // }, 30000);
 
   const getDisplayPct = (j) => {
     const status = String(j.status || "").toLowerCase();
@@ -231,7 +295,68 @@ export default function ProcesosPage({ onResumeJob }) {
         <Tab label={`En ejecución (${running.length})`} />
         <Tab label={`Terminados (${done.length})`} />
         <Tab label={`Con errores (${errors.length})`} />
+        <Tab label={`Archivos`} />
       </Tabs>
+
+      {tab === 3 && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            📁 Archivos generados por MRP
+          </Typography>
+
+          {archivosLoading && <LinearProgress />}
+
+          {Object.values(archivosPorProveedor).map((grupo) => (
+            <Box key={grupo.proveedor} sx={{ mb: 4 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+                🏭 {grupo.proveedor}
+              </Typography>
+
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Fecha</TableCell>
+                    <TableCell>Tipo</TableCell>
+                    <TableCell>Archivo</TableCell>
+                    <TableCell align="right">Acción</TableCell>
+                  </TableRow>
+                </TableHead>
+
+                <TableBody>
+                  {grupo.items.map((a) => (
+                    <TableRow key={a.archivo_id}>
+                      <TableCell>
+                        {new Date(a.fecha_ejecucion).toLocaleString()}
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={a.tipo}
+                          color={a.tipo === "RETIRO" ? "warning" : "success"}
+                        />
+                      </TableCell>
+
+                      <TableCell>{a.nombre_archivo}</TableCell>
+
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => descargarArchivo(a.archivo_id)}
+                          startIcon={<CloudDownloadIcon />}
+                        >
+                          Descargar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          ))}
+        </Paper>
+      )}
 
       <Stack spacing={2} sx={{ mt: 2 }}>
         {current.length === 0 && (
