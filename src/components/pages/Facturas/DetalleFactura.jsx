@@ -688,7 +688,7 @@ const fetchProductosEnlaces = async (lineaId) => {
       setOpenModal(false);
 
       setTimeout(async () => {
-        // ✅ Swal con botones (FIXED)
+        // ✅ Swal con botones 
         const result = await Swal.fire({
           title: "Producto no encontrado en pedidos",
           html: `
@@ -762,7 +762,7 @@ const fetchProductosEnlaces = async (lineaId) => {
               factura_detalle_id: lineaId,
             });
 
-            await Swal.fire("✅ Marcado", "El producto fue marcado como 'Nuevo'.", "success");
+            await Swal.fire("Marcado", "El producto fue marcado como 'Nuevo'.", "success");
             fetchDetalleFactura(facturaId);
           }
           return;
@@ -796,7 +796,7 @@ const fetchProductosEnlaces = async (lineaId) => {
               });
 
               if (!resp.data.error) {
-                await Swal.fire("🔄 Producto a devolver", "El producto fue marcado como 'a devolver'.", "info");
+                await Swal.fire("Producto a devolver", "El producto fue marcado como 'a devolver'.", "info");
                 fetchDetalleFactura(facturaId);
               } else {
                 throw new Error("Respuesta con error");
@@ -809,10 +809,9 @@ const fetchProductosEnlaces = async (lineaId) => {
           return;
         }
 
-        // 4) Insertar manual en pedido (nuevo flujo)
+        // 4) Insertar manual en pedido
         if (action === "insertarManual") {
           try {
-            // ✅ URL corregida: insertar-manual
             const resp = await axios.post(
               `${apiUrl}/facturas/detalle/${lineaId}/insertarManual`,
               { usuarioId: user?.id || null }
@@ -855,17 +854,17 @@ const fetchProductosEnlaces = async (lineaId) => {
               );
 
               if (resp2.data?.ok) {
-                await Swal.fire("✅ Listo", "Se insertó la línea y se enlazó al pedido.", "success");
+                await Swal.fire("Listo", "Se insertó la línea y se enlazó al pedido.", "success");
                 fetchDetalleFactura(facturaId);
               } else {
-                await Swal.fire("❌ Error", resp2.data?.message || "No se pudo insertar.", "error");
+                await Swal.fire("Error", resp2.data?.message || "No se pudo insertar.", "error");
               }
 
               return;
             }
 
             if (resp.data?.ok) {
-              await Swal.fire("✅ Listo", "Se insertó la línea y se enlazó al pedido.", "success");
+              await Swal.fire("Listo", "Se insertó la línea y se enlazó al pedido.", "success");
               fetchDetalleFactura(facturaId);
               return;
             }
@@ -879,14 +878,14 @@ const fetchProductosEnlaces = async (lineaId) => {
               return;
             }
 
-            await Swal.fire("❌ Error", resp.data?.message || "No se pudo insertar.", "error");
+            await Swal.fire("Error", resp.data?.message || "No se pudo insertar.", "error");
           } catch (err) {
             console.error(err);
             const msg =
               err?.response?.data?.message ||
               err?.response?.data?.error ||
               "Error al insertar manualmente.";
-            await Swal.fire("❌ Error", msg, "error");
+            await Swal.fire("Error", msg, "error");
           }
         }
       }, 300);
