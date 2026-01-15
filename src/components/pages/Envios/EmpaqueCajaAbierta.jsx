@@ -154,7 +154,7 @@ const EmpaqueCajaAbierta = () => {
 
     const handleScan = async () => {
         try {
-            const response = await axios.post(`${apiUrl}/empaque/agregarEscaneo/inventory_id/${inventoryId}/caja/${cajaId}`,
+            const response = await axios.post(`${apiUrl}/empaque/agregarEscaneo/inventory_id/${inventoryId}/caja/${cajaId}/envio/${envioId}`,
                 {},
             );
 
@@ -181,7 +181,6 @@ const EmpaqueCajaAbierta = () => {
             setInventoryId("");
         }
     };
-
 
     useEffect(() => {
         const timeout = setTimeout(() => {

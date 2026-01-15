@@ -48,6 +48,7 @@ const MrpSimple = () => {
   const navigate = useNavigate();
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+    orden_id: false,
     permitir_full: false,
   });
 
@@ -340,15 +341,15 @@ const MrpSimple = () => {
     } catch (err) {
       closeLoader();
 
-      if (err?.response?.status === 409) {
-        await Swal.fire(
-          "Órdenes generadas hoy",
-          err?.response?.data?.message ||
-          "Ya se generaron órdenes para este proveedor hoy. Inténtalo mañana.",
-          "warning"
-        );
-        return;
-      }
+      // if (err?.response?.status === 409) {
+      //   await Swal.fire(
+      //     "Órdenes generadas hoy",
+      //     err?.response?.data?.message ||
+      //     "Ya se generaron órdenes para este proveedor hoy. Inténtalo mañana.",
+      //     "warning"
+      //   );
+      //   return;
+      // }
 
       const msg =
         err?.response?.data?.message ||
@@ -763,6 +764,8 @@ const MrpSimple = () => {
   }, [mlInfo?.max]);
 
   const columns = [
+    { field: "pedido_id", headerName: "#Pedido", minWidth: 100 },
+    { field: "pedido_fecha_creacion", headerName: "F. Pedido", minWidth: 160 },
     { field: "orden_id", headerName: "Orden de Produccion", minWidth: 160 },
     // NUEVAS
     { field: "componente_sku", headerName: "SKU componente", minWidth: 160 },
@@ -785,6 +788,7 @@ const MrpSimple = () => {
         </span>
       ),
     },
+    { field: "inventory_id", headerName: "ML", minWidth: 150 },
     {
       field: "logistic_type",
       headerName: "Logística",
@@ -839,15 +843,12 @@ const MrpSimple = () => {
     // OP Detalle
     {
       field: "cantidad_billete",
-      headerName: "Cant. Billete",
+      headerName: "Cant a surtir",
       minWidth: 120,
       type: "number",
     },
 
     // Pedido + líneas
-    { field: "pedido_id", headerName: "Pedido", minWidth: 100 },
-    { field: "pedido_fecha_creacion", headerName: "F. Pedido", minWidth: 160 },
-
     {
       field: "avance",
       headerName: "Avance",

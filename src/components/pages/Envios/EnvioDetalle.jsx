@@ -14,6 +14,7 @@ import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import dayjs from 'dayjs';
 import { Button, TextField, Box, Typography, CircularProgress, Tooltip, Collapse, Paper, Table, TableCell, TableBody, TableRow, TableHead, IconButton } from '@mui/material';
 
 
@@ -37,7 +38,12 @@ const EnvioDetalle = () => {
     const [loadingCajas, setLoadingCajas] = useState(false);
     const navigate = useNavigate();
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+    const [totalPiezas, setTotalPiezas] = useState(0);
+    const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
+    // const [totalPiezasSurtidas, setTotalPiezasSurtidas] = useState(0);
+    const [facturasEnvio, setFacturasEnvio] = useState([]);
+
 
     const formatFecha = (fechaISO) => {
         if (!fechaISO) return '';
@@ -96,6 +102,30 @@ const EnvioDetalle = () => {
 
     useEffect(() => {
         fetchTarimas();
+    }, [apiUrl]);
+
+    const fetchPiezasYFacturas = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/getPiezasYFacturas/${envioId}`);
+            setTotalPiezas(Number(response.data.total_piezas || []));
+            setTotalPiezasEmpacadas(Number(response.data.total_piezas_empacadas || []));
+            // setTotalPiezasSurtidas(response.data.total_piezas_surtidas || []);
+            setFacturasEnvio(response.data.facturas);
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
+    };
+
+    useEffect(() => {
+        fetchPiezasYFacturas();
     }, [apiUrl]);
 
     const fetchTarimas = async () => {
@@ -397,26 +427,138 @@ const EnvioDetalle = () => {
 
     return (
         <div>
-            <div style={{ margin: "auto", width: "90%" }}>
-                <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                    <h1>Detalle Envio {envioId}</h1>
-                </div>
-                {/* <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Montserrat", fontWeight: "bold", marginTop: "-40px" }}>
-                    <TextField
-                        id="outlined-basic"
-                        label="Buscar tarima"
-                        variant='outlined'
+            <Box
+                sx={{
+                    display: "flex",
+                    gap: 2,
+                    px: 4,
+                    mt: 1,
+                    mb: 3,
+                    alignItems: "stretch", // 🔑 misma altura
+                }}
+            >
+                {/* 🔵 Total piezas */}
+                <Paper
+                    elevation={4}
+                    sx={{
+                        width: "25%",
+                        minWidth: 360,
+                        height: 180,
+                        p: 2,
+                        borderRadius: 4,
+                        border: "2px solid #1e88e5",
+                        backgroundColor: "#f5faff",
+                        fontFamily: "Montserrat",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        textAlign: "center",
+                    }}
+                >
+                    <Typography
+                        variant="h6"
+                        sx={{ fontWeight: "bold" }}
+                    >
+                        Envío #{envioId}
+                    </Typography>
+                    <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: "bold", mt: 1 }}
+                    >
+                        Total piezas por procesar
+                    </Typography>
+                    <Typography
+                        variant="h3"
                         sx={{
-                            fontFamily: "Montserrat",
-                            width: '20rem',
-                            marginBottom: '10px',
-                            backgroundColor: "white",
+                            fontWeight: "bold",
+                            color: "#eba04a",
+                            mt: 1,
                         }}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div> */}
-            </div>
+                    >
+                        {totalPiezas}
+                    </Typography>
+                    <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: "bold" }}
+                    >
+                        Total piezas empacadas
+                    </Typography>
+                    <Typography
+                        variant="h3"
+                        sx={{
+                            fontWeight: "bold",
+                            color: "#31b625",
+                            mt: 1,
+                        }}
+                    >
+                        {totalPiezasEmpacadas}
+                    </Typography>
+                </Paper>
+
+                {/* 🟢 Facturas */}
+                <Paper
+                    elevation={4}
+                    sx={{
+                        width: "75%",
+                        height: 180,
+                        p: 2,
+                        borderRadius: 4,
+                        border: "2px solid #43a047",
+                        fontFamily: "Montserrat",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
+                >
+                    <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: "bold", mb: 1 }}
+                    >
+                        📄 Facturas asignadas al envío
+                    </Typography>
+                    <Box sx={{ flex: 1, overflowY: "auto", overflowX: "auto", }}>
+                        <Table size="small" stickyHeader sx={{ minWidth: 650 }}>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell><b>Fecha factura</b></TableCell>
+                                    <TableCell><b>Fecha arribo</b></TableCell>
+                                    <TableCell><b>Folio</b></TableCell>
+                                    <TableCell><b>Proveedor</b></TableCell>
+                                    <TableCell align="right"><b>Piezas Factura</b></TableCell>
+                                    <TableCell align='right'><b>Piezas Surtidas</b></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {facturasEnvio.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} align="center">
+                                            No hay facturas asignadas a este envío
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    facturasEnvio.map((factura) => (
+                                        <TableRow key={factura.id}>
+                                            <TableCell>
+                                                {dayjs(factura.fecha_factura).format('DD/MM/YYYY')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {dayjs(factura.fecha_arribo).format('DD/MM/YYYY')}
+                                            </TableCell>
+                                            <TableCell>{factura.folio}</TableCell>
+                                            <TableCell>{factura.razon_social}</TableCell>
+                                            <TableCell align="right">
+                                                {Number(factura.total_piezas)}
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                {factura.total_piezas_surtidas}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </Box>
+                </Paper>
+            </Box>
             {/* Muestra el CircularProgress mientras cargan los datos */}
             <Box sx={{ px: 4 }}>
 
@@ -425,7 +567,7 @@ const EnvioDetalle = () => {
                     <Box
                         sx={{
                             width: "40%",
-                            height: 480,              // <-- altura fija
+                            height: 350,              // <-- altura fija
                             boxShadow: 4,
                             borderRadius: 4,
                             p: 2,
@@ -478,7 +620,7 @@ const EnvioDetalle = () => {
                                 p: 2,
                                 fontFamily: "Montserrat",
                                 fontWeight: "bold",
-                                maxHeight: 480,     // Altura visible antes del scroll
+                                maxHeight: 350,     // Altura visible antes del scroll
                                 overflowX: 'auto',  // Scroll horizontal
                                 overflowY: 'auto',  // Scroll vertical si hay muchas filas
                             }}>
@@ -508,7 +650,7 @@ const EnvioDetalle = () => {
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none'}}># Caja</TableCell>
+                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}># Caja</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Creado Por</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Fecha Creación</TableCell>
