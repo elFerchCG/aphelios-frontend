@@ -100,6 +100,8 @@ const TableOrdenes = () => {
     const ubicacionSalidaRef = useRef(null);
     const ubicacionEntradaRef = useRef(null);
     const cantidadRef = useRef(null);
+    const isAdmin = user?.rol_id === 1;
+
 
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
 
@@ -1524,7 +1526,7 @@ const TableOrdenes = () => {
 
     const isCellEditable = () => {
         if (estatus === 'abierto') {
-            return user.rol_id === rolMovimiento;
+            return user.rol_id === rolMovimiento ||  isAdmin;
         }
         return estatus !== 'confirmado' && estatus !== 'procesado' && estatus !== 'cancelada';
     };
@@ -1770,7 +1772,7 @@ const TableOrdenes = () => {
                         <GridActionsCellItem
                             icon={<GridDeleteIcon />}
                             sx={{ color: 'red' }}
-                            onClick={deleteLine(params.id)} // Asegúrate de usar una función que acepte params.id
+                            onClick={deleteLine(params.id)} 
                             label="Delete"
                         />
                     </Tooltip>
