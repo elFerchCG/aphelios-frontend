@@ -120,11 +120,11 @@ const Facturas = () => {
         { field: 'proveedor_nombre', headerName: "Proveedor", type: "text", flex: 2, align: "center", headerAlign: "center" },
         { field: 'folio', headerName: "Numero de Factura", type: "text", flex: 1, align: "center", headerAlign: "center" },
         { field: 'total', headerName: "total", type: "number", flex: 1, align: "center", headerAlign: "center" },
-        { 
+        {
             field: 'envio_id', headerName: "# Envío", type: "text", flex: 0.8, align: "center", headerAlign: "center",
             renderCell: (params) => {
                 return params.value ? params.value : "Sin envío asignado";
-            } 
+            }
         },
         { field: 'estatus', headerName: "Estatus", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
         {
@@ -208,7 +208,7 @@ const Facturas = () => {
                     getRowId={(row) => row.id}
                     checkboxSelection
                     disableRowSelectionOnClick
-                    isRowSelectable={(params) => params.row.estatus === 'recibido'}
+                    isRowSelectable={(params) => params.row.estatus === 'recibido' && params.row.envio_id == null}
                     onRowSelectionModelChange={(newSelection) => {
                         setSelectedFacturas(newSelection);
                     }}
@@ -248,7 +248,6 @@ const Facturas = () => {
                         <Button onClick={handleCloseEnvioModal}>
                             Cancelar
                         </Button>
-
                         <Button
                             variant="contained"
                             disabled={!selectedEnvio}

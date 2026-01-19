@@ -12,6 +12,7 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    TextField,
     Typography
 } from "@mui/material";
 import { Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
@@ -56,11 +57,12 @@ const Row = ({ row, selectedOrdenes, setSelectedOrdenes }) => {
                 </TableCell>
                 {/* <TableCell align="center">{row.orden_id}</TableCell>
                 <TableCell align="center">{row.producto_id}</TableCell> */}
+                <TableCell>{row.orden_bodega_id}</TableCell>
                 <TableCell>{row.mlm}</TableCell>
                 <TableCell align="center">{row.title}</TableCell>
                 <TableCell align="center">{row.sku_publicacion}</TableCell>
                 <TableCell align="center">{row.inventory_id}</TableCell>
-                <TableCell align="center">{row.logistic_type}</TableCell>
+                <TableCell align="center">{row.logistic_type === "fulfillment" || row.permitir_full === 1 ? "Full" : "ME"}</TableCell>
                 <TableCell align="center">{row.cantidad_a_producir}</TableCell>
                 <TableCell align="center">{row.cantidad_empacada}</TableCell>
                 <TableCell align="center">{row.estatus}</TableCell>
@@ -128,6 +130,9 @@ const OrdenRetiro = () => {
     const [selectedEnvio, setSelectedEnvio] = useState(null);
     const [openEnvioModal, setOpenEnvioModal] = useState(false);
     const [loadingEnvios, setLoadingEnvios] = useState(false);
+    const [filtros, setFiltros] = useState({
+        orden: "",
+    });
 
     const apiUrl =
         process.env.NODE_ENV === "production"
@@ -211,6 +216,15 @@ const OrdenRetiro = () => {
         },
         { field: "estatus", headerName: "Estatus", flex: 1 },
     ];
+
+    const ordenesFiltradas = ordenes.filter((o) => {
+        if (filtros.orden) {
+            return String(o.orden_bodega_id)
+                .toLowerCase()
+                .includes(filtros.orden.toLowerCase());
+        }
+        return true;
+    });
 
     return (
         <Box
@@ -297,13 +311,25 @@ const OrdenRetiro = () => {
                                     />
                                 </TableCell>
                                 <TableCell />
-                                {/* <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    # Orden
+                                <TableCell sx={{ fontWeight: "bold" }}>
+                                    #Orden
+                                    <TextField
+                                        variant="standard"
+                                        value={filtros.orden}
+                                        onChange={(e) =>
+                                            setFiltros((prev) => ({ ...prev, orden: e.target.value }))
+                                        }
+                                        placeholder="Buscar..."
+                                        fullWidth
+                                        InputProps={{ disableUnderline: true }}
+                                        sx={{
+                                            fontSize: 8,
+                                            backgroundColor: "#e4fdfb",
+                                            borderRadius: "5px"
+                                        }}
+                                    />
                                 </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    # Producto
-                                </TableCell> */}
-                                <TableCell sx={{ fontWeight: "bold" }}>MLM</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: "bold" }}>MLM</TableCell>
                                 <TableCell align="center" sx={{ fontWeight: "bold" }}>
                                     Título
                                 </TableCell>
@@ -329,13 +355,13 @@ const OrdenRetiro = () => {
                                     Fecha creación
                                 </TableCell>
                                 <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    Envío
+                                    #Envío
                                 </TableCell>
                             </TableRow>
                         </TableHead>
 
                         <TableBody>
-                            {ordenes.map((row) => (
+                            {ordenesFiltradas.map((row) => (
                                 <Row
                                     key={row.orden_id}
                                     row={row}
