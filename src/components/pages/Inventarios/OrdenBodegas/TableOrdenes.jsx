@@ -919,7 +919,7 @@ const TableOrdenes = () => {
                 try {
                     //console.log("Datos enviados al backend:", JSON.stringify(lineasData, null, 2));
                     const response = await axios.post(
-                        `http://localhost:3304/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/lineas/excel`,
+                        `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/lineas/excel`,
                         lineasData,
                         {
                             headers: {
