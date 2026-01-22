@@ -76,14 +76,26 @@ export default function ProcesosPage({ onResumeJob }) {
 
     if (!acc[pid]) {
       acc[pid] = {
+        proveedor_id: pid,
         proveedor: a.proveedor_nombre || "Sin proveedor",
         items: [],
+        fechaMasReciente: new Date(a.fecha_creacion_archivo),
       };
     }
 
     acc[pid].items.push(a);
+
+    // Actualizar la fecha más reciente del proveedor
+    const fechaArchivo = new Date(a.fecha_creacion_archivo);
+    if (fechaArchivo > acc[pid].fechaMasReciente) {
+      acc[pid].fechaMasReciente = fechaArchivo;
+    }
+
     return acc;
   }, {});
+
+  const proveedoresOrdenados = Object.values(archivosPorProveedor)
+    .sort((a, b) => b.fechaMasReciente - a.fechaMasReciente);
 
   const descargarArchivo = async (archivoId) => {
     const res = await axios.get(`${apiUrl}/mrp/descargarArchivoMRP/${archivoId}/descargar`);
@@ -96,6 +108,12 @@ export default function ProcesosPage({ onResumeJob }) {
 
     window.open(data.url, "_blank");
   };
+
+  proveedoresOrdenados.forEach(grupo => {
+    grupo.items.sort(
+      (a, b) => new Date(b.fecha_creacion_archivo) - new Date(a.fecha_creacion_archivo)
+    );
+  });
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -305,56 +323,62 @@ export default function ProcesosPage({ onResumeJob }) {
           </Typography>
 
           {archivosLoading && <LinearProgress />}
+          <Box
+            sx={{
+              maxHeight: 350,
+              overflowY: 'auto',
+            }}
+          >
+            {proveedoresOrdenados.map((grupo) => (
+              <Box key={grupo.proveedor_id} sx={{ mb: 4 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+                  🏭 {grupo.proveedor}
+                </Typography>
 
-          {Object.values(archivosPorProveedor).map((grupo) => (
-            <Box key={grupo.proveedor} sx={{ mb: 4 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-                🏭 {grupo.proveedor}
-              </Typography>
-
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell>Tipo</TableCell>
-                    <TableCell>Archivo</TableCell>
-                    <TableCell align="right">Acción</TableCell>
-                  </TableRow>
-                </TableHead>
-
-                <TableBody>
-                  {grupo.items.map((a) => (
-                    <TableRow key={a.archivo_id}>
-                      <TableCell>
-                        {new Date(a.fecha_ejecucion).toLocaleString()}
-                      </TableCell>
-
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={a.tipo}
-                          color={a.tipo === "RETIRO" ? "warning" : "success"}
-                        />
-                      </TableCell>
-
-                      <TableCell>{a.nombre_archivo}</TableCell>
-
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => descargarArchivo(a.archivo_id)}
-                          startIcon={<CloudDownloadIcon />}
-                        >
-                          Descargar
-                        </Button>
-                      </TableCell>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Fecha</TableCell>
+                      <TableCell>Tipo</TableCell>
+                      <TableCell>Archivo</TableCell>
+                      <TableCell align="right">Acción</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-          ))}
+                  </TableHead>
+
+                  <TableBody>
+                    {grupo.items.map((a) => (
+                      <TableRow key={a.archivo_id}>
+                        <TableCell>
+                          {new Date(a.fecha_ejecucion).toLocaleString()}
+                        </TableCell>
+
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={a.tipo}
+                            color={a.tipo === "RETIRO" ? "warning" : "success"}
+                          />
+                        </TableCell>
+
+                        <TableCell>{a.nombre_archivo}</TableCell>
+
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => descargarArchivo(a.archivo_id)}
+                            startIcon={<CloudDownloadIcon />}
+                          >
+                            Descargar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            ))}
+          </Box>
         </Paper>
       )}
 

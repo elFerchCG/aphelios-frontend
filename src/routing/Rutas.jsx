@@ -40,6 +40,7 @@ import Mrp from '../components/pages/Mrp/Mrp';
 import Graficas from '../components/pages/Graficas/DashboardAphelios';
 import Procesos from '../components/pages/Jobs/ProcesosPage';
 import TableOrdenes from '../components/pages/Inventarios/OrdenBodegas/TableOrdenes';
+import OrdenRetiro from '../components/pages/Orden Retiro/OrdenRetiro';
 
 
 const Rutas = () => {
@@ -93,6 +94,7 @@ const Rutas = () => {
                 <Route path="/Mrp" element={<Mrp />} />
                 <Route path="/graficas" element={<Graficas />} />
                 <Route path="/procesos" element={<Procesos />} />
+                <Route path='/ordenes-retiro' element={<OrdenRetiro />} />
                 <Route path='*' element={
                     <div>
                         <h1>Usuario sin permisos suficientes!</h1>

@@ -48,6 +48,7 @@ const MrpSimple = () => {
   const navigate = useNavigate();
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+    orden_id: false,
     permitir_full: false,
   });
 
@@ -297,12 +298,13 @@ const MrpSimple = () => {
       confirmButtonText: "Sí, generar",
       cancelButtonText: "Cancelar",
     });
+
     if (!confirm.isConfirmed) return;
 
     setSubmitting(true);
 
     try {
-      openLoader("Preparando generación de pedidos…", 1);
+      openLoader("Preparando generación de pedidos…", 5);
 
       // 1) cerrar pendientes (si no acepta backorder)
       if (!proveedorSel?.backorder) {
@@ -314,41 +316,44 @@ const MrpSimple = () => {
         });
       }
 
-      // 2) refresh camino + total
-      setLoaderText("Actualizando existencias en camino y stock total…");
-      setLoaderPct(45);
+      // 🔥 Paso 2: iniciar MRP (NO BLOQUEA)
+      setLoaderText("Ejecutando MRP…");
+      setLoaderPct(15);
 
-      await axios.post(`${apiUrl}/mrp/refreshCaminoYTotal`, {
-        proveedor_id: Number(proveedorId),
-      });
-
-      // 3) ejecutar MRP
-      setLoaderText("Ejecutando MRP y generando órdenes/archivos…");
-      setLoaderPct(75);
-
-      await axios.post(`${apiUrl}/mrp/ejecutarMrp`, {
+      const { data } = await axios.post(`${apiUrl}/mrp/iniciar`, {
         proveedor_id: Number(proveedorId),
         back_order: !!proveedorSel?.backorder,
       });
 
-      setLoaderText("Finalizando…");
-      setLoaderPct(100);
+      const mrpId = data.mrpEjecucionId;
 
-      closeLoader();
-      await Swal.fire("Listo", "Pedidos generados correctamente.", "success");
-      await cargarMrpDelProveedor();
+      // 🔁 Paso 3: polling de estado
+      const timer = setInterval(async () => {
+        try {
+          const res = await axios.get(`${apiUrl}/mrp/estado/${mrpId}`);
+          if (!res.data) return;
+
+          setLoaderPct(res.data.progreso);
+          setLoaderText(`Estado: ${res.data.estado}`);
+
+          if (res.data.estado === "COMPLETADO") {
+            clearInterval(timer);
+            closeLoader();
+            Swal.fire("Listo", "MRP finalizado correctamente", "success");
+            await cargarMrpDelProveedor();
+          }
+
+          if (res.data.estado === "ERROR") {
+            clearInterval(timer);
+            closeLoader();
+            Swal.fire("Error", res.data.mensaje_error, "error");
+          }
+        } catch (pollError) {
+          console.error("Error polling MRP:", pollError);
+        }
+      }, 2000);
     } catch (err) {
       closeLoader();
-
-      if (err?.response?.status === 409) {
-        await Swal.fire(
-          "Órdenes generadas hoy",
-          err?.response?.data?.message ||
-          "Ya se generaron órdenes para este proveedor hoy. Inténtalo mañana.",
-          "warning"
-        );
-        return;
-      }
 
       const msg =
         err?.response?.data?.message ||
@@ -763,6 +768,8 @@ const MrpSimple = () => {
   }, [mlInfo?.max]);
 
   const columns = [
+    { field: "pedido_id", headerName: "#Pedido", minWidth: 100 },
+    { field: "pedido_fecha_creacion", headerName: "F. Pedido", minWidth: 160 },
     { field: "orden_id", headerName: "Orden de Produccion", minWidth: 160 },
     // NUEVAS
     { field: "componente_sku", headerName: "SKU componente", minWidth: 160 },
@@ -785,6 +792,7 @@ const MrpSimple = () => {
         </span>
       ),
     },
+    { field: "inventory_id", headerName: "ML", minWidth: 150 },
     {
       field: "logistic_type",
       headerName: "Logística",
@@ -839,15 +847,12 @@ const MrpSimple = () => {
     // OP Detalle
     {
       field: "cantidad_billete",
-      headerName: "Cant. Billete",
+      headerName: "Cant a surtir",
       minWidth: 120,
       type: "number",
     },
 
     // Pedido + líneas
-    { field: "pedido_id", headerName: "Pedido", minWidth: 100 },
-    { field: "pedido_fecha_creacion", headerName: "F. Pedido", minWidth: 160 },
-
     {
       field: "avance",
       headerName: "Avance",

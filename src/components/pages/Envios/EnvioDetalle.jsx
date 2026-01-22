@@ -14,6 +14,7 @@ import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import dayjs from 'dayjs';
 import { Button, TextField, Box, Typography, CircularProgress, Tooltip, Collapse, Paper, Table, TableCell, TableBody, TableRow, TableHead, IconButton } from '@mui/material';
 
 
@@ -37,7 +38,13 @@ const EnvioDetalle = () => {
     const [loadingCajas, setLoadingCajas] = useState(false);
     const navigate = useNavigate();
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+    const [totalPiezas, setTotalPiezas] = useState(0);
+    const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
+    // const [totalPiezasSurtidas, setTotalPiezasSurtidas] = useState(0);
+    const [facturasEnvio, setFacturasEnvio] = useState([]);
+    const [totalOrdenRetiro, setTotalOrdenRetiro] = useState([]);
+
 
     const formatFecha = (fechaISO) => {
         if (!fechaISO) return '';
@@ -96,6 +103,31 @@ const EnvioDetalle = () => {
 
     useEffect(() => {
         fetchTarimas();
+    }, [apiUrl]);
+
+    const fetchPiezasYFacturas = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/getPiezasYFacturas/${envioId}`);
+            setTotalPiezas(Number(response.data.total_piezas || []));
+            setTotalPiezasEmpacadas(Number(response.data.total_piezas_empacadas || []));
+            // setTotalPiezasSurtidas(response.data.total_piezas_surtidas || []);
+            setFacturasEnvio(response.data.facturas);
+            setTotalOrdenRetiro(response.data.totalOrdenRetiro);
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
+    };
+
+    useEffect(() => {
+        fetchPiezasYFacturas();
     }, [apiUrl]);
 
     const fetchTarimas = async () => {
@@ -397,35 +429,240 @@ const EnvioDetalle = () => {
 
     return (
         <div>
-            <div style={{ margin: "auto", width: "90%" }}>
-                <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                    <h1>Detalle Envio {envioId}</h1>
-                </div>
-                {/* <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Montserrat", fontWeight: "bold", marginTop: "-40px" }}>
-                    <TextField
-                        id="outlined-basic"
-                        label="Buscar tarima"
-                        variant='outlined'
+            <Box
+                sx={{
+                    display: "flex",
+                    gap: 1,
+                    px: 1,
+                    mt: 1,
+                    mb: 3,
+                    alignItems: "stretch",
+                }}
+            >
+                {/* 🔵 Total piezas */}
+                <Paper
+                    elevation={4}
+                    sx={{
+                        width: "20%",
+                        height: 180, // ✅ MISMO ALTO
+                        p: 2,
+                        borderRadius: 4,
+                        border: "2px solid #1e88e5",
+                        backgroundColor: "#f5faff",
+                        fontFamily: "Montserrat",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        textAlign: "center",
+                        overflow: "hidden",
+                    }}
+                >
+                    <Typography
+                        variant="h6"
                         sx={{
-                            fontFamily: "Montserrat",
-                            width: '20rem',
-                            marginBottom: '10px',
-                            backgroundColor: "white",
+                            fontWeight: "bold",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
                         }}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div> */}
-            </div>
+                    >
+                        Envío #{envioId}
+                    </Typography>
+                    <Typography
+                        variant="subtitle2"
+                        sx={{
+                            fontWeight: "bold",
+                            lineHeight: 1.2,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                        }}
+                    >
+                        Total piezas por procesar
+                    </Typography>
+                    <Typography
+                        variant="h3"
+                        sx={{
+                            fontWeight: "bold",
+                            color: "#eba04a",
+                            lineHeight: 1,
+                            fontSize: "clamp(1.5rem, 3vw, 3rem)",
+                        }}
+                    >
+                        {totalPiezas}
+                    </Typography>
+                    <Typography
+                        variant="subtitle2"
+                        sx={{
+                            fontWeight: "bold",
+                            lineHeight: 1.2,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                        }}
+                    >
+                        Total piezas empacadas
+                    </Typography>
+                    <Typography
+                        variant="h3"
+                        sx={{
+                            fontWeight: "bold",
+                            color: "#31b625",
+                            lineHeight: 1,
+                            fontSize: "clamp(1.5rem, 3vw, 3rem)",
+                        }}
+                    >
+                        {totalPiezasEmpacadas}
+                    </Typography>
+                </Paper>
+                {/* 🟢 Facturas */}
+                <Paper
+                    elevation={4}
+                    sx={{
+                        width: "40%",
+                        height: 180,
+                        p: 2,
+                        borderRadius: 4,
+                        border: "2px solid #43a047",
+                        fontFamily: "Montserrat",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
+                >
+                    <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: "bold", mb: 1 }}
+                    >
+                        📄 Facturas asignadas al envío
+                    </Typography>
+                    <Box sx={{ flex: 1, overflowY: "auto", overflowX: "auto", }}>
+                        <Table size="small" stickyHeader sx={{ minWidth: 650 }}>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell><b>Fecha factura</b></TableCell>
+                                    <TableCell><b>Fecha arribo</b></TableCell>
+                                    <TableCell><b>Folio</b></TableCell>
+                                    <TableCell><b>Proveedor</b></TableCell>
+                                    <TableCell align="right"><b>Piezas Factura</b></TableCell>
+                                    <TableCell align='right'><b>Piezas Surtidas</b></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {facturasEnvio.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center">
+                                            No hay facturas asignadas a este envío
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    facturasEnvio.map((factura) => (
+                                        <TableRow key={factura.id}>
+                                            <TableCell>
+                                                {dayjs(factura.fecha_factura).format('DD/MM/YYYY')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {dayjs(factura.fecha_arribo).format('DD/MM/YYYY')}
+                                            </TableCell>
+                                            <TableCell>{factura.folio}</TableCell>
+                                            <TableCell>{factura.razon_social}</TableCell>
+                                            <TableCell align="right">
+                                                {Number(factura.total_piezas)}
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                {factura.total_piezas_surtidas}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </Box>
+                </Paper>
+                {/* 🟠 Órdenes de retiro */}
+                <Paper
+                    elevation={4}
+                    sx={{
+                        width: "40%",
+                        height: 180,
+                        p: 2,
+                        borderRadius: 4,
+                        border: "2px solid #fb8c00",
+                        fontFamily: "Montserrat",
+                        display: "flex",
+                        flexDirection: "column",
+                    }}
+                >
+                    <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: "bold", mb: 1 }}
+                    >
+                        📦 Órdenes de retiro asignadas al envío
+                    </Typography>
+
+                    <Box sx={{ flex: 1, overflowY: "auto", overflowX: "auto" }}>
+                        <Table size="small" stickyHeader sx={{ minWidth: 650 }}>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell><b>Folio</b></TableCell>
+                                    <TableCell><b>Descripción</b></TableCell>
+                                    <TableCell><b>Fecha Orden</b></TableCell>
+                                    <TableCell><b>Estatus</b></TableCell>
+                                    <TableCell align="right"><b>Piezas Orden</b></TableCell>
+                                    <TableCell align="right"><b>Empacadas</b></TableCell>
+                                </TableRow>
+                            </TableHead>
+
+                            <TableBody>
+                                {totalOrdenRetiro.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center">
+                                            No hay órdenes de retiro asignadas
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    totalOrdenRetiro.map((orden) => (
+                                        <TableRow key={orden.orden_bodega_id}>
+                                            <TableCell>
+                                                {orden.orden_bodega_id}
+                                            </TableCell>
+                                            <TableCell>
+                                                {orden.orden_bodega_descripcion}
+                                            </TableCell>
+                                            <TableCell>
+                                                {dayjs(orden.fecha_orden).format('DD/MM/YYYY')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {orden.orden_bodega_estatus}
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                {Number(orden.total_a_producir)}
+                                            </TableCell>
+                                            <TableCell
+                                                align="right"
+                                                sx={{
+                                                    fontWeight: "bold",
+                                                    color:
+                                                        Number(orden.total_empacado) >= Number(orden.total_a_producir)
+                                                            ? "success.main"
+                                                            : "warning.main",
+                                                }}
+                                            >
+                                                {Number(orden.total_empacado)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </Box>
+                </Paper>
+            </Box>
             {/* Muestra el CircularProgress mientras cargan los datos */}
             <Box sx={{ px: 4 }}>
-
                 <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2, mt: -2 }}>
                     {/* DataGrid a la izquierda */}
                     <Box
                         sx={{
                             width: "40%",
-                            height: 480,              // <-- altura fija
+                            height: 350,              // <-- altura fija
                             boxShadow: 4,
                             borderRadius: 4,
                             p: 2,
@@ -460,7 +697,6 @@ const EnvioDetalle = () => {
                             disableRowSelectionOnClick
                         />
                     </Box>
-
                     {/* Tabla expandida a la derecha */}
                     {tarimas.map((tarima) => (
                         <Collapse
@@ -478,7 +714,7 @@ const EnvioDetalle = () => {
                                 p: 2,
                                 fontFamily: "Montserrat",
                                 fontWeight: "bold",
-                                maxHeight: 480,     // Altura visible antes del scroll
+                                maxHeight: 350,     // Altura visible antes del scroll
                                 overflowX: 'auto',  // Scroll horizontal
                                 overflowY: 'auto',  // Scroll vertical si hay muchas filas
                             }}>
@@ -508,7 +744,7 @@ const EnvioDetalle = () => {
                                         <Table size="small">
                                             <TableHead>
                                                 <TableRow>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none'}}># Caja</TableCell>
+                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}># Caja</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Creado Por</TableCell>
                                                     <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Fecha Creación</TableCell>

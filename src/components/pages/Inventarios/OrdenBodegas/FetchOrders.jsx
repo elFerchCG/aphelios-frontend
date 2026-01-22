@@ -106,11 +106,11 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
     };
 
     const columns = [
-        { field: 'id', headerName: 'Folio', flex: 1 },
-        { field: 'descripcion', headerName: 'Descripción', flex: 3 },
-        { field: 'estatus', headerName: 'Estatus', flex: 1 },
-        { field: 'categoria', headerName: 'Tipo de Movimiento', flex: 1 },
-        { field: 'fecha_abierto', headerName: 'Fecha', flex: 1 }
+        { field: 'id', headerName: 'Folio', flex: 0.3 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 2 },
+        { field: 'estatus', headerName: 'Estatus', flex: 0.3 },
+        { field: 'categoria', headerName: 'Tipo de Movimiento', flex: 0.5 },
+        { field: 'fecha_abierto', headerName: 'Fecha', flex: 0.3 }
     ];
 
     return (

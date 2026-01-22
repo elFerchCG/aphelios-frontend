@@ -37,6 +37,7 @@ import { green, orange, grey } from "@mui/material/colors";
 import Tooltip from "@mui/material/Tooltip";
 import { Link } from "react-router-dom";
 import BreadcrumbsNav from "./BreadcrumbsNav";
+import dayjs from "dayjs";
 
 const DetalleFactura = () => {
   const { facturaId } = useParams(); // Aquí obtienes ambos parámetros
@@ -62,6 +63,10 @@ const DetalleFactura = () => {
   const [yaPreguntado, setYaPreguntado] = useState(false);
   const [openModalCambioSku, setOpenModalCambioSku] = useState(false);
   const [busquedaSku, setBusquedaSku] = useState("");
+  const [openEnvioModal, setOpenEnvioModal] = useState(false);
+  const [envios, setEnvios] = useState([]);
+  const [selectedEnvio, setSelectedEnvio] = useState(null);
+  const [selectedLineasFacturas, setSelectedLineasFacturas] = useState([]);
   const [facturaHeader, setFacturaHeader] = useState(null);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
@@ -71,6 +76,7 @@ const DetalleFactura = () => {
     descripcion: true,
     estatus: true,
     permitir_full: false,
+    envio_id: true
   });
 
   const estadoColumn = {
@@ -428,6 +434,11 @@ const handleActualizarXml = async (file) => {
       },
     },
     {
+      field: "envio_id", headerName: "#Envío", type: "number", flex: 0.5, align: "center", headerAlign: "center",
+      renderCell: ({ value }) =>
+        value ? `${value}` : <em>Sin asignar</em>,
+    },
+    {
       field: "logistic_type",
       headerName: "Logística",
       type: "text",
@@ -737,7 +748,7 @@ const handleActualizarXml = async (file) => {
             ...producto,
             id: producto.pedido_linea_id,
             pedido_id: pedido.pedido_id,
-          })),
+          }))
         );
       }
 
@@ -747,7 +758,7 @@ const handleActualizarXml = async (file) => {
         setOpenModal(false);
 
         setTimeout(async () => {
-          // ✅ Swal con botones
+          // ✅ Swal con botones 
           const result = await Swal.fire({
             title: "Producto no encontrado en pedidos",
             html: `
@@ -842,9 +853,7 @@ const handleActualizarXml = async (file) => {
           // 2) Cambio de SKU
           if (action === "cambioSku") {
             setModoCambioSku(true);
-            const respSkus = await axios.get(
-              `${apiUrl}/facturas/componentes/skulibres`,
-            );
+            const respSkus = await axios.get(`${apiUrl}/facturas/componentes/skulibres`);
             setSkusLibres(respSkus.data.data);
             setOpenModalCambioSku(true);
             return;
@@ -898,7 +907,7 @@ const handleActualizarXml = async (file) => {
             try {
               const resp = await axios.post(
                 `${apiUrl}/facturas/detalle/${lineaId}/insertarManual`,
-                { usuarioId: user?.id || null },
+                { usuarioId: user?.id || null }
               );
 
               if (resp.data?.code === "NEEDS_PEDIDO_SELECTION") {
@@ -941,7 +950,7 @@ const handleActualizarXml = async (file) => {
                   {
                     pedidoId: Number(pedidoSel),
                     usuarioId: user?.id || null,
-                  },
+                  }
                 );
 
                 if (resp2.data?.ok) {
@@ -976,16 +985,12 @@ const handleActualizarXml = async (file) => {
                 await Swal.fire(
                   "SKU no existe en componentes",
                   "Para insertar manualmente, el SKU debe existir. Usa 'Producto nuevo' o 'Cambio de SKU'.",
-                  "warning",
+                  "warning"
                 );
                 return;
               }
 
-              await Swal.fire(
-                "Error",
-                resp.data?.message || "No se pudo insertar.",
-                "error",
-              );
+              await Swal.fire("Error", resp.data?.message || "No se pudo insertar.", "error");
             } catch (err) {
               console.error(err);
               const msg =
@@ -1008,6 +1013,70 @@ const handleActualizarXml = async (file) => {
       });
     }
   };
+
+  const fetchEnviosAbiertos = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/empaque/fetchEnviosAbiertos`);
+      setEnvios(response.data.data || []);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+      Swal.fire({
+        title: 'Error',
+        text: errorMessage,
+        icon: 'warning',
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+    }
+  };
+
+  const handleCloseEnvioModal = () => {
+    setOpenEnvioModal(false);
+    setSelectedEnvio(null);
+    setSelectedLineasFacturas([]);
+  };
+
+  const asignarLineasFacturas = async () => {
+    try {
+      await axios.post(`${apiUrl}/facturas/asignarLineasFacturasAEnvio`, {
+        envio_id: selectedEnvio,
+        linea_ids: selectedLineasFacturas
+      });
+
+      Swal.fire("Éxito", "Productos asignados correctamente", "success");
+      handleCloseEnvioModal();
+      setSelectedLineasFacturas([]);
+      fetchDetalleFactura(facturaId);
+
+    } catch (error) {
+      Swal.fire(
+        "Error",
+        error.response?.data?.message || "Error al asignar productos",
+        "error"
+      );
+    }
+  };
+
+  const columnsEnvios = [
+    { field: "id", headerName: "ID", flex: 1 },
+    { field: "descripcion", headerName: "Descripción", flex: 2 },
+    {
+      field: "fecha_creacion",
+      headerName: "Fecha de Creación",
+      flex: 1,
+      valueFormatter: (params) =>
+        dayjs(params.value).format("DD/MM/YYYY"),
+    },
+    {
+      field: "fecha_programada",
+      headerName: "Fecha Programada",
+      flex: 1,
+      valueFormatter: (params) =>
+        dayjs(params.value).format("DD/MM/YYYY"),
+    },
+    { field: "estatus", headerName: "Estatus", flex: 1 },
+  ];
 
   return (
     <div
@@ -1082,7 +1151,20 @@ const handleActualizarXml = async (file) => {
             </Box>
           </Box>
         </Box>
-
+        <Button
+          variant="contained"
+          color="primary"
+          sx={{
+            mt: 2
+          }}
+          disabled={selectedLineasFacturas.length === 0}
+          onClick={() => {
+            setOpenEnvioModal(true);
+            fetchEnviosAbiertos();
+          }}
+        >
+          Asignar productos a un envío ({selectedLineasFacturas.length})
+        </Button>
         <DataGrid
           sx={{
             borderRadius: 4,
@@ -1112,6 +1194,10 @@ const handleActualizarXml = async (file) => {
           columns={columns}
           showCellVerticalBorder
           showColumnVerticalBorder
+          checkboxSelection
+          onRowSelectionModelChange={(ids) => {
+            setSelectedLineasFacturas(ids);
+          }}
           disableRowSelectionOnClick
           getRowId={(row) => row.id}
           columnVisibilityModel={columnVisibilityModel}
@@ -1121,7 +1207,15 @@ const handleActualizarXml = async (file) => {
           experimentalFeatures={{ newEditingApi: true }}
           density="compact" // Establece el tamaño de las filas en compacto por defecto
           slots={{ toolbar: CustomToolbar }}
-          isRowSelectable={(params) => params.row.estatus !== "nuevo"}
+          isRowSelectable={(params) =>
+            params.row.estatus !== "nuevo" &&
+            params.row.estatus !== "devolver" &&
+            params.row.envio_id === null &&
+            (
+              params.row.pedido_id !== null ||
+              params.row.pedido_linea_id !== null
+            )
+          }
           getRowClassName={(params) => {
             if (
               params.row.estatus === "nuevo" ||
@@ -1315,7 +1409,6 @@ const handleActualizarXml = async (file) => {
             }}
           />
         </DialogContent>
-
         <DialogActions>
           <Button
             onClick={() => {
@@ -1334,6 +1427,46 @@ const handleActualizarXml = async (file) => {
             disabled={!skuSeleccionado}
           >
             Reemplazar SKU
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={openEnvioModal}
+        onClose={handleCloseEnvioModal}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>
+          Selecciona un envío para asignar los productos seleccionados
+        </DialogTitle>
+
+        <DialogContent sx={{ height: 400 }}>
+          <DataGrid
+            sx={{ height: 350 }}
+            rows={envios}
+            columns={columnsEnvios}
+            getRowId={(row) => row.id}
+            checkboxSelection
+            disableRowSelectionOnClick
+            onRowSelectionModelChange={(selection) => {
+              setSelectedEnvio(selection[0] || null);
+            }}
+            rowSelectionModel={selectedEnvio ? [selectedEnvio] : []}
+          />
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={handleCloseEnvioModal}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!selectedEnvio}
+            onClick={() => {
+              asignarLineasFacturas();
+            }}
+          >
+            Confirmar asignación
           </Button>
         </DialogActions>
       </Dialog>

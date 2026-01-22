@@ -127,12 +127,12 @@ const VistaPedidos = () => {
 
   const columns = [
     { field: "pedido_id", headerName: "# Pedido", minWidth: 100, flex: 0.6 },
-    {
-      field: "pedido_linea_id",
-      headerName: "# Línea",
-      minWidth: 110,
-      flex: 0.6,
-    },
+    // {
+    //   field: "pedido_linea_id",
+    //   headerName: "# Línea",
+    //   minWidth: 110,
+    //   flex: 0.6,
+    // },
     {
       field: "fecha_creacion",
       headerName: "Fecha Creación",

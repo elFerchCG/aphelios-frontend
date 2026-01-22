@@ -681,9 +681,10 @@ const Surtido = () => {
                         }}
                         value={sku}
                         onChange={handleInputChange}
-                        onBlur={handleSearch}
+                        //onBlur={handleSearch}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
+                                e.preventDefault();
                                 handleSearch(); // 👈 llama al presionar Enter
                             }
                         }}
