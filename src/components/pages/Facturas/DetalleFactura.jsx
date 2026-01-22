@@ -11,7 +11,7 @@ import {
   IconButton,
 } from "@mui/material";
 
-import FlashAutoIcon from '@mui/icons-material/FlashAuto';
+import FlashAutoIcon from "@mui/icons-material/FlashAuto";
 import CloseIcon from "@mui/icons-material/Close";
 
 import {
@@ -62,6 +62,7 @@ const DetalleFactura = () => {
   const [yaPreguntado, setYaPreguntado] = useState(false);
   const [openModalCambioSku, setOpenModalCambioSku] = useState(false);
   const [busquedaSku, setBusquedaSku] = useState("");
+  const [facturaHeader, setFacturaHeader] = useState(null);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
@@ -187,7 +188,7 @@ const DetalleFactura = () => {
           params: {
             proveedor_nombre: proveedorNombre,
           },
-        }
+        },
       );
       setDataProveedor(response.data.data[0]);
     } catch (error) {
@@ -207,6 +208,14 @@ const DetalleFactura = () => {
   const fetchDetalleFactura = async (facturaId) => {
     try {
       const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
+
+      if (
+        Array.isArray(response.data.factura) &&
+        response.data.factura.length
+      ) {
+        setFacturaHeader(response.data.factura[0]);
+      }
+
       if (response.data && Array.isArray(response.data.detalles)) {
         const detallesParseados = parseDetallesDataGrid(response.data.detalles);
         setData(detallesParseados);
@@ -224,6 +233,38 @@ const DetalleFactura = () => {
       });
     }
   };
+
+const handleActualizarXml = async (file) => {
+  if (!file) return;
+
+  const id = Number(facturaHeader?.id); 
+  if (!id) {
+    Swal.fire("Error", "No se pudo identificar la factura/remisión.", "error");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("archivo_xml", file);
+
+  try {
+    const resp = await axios.put(
+      `${apiUrl}/facturas/${id}/actualizarDesdeXml`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    Swal.fire("Éxito", resp.data?.message || "Factura actualizada.", "success");
+
+    // recarga
+    fetchDetalleFactura(id);
+  } catch (err) {
+    Swal.fire(
+      "Error",
+      err.response?.data?.message || "Error al actualizar XML",
+      "error"
+    );
+  }
+};
 
   const handleOpenModal = (params) => {
     setLineaId(params.row.id);
@@ -250,7 +291,8 @@ const DetalleFactura = () => {
       });
       fetchDetalleFactura(facturaId);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Error al habilitar el producto";
+      const errorMessage =
+        error.response?.data?.message || "Error al habilitar el producto";
       Swal.fire({
         title: "Error",
         text: errorMessage,
@@ -362,7 +404,10 @@ const DetalleFactura = () => {
       renderCell: ({ value, row }) => {
         if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
         return (
-          <Tooltip title="Haz clic para ver los detalles de este producto en el pedido" arrow>
+          <Tooltip
+            title="Haz clic para ver los detalles de este producto en el pedido"
+            arrow
+          >
             <Link
               to="/pedidos"
               state={{
@@ -383,14 +428,19 @@ const DetalleFactura = () => {
       },
     },
     {
-      field: "logistic_type", headerName: "Logística", type: "text", flex: 0.6, align: "center", headerAlign: "center",
+      field: "logistic_type",
+      headerName: "Logística",
+      type: "text",
+      flex: 0.6,
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => {
-        if (params.value !== 'fulfillment' && params.row.permitir_full === 0) {
-          return 'ME';
+        if (params.value !== "fulfillment" && params.row.permitir_full === 0) {
+          return "ME";
         } else {
-          return 'FULL';
+          return "FULL";
         }
-      }
+      },
     },
     {
       field: "permitir_full",
@@ -405,16 +455,25 @@ const DetalleFactura = () => {
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => {
-        const { pedido_id, pedido_linea_id, estatus, logistic_type, permitir_full } = params.row;
+        const {
+          pedido_id,
+          pedido_linea_id,
+          estatus,
+          logistic_type,
+          permitir_full,
+        } = params.row;
 
         // Ocultar icono si la fila es "nuevo"
         if (estatus === "nuevo" || estatus === "devolver") return [];
 
         const actions = [];
 
-        if (logistic_type !== 'fulfillment' && permitir_full === 0) {
+        if (logistic_type !== "fulfillment" && permitir_full === 0) {
           actions.push(
-            <Tooltip title="Habilitar FULL" key={`me-action-${params.row.producto_id}`}>
+            <Tooltip
+              title="Habilitar FULL"
+              key={`me-action-${params.row.producto_id}`}
+            >
               <GridActionsCellItem
                 icon={<FlashAutoIcon sx={{ color: "green" }} />}
                 onClick={() => handleHabilitarFull(params)}
@@ -437,7 +496,7 @@ const DetalleFactura = () => {
           );
         }
 
-        return actions; 
+        return actions;
       },
     },
     estadoColumn,
@@ -490,13 +549,13 @@ const DetalleFactura = () => {
     let continuar = true;
 
     const seleccionadas = detalleData.filter((row) =>
-      selectionModel.includes(row.id)
+      selectionModel.includes(row.id),
     );
 
     const pedido_linea_ids = seleccionadas.map((row) => row.id);
     const totalPedido = seleccionadas.reduce(
       (sum, item) => sum + parseFloat(item.cantidad),
-      0
+      0,
     );
     const cantidadFacturaFloat = parseFloat(cantidadFactura);
     const usuario_id = user.id_usuario;
@@ -532,7 +591,7 @@ const DetalleFactura = () => {
         result = await Swal.fire({
           title: "¿Deseas mantener el backorder?",
           html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(
-            ", "
+            ", ",
           )}</strong>`,
           icon: "question",
           showCancelButton: true,
@@ -581,7 +640,7 @@ const DetalleFactura = () => {
         result = await Swal.fire({
           title: "¿Deseas mantener el excedente?",
           html: `El excedente será enlazado a los pedidos: <strong>${pedidosUnicos.join(
-            ", "
+            ", ",
           )}</strong>`,
           icon: "question",
           showCancelButton: true,
@@ -657,41 +716,41 @@ const DetalleFactura = () => {
       Swal.fire(
         "Error",
         error.response?.data?.message || "Error al reemplazar SKU",
-        "error"
+        "error",
       );
     }
   };
 
-const fetchProductosEnlaces = async (lineaId) => {
-  if (yaPreguntado) return;
+  const fetchProductosEnlaces = async (lineaId) => {
+    if (yaPreguntado) return;
 
-  try {
-    const response = await axios.get(
-      `${apiUrl}/facturas/detalle/${lineaId}/posiblesEnlaces`
-    );
-
-    let productosConIds = [];
-
-    if (response.data && Array.isArray(response.data)) {
-      productosConIds = response.data.flatMap((pedido) =>
-        pedido.productos.map((producto) => ({
-          ...producto,
-          id: producto.pedido_linea_id,
-          pedido_id: pedido.pedido_id,
-        }))
+    try {
+      const response = await axios.get(
+        `${apiUrl}/facturas/detalle/${lineaId}/posiblesEnlaces`,
       );
-    }
 
-    setDetalleData(productosConIds);
+      let productosConIds = [];
 
-    if (productosConIds.length === 0) {
-      setOpenModal(false);
+      if (response.data && Array.isArray(response.data)) {
+        productosConIds = response.data.flatMap((pedido) =>
+          pedido.productos.map((producto) => ({
+            ...producto,
+            id: producto.pedido_linea_id,
+            pedido_id: pedido.pedido_id,
+          })),
+        );
+      }
 
-      setTimeout(async () => {
-        // ✅ Swal con botones 
-        const result = await Swal.fire({
-          title: "Producto no encontrado en pedidos",
-          html: `
+      setDetalleData(productosConIds);
+
+      if (productosConIds.length === 0) {
+        setOpenModal(false);
+
+        setTimeout(async () => {
+          // ✅ Swal con botones
+          const result = await Swal.fire({
+            title: "Producto no encontrado en pedidos",
+            html: `
             <div style="display:flex; flex-direction:column; gap:12px; text-align:left;">
               <div style="margin-bottom:6px; color:#666;">
                 Este SKU no coincide con ningún pedido. ¿Qué deseas hacer?
@@ -714,196 +773,241 @@ const fetchProductosEnlaces = async (lineaId) => {
               </button>
             </div>
           `,
-          icon: "info",
-          showConfirmButton: false,
-          showCancelButton: true,
-          cancelButtonText: "Cancelar",
-          allowOutsideClick: false,
-          allowEscapeKey: true,
-          showCloseButton: true,
-          didOpen: () => {
-            const popup = Swal.getPopup();
-
-            popup.querySelector("#btn-nuevo")?.addEventListener("click", () => {
-              Swal.close({ value: { action: "nuevo" } });
-            });
-
-            popup.querySelector("#btn-cambio-sku")?.addEventListener("click", () => {
-              Swal.close({ value: { action: "cambioSku" } });
-            });
-
-            popup.querySelector("#btn-devolver")?.addEventListener("click", () => {
-              Swal.close({ value: { action: "devolver" } });
-            });
-
-            popup.querySelector("#btn-insertar-manual")?.addEventListener("click", () => {
-              Swal.close({ value: { action: "insertarManual" } });
-            });
-          },
-        });
-
-        const action = result?.value?.action;
-        if (!action) return;
-
-        // 1) Producto nuevo
-        if (action === "nuevo") {
-          const confirm = await Swal.fire({
-            title: "¿Estás seguro?",
-            text: "Se marcará el producto como 'Nuevo'.",
-            icon: "question",
+            icon: "info",
+            showConfirmButton: false,
             showCancelButton: true,
-            confirmButtonText: "Aceptar",
             cancelButtonText: "Cancelar",
             allowOutsideClick: false,
+            allowEscapeKey: true,
+            showCloseButton: true,
+            didOpen: () => {
+              const popup = Swal.getPopup();
+
+              popup
+                .querySelector("#btn-nuevo")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "nuevo" } });
+                });
+
+              popup
+                .querySelector("#btn-cambio-sku")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "cambioSku" } });
+                });
+
+              popup
+                .querySelector("#btn-devolver")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "devolver" } });
+                });
+
+              popup
+                .querySelector("#btn-insertar-manual")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "insertarManual" } });
+                });
+            },
           });
 
-          if (confirm.isConfirmed) {
-            await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
-              factura_detalle_id: lineaId,
+          const action = result?.value?.action;
+          if (!action) return;
+
+          // 1) Producto nuevo
+          if (action === "nuevo") {
+            const confirm = await Swal.fire({
+              title: "¿Estás seguro?",
+              text: "Se marcará el producto como 'Nuevo'.",
+              icon: "question",
+              showCancelButton: true,
+              confirmButtonText: "Aceptar",
+              cancelButtonText: "Cancelar",
+              allowOutsideClick: false,
             });
 
-            await Swal.fire("Marcado", "El producto fue marcado como 'Nuevo'.", "success");
-            fetchDetalleFactura(facturaId);
-          }
-          return;
-        }
-
-        // 2) Cambio de SKU
-        if (action === "cambioSku") {
-          setModoCambioSku(true);
-          const respSkus = await axios.get(`${apiUrl}/facturas/componentes/skulibres`);
-          setSkusLibres(respSkus.data.data);
-          setOpenModalCambioSku(true);
-          return;
-        }
-
-        // 3) Producto a devolver
-        if (action === "devolver") {
-          const confirm = await Swal.fire({
-            title: "¿Estás seguro?",
-            text: "Se marcará el producto como 'Devolver'.",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Aceptar",
-            cancelButtonText: "Cancelar",
-            allowOutsideClick: false,
-          });
-
-          if (confirm.isConfirmed) {
-            try {
-              const resp = await axios.put(`${apiUrl}/facturas/devolverProducto`, {
+            if (confirm.isConfirmed) {
+              await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
                 factura_detalle_id: lineaId,
               });
 
-              if (!resp.data.error) {
-                await Swal.fire("Producto a devolver", "El producto fue marcado como 'a devolver'.", "info");
-                fetchDetalleFactura(facturaId);
-              } else {
-                throw new Error("Respuesta con error");
-              }
-            } catch (err) {
-              await Swal.fire("Error", "No se pudo marcar el producto como 'a devolver'.", "error");
-              console.error(err);
+              await Swal.fire(
+                "Marcado",
+                "El producto fue marcado como 'Nuevo'.",
+                "success",
+              );
+              fetchDetalleFactura(facturaId);
             }
+            return;
           }
-          return;
-        }
 
-        // 4) Insertar manual en pedido
-        if (action === "insertarManual") {
-          try {
-            const resp = await axios.post(
-              `${apiUrl}/facturas/detalle/${lineaId}/insertarManual`,
-              { usuarioId: user?.id || null }
+          // 2) Cambio de SKU
+          if (action === "cambioSku") {
+            setModoCambioSku(true);
+            const respSkus = await axios.get(
+              `${apiUrl}/facturas/componentes/skulibres`,
             );
+            setSkusLibres(respSkus.data.data);
+            setOpenModalCambioSku(true);
+            return;
+          }
 
-            if (resp.data?.code === "NEEDS_PEDIDO_SELECTION") {
-              const pedidos = resp.data.pedidos || [];
+          // 3) Producto a devolver
+          if (action === "devolver") {
+            const confirm = await Swal.fire({
+              title: "¿Estás seguro?",
+              text: "Se marcará el producto como 'Devolver'.",
+              icon: "warning",
+              showCancelButton: true,
+              confirmButtonText: "Aceptar",
+              cancelButtonText: "Cancelar",
+              allowOutsideClick: false,
+            });
 
-              if (!pedidos.length) {
-                await Swal.fire("Sin pedidos", "No hay pedidos disponibles para este proveedor.", "warning");
+            if (confirm.isConfirmed) {
+              try {
+                const resp = await axios.put(
+                  `${apiUrl}/facturas/devolverProducto`,
+                  {
+                    factura_detalle_id: lineaId,
+                  },
+                );
+
+                if (!resp.data.error) {
+                  await Swal.fire(
+                    "Producto a devolver",
+                    "El producto fue marcado como 'a devolver'.",
+                    "info",
+                  );
+                  fetchDetalleFactura(facturaId);
+                } else {
+                  throw new Error("Respuesta con error");
+                }
+              } catch (err) {
+                await Swal.fire(
+                  "Error",
+                  "No se pudo marcar el producto como 'a devolver'.",
+                  "error",
+                );
+                console.error(err);
+              }
+            }
+            return;
+          }
+
+          // 4) Insertar manual en pedido
+          if (action === "insertarManual") {
+            try {
+              const resp = await axios.post(
+                `${apiUrl}/facturas/detalle/${lineaId}/insertarManual`,
+                { usuarioId: user?.id || null },
+              );
+
+              if (resp.data?.code === "NEEDS_PEDIDO_SELECTION") {
+                const pedidos = resp.data.pedidos || [];
+
+                if (!pedidos.length) {
+                  await Swal.fire(
+                    "Sin pedidos",
+                    "No hay pedidos disponibles para este proveedor.",
+                    "warning",
+                  );
+                  return;
+                }
+
+                const inputOptions = {};
+                pedidos.forEach((p) => {
+                  const fecha = p.fecha_creacion
+                    ? new Date(p.fecha_creacion).toLocaleString()
+                    : "";
+                  inputOptions[p.id] = `Pedido #${p.id} - ${fecha}`;
+                });
+
+                const { value: pedidoSel } = await Swal.fire({
+                  title: "Selecciona el pedido destino",
+                  input: "select",
+                  inputOptions,
+                  inputPlaceholder: "Selecciona un pedido",
+                  showCancelButton: true,
+                  confirmButtonText: "Insertar y enlazar",
+                  cancelButtonText: "Cancelar",
+                  allowOutsideClick: false,
+                  inputValidator: (v) =>
+                    !v ? "Selecciona un pedido" : undefined,
+                });
+
+                if (!pedidoSel) return;
+
+                const resp2 = await axios.post(
+                  `${apiUrl}/facturas/detalle/${lineaId}/insertar-manual`,
+                  {
+                    pedidoId: Number(pedidoSel),
+                    usuarioId: user?.id || null,
+                  },
+                );
+
+                if (resp2.data?.ok) {
+                  await Swal.fire(
+                    "Listo",
+                    "Se insertó la línea y se enlazó al pedido.",
+                    "success",
+                  );
+                  fetchDetalleFactura(facturaId);
+                } else {
+                  await Swal.fire(
+                    "Error",
+                    resp2.data?.message || "No se pudo insertar.",
+                    "error",
+                  );
+                }
+
                 return;
               }
 
-              const inputOptions = {};
-              pedidos.forEach((p) => {
-                const fecha = p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleString() : "";
-                inputOptions[p.id] = `Pedido #${p.id} - ${fecha}`;
-              });
-
-              const { value: pedidoSel } = await Swal.fire({
-                title: "Selecciona el pedido destino",
-                input: "select",
-                inputOptions,
-                inputPlaceholder: "Selecciona un pedido",
-                showCancelButton: true,
-                confirmButtonText: "Insertar y enlazar",
-                cancelButtonText: "Cancelar",
-                allowOutsideClick: false,
-                inputValidator: (v) => (!v ? "Selecciona un pedido" : undefined),
-              });
-
-              if (!pedidoSel) return;
-
-              const resp2 = await axios.post(
-                `${apiUrl}/facturas/detalle/${lineaId}/insertar-manual`,
-                {
-                  pedidoId: Number(pedidoSel),
-                  usuarioId: user?.id || null,
-                }
-              );
-
-              if (resp2.data?.ok) {
-                await Swal.fire("Listo", "Se insertó la línea y se enlazó al pedido.", "success");
+              if (resp.data?.ok) {
+                await Swal.fire(
+                  "Listo",
+                  "Se insertó la línea y se enlazó al pedido.",
+                  "success",
+                );
                 fetchDetalleFactura(facturaId);
-              } else {
-                await Swal.fire("Error", resp2.data?.message || "No se pudo insertar.", "error");
+                return;
               }
 
-              return;
-            }
+              if (resp.data?.code === "SKU_NOT_FOUND") {
+                await Swal.fire(
+                  "SKU no existe en componentes",
+                  "Para insertar manualmente, el SKU debe existir. Usa 'Producto nuevo' o 'Cambio de SKU'.",
+                  "warning",
+                );
+                return;
+              }
 
-            if (resp.data?.ok) {
-              await Swal.fire("Listo", "Se insertó la línea y se enlazó al pedido.", "success");
-              fetchDetalleFactura(facturaId);
-              return;
-            }
-
-            if (resp.data?.code === "SKU_NOT_FOUND") {
               await Swal.fire(
-                "SKU no existe en componentes",
-                "Para insertar manualmente, el SKU debe existir. Usa 'Producto nuevo' o 'Cambio de SKU'.",
-                "warning"
+                "Error",
+                resp.data?.message || "No se pudo insertar.",
+                "error",
               );
-              return;
+            } catch (err) {
+              console.error(err);
+              const msg =
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                "Error al insertar manualmente.";
+              await Swal.fire("Error", msg, "error");
             }
-
-            await Swal.fire("Error", resp.data?.message || "No se pudo insertar.", "error");
-          } catch (err) {
-            console.error(err);
-            const msg =
-              err?.response?.data?.message ||
-              err?.response?.data?.error ||
-              "Error al insertar manualmente.";
-            await Swal.fire("Error", msg, "error");
           }
-        }
-      }, 300);
+        }, 300);
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: error.response?.data?.message || "Error al cargar los datos",
+        icon: "warning",
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
     }
-  } catch (error) {
-    Swal.fire({
-      title: "Error",
-      text: error.response?.data?.message || "Error al cargar los datos",
-      icon: "warning",
-      timer: 5000,
-      showCloseButton: true,
-      allowEscapeKey: true,
-    });
-  }
-};
-
-
-
+  };
 
   return (
     <div
@@ -933,6 +1037,21 @@ const fetchProductosEnlaces = async (lineaId) => {
       >
         <BreadcrumbsNav />
         <h2>Detalle Factura {facturaId}</h2>
+        {Number(facturaHeader?.es_provisional) == 1 && (
+          <Box
+            sx={{ display: "flex", gap: 2, mb: 2, justifyContent: "center" }}
+          >
+            <Button variant="contained" component="label">
+              Subir XML y actualizar factura
+              <input
+                hidden
+                type="file"
+                accept=".xml"
+                onChange={(e) => handleActualizarXml(e.target.files?.[0])}
+              />
+            </Button>
+          </Box>
+        )}
         <Box
           display="flex"
           justifyContent="center"
@@ -982,10 +1101,10 @@ const fetchProductosEnlaces = async (lineaId) => {
               pointerEvents: "auto",
               cursor: "help",
             },
-            '& .fila-no-full': {
-              backgroundColor: '#FDECEA', // rojo claro
-              '&:hover': {
-                backgroundColor: '#F9D6D5',
+            "& .fila-no-full": {
+              backgroundColor: "#FDECEA", // rojo claro
+              "&:hover": {
+                backgroundColor: "#F9D6D5",
               },
             },
           }}
@@ -1004,21 +1123,28 @@ const fetchProductosEnlaces = async (lineaId) => {
           slots={{ toolbar: CustomToolbar }}
           isRowSelectable={(params) => params.row.estatus !== "nuevo"}
           getRowClassName={(params) => {
-            if (params.row.estatus === "nuevo" || params.row.estatus === "devolver") {
+            if (
+              params.row.estatus === "nuevo" ||
+              params.row.estatus === "devolver"
+            ) {
               return "row-disabled";
             }
-            if (params.row.logistic_type !== 'fulfillment' && params.row.permitir_full === 0) {
-              return 'fila-no-full';
+            if (
+              params.row.logistic_type !== "fulfillment" &&
+              params.row.permitir_full === 0
+            ) {
+              return "fila-no-full";
             }
             return "";
           }}
         />
       </div>
+
       {/* Ventana Modal Details Componente*/}
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => { }} // evitamos que se cierre automáticamente
+        onClose={() => {}} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -1146,7 +1272,7 @@ const fetchProductosEnlaces = async (lineaId) => {
                 row.sku.toLowerCase().includes(busquedaSku.toLowerCase()) ||
                 row.descripcion
                   .toLowerCase()
-                  .includes(busquedaSku.toLowerCase())
+                  .includes(busquedaSku.toLowerCase()),
             )}
             columns={[
               {
@@ -1157,7 +1283,7 @@ const fetchProductosEnlaces = async (lineaId) => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                    params.row.componente_id ? (
+                  params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",
