@@ -11,7 +11,7 @@ import {
   IconButton,
 } from "@mui/material";
 
-import FlashAutoIcon from '@mui/icons-material/FlashAuto';
+import FlashAutoIcon from "@mui/icons-material/FlashAuto";
 import CloseIcon from "@mui/icons-material/Close";
 
 import {
@@ -67,6 +67,7 @@ const DetalleFactura = () => {
   const [envios, setEnvios] = useState([]);
   const [selectedEnvio, setSelectedEnvio] = useState(null);
   const [selectedLineasFacturas, setSelectedLineasFacturas] = useState([]);
+  const [facturaHeader, setFacturaHeader] = useState(null);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
@@ -193,7 +194,7 @@ const DetalleFactura = () => {
           params: {
             proveedor_nombre: proveedorNombre,
           },
-        }
+        },
       );
       setDataProveedor(response.data.data[0]);
     } catch (error) {
@@ -213,6 +214,14 @@ const DetalleFactura = () => {
   const fetchDetalleFactura = async (facturaId) => {
     try {
       const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
+
+      if (
+        Array.isArray(response.data.factura) &&
+        response.data.factura.length
+      ) {
+        setFacturaHeader(response.data.factura[0]);
+      }
+
       if (response.data && Array.isArray(response.data.detalles)) {
         const detallesParseados = parseDetallesDataGrid(response.data.detalles);
         setData(detallesParseados);
@@ -230,6 +239,38 @@ const DetalleFactura = () => {
       });
     }
   };
+
+const handleActualizarXml = async (file) => {
+  if (!file) return;
+
+  const id = Number(facturaHeader?.id); 
+  if (!id) {
+    Swal.fire("Error", "No se pudo identificar la factura/remisión.", "error");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("archivo_xml", file);
+
+  try {
+    const resp = await axios.put(
+      `${apiUrl}/facturas/${id}/actualizarDesdeXml`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    Swal.fire("Éxito", resp.data?.message || "Factura actualizada.", "success");
+
+    // recarga
+    fetchDetalleFactura(id);
+  } catch (err) {
+    Swal.fire(
+      "Error",
+      err.response?.data?.message || "Error al actualizar XML",
+      "error"
+    );
+  }
+};
 
   const handleOpenModal = (params) => {
     setLineaId(params.row.id);
@@ -256,7 +297,8 @@ const DetalleFactura = () => {
       });
       fetchDetalleFactura(facturaId);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Error al habilitar el producto";
+      const errorMessage =
+        error.response?.data?.message || "Error al habilitar el producto";
       Swal.fire({
         title: "Error",
         text: errorMessage,
@@ -368,7 +410,10 @@ const DetalleFactura = () => {
       renderCell: ({ value, row }) => {
         if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
         return (
-          <Tooltip title="Haz clic para ver los detalles de este producto en el pedido" arrow>
+          <Tooltip
+            title="Haz clic para ver los detalles de este producto en el pedido"
+            arrow
+          >
             <Link
               to="/pedidos"
               state={{
@@ -394,14 +439,19 @@ const DetalleFactura = () => {
         value ? `${value}` : <em>Sin asignar</em>,
     },
     {
-      field: "logistic_type", headerName: "Logística", type: "text", flex: 0.6, align: "center", headerAlign: "center",
+      field: "logistic_type",
+      headerName: "Logística",
+      type: "text",
+      flex: 0.6,
+      align: "center",
+      headerAlign: "center",
       renderCell: (params) => {
-        if (params.value !== 'fulfillment' && params.row.permitir_full === 0) {
-          return 'ME';
+        if (params.value !== "fulfillment" && params.row.permitir_full === 0) {
+          return "ME";
         } else {
-          return 'FULL';
+          return "FULL";
         }
-      }
+      },
     },
     {
       field: "permitir_full",
@@ -416,16 +466,25 @@ const DetalleFactura = () => {
       headerName: "Acciones",
       type: "actions",
       getActions: (params) => {
-        const { pedido_id, pedido_linea_id, estatus, logistic_type, permitir_full } = params.row;
+        const {
+          pedido_id,
+          pedido_linea_id,
+          estatus,
+          logistic_type,
+          permitir_full,
+        } = params.row;
 
         // Ocultar icono si la fila es "nuevo"
         if (estatus === "nuevo" || estatus === "devolver") return [];
 
         const actions = [];
 
-        if (logistic_type !== 'fulfillment' && permitir_full === 0) {
+        if (logistic_type !== "fulfillment" && permitir_full === 0) {
           actions.push(
-            <Tooltip title="Habilitar FULL" key={`me-action-${params.row.producto_id}`}>
+            <Tooltip
+              title="Habilitar FULL"
+              key={`me-action-${params.row.producto_id}`}
+            >
               <GridActionsCellItem
                 icon={<FlashAutoIcon sx={{ color: "green" }} />}
                 onClick={() => handleHabilitarFull(params)}
@@ -501,13 +560,13 @@ const DetalleFactura = () => {
     let continuar = true;
 
     const seleccionadas = detalleData.filter((row) =>
-      selectionModel.includes(row.id)
+      selectionModel.includes(row.id),
     );
 
     const pedido_linea_ids = seleccionadas.map((row) => row.id);
     const totalPedido = seleccionadas.reduce(
       (sum, item) => sum + parseFloat(item.cantidad),
-      0
+      0,
     );
     const cantidadFacturaFloat = parseFloat(cantidadFactura);
     const usuario_id = user.id_usuario;
@@ -543,7 +602,7 @@ const DetalleFactura = () => {
         result = await Swal.fire({
           title: "¿Deseas mantener el backorder?",
           html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(
-            ", "
+            ", ",
           )}</strong>`,
           icon: "question",
           showCancelButton: true,
@@ -592,7 +651,7 @@ const DetalleFactura = () => {
         result = await Swal.fire({
           title: "¿Deseas mantener el excedente?",
           html: `El excedente será enlazado a los pedidos: <strong>${pedidosUnicos.join(
-            ", "
+            ", ",
           )}</strong>`,
           icon: "question",
           showCancelButton: true,
@@ -668,7 +727,7 @@ const DetalleFactura = () => {
       Swal.fire(
         "Error",
         error.response?.data?.message || "Error al reemplazar SKU",
-        "error"
+        "error",
       );
     }
   };
@@ -678,7 +737,7 @@ const DetalleFactura = () => {
 
     try {
       const response = await axios.get(
-        `${apiUrl}/facturas/detalle/${lineaId}/posiblesEnlaces`
+        `${apiUrl}/facturas/detalle/${lineaId}/posiblesEnlaces`,
       );
 
       let productosConIds = [];
@@ -735,21 +794,29 @@ const DetalleFactura = () => {
             didOpen: () => {
               const popup = Swal.getPopup();
 
-              popup.querySelector("#btn-nuevo")?.addEventListener("click", () => {
-                Swal.close({ value: { action: "nuevo" } });
-              });
+              popup
+                .querySelector("#btn-nuevo")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "nuevo" } });
+                });
 
-              popup.querySelector("#btn-cambio-sku")?.addEventListener("click", () => {
-                Swal.close({ value: { action: "cambioSku" } });
-              });
+              popup
+                .querySelector("#btn-cambio-sku")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "cambioSku" } });
+                });
 
-              popup.querySelector("#btn-devolver")?.addEventListener("click", () => {
-                Swal.close({ value: { action: "devolver" } });
-              });
+              popup
+                .querySelector("#btn-devolver")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "devolver" } });
+                });
 
-              popup.querySelector("#btn-insertar-manual")?.addEventListener("click", () => {
-                Swal.close({ value: { action: "insertarManual" } });
-              });
+              popup
+                .querySelector("#btn-insertar-manual")
+                ?.addEventListener("click", () => {
+                  Swal.close({ value: { action: "insertarManual" } });
+                });
             },
           });
 
@@ -773,7 +840,11 @@ const DetalleFactura = () => {
                 factura_detalle_id: lineaId,
               });
 
-              await Swal.fire("Marcado", "El producto fue marcado como 'Nuevo'.", "success");
+              await Swal.fire(
+                "Marcado",
+                "El producto fue marcado como 'Nuevo'.",
+                "success",
+              );
               fetchDetalleFactura(facturaId);
             }
             return;
@@ -802,18 +873,29 @@ const DetalleFactura = () => {
 
             if (confirm.isConfirmed) {
               try {
-                const resp = await axios.put(`${apiUrl}/facturas/devolverProducto`, {
-                  factura_detalle_id: lineaId,
-                });
+                const resp = await axios.put(
+                  `${apiUrl}/facturas/devolverProducto`,
+                  {
+                    factura_detalle_id: lineaId,
+                  },
+                );
 
                 if (!resp.data.error) {
-                  await Swal.fire("Producto a devolver", "El producto fue marcado como 'a devolver'.", "info");
+                  await Swal.fire(
+                    "Producto a devolver",
+                    "El producto fue marcado como 'a devolver'.",
+                    "info",
+                  );
                   fetchDetalleFactura(facturaId);
                 } else {
                   throw new Error("Respuesta con error");
                 }
               } catch (err) {
-                await Swal.fire("Error", "No se pudo marcar el producto como 'a devolver'.", "error");
+                await Swal.fire(
+                  "Error",
+                  "No se pudo marcar el producto como 'a devolver'.",
+                  "error",
+                );
                 console.error(err);
               }
             }
@@ -832,13 +914,19 @@ const DetalleFactura = () => {
                 const pedidos = resp.data.pedidos || [];
 
                 if (!pedidos.length) {
-                  await Swal.fire("Sin pedidos", "No hay pedidos disponibles para este proveedor.", "warning");
+                  await Swal.fire(
+                    "Sin pedidos",
+                    "No hay pedidos disponibles para este proveedor.",
+                    "warning",
+                  );
                   return;
                 }
 
                 const inputOptions = {};
                 pedidos.forEach((p) => {
-                  const fecha = p.fecha_creacion ? new Date(p.fecha_creacion).toLocaleString() : "";
+                  const fecha = p.fecha_creacion
+                    ? new Date(p.fecha_creacion).toLocaleString()
+                    : "";
                   inputOptions[p.id] = `Pedido #${p.id} - ${fecha}`;
                 });
 
@@ -851,7 +939,8 @@ const DetalleFactura = () => {
                   confirmButtonText: "Insertar y enlazar",
                   cancelButtonText: "Cancelar",
                   allowOutsideClick: false,
-                  inputValidator: (v) => (!v ? "Selecciona un pedido" : undefined),
+                  inputValidator: (v) =>
+                    !v ? "Selecciona un pedido" : undefined,
                 });
 
                 if (!pedidoSel) return;
@@ -865,17 +954,29 @@ const DetalleFactura = () => {
                 );
 
                 if (resp2.data?.ok) {
-                  await Swal.fire("Listo", "Se insertó la línea y se enlazó al pedido.", "success");
+                  await Swal.fire(
+                    "Listo",
+                    "Se insertó la línea y se enlazó al pedido.",
+                    "success",
+                  );
                   fetchDetalleFactura(facturaId);
                 } else {
-                  await Swal.fire("Error", resp2.data?.message || "No se pudo insertar.", "error");
+                  await Swal.fire(
+                    "Error",
+                    resp2.data?.message || "No se pudo insertar.",
+                    "error",
+                  );
                 }
 
                 return;
               }
 
               if (resp.data?.ok) {
-                await Swal.fire("Listo", "Se insertó la línea y se enlazó al pedido.", "success");
+                await Swal.fire(
+                  "Listo",
+                  "Se insertó la línea y se enlazó al pedido.",
+                  "success",
+                );
                 fetchDetalleFactura(facturaId);
                 return;
               }
@@ -1005,6 +1106,21 @@ const DetalleFactura = () => {
       >
         <BreadcrumbsNav />
         <h2>Detalle Factura {facturaId}</h2>
+        {Number(facturaHeader?.es_provisional) == 1 && (
+          <Box
+            sx={{ display: "flex", gap: 2, mb: 2, justifyContent: "center" }}
+          >
+            <Button variant="contained" component="label">
+              Subir XML y actualizar factura
+              <input
+                hidden
+                type="file"
+                accept=".xml"
+                onChange={(e) => handleActualizarXml(e.target.files?.[0])}
+              />
+            </Button>
+          </Box>
+        )}
         <Box
           display="flex"
           justifyContent="center"
@@ -1067,10 +1183,10 @@ const DetalleFactura = () => {
               pointerEvents: "auto",
               cursor: "help",
             },
-            '& .fila-no-full': {
-              backgroundColor: '#FDECEA', // rojo claro
-              '&:hover': {
-                backgroundColor: '#F9D6D5',
+            "& .fila-no-full": {
+              backgroundColor: "#FDECEA", // rojo claro
+              "&:hover": {
+                backgroundColor: "#F9D6D5",
               },
             },
           }}
@@ -1101,21 +1217,28 @@ const DetalleFactura = () => {
             )
           }
           getRowClassName={(params) => {
-            if (params.row.estatus === "nuevo" || params.row.estatus === "devolver") {
+            if (
+              params.row.estatus === "nuevo" ||
+              params.row.estatus === "devolver"
+            ) {
               return "row-disabled";
             }
-            if (params.row.logistic_type !== 'fulfillment' && params.row.permitir_full === 0) {
-              return 'fila-no-full';
+            if (
+              params.row.logistic_type !== "fulfillment" &&
+              params.row.permitir_full === 0
+            ) {
+              return "fila-no-full";
             }
             return "";
           }}
         />
       </div>
+
       {/* Ventana Modal Details Componente*/}
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => { }} // evitamos que se cierre automáticamente
+        onClose={() => {}} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -1243,7 +1366,7 @@ const DetalleFactura = () => {
                 row.sku.toLowerCase().includes(busquedaSku.toLowerCase()) ||
                 row.descripcion
                   .toLowerCase()
-                  .includes(busquedaSku.toLowerCase())
+                  .includes(busquedaSku.toLowerCase()),
             )}
             columns={[
               {
@@ -1254,7 +1377,7 @@ const DetalleFactura = () => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                    params.row.componente_id ? (
+                  params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",

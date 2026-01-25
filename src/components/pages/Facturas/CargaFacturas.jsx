@@ -1,163 +1,257 @@
-import { Typography } from '@mui/material'
-import axios from 'axios';
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { Typography, Button, Box, Stack, Paper, Divider } from "@mui/material";
+import axios from "axios";
+import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import BackupSharpIcon from '@mui/icons-material/BackupSharp';
-import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import Swal from 'sweetalert2';
-import { useNavigate } from 'react-router-dom';
-import BreadcrumbsNav from './BreadcrumbsNav';
+import BackupSharpIcon from "@mui/icons-material/BackupSharp";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import DownloadIcon from "@mui/icons-material/Download";
+import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";
 
 const CargaFacturas = () => {
-    const [token, setToken] = useState(localStorage.getItem('token'));
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
-    const [fileName, setFileName] = useState("");
-    const [archivo, setArchivo] = useState("");
-    const [proveedorNombre, setProveedorNombre] = useState("");
-    const [totalFactura, setTotalFactura] = useState("");
-    const navigate = useNavigate();
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
 
-    useEffect(() => {
-        const handleStorageChange = () => {
-            setToken(localStorage.getItem('token'));
-            setUser(JSON.parse(localStorage.getItem('user')));
-        };
+  const [lastUploadSummary, setLastUploadSummary] = useState({
+    xml: 0,
+    xlsx: 0,
+    total: 0,
+  });
 
-        // Añadir un listener para el evento `storage`
-        window.addEventListener('storage', handleStorageChange);
+  const navigate = useNavigate();
 
-        // Limpieza al desmontar el componente
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-        };
-    }, []);
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setToken(localStorage.getItem("token"));
+      setUser(JSON.parse(localStorage.getItem("user")));
+    };
 
-    const apiUrl =
-        process.env.NODE_ENV === 'production'
-            ? process.env.REACT_APP_API_URL
-            : process.env.REACT_APP_API_URL_LOCAL;
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
-    const handleFileUpload = async (files) => {
-        const formData = new FormData();
-        files.forEach(file => {
-            if (file.name.toLowerCase().endsWith(".xml")) {
-                formData.append("archivo_xml", file);
-            }
-        });
+  const apiUrl =
+    process.env.NODE_ENV === "production"
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
 
-        try {
-            const response = await axios.post(`${apiUrl}/facturas/cargarFactura`, formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-            });
+  const handleMostrarFacturas = () => navigate(`/facturas`);
 
-            const resultados = response.data.resultados;
-            resultados.forEach(result => {
-                if (!result.error) {
-                    Swal.fire({
-                        title: "¡Éxito!",
-                        text: `${result.archivo} - ${result.mensaje}`,
-                        icon: "success",
-                        timer: 5000,
-                        showCloseButton: true,
-                    });
-                } else {
-                    Swal.fire({
-                        title: "Error",
-                        text: `${result.archivo} - ${result.error}`,
-                        icon: "warning",
-                        timer: 5000,
-                        showCloseButton: true,
-                    });
-                }
-            });
-        } catch (error) {
-            Swal.fire({
-                title: "Error",
-                text: error.response?.data?.message || "Error en la carga.",
-                icon: "error",
-            });
+  const descargarPlantilla = () => {
+    window.open(`${apiUrl}/template/remisionProvisional`, "_blank");
+  };
+
+  // ✅ FRONT: subir XML (facturas reales)
+  const handleXmlUpload = async (xmlFiles) => {
+    const formData = new FormData();
+    xmlFiles.forEach((file) => formData.append("archivo_xml", file));
+
+    try {
+      const response = await axios.post(
+        `${apiUrl}/facturas/cargarFactura`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            // si usas auth por token:
+            // Authorization: `Bearer ${token}`,
+          },
         }
-    };
+      );
 
-    const onDrop = useCallback((acceptedFiles) => {
-        handleFileUpload(acceptedFiles);
-    }, []);
+      const resultados = response.data.resultados || [];
+      resultados.forEach((result) => {
+        if (!result.error) {
+          Swal.fire({
+            title: "¡Éxito!",
+            text: `${result.archivo} - ${result.mensaje}`,
+            icon: "success",
+            timer: 5000,
+            showCloseButton: true,
+          });
+        } else {
+          Swal.fire({
+            title: "Aviso",
+            text: `${result.archivo} - ${result.error}`,
+            icon: "warning",
+            timer: 6000,
+            showCloseButton: true,
+          });
+        }
+      });
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: error.response?.data?.message || "Error en la carga de XML.",
+        icon: "error",
+      });
+    }
+  };
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        multiple: true, // ahora acepta varios
-        accept: { 'text/xml': ['.xml'] }
-    });
+  // FRONT: subir Excel (remisiones provisionales)
+  const handleExcelUpload = async (xlsxFiles) => {
+    const formData = new FormData();
+    xlsxFiles.forEach((file) => formData.append("archivo_excel", file));
 
-    const handleMostrarFacturas = () => {
-        navigate(`/facturas`)
-    };
+    try {
+      await axios.post(`${apiUrl}/facturas/cargarRemisionesExcel`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          // Authorization: `Bearer ${token}`,
+        },
+      });
 
-    return (
-        <div>
-            <div className="gestorOrdenes">
-                <div className='left-actions'>
-                    <div className='action-item'
-                        style={{ cursor: "pointer" }} onClick={handleMostrarFacturas}
-                    >
-                        <DescriptionOutlinedIcon className='action-icon' sx={{ fontSize: 30 }} />
-                        <span>Ver Facturas</span>
-                    </div>
-                </div>
-            </div>
-            <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-                <div style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    textAlign: "center",
-                    fontFamily: "Montserrat",
-                    fontWeight: "bold",
-                    width: "100%"
-                }}>
-                    <h2>Facturas</h2>
-                    {/* Dropzone area */}
-                    <div
-                        {...getRootProps()}
-                        style={{
-                            border: "2px dashed #aaa",
-                            borderRadius: "10px",
-                            padding: "40px",
-                            height: "110px",
-                            width: "80%",
-                            backgroundColor: isDragActive ? "#f0f8ff" : "#fafafa",
-                            transition: "background-color 0.3s ease-in-out",
-                            cursor: "pointer",
-                        }}
-                    >
-                        <BackupSharpIcon color="primary" sx={{ fontSize: 70 }} />
-                        <input {...getInputProps()} />
-                        <Typography variant='body1'>
-                            {isDragActive ? "Suelta el archivo aquí..." : "Arrastra un archivo XML aquí o haz clic para seleccionarlo"}
-                        </Typography>
-                    </div>
+      Swal.fire({
+        title: "¡Listo!",
+        text: "Remisiones (Excel) cargadas correctamente.",
+        icon: "success",
+        timer: 5000,
+        showCloseButton: true,
+      });
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: error.response?.data?.message || "Error en la carga de Excel.",
+        icon: "error",
+      });
+    }
+  };
 
-                    <Typography variant='h6' sx={{ marginTop: 2 }}>
-                        Archivo: {fileName || "Ninguno seleccionado"}
-                    </Typography>
-                    {/* Datos simulados */}
-                    <div style={{
-                        marginTop: "40px",
-                        background: "#fafafa",
-                        border: "2px dashed #aaa",
-                        borderRadius: "10px",
-                        padding: "40px",
-                    }}
-                    >
-                        <Typography variant='h7'>Datos de la factura cargada</Typography>
-                        <Typography variant='h6'>Nombre: {archivo}</Typography>
-                        <Typography variant='h6'>Proveedor: {proveedorNombre}</Typography>
-                        <Typography variant='h6'>Total: {totalFactura}</Typography>
-                    </div>
-                </div>
-            </div>
+  // Separar archivos por extensión
+  const onDrop = useCallback(
+    (acceptedFiles) => {
+      const xmlFiles = acceptedFiles.filter((f) =>
+        f.name.toLowerCase().endsWith(".xml")
+      );
+      const xlsxFiles = acceptedFiles.filter((f) =>
+        f.name.toLowerCase().endsWith(".xlsx")
+      );
+
+      setLastUploadSummary({
+        xml: xmlFiles.length,
+        xlsx: xlsxFiles.length,
+        total: acceptedFiles.length,
+      });
+
+      if (!xmlFiles.length && !xlsxFiles.length) {
+        Swal.fire("Atención", "Solo se permiten archivos .xml y .xlsx", "warning");
+        return;
+      }
+
+      // procesa ambos si vienen mezclados
+      if (xmlFiles.length) handleXmlUpload(xmlFiles);
+      if (xlsxFiles.length) handleExcelUpload(xlsxFiles);
+    },
+    [apiUrl] // token si lo metes en headers
+  );
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: true,
+    accept: {
+      "text/xml": [".xml"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
+    },
+  });
+
+  return (
+    <div>
+      {/* Acciones arriba */}
+      <div className="gestorOrdenes">
+        <div className="left-actions">
+          <div
+            className="action-item"
+            style={{ cursor: "pointer" }}
+            onClick={handleMostrarFacturas}
+          >
+            <DescriptionOutlinedIcon className="action-icon" sx={{ fontSize: 30 }} />
+            <span>Ver Facturas</span>
+          </div>
+
+          <div
+            className="action-item"
+            style={{ cursor: "pointer" }}
+            onClick={descargarPlantilla}
+          >
+            <DownloadIcon className="action-icon" sx={{ fontSize: 30 }} />
+            <span>Descargar Plantilla Remisión</span>
+          </div>
         </div>
-    );
-}
+      </div>
 
-export default CargaFacturas
+      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            fontFamily: "Montserrat",
+            fontWeight: "bold",
+            width: "100%",
+          }}
+        >
+          <h2>Facturas / Remisiones</h2>
+
+          {/* Guía rápida */}
+          <Paper sx={{ width: "80%", p: 2, mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>
+              Puedes subir varios archivos a la vez (.xml y .xlsx)
+            </Typography>
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="body2">
+              <b>XML (Factura CFDI):</b> factura real timbrada, actualiza UUID/costos.
+              <br />
+              <b>Excel (Remisión):</b> documento provisional para recibir mercancía sin XML. Cuando llegue el XML se actualizará.
+            </Typography>
+          </Paper>
+
+          {/* Dropzone único */}
+          <Box
+            {...getRootProps()}
+            sx={{
+              border: "2px dashed #aaa",
+              borderRadius: "10px",
+              p: 4,
+              height: "120px",
+              width: "80%",
+              backgroundColor: isDragActive ? "#f0f8ff" : "#fafafa",
+              transition: "background-color 0.3s ease-in-out",
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <BackupSharpIcon color="primary" sx={{ fontSize: 60 }} />
+            <input {...getInputProps()} />
+            <Typography variant="body1">
+              {isDragActive
+                ? "Suelta los archivos aquí..."
+                : "Arrastra archivos XML o Excel aquí (o clic para seleccionar)"}
+            </Typography>
+          </Box>
+
+          {/* Resumen de selección */}
+          <Paper sx={{ width: "80%", mt: 3, p: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>
+              Resumen de archivos detectados
+            </Typography>
+            <Divider sx={{ my: 1 }} />
+            <Stack direction="row" spacing={3} justifyContent="center">
+              <Typography>XML: {lastUploadSummary.xml}</Typography>
+              <Typography>Excel: {lastUploadSummary.xlsx}</Typography>
+              <Typography>Total: {lastUploadSummary.total}</Typography>
+            </Stack>
+          </Paper>
+        </Box>
+      </Box>
+    </div>
+  );
+};
+
+export default CargaFacturas;
