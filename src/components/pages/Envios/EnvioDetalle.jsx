@@ -566,8 +566,17 @@ const EnvioDetalle = () => {
                                             <TableCell align="right">
                                                 {Number(factura.total_piezas)}
                                             </TableCell>
-                                            <TableCell align="right">
-                                                {factura.total_piezas_surtidas}
+                                            <TableCell
+                                                align="right"
+                                                sx={{
+                                                    fontWeight: "bold",
+                                                    color:
+                                                        Number(factura.total_piezas_surtidas) >= Number(factura.total_piezas)
+                                                            ? "success.main"
+                                                            : "warning.main",
+                                                }}
+                                            >
+                                                {Number(factura.total_piezas_surtidas)}
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -654,9 +663,9 @@ const EnvioDetalle = () => {
                         </Table>
                     </Box>
                 </Paper>
-            </Box>
+            </Box >
             {/* Muestra el CircularProgress mientras cargan los datos */}
-            <Box sx={{ px: 4 }}>
+            < Box sx={{ px: 4 }}>
                 <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2, mt: -2 }}>
                     {/* DataGrid a la izquierda */}
                     <Box
@@ -828,8 +837,8 @@ const EnvioDetalle = () => {
                         Cerrar Envio
                     </Button>
                 </Box>
-            </Box>
-        </div>
+            </Box >
+        </div >
     )
 }
 
