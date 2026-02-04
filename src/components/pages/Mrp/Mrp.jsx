@@ -180,37 +180,7 @@ const MrpSimple = () => {
     };
   }, []);
 
-  // cargar MRP cuando se seleccione proveedor
-  // useEffect(() => {
-  //   let cancel = false;
-
-  //   const fetchMrp = async () => {
-  //     // si no hay proveedor seleccionado, limpia la tabla
-  //     if (!proveedorId) {
-  //       setMrp([]);
-  //       setLoadingMrp(false);
-  //       return;
-  //     }
-  //     setLoadingMrp(true);
-  //     try {
-  //       const { data } = await axios.get(`${apiUrl}/mrp`, {
-  //         params: { proveedor_id: Number(proveedorId) },
-  //       });
-  //       if (!cancel) setMrp(Array.isArray(data) ? data : []);
-  //     } catch (err) {
-  //       console.error("Error cargando MRP", err);
-  //       Swal.fire("Error", "No se pudo cargar el MRP del proveedor.", "error");
-  //     } finally {
-  //       if (!cancel) setLoadingMrp(false);
-  //     }
-  //   };
-
-  //   fetchMrp();
-  //   return () => {
-  //     cancel = true;
-  //   };
-  // }, [proveedorId]);
-
+  
   useEffect(() => {
     setRowSelectionModel([]);
     cargarMrpDelProveedor();
@@ -1133,7 +1103,7 @@ const MrpSimple = () => {
             sx={{
               fontFamily: "Montserrat",
               fontWeight: "bold",
-              height: "100%",
+              height: "150%",
               borderRadius: 2,
               boxShadow: 2,
 
