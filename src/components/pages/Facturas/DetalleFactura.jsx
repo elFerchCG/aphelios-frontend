@@ -34,7 +34,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import LinkOffIcon from "@mui/icons-material/LinkOff";
 import NewReleasesIcon from "@mui/icons-material/NewReleases";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import { green, orange, grey } from "@mui/material/colors";
+import { green, orange, grey, yellow, blue } from "@mui/material/colors";
 import Tooltip from "@mui/material/Tooltip";
 import { Link } from "react-router-dom";
 import BreadcrumbsNav from "./BreadcrumbsNav";
@@ -95,19 +95,40 @@ const DetalleFactura = () => {
     sortable: false,
     filterable: false,
     renderCell: (params) => {
-      const { estatus, pedido_id, factura_detalle_id } = params.row;
+      const { estatus, pedido_id, factura_detalle_id, excedente, back_order } =
+        params.row;
+
       const estaLinkeado = !!pedido_id || !!factura_detalle_id;
+
+      // Normaliza por si vienen como string "0"/"1"
+      const tieneExcedente = Number(excedente) === 1;
+      const tieneBackOrder = Number(back_order) === 1;
+
+      const esVerde = estaLinkeado && !tieneExcedente && !tieneBackOrder;
+
       let icon = null;
 
       if (estaLinkeado) {
+        // Prioridad: backorder > excedente > normal
+        let color = green[600];
+        let title = "Linkeado con éxito";
+
+        if (tieneBackOrder) {
+          color = yellow[800];
+          title = "Linkeado (línea que generó backorder)";
+        } else if (tieneExcedente) {
+          color = blue[600];
+          title = "Linkeado con excedente";
+        }
+
         icon = (
-          <Tooltip title="Linkeado con éxito">
-            <CheckCircleIcon sx={{ color: green[600] }} />
+          <Tooltip title={title}>
+            <CheckCircleIcon sx={{ color }} />
           </Tooltip>
         );
       } else if (estatus === "nuevo") {
         icon = (
-          <Tooltip title="Producto nuevo (Mercadotecnica)">
+          <Tooltip title="Producto nuevo (Mercadotecnia)">
             <NewReleasesIcon sx={{ color: orange[600] }} />
           </Tooltip>
         );
@@ -124,6 +145,7 @@ const DetalleFactura = () => {
           </Tooltip>
         );
       }
+
       return (
         <Box
           sx={{
@@ -533,6 +555,8 @@ const DetalleFactura = () => {
           estatus,
           logistic_type,
           permitir_full,
+          excedente,
+          back_order,
         } = params.row;
 
         // Ocultar icono si la fila es "nuevo" o "devolver"
@@ -540,6 +564,13 @@ const DetalleFactura = () => {
 
         const actions = [];
         const enlazada = Boolean(pedido_id && pedido_linea_id);
+
+        const tieneExcedente = Number(excedente) === 1;
+        const tieneBackOrder = Number(back_order) === 1;
+
+        // "verde" = enlazada y sin excedente/backorder
+        const puedeQuitarEnlace =
+          enlazada && !tieneExcedente && !tieneBackOrder;
 
         // 1) Habilitar FULL (igual que antes)
         if (logistic_type !== "fulfillment" && permitir_full === 0) {
@@ -562,24 +593,47 @@ const DetalleFactura = () => {
 
         // 2) Si está enlazada -> Quitar enlace
         if (enlazada) {
-          actions.push(
-            <Tooltip title="Quitar enlace" key={`unlink-${params.row.id}`}>
-              <GridActionsCellItem
-                icon={
-                  <LinkOffIcon
-                    fontSize="small"
-                    sx={{ ...actionIconSx, color: "#d32f2f" }}
+          if (puedeQuitarEnlace) {
+            actions.push(
+              <Tooltip title="Quitar enlace" key={`unlink-${params.row.id}`}>
+                <GridActionsCellItem
+                  icon={
+                    <LinkOffIcon
+                      fontSize="small"
+                      sx={{ ...actionIconSx, color: "#d32f2f" }}
+                    />
+                  }
+                  label="Quitar enlace"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuitarEnlace(params);
+                  }}
+                  showInMenu={false}
+                />
+              </Tooltip>,
+            );
+          } else {
+            actions.push(
+              <Tooltip
+                title="Esta opción aún no está disponible"
+                key={`unlink-disabled-${params.row.id}`}
+              >
+                <span>
+                  <GridActionsCellItem
+                    icon={
+                      <LinkOffIcon
+                        fontSize="small"
+                        sx={{ ...actionIconSx, color: "#9e9e9e" }}
+                      />
+                    }
+                    label="Quitar enlace (bloqueado)"
+                    disabled
+                    showInMenu={false}
                   />
-                }
-                label="Quitar enlace"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuitarEnlace(params);
-                }}
-                showInMenu={false} // 👈 importante
-              />
-            </Tooltip>,
-          );
+                </span>
+              </Tooltip>,
+            );
+          }
         }
 
         // 3) Si NO está enlazada -> Enlazar manual
