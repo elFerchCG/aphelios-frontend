@@ -240,12 +240,31 @@ const Envios = () => {
       align: "center",
       headerAlign: "center",
     },
+    {
+      field: "fecha_finalizado",
+      headerName: "Fecha finalización",
+      type: 'Date',
+      flex: 0.5,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
+      field: "numero_mercado_libre",
+      headerName: "# ML",
+      type: 'text',
+      flex: 0.5,
+      align: "center",
+      headerAlign: "center",
+      renderCell: ({ value }) =>
+        value ? `${value}` : <em>Sin asignar</em>,
+    },
     { field: 'estatus', headerName: "Estatus", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
     {
       field: "actions",
       headerName: "Acciones",
-      flex: 0.5,
       type: "actions",
+      minWidth: 200,
+      flex: 0,
       getActions: (params) => [
         <Tooltip title="Detalles" key={`envios-${params.row.id}`}>
           <>

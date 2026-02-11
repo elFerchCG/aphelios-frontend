@@ -1,4 +1,4 @@
-import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, GridToolbar } from '@mui/x-data-grid';
+import { DataGrid, GridActionsCellItem, GridDeleteIcon, GridEditInputCell, GridToolbar, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Autocomplete, Box, Button, FormControl, InputAdornment, InputLabel, ListSubheader, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
@@ -91,6 +91,13 @@ const TableOrdenes = () => {
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchTermUbicacion, setSearchTermUbicacion] = useState('');
+
+    const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+        id: false,
+        producto_id: false,
+        localidad_salida_id: false,
+        localidad_entrada_id: false,
+    });
 
     const navigate = useNavigate();
 
@@ -1526,7 +1533,7 @@ const TableOrdenes = () => {
 
     const isCellEditable = () => {
         if (estatus === 'abierto') {
-            return user.rol_id === rolMovimiento ||  isAdmin;
+            return user.rol_id === rolMovimiento || isAdmin;
         }
         return estatus !== 'confirmado' && estatus !== 'procesado' && estatus !== 'cancelada';
     };
@@ -1683,8 +1690,8 @@ const TableOrdenes = () => {
     ]
 
     const columns = [
-        { field: 'id', headerName: 'ID', type: 'number', hide: true },
-        { field: 'producto_id', headerName: 'ID', type: 'number', flex: 1 },
+        { field: 'id', headerName: 'ID Linea', type: 'number', hide: true },
+        { field: 'producto_id', headerName: 'Producto ID', type: 'number', flex: 1 },
         {
             field: 'cantidad', headerName: 'Cantidad', editable: true, type: 'number', flex: 0.5, cellClassName: 'celdaEditable',
             renderEditCell: (params) => {
@@ -1772,7 +1779,7 @@ const TableOrdenes = () => {
                         <GridActionsCellItem
                             icon={<GridDeleteIcon />}
                             sx={{ color: 'red' }}
-                            onClick={deleteLine(params.id)} 
+                            onClick={deleteLine(params.id)}
                             label="Delete"
                         />
                     </Tooltip>
@@ -2188,16 +2195,11 @@ const TableOrdenes = () => {
                         showColumnVerticalBorder
                         getRowId={(row) => row.id}
                         experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id: false,
-                            producto_id: false,
-                            localidad_salida_id: false,
-                            localidad_entrada_id: false,
-                        }}
+                        columnVisibilityModel={columnVisibilityModel}
+                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                         isCellEditable={isCellEditable}
-                        components={{
-                            Toolbar: GridToolbar,
-                        }}
+                        density="compact" // Establece el tamaño de las filas en compacto por defecto
+                        slots={{ toolbar: GridToolbar }}
                     />
                 </div>
                 <Modal

@@ -240,37 +240,37 @@ const DetalleFactura = () => {
     }
   };
 
-const handleActualizarXml = async (file) => {
-  if (!file) return;
+  const handleActualizarXml = async (file) => {
+    if (!file) return;
 
-  const id = Number(facturaHeader?.id); 
-  if (!id) {
-    Swal.fire("Error", "No se pudo identificar la factura/remisión.", "error");
-    return;
-  }
+    const id = Number(facturaHeader?.id);
+    if (!id) {
+      Swal.fire("Error", "No se pudo identificar la factura/remisión.", "error");
+      return;
+    }
 
-  const formData = new FormData();
-  formData.append("archivo_xml", file);
+    const formData = new FormData();
+    formData.append("archivo_xml", file);
 
-  try {
-    const resp = await axios.put(
-      `${apiUrl}/facturas/${id}/actualizarDesdeXml`,
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
-    );
+    try {
+      const resp = await axios.put(
+        `${apiUrl}/facturas/${id}/actualizarDesdeXml`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
-    Swal.fire("Éxito", resp.data?.message || "Factura actualizada.", "success");
+      Swal.fire("Éxito", resp.data?.message || "Factura actualizada.", "success");
 
-    // recarga
-    fetchDetalleFactura(id);
-  } catch (err) {
-    Swal.fire(
-      "Error",
-      err.response?.data?.message || "Error al actualizar XML",
-      "error"
-    );
-  }
-};
+      // recarga
+      fetchDetalleFactura(id);
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Error al actualizar XML",
+        "error"
+      );
+    }
+  };
 
   const handleOpenModal = (params) => {
     setLineaId(params.row.id);
@@ -522,6 +522,22 @@ const handleActualizarXml = async (file) => {
       align: "center",
       headerAlign: "center",
     },
+    // {
+    //   field: "fecha_creacion",
+    //   headerName: "Fecha pedido",
+    //   flex: 0.5,
+    //   align: "center",
+    //   headerAlign: "center",
+    //   valueFormatter: (params) =>
+    //     dayjs(params.value).format("YYYYY/MM/DD"),
+    // },
+    // {
+    //   field: "razon_social",
+    //   headerName: "Proveedor",
+    //   flex: 0.5,
+    //   align: "center",
+    //   headerAlign: "center"
+    // },
     {
       field: "sku",
       headerName: "SKU",
@@ -1238,7 +1254,7 @@ const handleActualizarXml = async (file) => {
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => {}} // evitamos que se cierre automáticamente
+        onClose={() => { }} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -1377,7 +1393,7 @@ const handleActualizarXml = async (file) => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                  params.row.componente_id ? (
+                    params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",
