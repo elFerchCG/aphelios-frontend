@@ -303,7 +303,7 @@ const Envios = () => {
             <GridActionsCellItem
               icon={
                 <Box display="flex" flexDirection="column" alignItems="center">
-                  <AutorenewIcon sx={{ color: params.row.estatus === "abierto" ? undefined : 'orange' }} />
+                  <AutorenewIcon sx={{ color: params.row.estatus === "en_proceso" || params.row.estatus === "abierto" ? undefined : 'orange' }} />
 
                   <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
                     Reabrir
@@ -312,7 +312,7 @@ const Envios = () => {
               }
               label="Abrir envío"
               onClick={() => cambiarEstatusAbiertoEnvio(params.row.id)}
-              disabled={params.row.estatus === 'abierto'}
+              disabled={params.row.estatus === 'en_proceso' || params.row.estatus === 'abierto'}
             />
           </>
         </Tooltip>

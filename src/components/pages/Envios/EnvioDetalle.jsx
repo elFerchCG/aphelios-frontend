@@ -330,7 +330,7 @@ const EnvioDetalle = () => {
                             icon={
                                 <Box display="flex" flexDirection="column" alignItems="center">
                                     <AutorenewIcon sx={{
-                                        color: estatusEnvio === 'cerrado'
+                                        color: estatusEnvio === 'finalizado'
                                             ? undefined
                                             : (params.row.estatus === 'cerrada' ? 'orange' : undefined), fontSize: "2rem"
                                     }} />
@@ -341,7 +341,7 @@ const EnvioDetalle = () => {
                             }
                             label="Reabrir tarima"
                             onClick={() => reabrirTarima(params.row.id)}
-                            disabled={estatusEnvio === 'cerrado' || params.row.estatus === 'abierta'}
+                            disabled={estatusEnvio === 'finalizado' || params.row.estatus === 'abierta'}
                         />
                     </>
                 </Tooltip>,
@@ -440,7 +440,7 @@ const EnvioDetalle = () => {
                             <Button
                                 variant="contained"
                                 onClick={abrirTarima}
-                                disabled={tarimas.length.estatus === 'abierta' || estatusEnvio === 'cerrado'}
+                                disabled={tarimas.length.estatus === 'abierta' || estatusEnvio === 'finalizado'}
                                 sx={{ mb: 1 }}
                             >
                                 Abrir Nueva Tarima
@@ -583,7 +583,7 @@ const EnvioDetalle = () => {
                     <Button
                         variant="contained"
                         onClick={() => cerrarEnvio(envioId)}
-                        disabled={estatusEnvio === 'cerrado'}
+                        disabled={estatusEnvio === 'finalizado'}
                         sx={{ mt: 2, ml: "auto" }}
                     >
                         Cerrar Envio
