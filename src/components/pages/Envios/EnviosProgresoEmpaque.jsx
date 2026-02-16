@@ -91,17 +91,84 @@ const EnviosProgresoEmpaque = () => {
             field: "total_piezas",
             headerName: "Piezas",
             flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
         },
         {
             field: "total_piezas_surtidas",
             headerName: "Piezas Surtidas",
             flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
+        },
+        {
+            field: "avance",
+            headerName: "Avance",
+            type: "number",
+            flex: 1.5,
+            renderCell: (params) => {
+                const total = Number(params.row.total_piezas) || 0;
+                const surtidas = Number(params.row.total_piezas_surtidas) || 0;
+
+                const pct = total > 0
+                    ? Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            Math.round((surtidas / total) * 100)
+                        )
+                    )
+                    : 0;
+
+                return (
+                    <Box sx={{ width: "100%" }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                mb: 0.5,
+                            }}
+                        >
+                            <Typography variant="caption">{pct}%</Typography>
+                            <Typography variant="caption">
+                                {Math.round(surtidas)}/{Math.round(total)}
+                            </Typography>
+                        </Box>
+                        <LinearProgress
+                            variant="determinate"
+                            value={Number(pct)}
+                            sx={{ height: 6, borderRadius: 4 }}
+                        />
+                    </Box>
+                );
+            },
         },
         {
             field: "estatus",
             headerName: "Estatus",
             flex: 1,
-            renderCell: (params) => <Chip label={params.value} size="small" />,
+            renderCell: (params) => {
+                const statusMap = {
+                    asignada: {
+                        label: "Asignada",
+                        color: "success",   // gris
+                    }
+                };
+
+                const status = statusMap[params.value] || {
+                    label: params.value,
+                    color: "default",
+                };
+
+                return (
+                    <Chip
+                        label={status.label}
+                        color={status.color}
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                    />
+                );
+            },
         },
     ];
 
@@ -116,22 +183,31 @@ const EnviosProgresoEmpaque = () => {
             field: "logistic_type", headerName: "Logistica", flex: 1,
             renderCell: (params) => {
                 const logisticType = params.value;
+                const permitir_full = params.row.permitir_full;
                 let color = "default";
                 if (logisticType === "fulfillment") {
                     color = "success";
                     params.value = "FULL";
-                } else {
+                } else if (logisticType !== "fulfillment" && permitir_full === 1) {
+                    color = "error"; // naranja para casos ME con permitir_full activo
+                    params.value = "ME > FULL";
+                } else if (logisticType !== "fulfillment" && permitir_full === 0) {
                     color = "warning";
                     params.value = "ME";
                 }
                 return <Chip label={params.value} size="small" color={color} />;
             }
         },
-        { field: "cantidad_a_producir", headerName: "A Producir", flex: 1 },
+        {
+            field: "cantidad_a_producir", headerName: "A Producir", flex: 1, type: "number",
+            valueFormatter: (value) => Math.round(value ?? 0)
+        },
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number",
             // ✅ SOLO editable si NO está empacada
             editable: (params) => params.row.estatus !== "empacada",
+
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
 
             // ✅ SOLO aplicar estilo editable si NO está empacada
             cellClassName: (params) =>
@@ -140,21 +216,33 @@ const EnviosProgresoEmpaque = () => {
             renderEditCell: (params) => (
                 <GridEditInputCell
                     {...params}
+                    value={parseInt(params.value, 10 || 0)}
                     type="number"
-                    inputProps={{ min: 0 }}
+                    inputProps={{ min: 0, step: 1 }}
                     onWheel={(e) => e.target.blur()}
                 />
             ),
         },
-        { field: "cantidad_empacada", headerName: "Empacada", flex: 1 },
+        { field: "cantidad_empacada", headerName: "Empacada", flex: 1, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         {
             field: "avance",
             headerName: "Avance",
+            type: "number",
             flex: 1.5,
             renderCell: (params) => {
-                const pct = params.row.cantidad_a_enviar > 0
-                    ? Math.round((params.row.cantidad_empacada / params.row.cantidad_a_enviar) * 100)
+                const enviar = Number(params.row.cantidad_a_enviar) || 0;
+                const empacadas = Number(params.row.cantidad_empacada) || 0;
+
+                const pct = enviar > 0
+                    ? Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            Math.round((empacadas / enviar) * 100)
+                        )
+                    )
                     : 0;
+
                 return (
                     <Box sx={{ width: "100%" }}>
                         <Box
@@ -166,12 +254,12 @@ const EnviosProgresoEmpaque = () => {
                         >
                             <Typography variant="caption">{pct}%</Typography>
                             <Typography variant="caption">
-                                {params.row.cantidad_empacada}/{params.row.cantidad_a_enviar}
+                                {Math.round(empacadas)}/{Math.round(enviar)}
                             </Typography>
                         </Box>
                         <LinearProgress
                             variant="determinate"
-                            value={pct}
+                            value={Number(pct)}
                             sx={{ height: 6, borderRadius: 4 }}
                         />
                     </Box>
@@ -195,6 +283,10 @@ const EnviosProgresoEmpaque = () => {
                     empacada: {
                         label: "Empacada",
                         color: "success",   // verde
+                    },
+                    cerrada: {
+                        label: "Cerrada",
+                        color: "secondary",   // red
                     },
                 };
 
@@ -226,20 +318,24 @@ const EnviosProgresoEmpaque = () => {
             field: "logistic_type", headerName: "Logistica", flex: 1,
             renderCell: (params) => {
                 const logisticType = params.value;
+                const permitir_full = params.row.permitir_full;
                 let color = "default";
                 if (logisticType === "fulfillment") {
                     color = "success";
                     params.value = "FULL";
-                } else {
+                } else if (logisticType !== "fulfillment" && permitir_full === 1) {
+                    color = "secondary"; // naranja para casos ME con permitir_full activo
+                    params.value = "ME > FULL";
+                } else if (logisticType !== "fulfillment" && permitir_full === 0) {
                     color = "warning";
                     params.value = "ME";
                 }
                 return <Chip label={params.value} size="small" color={color} />;
             }
         },
-        { field: "cantidad_a_producir", headerName: "A Producir", flex: 1 },
+        { field: "cantidad_a_producir", headerName: "A Producir", flex: 1, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         {
-            field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number",
+            field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)),
             // renderEditCell: (params) => {
             //     return (
             //         <GridEditInputCell
@@ -253,15 +349,26 @@ const EnviosProgresoEmpaque = () => {
             //     );
             // },
         },
-        { field: "cantidad_empacada", headerName: "Empacada", flex: 1 },
+        { field: "cantidad_empacada", headerName: "Empacada", flex: 1, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         {
             field: "avance",
             headerName: "Avance",
             flex: 1.5,
+            type: "number",
             renderCell: (params) => {
-                const pct = params.row.cantidad_a_enviar > 0
-                    ? Math.round((params.row.cantidad_empacada / params.row.cantidad_a_enviar) * 100)
+                const enviar = Number(params.row.cantidad_a_enviar) || 0;
+                const empacadas = Number(params.row.cantidad_empacada) || 0;
+
+                const pct = enviar > 0
+                    ? Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            Math.round((empacadas / enviar) * 100)
+                        )
+                    )
                     : 0;
+
                 return (
                     <Box sx={{ width: "100%" }}>
                         <Box
@@ -273,12 +380,12 @@ const EnviosProgresoEmpaque = () => {
                         >
                             <Typography variant="caption">{pct}%</Typography>
                             <Typography variant="caption">
-                                {params.row.cantidad_empacada}/{params.row.cantidad_a_enviar}
+                                {Math.round(empacadas)}/{Math.round(enviar)}
                             </Typography>
                         </Box>
                         <LinearProgress
                             variant="determinate"
-                            value={pct}
+                            value={Number(pct)}
                             sx={{ height: 6, borderRadius: 4 }}
                         />
                     </Box>
@@ -303,6 +410,10 @@ const EnviosProgresoEmpaque = () => {
                         label: "Empacada",
                         color: "success",   // verde
                     },
+                    cerrada: {
+                        label: "Cerrada",
+                        color: "secondary",   // red
+                    },
                 };
 
                 const status = statusMap[params.value] || {
@@ -325,29 +436,83 @@ const EnviosProgresoEmpaque = () => {
     const ordenesDeRetiros = [
         { field: "orden_bodega_id", headerName: "#Orden Bodega", flex: 1 },
         { field: "orden_bodega_descripcion", headerName: "Descripción", flex: 2 },
-        { field: "orden_bodega_estatus", headerName: "Estatus", flex: 1 },
         {
             field: "fecha_orden", headerName: "Fecha", flex: 1, valueFormatter: (params) =>
                 dayjs(params.value).format("DD/MM/YYYY"),
         },
-        { field: "total_a_enviar", headerName: "A Enviar", flex: 1 },
-        { field: "total_empacado", headerName: "Empacado", flex: 1 },
+        { field: "total_a_enviar", headerName: "A Enviar", flex: 1, valueFormatter: (value) => Math.round(Number(value ?? 0)), },
+        { field: "total_empacado", headerName: "Empacado", flex: 1, valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         {
             field: "avance",
             headerName: "Avance",
             flex: 1.5,
             renderCell: (params) => {
                 const pct =
-                    params.row.total_a_enviar > 0
+                    Number(params.row.total_a_enviar > 0)
                         ? Math.round(
-                            (params.row.total_empacado / params.row.total_a_enviar) * 100
+                            (Number(params.row.total_empacado) / Number(params.row.total_a_enviar)) * 100
                         )
                         : 0;
 
                 return (
-                    <>
-                        {pct}%
-                    </>
+                    <Box sx={{ width: "100%" }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                mb: 0.5,
+                            }}
+                        >
+                            <Typography variant="caption">{Number(pct)}%</Typography>
+                            <Typography variant="caption">
+                                {Math.round(params.row.total_empacado)}/{Math.round(params.row.total_a_enviar)}
+                            </Typography>
+                        </Box>
+                        <LinearProgress
+                            variant="determinate"
+                            value={Number(pct)}
+                            sx={{ height: 6, borderRadius: 4 }}
+                        />
+                    </Box>
+                );
+            },
+        },
+        {
+            field: "orden_bodega_estatus",
+            headerName: "Estatus",
+            flex: 1,
+            renderCell: (params) => {
+                const statusMap = {
+                    abierto: {
+                        label: "Abierto",
+                        color: "default",   // gris
+                    },
+                    confirmado: {
+                        label: "Confirmado",
+                        color: "warning",   // amarillo
+                    },
+                    procesado: {
+                        label: "Procesado",
+                        color: "success",   // verde
+                    },
+                    cancelado: {
+                        label: "Cancelado",
+                        color: "secondary",   // red
+                    },
+                };
+
+                const status = statusMap[params.value] || {
+                    label: params.value,
+                    color: "default",
+                };
+
+                return (
+                    <Chip
+                        label={status.label}
+                        color={status.color}
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                    />
                 );
             },
         },
@@ -356,11 +521,13 @@ const EnviosProgresoEmpaque = () => {
     const [columnVisibilityOrdenesFacturas, setColumnVisibilityModelOrdenesFacturas] = useState({
         id: false,
         producto_id: false,
+        permitir_full: false,
     });
 
     const [columnVisibilityOrdenesRetiros, setColumnVisibilityModelOrdenesRetiros] = useState({
         id: false,
         producto_id: false,
+        permitir_full: false,
     });
 
     const [columnVisibilityFacturas, setColumnVisibilityModelFacturas] = useState({
@@ -406,6 +573,8 @@ const EnviosProgresoEmpaque = () => {
                     cantidad_a_enviar: newRow.cantidad_a_enviar
                 }
             );
+
+            await fetchPiezasYFacturas();
 
             Swal.fire({
                 icon: "success",

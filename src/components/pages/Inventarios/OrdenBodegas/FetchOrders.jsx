@@ -106,10 +106,10 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
     };
 
     const columns = [
-        { field: 'id', headerName: 'Folio', flex: 0.3 },
-        { field: 'descripcion', headerName: 'Descripción', flex: 2 },
+        { field: 'id', headerName: 'Folio', flex: 0.2 },
+        { field: 'descripcion', headerName: 'Descripción', flex: 1 },
         { field: 'estatus', headerName: 'Estatus', flex: 0.3 },
-        { field: 'categoria', headerName: 'Tipo de Movimiento', flex: 0.5 },
+        { field: 'categoria', headerName: 'Tipo de Movimiento', flex: 0.3 },
         { field: 'fecha_abierto', headerName: 'Fecha', flex: 0.3 }
     ];
 
@@ -172,7 +172,7 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
                         }}
                     />
                     <h2 id="modal-title">Órdenes Disponibles</h2>
-                    <DataGrid style={{ height: 400, width: 'auto', fontFamily: "Montserrat", fontWeight: "bold" }}
+                    <DataGrid style={{ height: 400, fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={filteredOrders}
                         columns={columns}
                         sortModel={[

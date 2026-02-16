@@ -90,17 +90,24 @@ const Surtido = () => {
         </GridToolbarContainer>
     );
 
-    // Estilos del modal
     const styleModalAsignar = {
         position: 'absolute',
-        width: "70%",
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
+
+        width: '90%',
+        maxWidth: '1200px',
+        height: '90vh',            // 🔥 altura máxima relativa a pantalla
+        maxHeight: '90vh',
+
         bgcolor: 'background.paper',
-        borderRadius: 4,
+        borderRadius: 3,
         boxShadow: 24,
-        p: 4,
+        p: 3,
+
+        display: 'flex',           // 🔥 layout flexible
+        flexDirection: 'column',   // 🔥 contenido vertical
     };
 
     // Estilos del modal etiquetas
@@ -653,10 +660,92 @@ const Surtido = () => {
         }
     ]
 
+    const columnsFULLAsignar = [
+        { field: "id", headerName: "Folio detalle orden", flex: 1 },
+        { field: "orden_id", headerName: "Folio orden", flex: 1 },
+        { field: "sku", headerName: "SKU Componente", flex: 1 },
+        { field: "descripcion", headerName: "Descripción", flex: 2 },
+        {
+            field: "cantidad_contada",
+            headerName: "Cantidad contada",
+            flex: 1,
+            type: "number",
+        },
+        {
+            field: "cantidad_a_contar",
+            headerName: "Cantidad a surtir",
+            type: "number",
+            flex: 1,
+            editable: true,
+            cellClassName: 'celdaEditable',
+            renderEditCell: (params) => (
+                <GridEditInputCell
+                    {...params}
+                    type="number"
+                    inputProps={{ min: 0 }}
+                    onWheel={(e) => e.target.blur()}
+                />
+            ),
+            preProcessEditCellProps: (params) => {
+                const { props } = params;
+
+                const value = Math.max(0, props.value);
+                const isValid = /^[0-9]+$/.test(value);
+
+                return {
+                    ...props,
+                    value,
+                    error: !isValid,
+                };
+            }
+        },
+    ];
+
+    const columnsSurtirNoFull = [
+        { field: "id", headerName: "Folio detalle orden", flex: 1 },
+        { field: "orden_id", headerName: "Folio orden", flex: 1 },
+        { field: "sku", headerName: "SKU Componente", flex: 1 },
+        { field: "descripcion", headerName: "Descripción", flex: 2 },
+        {
+            field: "cantidad_contada",
+            headerName: "Cantidad contada",
+            flex: 1,
+            type: "number",
+        },
+        {
+            field: "cantidad_a_contar",
+            headerName: "Cantidad a surtir",
+            type: "number",
+            flex: 1,
+            editable: true,
+            cellClassName: 'celdaEditable',
+            renderEditCell: (params) => (
+                <GridEditInputCell
+                    {...params}
+                    type="number"
+                    inputProps={{ min: 0 }}
+                    onWheel={(e) => e.target.blur()}
+                />
+            ),
+            preProcessEditCellProps: (params) => {
+                const { props } = params;
+
+                const value = Math.max(0, props.value);
+                const isValid = /^[0-9]+$/.test(value);
+
+                return {
+                    ...props,
+                    value,
+                    error: !isValid,
+                };
+            }
+        },
+    ];
+
     return (
         <div>
-            <div className='DataG' style={{ height: 500, width: "90%" }}>
-                <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
+            <div className='DataG' style={{ width: "90%" }}>
+                <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold", marginTop: "-20px" }}>
                     <h1>Surtido</h1>
                 </div>
                 <div
@@ -666,6 +755,7 @@ const Surtido = () => {
                         alignItems: "center",
                         fontFamily: "Montserrat",
                         fontWeight: "bold",
+                        marginTop: "-20px",
                         marginBottom: "10px",
                     }}
                 >
@@ -763,197 +853,189 @@ const Surtido = () => {
                     }}
                 />
             </div>
-            <Modal id={'modal-asignar'} open={openAsignar} onClose={handleCloseAsignar}>
+            <Modal id={"modal-asignar"} open={openAsignar} onClose={handleCloseAsignar}>
                 <Box sx={styleModalAsignar}>
-                    <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
+
+                    {/* HEADER */}
+                    <Typography
+                        sx={{
+                            fontFamily: 'Montserrat',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            mb: 2,
+                            fontSize: 18
+                        }}
+                    >
                         Asignar orden
                     </Typography>
-                    <DataGrid
-                        rows={componentes}
-                        columns={[
-                            { field: "id", headerName: "Folio detalle orden", flex: 1 },
-                            { field: "orden_id", headerName: "Folio orden", flex: 1 },
-                            { field: "sku", headerName: "SKU Componente", flex: 1 },
-                            { field: "descripcion", headerName: "Descripción", flex: 2 },
-                            {
-                                field: "cantidad_contada",
-                                headerName: "Cantidad contada",
-                                flex: 1,
-                                type: "number",
 
-                            },
-                            {
-                                field: "cantidad_a_contar",
-                                headerName: "Cantidad a surtir",
-                                type: "number",
-                                flex: 1,
-                                editable: true,
-                                cellClassName: 'celdaEditable',
-                                renderEditCell: (params) => {
-                                    return (
-                                        <GridEditInputCell
-                                            {...params}
-                                            type="number"
-                                            inputProps={{
-                                                min: 0, // Establecer el mínimo permitido en el input
-                                            }}
-                                            onWheel={(e) => e.target.blur()} // Evitar cambios accidentales con la rueda del mouse
-                                        />
-                                    );
-                                },
-                                preProcessEditCellProps: (params) => {
-                                    const { props } = params;
-
-                                    // Asegurar que el valor sea al menos 0
-                                    const value = Math.max(0, props.value);
-
-                                    const isValid = /^[0-9]+$/.test(value);
-
-                                    return {
-                                        ...props,
-                                        value, // Forzar el valor a 0 si es menor
-                                        error: !isValid,  // Marca la celda con error si la validación falla
-                                    };
-                                }
-                            },
-                        ]}
-                        getRowId={(row) => row.id}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        pageSize={10}
-                        rowsPerPageOptions={[10, 25, 50]}
-                        density="compact"
-                        disableRowSelectionOnClick
-                        onProcessRowUpdateError={handleProcessRowUpdateError} // Aquí añadimos el manejador global
-                        processRowUpdate={processRowUpdate}
-                        isCellEditable={isCellEditable}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            // Hide columns status and traderName, the other columns will remain visible
-                            id: false,
-                            orden_id: false,
-                        }}
+                    {/* CONTENIDO SCROLLEABLE */}
+                    <Box
                         sx={{
-                            fontFamily: "Montserrat",
-                            fontWeight: "bold",
-                            mb: 5
+                            flex: 1,                 // 🔥 ocupa todo el espacio disponible
+                            overflowY: 'auto',       // 🔥 solo esta parte hace scroll
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2
                         }}
-                    />
+                    >
 
-                    <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
-                        <FormControl fullWidth sx={{ width: 223, ml: "auto" }}>
-                            <InputLabel id="operador-label">Operador</InputLabel>
-                            <Select
-                                labelId="operador-label"
-                                id="operador"
-                                value={selectedUsuario ? selectedUsuario.id_usuario : ''}
-                                label="Operador"
-                                onChange={handleSelectedUsuario}
-                                disabled={!habilitarAsignar}
-                                sx={{
-                                    backgroundColor: !habilitarAsignar ? '#f0f0f0' : 'white',
-                                    '.MuiSelect-select': {
-                                        color: !habilitarAsignar ? '#9e9e9e' : 'black',
-                                    },
-                                }}
-                            >
-                                {usuarios.map((usuario) => (
-                                    <MenuItem key={usuario.id_usuario} value={usuario.id_usuario}>
-                                        {usuario.nombre}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        <DataGrid
+                            rows={componentes}
+                            columns={columnsFULLAsignar}
+                            getRowId={(row) => row.id}
+                            pageSize={10}
+                            rowsPerPageOptions={[10, 25, 50]}
+                            density="compact"
+                            disableRowSelectionOnClick
+                            processRowUpdate={processRowUpdate}
+                            onProcessRowUpdateError={handleProcessRowUpdateError}
+                            isCellEditable={isCellEditable}
+                            experimentalFeatures={{ newEditingApi: true }}
+                            columnVisibilityModel={{
+                                id: false,
+                                orden_id: false,
+                            }}
+                            sx={{
+                                fontFamily: "Montserrat",
+                                fontWeight: "bold",
+                            }}
+                        />
+
+                        {/* SELECT OPERADOR */}
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <FormControl sx={{ width: 250 }}>
+                                <InputLabel id="operador-label">Operador</InputLabel>
+                                <Select
+                                    labelId="operador-label"
+                                    value={selectedUsuario ? selectedUsuario.id_usuario : ''}
+                                    label="Operador"
+                                    onChange={handleSelectedUsuario}
+                                    disabled={!habilitarAsignar}
+                                >
+                                    {usuarios.map((usuario) => (
+                                        <MenuItem
+                                            key={usuario.id_usuario}
+                                            value={usuario.id_usuario}
+                                        >
+                                            {usuario.nombre}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+
                     </Box>
-                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
-                        <Button onClick={handleCloseAsignar} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
-                        <Button onClick={asignarLinea} variant="contained" color="success" disabled={!habilitarAsignar} sx={{ width: 190 }}>Asignar e Imprimir</Button>
+
+                    {/* FOOTER FIJO */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            mt: 2
+                        }}
+                    >
+                        <Button
+                            onClick={handleCloseAsignar}
+                            variant="contained"
+                            sx={{ width: 100 }}
+                        >
+                            Cerrar
+                        </Button>
+
+                        <Button
+                            onClick={asignarLinea}
+                            variant="contained"
+                            color="success"
+                            disabled={!habilitarAsignar}
+                            sx={{ width: 200 }}
+                        >
+                            Asignar e Imprimir
+                        </Button>
                     </Box>
+
                 </Box>
             </Modal>
             {/* Modal para surtir productos ME */}
-            <Modal id={'modal-surtirNoFull'} open={openSurtirNoFull} onClose={handleCloseSurtirNoFull}>
+            <Modal
+                open={openSurtirNoFull}
+                onClose={handleCloseSurtirNoFull}
+            >
                 <Box sx={styleModalAsignar}>
-                    <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
+
+                    {/* HEADER */}
+                    <Typography
+                        sx={{
+                            fontFamily: 'Montserrat',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            mb: 2,
+                            fontSize: 18
+                        }}
+                    >
                         Surtir y empacar Mercado Envíos
                     </Typography>
-                    <DataGrid
-                        rows={componentes}
-                        columns={[
-                            { field: "id", headerName: "Folio detalle orden", flex: 1 },
-                            { field: "orden_id", headerName: "Folio orden", flex: 1 },
-                            { field: "sku", headerName: "SKU Componente", flex: 1 },
-                            { field: "descripcion", headerName: "Descripción", flex: 2 },
-                            {
-                                field: "cantidad_contada",
-                                headerName: "Cantidad contada",
-                                flex: 1,
-                                type: "number",
 
-                            },
-                            {
-                                field: "cantidad_a_contar",
-                                headerName: "Cantidad a surtir",
-                                type: "number",
-                                flex: 1,
-                                editable: true,
-                                cellClassName: 'celdaEditable',
-                                renderEditCell: (params) => {
-                                    return (
-                                        <GridEditInputCell
-                                            {...params}
-                                            type="number"
-                                            inputProps={{
-                                                min: 0, // Establecer el mínimo permitido en el input
-                                            }}
-                                            onWheel={(e) => e.target.blur()} // Evitar cambios accidentales con la rueda del mouse
-                                        />
-                                    );
-                                },
-                                preProcessEditCellProps: (params) => {
-                                    const { props } = params;
-
-                                    // Asegurar que el valor sea al menos 0
-                                    const value = Math.max(0, props.value);
-
-                                    const isValid = /^[0-9]+$/.test(value);
-
-                                    return {
-                                        ...props,
-                                        value, // Forzar el valor a 0 si es menor
-                                        error: !isValid,  // Marca la celda con error si la validación falla
-                                    };
-                                }
-                            },
-                        ]}
-                        getRowId={(row) => row.id}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        pageSize={10}
-                        rowsPerPageOptions={[10, 25, 50]}
-                        density="compact"
-                        disableRowSelectionOnClick
-                        onProcessRowUpdateError={handleProcessRowUpdateError} // Aquí añadimos el manejador global
-                        processRowUpdate={processRowUpdateNoFull}
-                        isCellEditable={isCellEditable}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        columnVisibilityModel={{
-                            id: false,
-                            orden_id: false,
-                        }}
+                    {/* CONTENIDO SCROLLEABLE */}
+                    <Box
                         sx={{
-                            fontFamily: "Montserrat",
-                            fontWeight: "bold",
-                            mb: 5
+                            flex: 1,
+                            overflowY: 'auto',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2
                         }}
-                    />
-                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
-                        <Button onClick={handleCloseSurtirNoFull} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
-                        <Button onClick={imprimirEtiquetasNoFULL} variant="contained" color="success" disabled={!habilitarAsignar} sx={{ width: 190 }}>Imprimir etiqueta</Button>
+                    >
+                        <DataGrid
+                            rows={componentes}
+                            columns={columnsSurtirNoFull}
+                            getRowId={(row) => row.id}
+                            density="compact"
+                            disableRowSelectionOnClick
+                            processRowUpdate={processRowUpdateNoFull}
+                            onProcessRowUpdateError={handleProcessRowUpdateError}
+                            isCellEditable={isCellEditable}
+                            experimentalFeatures={{ newEditingApi: true }}
+                            columnVisibilityModel={{
+                                id: false,
+                                orden_id: false,
+                            }}
+                            sx={{
+                                fontFamily: "Montserrat",
+                                fontWeight: "bold",
+                            }}
+                        />
                     </Box>
+
+                    {/* FOOTER FIJO */}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            mt: 2
+                        }}
+                    >
+                        <Button
+                            onClick={handleCloseSurtirNoFull}
+                            variant="contained"
+                            sx={{ width: 100 }}
+                        >
+                            Cerrar
+                        </Button>
+
+                        <Button
+                            onClick={imprimirEtiquetasNoFULL}
+                            variant="contained"
+                            color="success"
+                            disabled={!habilitarAsignar}
+                            sx={{ width: 200 }}
+                        >
+                            Imprimir etiqueta
+                        </Button>
+                    </Box>
+
                 </Box>
             </Modal>
-
             <Modal id={'modal-imprimir'} open={openImprimir} onClose={handleCloseImprimir}>
                 <Box sx={styleModalEtiquetas}>
                     <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
