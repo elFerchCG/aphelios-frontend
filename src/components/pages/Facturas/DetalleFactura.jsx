@@ -1692,7 +1692,7 @@ const DetalleFactura = () => {
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => {}} // evitamos que se cierre automáticamente
+        onClose={() => { }} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -1831,7 +1831,7 @@ const DetalleFactura = () => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                  params.row.componente_id ? (
+                    params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",

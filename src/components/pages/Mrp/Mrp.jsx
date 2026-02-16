@@ -313,6 +313,17 @@ const MrpSimple = () => {
             await cargarMrpDelProveedor();
           }
 
+          if (res.data.estado === "SIN_PEDIDO") {
+            clearInterval(timer);
+            closeLoader();
+            Swal.fire(
+              "Sin demanda",
+              "No se generó ninguna orden porque no hay productos con pedido mayor a 0.",
+              "info"
+            );
+            await cargarMrpDelProveedor();
+          }
+
           if (res.data.estado === "ERROR") {
             clearInterval(timer);
             closeLoader();

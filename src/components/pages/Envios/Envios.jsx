@@ -240,12 +240,31 @@ const Envios = () => {
       align: "center",
       headerAlign: "center",
     },
+    {
+      field: "fecha_finalizado",
+      headerName: "Fecha finalización",
+      type: 'Date',
+      flex: 0.5,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
+      field: "numero_mercado_libre",
+      headerName: "# ML",
+      type: 'text',
+      flex: 0.5,
+      align: "center",
+      headerAlign: "center",
+      renderCell: ({ value }) =>
+        value ? `${value}` : <em>Sin asignar</em>,
+    },
     { field: 'estatus', headerName: "Estatus", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
     {
       field: "actions",
       headerName: "Acciones",
-      flex: 0.5,
       type: "actions",
+      minWidth: 200,
+      flex: 0,
       getActions: (params) => [
         <Tooltip title="Detalles" key={`envios-${params.row.id}`}>
           <>
@@ -284,7 +303,7 @@ const Envios = () => {
             <GridActionsCellItem
               icon={
                 <Box display="flex" flexDirection="column" alignItems="center">
-                  <AutorenewIcon sx={{ color: params.row.estatus === "abierto" ? undefined : 'orange' }} />
+                  <AutorenewIcon sx={{ color: params.row.estatus === "en_proceso" || params.row.estatus === "abierto" ? undefined : 'orange' }} />
 
                   <Typography variant='caption' sx={{ fontSize: "0.7rem", fontWeight: "bold" }}>
                     Reabrir
@@ -293,7 +312,7 @@ const Envios = () => {
               }
               label="Abrir envío"
               onClick={() => cambiarEstatusAbiertoEnvio(params.row.id)}
-              disabled={params.row.estatus === 'abierto'}
+              disabled={params.row.estatus === 'en_proceso' || params.row.estatus === 'abierto'}
             />
           </>
         </Tooltip>
