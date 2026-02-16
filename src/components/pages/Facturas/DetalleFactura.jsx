@@ -593,14 +593,61 @@ const DetalleFactura = () => {
 
         // 2) Si está enlazada -> Quitar enlace
         if (enlazada) {
-          if (puedeQuitarEnlace) {
+          // 🟦 EXCEDENTE → endpoint de excedente
+          if (tieneExcedente) {
+            actions.push(
+              <Tooltip
+                title="Desenlazar excedente"
+                key={`unlink-ex-${params.row.id}`}
+              >
+                <GridActionsCellItem
+                  icon={
+                    <LinkOffIcon
+                      fontSize="small"
+                      sx={{ ...actionIconSx, color: "#1565c0" }} // azul
+                    />
+                  }
+                  label="Desenlazar excedente"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuitarEnlaceExcedente(params);
+                  }}
+                  showInMenu={false}
+                />
+              </Tooltip>,
+            );
+          }
+          // 🟨 BACKORDER → endpoint de backorder
+          else if (tieneBackOrder) {
+            actions.push(
+              <Tooltip
+                title="Desenlazar backorder"
+                key={`unlink-bo-${params.row.id}`}
+              >
+                <GridActionsCellItem
+                  icon={
+                    <LinkOffIcon
+                      fontSize="small"
+                      sx={{ ...actionIconSx, color: "#f9a825" }} // amarillo
+                    />
+                  }
+                  label="Desenlazar backorder"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuitarBackOrder(params);
+                  }}
+                  showInMenu={false}
+                />
+              </Tooltip>,
+            );
+          } else {
             actions.push(
               <Tooltip title="Quitar enlace" key={`unlink-${params.row.id}`}>
                 <GridActionsCellItem
                   icon={
                     <LinkOffIcon
                       fontSize="small"
-                      sx={{ ...actionIconSx, color: "#d32f2f" }}
+                      sx={{ ...actionIconSx, color: "#d32f2f" }} // rojo
                     />
                   }
                   label="Quitar enlace"
@@ -610,27 +657,6 @@ const DetalleFactura = () => {
                   }}
                   showInMenu={false}
                 />
-              </Tooltip>,
-            );
-          } else {
-            actions.push(
-              <Tooltip
-                title="Esta opción aún no está disponible"
-                key={`unlink-disabled-${params.row.id}`}
-              >
-                <span>
-                  <GridActionsCellItem
-                    icon={
-                      <LinkOffIcon
-                        fontSize="small"
-                        sx={{ ...actionIconSx, color: "#9e9e9e" }}
-                      />
-                    }
-                    label="Quitar enlace (bloqueado)"
-                    disabled
-                    showInMenu={false}
-                  />
-                </span>
               </Tooltip>,
             );
           }
@@ -1372,6 +1398,92 @@ const DetalleFactura = () => {
     setOpenEnvioModal(false);
     setSelectedEnvio(null);
     setSelectedLineasFacturas([]);
+  };
+
+  const handleQuitarEnlaceExcedente = async (params) => {
+    const facturaDetalleId = params.row.id;
+    try {
+      const confirm = await Swal.fire({
+        title: "¿Desenlazar excedente?",
+        text: "Esto restaurará la línea original del pedido y dejará cantidad_recibida en 0.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, desenlazar",
+        cancelButtonText: "Cancelar",
+      });
+      if (!confirm.isConfirmed) return;
+
+      await axios.put(
+        `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarExcedente`,
+      );
+
+      Swal.fire("Listo", "Excedente desenlazado.", "success");
+
+ 
+      await fetchDetalleFactura(facturaId); 
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "No se pudo desenlazar excedente.",
+        "error",
+      );
+    }
+  };
+
+  const handleQuitarBackOrder = async (params) => {
+    const facturaDetalleId = params.row.id;
+
+    const confirm = await Swal.fire({
+      title: "¿Desenlazar Backorder?",
+      text: "Esto revertirá el split y eliminará las líneas de backorder.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, desenlazar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const { data } = await axios.put(
+        `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarBackOrder`,
+      );
+
+      if (data?.ok) {
+        await Swal.fire(
+          "Listo",
+          "Backorder desenlazado correctamente.",
+          "success",
+        );
+
+        await fetchDetalleFactura(facturaId); 
+        return;
+      }
+
+      await Swal.fire(
+        "Atención",
+        data?.message || "No se pudo desenlazar el backorder.",
+        "warning",
+      );
+    } catch (err) {
+      const api = err?.response?.data;
+      const code = api?.code;
+
+      let msg = api?.message || "Error al desenlazar backorder.";
+
+      if (code === "CHILD_ALREADY_LINKED") {
+        msg = "No disponible: este backorder ya fue enlazado a otra factura.";
+      } else if (code === "OP_CHILD_HAS_MOVES") {
+        msg = "No disponible: la orden de producción ya tiene movimientos.";
+      } else if (code === "CHILD_NOT_FOUND_OR_MULTIPLE") {
+        msg = "Inconsistencia de datos: no se pudo identificar la línea hija.";
+      } else if (code === "NOT_A_BACKORDER_SPLIT") {
+        msg = "Esta línea no corresponde a un backorder.";
+      }
+
+      await Swal.fire("No se pudo", msg, "error");
+    }
   };
 
   const asignarLineasFacturas = async () => {
