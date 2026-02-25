@@ -2,162 +2,75 @@ import React, { useEffect, useState } from "react";
 import {
     Box,
     Button,
-    Checkbox,
-    Collapse,
-    IconButton,
+    Chip,
     Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
     Typography
 } from "@mui/material";
 import { Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import axios from "axios";
 import Swal from "sweetalert2";
 import dayjs from 'dayjs';
-import { DataGrid } from "@mui/x-data-grid";
-
-const Row = ({ row, selectedOrdenes, setSelectedOrdenes }) => {
-    const [open, setOpen] = useState(false);
-
-    const isSelected = selectedOrdenes.includes(row.orden_id);
-
-    const handleToggle = () => {
-        if (row.envio_id != null) return; // 🔒 protección lógica
-
-        setSelectedOrdenes((prev) =>
-            isSelected
-                ? prev.filter((id) => id !== row.orden_id)
-                : [...prev, row.orden_id]
-        );
-    };
-
-    return (
-        <>
-            <TableRow
-                hover selected={isSelected}
-            >
-                <TableCell padding="checkbox">
-                    <Checkbox
-                        checked={isSelected}
-                        onChange={handleToggle}
-                        disabled={row.envio_id != null}
-                    />
-                </TableCell>
-                <TableCell>
-                    <IconButton size="small" onClick={() => setOpen(!open)}>
-                        {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                    </IconButton>
-                </TableCell>
-                {/* <TableCell align="center">{row.orden_id}</TableCell>
-                <TableCell align="center">{row.producto_id}</TableCell> */}
-                <TableCell>{row.orden_bodega_id}</TableCell>
-                <TableCell>{row.mlm}</TableCell>
-                <TableCell align="center">{row.title}</TableCell>
-                <TableCell align="center">{row.sku_publicacion}</TableCell>
-                <TableCell align="center">{row.inventory_id}</TableCell>
-                <TableCell align="center">{row.logistic_type === "fulfillment" || row.permitir_full === 1 ? "Full" : "ME"}</TableCell>
-                <TableCell align="center">{row.cantidad_a_producir}</TableCell>
-                <TableCell align="center">{row.cantidad_empacada}</TableCell>
-                <TableCell align="center">{row.estatus}</TableCell>
-                <TableCell>
-                    {dayjs(row.fecha_creacion).format('DD/MM/YYYY')}
-                </TableCell>
-                <TableCell align="center">{row.envio_id ?? 'Sin asignar'}</TableCell>
-            </TableRow>
-            <TableRow>
-                <TableCell colSpan={10} sx={{ paddingBottom: 0, paddingTop: 0 }}>
-                    <Collapse in={open} timeout="auto" unmountOnExit>
-                        <Box sx={{ margin: 2 }}>
-                            <Typography variant="subtitle1"
-                                sx={{ fontWeight: "bold", mb: 1 }}
-                            >
-                                Componentes
-                            </Typography>
-
-                            <Table size="small"
-                                sx={{
-                                    backgroundColor: "#f9f9f9",
-                                    borderRadius: 2,
-                                }}
-                            >
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: "bold" }}>
-                                            Componente
-                                        </TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                            Proveedor
-                                        </TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                            Cantidad Surtida
-                                        </TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                            Tipo
-                                        </TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {row.detalles.map((det, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{det.sku_componente}</TableCell>
-                                            <TableCell align="center">{det.cantidad_surtida}</TableCell>
-                                            <TableCell align="center">{det.cantidad_billete}</TableCell>
-                                            <TableCell align="center">{det.tipo}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </Box>
-                    </Collapse>
-                </TableCell>
-            </TableRow>
-        </>
-    );
-};
+import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 
 const OrdenRetiro = () => {
     const [ordenes, setOrdenes] = useState([]);
-    const [totalOrdenes, setTotalOrdenes] = useState();
     const [selectedOrdenes, setSelectedOrdenes] = useState([]);
     const [envios, setEnvios] = useState([]);
     const [selectedEnvio, setSelectedEnvio] = useState(null);
     const [openEnvioModal, setOpenEnvioModal] = useState(false);
     const [loadingEnvios, setLoadingEnvios] = useState(false);
-    const [filtros, setFiltros] = useState({
-        orden: "",
+    const [loading, setLoading] = useState(true);
+    const [open, setOpen] = useState(false);
+
+    const [columnVisibilityOrdenesFacturas, setColumnVisibilityModelOrdenesFacturas] = useState({
+        orden_id: false,
+        producto_id: false,
+        permitir_full: false,
     });
+
+    const dashboardGridSx = {
+        border: "none",
+        "& .MuiDataGrid-columnHeaders": {
+            backgroundColor: "#f5f7fa",
+            fontWeight: "bold",
+            fontSize: 13,
+        },
+        "& .MuiDataGrid-cell": {
+            borderBottom: "1px solid #eee",
+            fontSize: 13,
+        },
+        "& .MuiDataGrid-row:hover": {
+            backgroundColor: "#f9fafb",
+        },
+    };
 
     const apiUrl =
         process.env.NODE_ENV === "production"
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
 
-    useEffect(() => {
-        fetchOrdenes();
-    }, []);
-
     const fetchOrdenes = async () => {
         try {
+            setLoading(true);
             const res = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/ordenes_retiro_produccion`);
             setOrdenes(res.data.data || []);
-            setTotalOrdenes(res.data.total_ordenes || []);
+            setLoading(false);
         } catch (error) {
+            setLoading(false);
             console.error(error);
         }
     };
+
+    useEffect(() => {
+        fetchOrdenes();
+    }, [apiUrl])
 
     const fetchEnviosAbiertos = async () => {
         try {
             const response = await axios.get(`${apiUrl}/empaque/fetchEnviosAbiertos`);
             setEnvios(response.data.data || []);
         } catch (error) {
+            setOpenEnvioModal(false);
             const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
             Swal.fire({
                 title: 'Error',
@@ -197,6 +110,77 @@ const OrdenRetiro = () => {
         }
     };
 
+    const columns = [
+        { field: "orden_bodega_id", headerName: "#Orden Bodega", flex: 0.5 },
+        { field: "orden_id", headerName: "#Orden Producción", flex: 0.5 },
+        { field: "producto_id", headerName: "#Producto", flex: 0.5 },
+        { field: "mlm", headerName: "MLM", flex: 1 },
+        { field: "title", headerName: "Titulo", flex: 2 },
+        { field: "inventory_id", headerName: "ML", flex: 1 },
+        { field: "sku_publicacion", headerName: "SKU", flex: 1 },
+        {
+            field: "logistic_type", headerName: "Logistica", flex: 0.5,
+            renderCell: (params) => {
+                const logisticType = params.value;
+                const permitir_full = params.row.permitir_full;
+                let color = "default";
+                if (logisticType === "fulfillment") {
+                    color = "success";
+                    params.value = "FULL";
+                } else if (logisticType !== "fulfillment" && permitir_full === 1) {
+                    color = "secondary"; // naranja para casos ME con permitir_full activo
+                    params.value = "ME > FULL";
+                } else if (logisticType !== "fulfillment" && permitir_full === 0) {
+                    color = "warning";
+                    params.value = "ME";
+                }
+                return <Chip label={params.value} size="small" color={color} />;
+            }
+        },
+        { field: "cantidad_a_producir", headerName: "A Producir", flex: 0.5, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
+        { field: "cantidad_a_enviar", headerName: "A Enviar", flex: 0.5, headerAlign: "center", align: "center", type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
+        { field: "cantidad_empacada", headerName: "Empacada", flex: 0.5, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
+        {
+            field: "estatus",
+            headerName: "Estatus",
+            flex: 0.5,
+            renderCell: (params) => {
+                const statusMap = {
+                    recibida: {
+                        label: "Recibida",
+                        color: "default",   // gris
+                    },
+                    surtida: {
+                        label: "Surtida",
+                        color: "warning",   // amarillo
+                    },
+                    empacada: {
+                        label: "Empacada",
+                        color: "success",   // verde
+                    },
+                    cerrada: {
+                        label: "Cerrada",
+                        color: "secondary",   // red
+                    },
+                };
+
+                const status = statusMap[params.value] || {
+                    label: params.value,
+                    color: "default",
+                };
+
+                return (
+                    <Chip
+                        label={status.label}
+                        color={status.color}
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                    />
+                );
+            },
+        },
+    ];
+
     const columnsEnvios = [
         { field: "id", headerName: "ID", flex: 0.8 },
         { field: "descripcion", headerName: "Descripción", flex: 2 },
@@ -217,179 +201,59 @@ const OrdenRetiro = () => {
         { field: "estatus", headerName: "Estatus", flex: 1 },
     ];
 
-    const ordenesFiltradas = ordenes.filter((o) => {
-        if (filtros.orden) {
-            return String(o.orden_bodega_id)
-                .toLowerCase()
-                .includes(filtros.orden.toLowerCase());
-        }
-        return true;
-    });
-
     return (
-        <Box
-            sx={{
-                width: "90%",
-                mx: "auto",
-                mt: 4,
-                fontFamily: "Montserrat",
-            }}
-        >
-            <Paper
-                elevation={6}
-                sx={{
-                    borderRadius: 3,
-                    overflow: "hidden",
-                    backgroundColor: "#a1a2a59c"
+        <Box p={2}>
+            <Typography variant="h5" sx={{ fontWeight: "bold" }}>
+                Órdenes de retiro por excedente
+            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={selectedOrdenes.length === 0}
+                    onClick={() => {
+                        fetchEnviosAbiertos();
+                        setOpenEnvioModal(true);
+
+                    }}
+                >
+                    Asignar órdenes ({selectedOrdenes.length})
+                </Button>
+            </Box>
+            {/* Tabla de ordenes de retiros */}
+            <DataGrid
+                rows={ordenes}
+                columns={columns}
+                getRowId={(row) => row.orden_id}
+                experimentalFeatures={{ newEditingApi: true }}
+                showCellVerticalBorder
+                showColumnVerticalBorder
+                checkboxSelection
+                onRowSelectionModelChange={(selection) => {
+                    setSelectedOrdenes(selection);
                 }}
-            >
-                {/* 🔥 HEADER FIJO (título + botón) */}
-                <Box
-                    sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        p: 2,
-                        backgroundColor: "#b9c8f89c",
-                        fontWeight: "bold"
-                    }}
-                >
-                    <Typography variant="h5" sx={{ fontWeight: "bold" }}>
-                        Órdenes de retiro por excedente
-                    </Typography>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        disabled={selectedOrdenes.length === 0}
-                        onClick={() => {
-                            setOpenEnvioModal(true);
-                            fetchEnviosAbiertos();
-                        }}
-                    >
-                        Asignar órdenes ({selectedOrdenes.length})
-                    </Button>
-                </Box>
-
-                {/* 🔥 TABLA CON SCROLL */}
-                <TableContainer
-                    sx={{
-                        maxHeight: 500,
-                        overflowX: "auto",
-                    }}
-                >
-                    <Table stickyHeader>
-                        <TableHead sx={{
-                            "& th": {
-                                backgroundColor: "#a1a2a5",
-                                fontWeight: "bold",
-                            },
-                        }}>
-                            <TableRow >
-                                <TableCell padding="checkbox">
-                                    <Checkbox
-                                        indeterminate={
-                                            selectedOrdenes.length > 0 &&
-                                            selectedOrdenes.length <
-                                            ordenes.filter(o => o.envio_id == null).length
-                                        }
-                                        checked={
-                                            ordenes.length > 0 &&
-                                            selectedOrdenes.length ===
-                                            ordenes.filter(o => o.envio_id == null).length
-                                        }
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                const idsSeleccionables = ordenes
-                                                    .filter(o => o.envio_id == null) // 👈 CLAVE
-                                                    .map(o => o.orden_id);
-
-                                                setSelectedOrdenes(idsSeleccionables);
-                                            } else {
-                                                setSelectedOrdenes([]);
-                                            }
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell />
-                                <TableCell sx={{ fontWeight: "bold" }}>
-                                    #Orden
-                                    <TextField
-                                        variant="standard"
-                                        value={filtros.orden}
-                                        onChange={(e) =>
-                                            setFiltros((prev) => ({ ...prev, orden: e.target.value }))
-                                        }
-                                        placeholder="Buscar..."
-                                        fullWidth
-                                        InputProps={{ disableUnderline: true }}
-                                        sx={{
-                                            fontSize: 8,
-                                            backgroundColor: "#e4fdfb",
-                                            borderRadius: "5px"
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>MLM</TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    Título
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    SKU
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    ML
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    Logística
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    Cantidad a producir
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    Cantidad empacada
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    Estatus
-                                </TableCell>
-                                <TableCell sx={{ fontWeight: "bold" }}>
-                                    Fecha creación
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    #Envío
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-
-                        <TableBody>
-                            {ordenesFiltradas.map((row) => (
-                                <Row
-                                    key={row.orden_id}
-                                    row={row}
-                                    selectedOrdenes={selectedOrdenes}
-                                    setSelectedOrdenes={setSelectedOrdenes}
-                                />
-                            ))}
-
-                            {/* 🔥 FILA TOTAL FIJA */}
-                            <TableRow
-                                sx={{
-                                    backgroundColor: "#e3f2fd",
-                                    position: "sticky",
-                                    bottom: 0,
-                                    zIndex: 2,
-                                }}
-                            >
-                                <TableCell colSpan={9} sx={{ fontWeight: "bold" }}>
-                                    Total de órdenes
-                                </TableCell>
-                                <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                                    {totalOrdenes}
-                                </TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </Paper>
+                // rowSelectionModel={selectedOrdenes}
+                // processRowUpdate={processRowUpdate}
+                // onProcessRowUpdateError={handleProcessRowUpdateError}
+                columnVisibilityModel={columnVisibilityOrdenesFacturas}
+                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesFacturas(newModel)}
+                disableRowSelectionOnClick
+                hideFooterSelectedRowCount
+                density="compact"
+                pageSizeOptions={[10, 25, 50, 100]}
+                initialState={{
+                    pagination: { paginationModel: { pageSize: 10, page: 0 } }
+                }}
+                sx={{ ...dashboardGridSx, mb: 4 }}
+                slots={{ toolbar: GridToolbar }}
+                loading={loading}
+                slotProps={{
+                    loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                    },
+                }}
+            />
             <Dialog
                 open={openEnvioModal}
                 onClose={handleCloseEnvioModal}

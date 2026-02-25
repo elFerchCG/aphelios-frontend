@@ -226,14 +226,25 @@ const TableOrdenes = () => {
                     }
                 });
 
-                // Filtrar los resultados que coincidan con el rol_id del usuario logueado
-                const resultadosFiltrados = response.data.filter(item => item.rol_id === user.rol_id);
+                const isAdmin = user?.rol_id === 1;
+
+                const resultadosFiltrados = isAdmin
+                    ? response.data // 👈 Admin ve todo
+                    : response.data.filter(item =>
+                        item.rol_id === user.rol_id // 👈 Solo su rol exacto
+                    );
 
                 if (resultadosFiltrados.length > 0) {
                     setTraspasos(resultadosFiltrados);
-
                 } else {
-                    console.log("Sin Movimientos asignados");
+                    Swal.fire({
+                        title: 'Error',
+                        text: "Sin movimientos disponibles para tu rol",
+                        icon: 'warning',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
                 }
 
             } catch (error) {
@@ -865,10 +876,10 @@ const TableOrdenes = () => {
                 }
             } catch (error) {
                 if (error.response && error.response.data && error.response.data.message) {
-                    const errorMessage = error.response.data.message;
+                    const { messageText } = error.response.data.message;
                     Swal.fire({
                         title: 'Error',
-                        text: errorMessage,
+                        text: `Error: ${messageText}`,
                         icon: 'error',
                         timer: 5000,
                         showCloseButton: true,
@@ -1140,14 +1151,40 @@ const TableOrdenes = () => {
             }
         } catch (error) {
             if (error.response && error.response.data && error.response.data.message) {
-                const errorMessage = error.response.data.message;
+
+                const { messageText, errores } = error.response.data.message;
+
+                let detalleErrores = '';
+
+                if (errores && errores.length > 0) {
+                    detalleErrores = errores
+                        .map(err => `
+                    • SKU: ${err.sku}
+                    | ML: ${err.inventory_id}
+                    | Localidad: ${err.localidad}
+                    | Disponible: ${err.cantidad_disponible}
+                    | Requerido: ${err.cantidad_requerida}
+                `)
+                        .join('<br>');
+                }
+
                 Swal.fire({
                     title: 'Error',
-                    text: errorMessage,
+                    html: `
+                <strong>${messageText}</strong><br><br>
+                ${detalleErrores}
+            `,
                     icon: 'error',
-                    timer: 5000,
+                    width: 1000,
                     showCloseButton: true,
                     allowEscapeKey: true
+                });
+
+            } else {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Ocurrió un error inesperado',
+                    icon: 'error'
                 });
             }
         }
@@ -1349,7 +1386,7 @@ const TableOrdenes = () => {
             setBodegaEntradaHabilitada(false);
             setEnableRevertir(false);
             setHabilitarTraspaso(false);
-
+            setEnableProcess(false);
 
             if (user?.rol_id === rolMovimiento || isAdmin) {
                 setHabilitarDescripcion(true);
@@ -1390,6 +1427,8 @@ const TableOrdenes = () => {
             }
         }
         if (estatus === 'procesado') {
+            setIsButtonDisabled(true);
+            setEnableCancel(false);
             setEnableRevertir(false);
             setEnableProcess(false);
             setEnableConfirm(false);
@@ -1398,8 +1437,10 @@ const TableOrdenes = () => {
             setBodegaSalidaHabilitada(false);
             setBodegaEntradaHabilitada(false);
             setHabilitarComentario(false);
+            setHabilitarBuscador(false);
         }
         if (estatus === 'cancelada') {
+            setIsButtonDisabled(true);
             setHabilitarBuscador(false);
             setHabilitarTraspaso(false);
             setHabilitarDescripcion(false);
@@ -1419,7 +1460,7 @@ const TableOrdenes = () => {
             setEnableProcess(false);
         }
 
-    }, [estatus, rolIdTemp, rolMovimiento, user, categoriaTemp, rolIdTempEntrada]);
+    }, [estatus, rolIdTemp, rolMovimiento, user, categoriaTemp, rolIdTempEntrada, isAdmin]);
 
     const handleUpdateOrder = async () => {
         try {
@@ -1569,8 +1610,14 @@ const TableOrdenes = () => {
             setCategoriaTemp(response.data.data.orden.categoria ?? '');
             setRolMovimiento(response.data.data.rol_id_tipo_transaccion ?? '');
 
-            setHabilitarBuscador(user.rol_id === response.data.data.rol_id_tipo_transaccion && response.data.data.orden.estatus === 'abierto');
-            //  setHabilitarComentario(user.rol_id === response.data.data.rol_id_entrada && response.data.data.orden.estatus === 'abierto');
+            const isAdmin = user?.rol_id === 1;
+            const rolTipo = response.data.data.rol_id_tipo_transaccion;
+            const estatusOrden = response.data.data.orden.estatus;
+
+            setHabilitarBuscador(
+                (isAdmin || user.rol_id === rolTipo) &&
+                estatusOrden === 'abierto'
+            );
 
             const dataGridRows = response.data.data.lineas.map((linea) => ({
                 id: linea.id,
@@ -1689,6 +1736,8 @@ const TableOrdenes = () => {
         { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1.7 },
     ]
 
+    const puedeEditar = estatus === 'abierto' && (isAdmin || user.rol_id === rolMovimiento);
+
     const columns = [
         { field: 'id', headerName: 'ID Linea', type: 'number', hide: true },
         { field: 'producto_id', headerName: 'Producto ID', type: 'number', flex: 1 },
@@ -1736,37 +1785,14 @@ const TableOrdenes = () => {
             type: 'actions',
             flex: 0.5,
             getActions: (params) => {
-                if (!params || !params.row) {
-                    console.error('Error: params o params.row es null o undefined');
-                    return [];
-                }
-                if (estatus === 'confirmado' || estatus === 'procesado' || estatus === 'cancelada') {
-                    return [
-                        params.row.comentario ? (
-                            <Tooltip title='Ver comentario' key={`comment-${params.row.id}`}>
-                                <GridActionsCellItem
-                                    icon={<RateReviewIcon />}
-                                    sx={{ color: 'blue' }}
-                                    onClick={() => handleOpenComment(params.row)}
-                                />
-                            </Tooltip>
-                        ) : null,
-                    ].filter(Boolean);
-                } else if (user.rol_id !== rolMovimiento && estatus === 'abierto') {
-                    return [
-                        params.row.comentario ? (
-                            <Tooltip title='Ver comentario' key={`comment-${params.row.id}`}>
-                                <GridActionsCellItem
-                                    icon={<RateReviewIcon />}
-                                    sx={{ color: 'blue' }}
-                                    onClick={() => handleOpenComment(params.row)}
-                                />
-                            </Tooltip>
-                        ) : null,
-                    ].filter(Boolean);
-                }
-                return [
-                    params.row.comentario ? (
+
+                if (!params?.row) return [];
+
+                const acciones = [];
+
+                // 👁 Ver comentario (si existe)
+                if (params.row.comentario) {
+                    acciones.push(
                         <Tooltip title='Ver comentario' key={`comment-${params.row.id}`}>
                             <GridActionsCellItem
                                 icon={<RateReviewIcon />}
@@ -1774,16 +1800,24 @@ const TableOrdenes = () => {
                                 onClick={() => handleOpenComment(params.row)}
                             />
                         </Tooltip>
-                    ) : null,
-                    <Tooltip title='Borrar línea' key={`delete-${params.row.id}`}>
-                        <GridActionsCellItem
-                            icon={<GridDeleteIcon />}
-                            sx={{ color: 'red' }}
-                            onClick={deleteLine(params.id)}
-                            label="Delete"
-                        />
-                    </Tooltip>
-                ].filter(Boolean);
+                    );
+                }
+
+                // 🗑 Borrar línea (solo si puedeEditar)
+                if (puedeEditar) {
+                    acciones.push(
+                        <Tooltip title='Borrar línea' key={`delete-${params.row.id}`}>
+                            <GridActionsCellItem
+                                icon={<GridDeleteIcon />}
+                                sx={{ color: 'red' }}
+                                onClick={deleteLine(params.id)}
+                                label="Delete"
+                            />
+                        </Tooltip>
+                    );
+                }
+
+                return acciones;
             },
         },
     ];
@@ -1798,6 +1832,20 @@ const TableOrdenes = () => {
         }
     }, [ubicacionEntrada, selectedUbicacionEntrada]);
 
+    const getColorByStatus = (status) => {
+        switch (status) {
+            case 'abierto':
+                return '#2e7d32'; // verde
+            case 'confirmado':
+                return '#ed6c02'; // naranja
+            case 'procesado':
+                return '#0288d1'; // azul
+            case 'cancelada':
+                return '#d32f2f'; // rojo
+            default:
+                return '#000000';
+        }
+    };
 
     return (
         <div>
@@ -1895,7 +1943,7 @@ const TableOrdenes = () => {
             <div className='order-form'>
                 <div className='form-row'>
                     <label>Tipo de movimiento:</label>
-                    <FormControl sx={{ m: 1, minWidth: 300 }} size='small'>
+                    <FormControl sx={{ m: 1, minWidth: 400 }} size='small'>
                         <InputLabel>Movimiento</InputLabel>
                         <Select
                             label="Movimiento"
@@ -1911,11 +1959,12 @@ const TableOrdenes = () => {
                             ))}
                         </Select>
                     </FormControl>
-                    <label className='label-desc'>Descripción:</label>
+                    <label style={{ marginLeft: "10px" }} className='label-desc'>Descripción:</label>
                     <TextField
                         disabled={!habilitarDescripcion}
                         value={descripcion}
                         onChange={(e) => setDescripcion(e.target.value)}
+
                         inputRef={descripcionRef}
                         InputProps={{
                             endAdornment: (
@@ -1932,13 +1981,20 @@ const TableOrdenes = () => {
                         }}
                         inputProps={{
                             style: {
+                                minWidth: 480, // Aumenta la altura del input
                                 backgroundColor: habilitarDescripcion ? 'white' : '#f0f0f0',
                                 color: habilitarDescripcion ? 'black' : 'gray',
                             },
                         }}
                     />
                     <label className='label-orden'>Orden:</label>
-                    <TextField type="text" value={idOrder} disabled sx={{ width: "80px" }} />
+                    <TextField type="text" value={idOrder} disabled sx={{
+                        width: "80px",
+                        "& .MuiInputBase-input.Mui-disabled": {
+                            WebkitTextFillColor: "#f04c4c",
+                            fontWeight: 600
+                        }
+                    }} />
                 </div>
                 <div className='form-row'>
                     <label>Bodega de salida:</label>
@@ -1981,7 +2037,13 @@ const TableOrdenes = () => {
                     <TextField
                         value={estatus}
                         disabled
-                        sx={{ width: "80px", color: "red" }}
+                        sx={{
+                            width: "100px",
+                            "& .MuiInputBase-input.Mui-disabled": {
+                                WebkitTextFillColor: getColorByStatus(estatus),
+                                fontWeight: 600
+                            }
+                        }}
                     />
                 </div>
                 <div className='form-row'>
@@ -2182,12 +2244,11 @@ const TableOrdenes = () => {
                 </div>
             </div>
             <div>
-                <div className='DataG' style={{ height: 500, width: 'auto' }}>
+                <div className='DataG' style={{ height: 500 }}>
                     <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
                         rows={rows}
                         columns={columns}
                         pageSize={5}
-                        disableColumnResize={false}
                         onRowClick={handleRowSelectionComment}
                         onProcessRowUpdateError={handleProcessRowUpdateError} // Aquí añadimos el manejador global
                         processRowUpdate={processRowUpdate}

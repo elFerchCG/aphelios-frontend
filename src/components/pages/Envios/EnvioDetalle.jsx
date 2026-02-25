@@ -217,12 +217,28 @@ const EnvioDetalle = () => {
 
     const cerrarEnvio = async (envioId) => {
         try {
-            const response = await axios.put(`${apiUrl}/empaque/cerrarEnvio/envio/${envioId}`,
-                {},
-            );
-            if (response.data.ok) {
-                navigate('/envios');
-            }
+            Swal.fire({
+                title: "¿Estas seguro de cerrar el envío? Tambien se cerraran las ordenes asignadas",
+                icon: "warning",
+                showDenyButton: true,
+                confirmButtonColor: "#44be39",
+                confirmButtonText: "Cerrar",
+                denyButtonText: `Cancelar`,
+                reverseButtons: true
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const response = await axios.put(`${apiUrl}/empaque/cerrarEnvio/envio/${envioId}`,
+                        {},
+                    );
+                    if (response.data.ok) {
+                        navigate('/envios');
+                    }
+                    Swal.fire("Envío cerrado!", "", "success");
+                } else if (result.isDenied) {
+                    Swal.fire("Operación cancelada", "", "info");
+                }
+            });
+
         } catch (error) {
             const errorMessage = error.response.data.message;
             Swal.fire({
@@ -402,19 +418,21 @@ const EnvioDetalle = () => {
             <Box
                 sx={{
                     display: "flex",
-                    gap: 1,
+                    justifyContent: "flex-end",
                     px: 1,
                     mt: 1,
                     mb: 3,
-                    alignItems: "stretch",
                 }}
             >
                 <Button
-                    variant='outlined'
+                    variant='contained'
+                    color="success"
                     label="Progreso de Empaque"
                     onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`)}
                     sx={{ textTransform: "none" }}
-                >Progreso</Button>
+                >
+                    Progreso
+                </Button>
             </Box >
             {/* Muestra el CircularProgress mientras cargan los datos */}
             < Box sx={{ px: 4 }}>

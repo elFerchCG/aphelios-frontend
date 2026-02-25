@@ -34,6 +34,9 @@ const Componentes = () => {
   const [productoIdComponent, setProductoIdComponent] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [proveedorId, setProveedorId] = useState("");
+  const [proveedorSecundarioId, setProveedorSecundarioId] = useState("");
+  const [proveedorPrincipal, setProveedorPrincipal] = useState("");
+  const [proveedorSecundario, setProveedorSecundario] = useState("");
   const [multiplo, setMultiplo] = useState(1);
   const [factorConversion, setFactorConversion] = useState(1);
   const [productoSkuComponente, setProductoSkuComponente] = useState("");
@@ -96,6 +99,8 @@ const Componentes = () => {
     borderRadius: 4,
     boxShadow: 24,
     p: 4,
+    maxHeight: "90vh",
+    overflowY: "auto",
   };
 
   // Estilos del modal
@@ -109,6 +114,8 @@ const Componentes = () => {
     borderRadius: 4,
     boxShadow: 24,
     p: 4,
+    maxHeight: "90vh",
+    overflowY: "auto",
   };
 
   const handleOpenAddComponent = async () => {
@@ -122,6 +129,7 @@ const Componentes = () => {
     setProductoSkuComponente("");
     setDescripcion("");
     setProveedorId("");
+    setProveedorSecundarioId("");
     setMultiplo(1);
     setFactorConversion(1);
   };
@@ -277,6 +285,7 @@ const Componentes = () => {
         sku: productoSkuComponente,
         descripcion: descripcion,
         proveedor_id: proveedorId,
+        proveedor_secundario_id: proveedorSecundarioId || null,
         multiplo: multiplo,
         factor_conversion: factorConversion,
       };
@@ -416,6 +425,10 @@ const Componentes = () => {
         setComponenteDescripcion(componente.descripcion);
         setComponenteMultiplo(componente.multiplo);
         setComponenteConversion(componente.factor_conversion);
+        setProveedorId(componente.proveedor_id);
+        setProveedorSecundarioId(componente.proveedor_secundario_id || "");
+        setProveedorPrincipal(componente.razon_social);
+        setProveedorSecundario(componente.proveedor_secundario_id || "");
       } else {
         Swal.fire({
           title: "!Componente no encontrado!",
@@ -462,6 +475,8 @@ const Componentes = () => {
             const data = {
               sku: componenteSku,
               descripcion: componenteDescripcion,
+              proveedor_id: proveedorId,
+              proveedor_secundario_id: proveedorSecundarioId || null,
               multiplo: componenteMultiplo,
               factor_conversion: componenteConversion,
             };
@@ -529,6 +544,14 @@ const Componentes = () => {
 
   const handleCloseDetailsComponente = () => {
     setOpenDetailsComponente(false);
+    setProductoIdComponent("");
+    setProductoSkuComponente("");
+    setProductoSkuComponente("");
+    setDescripcion("");
+    setProveedorId("");
+    setProveedorSecundarioId("");
+    setMultiplo(1);
+    setFactorConversion(1);
   };
 
   const handleUpdateDetailComponente = (productoIdComponent) => {
@@ -571,22 +594,19 @@ const Componentes = () => {
         });
       }
     };
-    if (openAddComponent) {
+    if (openAddComponent || openDetailsComponente) {
       fetchProveedores();
     }
-  }, [apiUrl, openAddComponent]);
+  }, [apiUrl, openAddComponent, openDetailsComponente]);
 
   const handleProveedor = (event) => {
     const selectedProveedorId = event.target.value;
     setProveedorId(selectedProveedorId);
+  };
 
-    const selectedProveedor = proveedores.find(
-      (proveedor) => proveedor.id_proveedor === selectedProveedorId
-    );
-    console.log(
-      "Esto se esta guardando al seleccionar un proveedor:",
-      proveedorId
-    );
+  const handleProveedorSecundario = (event) => {
+    const selectedProveedorSecundarioId = event.target.value;
+    setProveedorSecundarioId(selectedProveedorSecundarioId);
   };
 
   const columnsProductsComponentes = [
@@ -849,14 +869,40 @@ const Componentes = () => {
               }}
             />
             <FormControl>
-              <InputLabel id="select-proveedor-label">Proveedor</InputLabel>
+              <InputLabel id="select-proveedor-label">Proveedor Principal</InputLabel>
               <Select
                 labelId="select-proveedor-label"
                 id="select-proveedor"
-                label="Proveedor"
+                label="Proveedor Principal"
                 value={proveedorId}
                 onChange={handleProveedor}
-                sx={{ width: "222px" }}
+                sx={{ width: "450px" }}
+                inputProps={{
+                  style: {
+                    backgroundColor: "white",
+                    color: "black",
+                  },
+                }}
+              >
+                {proveedores.map((proveedor) => (
+                  <MenuItem
+                    key={proveedor.id_proveedor}
+                    value={proveedor.id_proveedor}
+                  >
+                    {proveedor.razon_social}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel id="select-proveedor-label">Proveedor Secundario</InputLabel>
+              <Select
+                labelId="select-proveedor-label"
+                id="select-proveedor"
+                label="Proveedor Secundario"
+                value={proveedorSecundarioId}
+                onChange={handleProveedorSecundario}
+                sx={{ width: "450px" }}
                 inputProps={{
                   style: {
                     backgroundColor: "white",
@@ -977,6 +1023,53 @@ const Componentes = () => {
                 },
               }}
             />
+            <FormControl sx={{ minWidth: 450 }}>
+              <InputLabel id="proveedor-principal-label">
+                Proveedor Principal
+              </InputLabel>
+              <Select
+                labelId="proveedor-principal-label"
+                id="proveedor-principal"
+                value={proveedorId}
+                label="Proveedor Principal"
+                onChange={(e) => setProveedorId(e.target.value)}
+              >
+                {proveedores.map((proveedor) => (
+                  <MenuItem
+                    key={proveedor.id_proveedor}
+                    value={proveedor.id_proveedor}
+                  >
+                    {proveedor.razon_social}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl sx={{ minWidth: 450 }}>
+              <InputLabel id="proveedor-secundario-label">
+                Proveedor Secundario
+              </InputLabel>
+              <Select
+                labelId="proveedor-secundario-label"
+                id="proveedor-secundario"
+                value={proveedorSecundarioId}
+                label="Proveedor Secundario"
+                onChange={(e) => setProveedorSecundarioId(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>Ninguno</em>
+                </MenuItem>
+
+                {proveedores.map((proveedor) => (
+                  <MenuItem
+                    key={proveedor.id_proveedor}
+                    value={proveedor.id_proveedor}
+                  >
+                    {proveedor.razon_social}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <TextField
               className="input"
               label="Múltiplo"
