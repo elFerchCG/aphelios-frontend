@@ -230,15 +230,15 @@ const DataGridT = () => {
         { field: 'id', headerName: 'Folio', flex: 1 },
         { field: 'descripcion', headerName: 'Descripción', flex: 3 },
         { field: 'categoria', headerName: 'Categoria', flex: 1 },
-        { field: 'activo', headerName: 'Activo', flex: 1 },
-        {
-            field: 'activo_descripcion', headerName: 'Activo', flex: 0.8,
-            renderCell: (params) => (
-                params.value === "Sí"
-                    ? <Chip label="Activo" color="success" size="small" />
-                    : <Chip label="Inactivo" color="default" size="small" />
-            )
-        },
+        // { field: 'activo', headerName: 'Activo', flex: 1 },
+        // {
+        //     field: 'activo_descripcion', headerName: 'Activo', flex: 0.8,
+        //     renderCell: (params) => (
+        //         params.value === "Sí"
+        //             ? <Chip label="Activo" color="success" size="small" />
+        //             : <Chip label="Inactivo" color="default" size="small" />
+        //     )
+        // },
         { field: 'rol_id', headerName: 'Rol', flex: 1 },
         { field: 'rol_descripcion', headerName: 'Rol', flex: 0.8 },
         {

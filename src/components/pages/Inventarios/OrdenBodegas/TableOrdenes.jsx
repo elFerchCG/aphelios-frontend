@@ -876,10 +876,10 @@ const TableOrdenes = () => {
                 }
             } catch (error) {
                 if (error.response && error.response.data && error.response.data.message) {
-                    const errorMessage = error.response.data.message;
+                    const { messageText } = error.response.data.message;
                     Swal.fire({
                         title: 'Error',
-                        text: errorMessage,
+                        text: `Error: ${messageText}`,
                         icon: 'error',
                         timer: 5000,
                         showCloseButton: true,

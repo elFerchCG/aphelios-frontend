@@ -153,26 +153,30 @@ const Surtido = () => {
         const fetchUsuarios = async () => {
             try {
                 const response = await axios.get(`${apiUrl}/usuarios`);
+
                 if (response.data && Array.isArray(response.data)) {
                     setUsuarios(response.data);
-                } else {
-                    Swal.fire({
-                        title: '!Usuarios no encontrados!',
-                        text: 'No se encontraron usuarios',
-                        icon: 'error',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true
-                    });
+
+                    const ultimo = await axios.get(
+                        `${apiUrl}/mrp/ultimoOperador`,
+                    );
+
+                    if (ultimo.data.ok && ultimo.data.operador) {
+                        const usuarioDefault = response.data.find(
+                            u => u.id_usuario === ultimo.data.operador
+                        );
+
+                        if (usuarioDefault) {
+                            setSelectedUsuario(usuarioDefault);
+                        }
+                    }
+
                 }
             } catch (error) {
                 Swal.fire({
                     title: 'Error',
                     text: `Error: ${error.message}`,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
+                    icon: 'error'
                 });
             }
         };

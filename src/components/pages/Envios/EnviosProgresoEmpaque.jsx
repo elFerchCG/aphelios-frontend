@@ -25,6 +25,7 @@ const EnviosProgresoEmpaque = () => {
     const [totalOrdenRetiro, setTotalOrdenRetiro] = useState([]);
     const [ordenesProduccionFacturas, setOrdenesProduccionFacturas] = useState([]);
     const [ordenesProduccionRetiros, setOrdenesProduccionRetiros] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -49,6 +50,7 @@ const EnviosProgresoEmpaque = () => {
 
     const fetchPiezasYFacturas = async () => {
         try {
+            setLoading(true);
             const response = await axios.get(`${apiUrl}/empaque/getPiezasYFacturas/${envioId}`);
             setTotalPiezas(Number(response.data.total_piezas || []));
             setTotalPiezasEmpacadas(Number(response.data.total_piezas_empacadas || []));
@@ -56,7 +58,9 @@ const EnviosProgresoEmpaque = () => {
             setTotalOrdenRetiro(response.data.totalOrdenRetiro);
             setOrdenesProduccionFacturas(response.data.ordenesProduccionFacturas);
             setOrdenesProduccionRetiros(response.data.ordenesProduccionRetiros);
+            setLoading(false);
         } catch (error) {
+            setLoading(false);
             const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
             Swal.fire({
                 title: 'Error',
@@ -707,6 +711,13 @@ const EnviosProgresoEmpaque = () => {
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
+                loading={loading}
+                slotProps={{
+                    loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                    },
+                }}
             />
             <Typography variant="h6" fontWeight="bold" mb={2}>
                 Ordenes de Producción - Retiros
@@ -728,6 +739,13 @@ const EnviosProgresoEmpaque = () => {
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
+                loading={loading}
+                slotProps={{
+                    loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                    },
+                }}
             />
             <Typography variant="h6" fontWeight="bold" mb={2}>
                 Facturas
@@ -749,6 +767,13 @@ const EnviosProgresoEmpaque = () => {
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
+                loading={loading}
+                slotProps={{
+                    loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                    },
+                }}
             />
             <Typography variant="h6" fontWeight="bold" mb={2}>
                 Retiros
@@ -770,6 +795,13 @@ const EnviosProgresoEmpaque = () => {
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
+                loading={loading}
+                slotProps={{
+                    loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                    },
+                }}
             />
         </Box>
     );
