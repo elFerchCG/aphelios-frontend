@@ -1,19 +1,21 @@
 import {
   Box,
   Button,
-  Modal,
   TextField,
-  useTheme,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   IconButton,
+  LinearProgress,
+  Stack,
 } from "@mui/material";
 
 import FlashAutoIcon from "@mui/icons-material/FlashAuto";
 import CloseIcon from "@mui/icons-material/Close";
 import InsercionManual from "./InsercionManual";
+import BackorderChainModal from "./BackorderChainModal";
 
 import {
   DataGrid,
@@ -73,6 +75,11 @@ const DetalleFactura = () => {
   const [skuDialog, setSkuDialog] = useState("");
   const [productosDialog, setProductosDialog] = useState([]);
   const [insertCtx, setInsertCtx] = useState(null);
+  const [filtroEstado, setFiltroEstado] = useState("all");
+  const [openChainModal, setOpenChainModal] = useState(false);
+  const [chainData, setChainData] = useState(null);
+  const [pendingBackorderParams, setPendingBackorderParams] = useState(null); // guarda params.row cuando detectas cadena
+  
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
@@ -87,6 +94,45 @@ const DetalleFactura = () => {
   const actionIconSx = {
     fontSize: 20,
   };
+
+  const isEnlazada = (row) => {
+    return row.pedido_linea_id != null && Number(row.pedido_linea_id) > 0;
+  };
+
+  const getEstadoEnlace = (row) => {
+    if (!isEnlazada(row)) return "pendiente";
+
+    const back =
+      Number(row.back_order || 0) === 1 ||
+      Number(row.cantidad_backorder || 0) > 0;
+    const exc =
+      Number(row.excedente || 0) === 1 ||
+      Number(row.cantidad_excedente || 0) > 0;
+
+    if (exc) return "excedente";
+    if (back) return "backorder";
+    return "ok";
+  };
+
+  const conteos = React.useMemo(() => {
+    const c = { ok: 0, backorder: 0, excedente: 0, pendiente: 0, total: 0 };
+    for (const r of data) {
+      c.total++;
+      c[getEstadoEnlace(r)]++;
+    }
+    return c;
+  }, [data]);
+
+  const rowsFiltradas = React.useMemo(() => {
+    if (filtroEstado === "all") return data;
+    return data.filter((r) => getEstadoEnlace(r) === filtroEstado);
+  }, [data, filtroEstado]);
+
+  const progresoEnlace = React.useMemo(() => {
+    const total = data.length;
+    const enlazadas = data.reduce((acc, r) => acc + (isEnlazada(r) ? 1 : 0), 0);
+    return { enlazadas, total };
+  }, [data]);
 
   const estadoColumn = {
     field: "estado_visual",
@@ -567,10 +613,6 @@ const DetalleFactura = () => {
 
         const tieneExcedente = Number(excedente) === 1;
         const tieneBackOrder = Number(back_order) === 1;
-
-        // "verde" = enlazada y sin excedente/backorder
-        const puedeQuitarEnlace =
-          enlazada && !tieneExcedente && !tieneBackOrder;
 
         // 1) Habilitar FULL (igual que antes)
         if (logistic_type !== "fulfillment" && permitir_full === 0) {
@@ -1419,8 +1461,7 @@ const DetalleFactura = () => {
 
       Swal.fire("Listo", "Excedente desenlazado.", "success");
 
- 
-      await fetchDetalleFactura(facturaId); 
+      await fetchDetalleFactura(facturaId);
     } catch (err) {
       console.error(err);
       Swal.fire(
@@ -1431,24 +1472,97 @@ const DetalleFactura = () => {
     }
   };
 
+  const ejecutarDesenlaceBackorder = async ({
+    facturaDetalleId,
+    modo,
+    pedidoLineaId,
+    parentPedidoLineaId,
+  }) => {
+    const payload = {
+      modo,
+      pedido_linea_id: pedidoLineaId,
+      parent_pedido_linea_id: parentPedidoLineaId || null,
+    };
+
+    const { data } = await axios.put(
+      `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarBackOrder`,
+      payload,
+    );
+
+    return data;
+  };
+
+  const ejecutarResetBackorderMasivo = async ({ parentPedidoLineaId }) => {
+    const payload = {
+      pedido_linea_id: parentPedidoLineaId,
+      dry_run: false,
+      force: true,
+    };
+
+    console.log("RESET URL:", `${apiUrl}/facturas/detalle/desenlazarBackOrderMasivo`);
+    console.log("RESET payload:", payload);
+
+    const { data } = await axios.post(
+      `${apiUrl}/facturas/detalle/desenlazarBackOrderMasivo`,
+      payload,
+    );
+
+    return data;
+  };
+
   const handleQuitarBackOrder = async (params) => {
     const facturaDetalleId = params.row.id;
+    const pedidoLineaId = params.row.pedido_linea_id;
 
-    const confirm = await Swal.fire({
-      title: "¿Desenlazar Backorder?",
-      text: "Esto revertirá el split y eliminará las líneas de backorder.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, desenlazar",
-      cancelButtonText: "Cancelar",
-    });
-
-    if (!confirm.isConfirmed) return;
+    if (!pedidoLineaId) {
+      await Swal.fire(
+        "Atención",
+        "No hay pedido_linea_id para validar la cadena.",
+        "warning",
+      );
+      return;
+    }
 
     try {
-      const { data } = await axios.put(
-        `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarBackOrder`,
+      // 1) validar cadena
+      const { data: chainResp } = await axios.get(
+        `${apiUrl}/facturas/backorderChain/${pedidoLineaId}`,
       );
+
+      if (!chainResp?.ok) {
+        await Swal.fire(
+          "Atención",
+          chainResp?.message || "No se pudo validar la cadena.",
+          "warning",
+        );
+        return;
+      }
+
+      // 2) si hay cadena compleja -> abrir modal y detener flujo
+      if (Number(chainResp.should_prompt) === 1) {
+        setPendingBackorderParams(params); // guardamos la fila objetivo
+        setChainData(chainResp);
+        setOpenChainModal(true);
+        return;
+      }
+
+      // 3) caso simple -> confirm y desenlazar single
+      const confirm = await Swal.fire({
+        title: "¿Desenlazar Backorder?",
+        text: "Esto revertirá el split y eliminará las líneas de backorder.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, desenlazar",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      const data = await ejecutarDesenlaceBackorder({
+        facturaDetalleId,
+        modo: "single",
+        pedidoLineaId,
+      });
 
       if (data?.ok) {
         await Swal.fire(
@@ -1456,8 +1570,7 @@ const DetalleFactura = () => {
           "Backorder desenlazado correctamente.",
           "success",
         );
-
-        await fetchDetalleFactura(facturaId); 
+        await fetchDetalleFactura(facturaId);
         return;
       }
 
@@ -1483,6 +1596,87 @@ const DetalleFactura = () => {
       }
 
       await Swal.fire("No se pudo", msg, "error");
+    }
+  };
+
+  const handleSingleUnlink = async () => {
+    if (!pendingBackorderParams) return;
+
+    const facturaDetalleId = pendingBackorderParams.row.id;
+    const pedidoLineaId = pendingBackorderParams.row.pedido_linea_id;
+
+    try {
+      const data = await ejecutarDesenlaceBackorder({
+        facturaDetalleId,
+        modo: "single",
+        pedidoLineaId,
+      });
+
+      if (data?.ok) {
+        setOpenChainModal(false);
+        setChainData(null);
+        setPendingBackorderParams(null);
+
+        await Swal.fire("Listo", "Se desenlazó solo esta línea.", "success");
+        await fetchDetalleFactura(facturaId);
+        return;
+      }
+
+      await Swal.fire(
+        "Atención",
+        data?.message || "No se pudo desenlazar.",
+        "warning",
+      );
+    } catch (err) {
+      await Swal.fire(
+        "No se pudo",
+        err?.response?.data?.message || "Error al desenlazar.",
+        "error",
+      );
+    }
+  };
+
+  const handleResetToParent = async () => {
+    if (!pendingBackorderParams || !chainData) return;
+
+    const parentPedidoLineaId = Number(chainData.parent_pedido_linea_id || 0);
+    if (!parentPedidoLineaId) return;
+
+    const confirm = await Swal.fire({
+      title: "¿Reset hasta la línea original?",
+      text: "Esto regresará el papá a como estaba y eliminará todas las hijas (aunque estén en otras facturas).",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, reset",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      const data = await ejecutarResetBackorderMasivo({ parentPedidoLineaId });
+
+      if (data?.ok) {
+        setOpenChainModal(false);
+        setChainData(null);
+        setPendingBackorderParams(null);
+
+        await Swal.fire("Listo", "Reset aplicado correctamente.", "success");
+        await fetchDetalleFactura(facturaId);
+        return;
+      }
+
+      await Swal.fire(
+        "Atención",
+        data?.message || "No se pudo aplicar el reset.",
+        "warning",
+      );
+    } catch (err) {
+      await Swal.fire(
+        "No se pudo",
+        err?.response?.data?.message || "Error al aplicar reset.",
+        "error",
+      );
     }
   };
 
@@ -1533,6 +1727,20 @@ const DetalleFactura = () => {
         fontWeight: "bold",
       }}
     >
+      <BackorderChainModal
+        open={openChainModal}
+        chain={chainData?.chain || []}
+        linkedCount={chainData?.linked_count || 0}
+        parentPedidoLineaId={chainData?.parent_pedido_linea_id}
+        currentPedidoLineaId={pendingBackorderParams?.row?.pedido_linea_id || null}
+        onClose={() => {
+          setOpenChainModal(false);
+          setChainData(null);
+          setPendingBackorderParams(null);
+        }}
+        onSingle={handleSingleUnlink}
+        onReset={handleResetToParent}
+      />
       <InsercionManual
         open={openProdDialog}
         sku={skuDialog}
@@ -1580,7 +1788,7 @@ const DetalleFactura = () => {
         <Box
           display="flex"
           justifyContent="center"
-          sx={{ height: 150, borderRadius: 4, boxShadow: 4, borderWidth: 3 }}
+          sx={{ height: 120, borderRadius: 4, boxShadow: 4, borderWidth: 3 }}
         >
           <Box
             sx={{
@@ -1589,7 +1797,7 @@ const DetalleFactura = () => {
               gap: 1,
             }}
           >
-            <Box sx={{ alignItems: "start" }}>
+            <Box>
               <Typography variant="h6" component="h2">
                 Informacion de la empresa emisora
               </Typography>
@@ -1621,6 +1829,140 @@ const DetalleFactura = () => {
         >
           Asignar productos a un envío ({selectedLineasFacturas.length})
         </Button>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 1,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Estado del enlace (Factura ↔ Pedido)
+            {filtroEstado !== "all" ? ` · Filtro: ${filtroEstado}` : ""}
+          </Typography>
+
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <Tooltip title="Enlace correcto (cantidad exacta)">
+              <Chip
+                label={`Correcto: ${conteos.ok}`}
+                color="success"
+                size="small"
+                clickable
+                variant={filtroEstado === "ok" ? "filled" : "outlined"}
+                onClick={() => setFiltroEstado("ok")}
+              />
+            </Tooltip>
+
+            <Tooltip title="Generó backorder (faltó cantidad)">
+              <Chip
+                label={`Backorder: ${conteos.backorder}`}
+                color="warning"
+                size="small"
+                clickable
+                variant={filtroEstado === "backorder" ? "filled" : "outlined"}
+                onClick={() => setFiltroEstado("backorder")}
+              />
+            </Tooltip>
+
+            <Tooltip title="Excedente (sobró cantidad)">
+              <Chip
+                label={`Excedente: ${conteos.excedente}`}
+                color="info"
+                size="small"
+                clickable
+                variant={filtroEstado === "excedente" ? "filled" : "outlined"}
+                onClick={() => setFiltroEstado("excedente")}
+              />
+            </Tooltip>
+
+            <Tooltip>
+              <Chip
+                label={`Pendientes: ${conteos.pendiente}`}
+                size="small"
+                variant={filtroEstado === "pendiente" ? "filled" : "outlined"}
+                onClick={() => setFiltroEstado("pendiente")}
+                clickable
+              />
+            </Tooltip>
+
+            {filtroEstado !== "all" && (
+              <Button size="small" onClick={() => setFiltroEstado("all")}>
+                Ver todo
+              </Button>
+            )}
+          </Box>
+        </Box>
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 2,
+            backgroundColor: "#fff",
+            border: "1px solid rgba(0,0,0,0.08)",
+            borderLeft: "6px solid #1e88e5", // azul Aphelios
+            maxWidth: 420,
+          }}
+        >
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Estado de los enlaces
+            </Typography>
+
+            <Typography variant="caption" color="text.secondary">
+              Enlaces: <b>{progresoEnlace.enlazadas}</b> /{" "}
+              {progresoEnlace.total}
+              {" · "}
+              Pendientes:{" "}
+              <b>{progresoEnlace.total - progresoEnlace.enlazadas}</b>
+            </Typography>
+          </Stack>
+
+          {/* Barra principal (neutra) */}
+          <Box
+            sx={{
+              mt: 1,
+              height: 8,
+              borderRadius: 999,
+              backgroundColor: "rgba(0,0,0,0.08)",
+              overflow: "hidden",
+              display: "flex",
+            }}
+          >
+            {/* Verde */}
+            <Box
+              sx={{
+                width: `${(conteos.ok / conteos.total) * 100}%`,
+                backgroundColor: "#2e7d32",
+              }}
+            />
+            {/* Amarillo */}
+            <Box
+              sx={{
+                width: `${(conteos.backorder / conteos.total) * 100}%`,
+                backgroundColor: "#ed6c02",
+              }}
+            />
+            {/* Azul */}
+            <Box
+              sx={{
+                width: `${(conteos.excedente / conteos.total) * 100}%`,
+                backgroundColor: "#0288d1",
+              }}
+            />
+          </Box>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 0.5 }}
+          >
+            Factura → Pedido
+          </Typography>
+        </Box>
         <DataGrid
           sx={{
             borderRadius: 4,
@@ -1646,7 +1988,7 @@ const DetalleFactura = () => {
               },
             },
           }}
-          rows={data}
+          rows={rowsFiltradas}
           columns={columns}
           showCellVerticalBorder
           showColumnVerticalBorder
@@ -1692,7 +2034,7 @@ const DetalleFactura = () => {
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => { }} // evitamos que se cierre automáticamente
+        onClose={() => {}} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -1831,7 +2173,7 @@ const DetalleFactura = () => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                    params.row.componente_id ? (
+                  params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",

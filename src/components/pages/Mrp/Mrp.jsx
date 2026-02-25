@@ -410,7 +410,7 @@ const MrpSimple = () => {
         if (!isConfirmed) return;
       }
 
-      // ✅ 1) dispara job (sin try/catch interno)
+      // 1) dispara job 
       const resp = await axios.post(`${apiUrl}/mrp/refreshMl`, {
         proveedor_id: Number(proveedorId),
         usuario_id,
@@ -437,7 +437,7 @@ const MrpSimple = () => {
       jobId = resp.data?.jobId;
       if (!jobId) throw new Error("No se recibió jobId del servidor.");
 
-      // ✅ 2) abre tu loader
+      // 2) abre tu loader
       fakePct = 0;
       serverPct = 0;
       setLoaderPct(0);
@@ -445,7 +445,7 @@ const MrpSimple = () => {
       setLoaderOpen(true);
       startFake();
 
-      // ✅ 3) polling
+      // 3) polling
       const poll = async () => {
         const r = await axios.get(`${apiUrl}/job/${jobId}`);
         const job = r.data?.job;
@@ -738,21 +738,11 @@ const MrpSimple = () => {
     }
   };
 
-  const daysOutdatedLocal = useMemo(() => {
-    if (!mlInfo?.max) return 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const last = new Date(mlInfo.max);
-    last.setHours(0, 0, 0, 0);
-    const diff = Math.floor((today - last) / (24 * 60 * 60 * 1000));
-    return Math.max(diff, 0);
-  }, [mlInfo?.max]);
 
   const columns = [
     { field: "pedido_id", headerName: "#Pedido", minWidth: 100 },
     { field: "pedido_fecha_creacion", headerName: "F. Pedido", minWidth: 160 },
     { field: "orden_id", headerName: "Orden de Produccion", minWidth: 160 },
-    // NUEVAS
     { field: "componente_sku", headerName: "SKU componente", minWidth: 160 },
     {
       field: "mlm",
@@ -761,12 +751,12 @@ const MrpSimple = () => {
       renderCell: ({ value }) => (
         <span
           style={{
-            display: "block", // para poder elipsis si quieres
-            margin: 0, // SIN márgenes
+            display: "block", 
+            margin: 0, 
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            lineHeight: "inherit", // respeta el line-height de la celda
+            lineHeight: "inherit", 
           }}
         >
           {value ?? "—"}
