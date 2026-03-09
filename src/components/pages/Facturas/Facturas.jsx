@@ -163,13 +163,6 @@ const Facturas = () => {
       flex: 1,
       align: "center",
       headerAlign: "center",
-      valueFormatter: (params) => {
-        const n = Number(params.value || 0);
-        return n.toLocaleString("es-MX", {
-          style: "currency",
-          currency: "MXN",
-        });
-      },
     },
     {
       field: "envio_id",
