@@ -1,4 +1,4 @@
-import { Box, Button, FormControl, InputAdornment, InputLabel, Modal, OutlinedInput, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, FormControl, InputAdornment, InputLabel, Modal, OutlinedInput, Switch, TextField, Tooltip, Typography } from '@mui/material';
 import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import ModeEditIcon from '@mui/icons-material/ModeEdit';
@@ -97,8 +97,66 @@ const Publicaciones = () => {
                     ]
                     : []),
             ],
+        },
+        {
+            field: 'producto_obsoleto',
+            headerName: 'Obsoleto',
+            width: 130,
+            renderCell: (params) => {
+                const isObsoleto = params.value === 1;
+
+                return (
+                    <Switch
+                        checked={isObsoleto}
+                        onChange={(e) =>
+                            handleToggleObsoleto(params.row.producto_id, e.target.checked)
+                        }
+                        color={isObsoleto ? "error" : "success"}
+                    />
+                );
+            }
         }
     ]);
+
+    const handleToggleObsoleto = async (producto_id, checked) => {
+        try {
+            const response = await axios.put(
+                `${apiUrl}/productos/marcar_producto_obsoleto/${producto_id}`,
+                { producto_obsoleto: checked ? 1 : 0 }
+            );
+
+            setRowsProducts((prev) =>
+                prev.map((row) =>
+                    row.producto_id === producto_id
+                        ? { ...row, producto_obsoleto: checked ? 1 : 0 }
+                        : row
+                )
+            );
+
+            if (response?.data?.message) {
+                Swal.fire({
+                    title: '¡Correcto!',
+                    text: response.data.message,
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        } catch (error) {
+            if (error.response && error.response.data && error.response.data.message) {
+                const { messageText } = error.response.data.message;
+                Swal.fire({
+                    title: 'Error',
+                    text: `Error: ${messageText}`,
+                    icon: 'error',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
+        }
+    };
 
     const handleOpenImprimir = (row) => {
         setMl(row.inventory_id);
@@ -265,12 +323,12 @@ const Publicaciones = () => {
         producto_id: false,
         tipo_publicacion: false,
         id: true,
-        catalog_id: true,
+        catalog_id: false,
         family_id: false,
         user_product_id: false,
         available_quantity: false,
         status: false,
-        logistic_type: false,
+        logistic_type: true,
         costo: false,
         free_shipping: false,
         costo_envio: false,
