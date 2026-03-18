@@ -70,7 +70,7 @@ const VistaPedidos = () => {
 
     const resultado = pedidos.filter((pedido) => {
       const coincideTexto = Object.values(pedido).some((valor) =>
-        valor?.toString().toLowerCase().includes(lowerSearch)
+        valor?.toString().toLowerCase().includes(lowerSearch),
       );
 
       const fechaPedido = new Date(pedido.fecha_creacion)
@@ -99,9 +99,10 @@ const VistaPedidos = () => {
 
   const abrirModalDetalle = async (row) => {
     const res = await axios.get(
-      `${apiUrl}/pedidos/detalle/${row.pedido_linea_id}`
+      `${apiUrl}/pedidos/detalle/${row.pedido_linea_id}`,
     );
-    setDetalleSeleccionado(res.data[0]);
+
+    setDetalleSeleccionado(res.data); 
     setModalOpen(true);
   };
 

@@ -10,6 +10,9 @@ import {
   IconButton,
   LinearProgress,
   Stack,
+  MenuItem,
+  Select,
+  FormControl,
 } from "@mui/material";
 
 import FlashAutoIcon from "@mui/icons-material/FlashAuto";
@@ -79,7 +82,10 @@ const DetalleFactura = () => {
   const [openChainModal, setOpenChainModal] = useState(false);
   const [chainData, setChainData] = useState(null);
   const [pendingBackorderParams, setPendingBackorderParams] = useState(null); // guarda params.row cuando detectas cadena
-  
+  const [opDetalleSeleccionadoMap, setOpDetalleSeleccionadoMap] = useState({});
+  const [openExcedenteModal, setOpenExcedenteModal] = useState(false);
+  const [excedenteRows, setExcedenteRows] = useState([]);
+  const [asignacionesExcedente, setAsignacionesExcedente] = useState({});
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
@@ -446,6 +452,8 @@ const DetalleFactura = () => {
     setSkuSeleccionado(null);
     setNuevoSku("");
     setYaPreguntado(false);
+    setSelectionModel([]);
+    setOpDetalleSeleccionadoMap({});
   };
 
   const columns = [
@@ -732,47 +740,222 @@ const DetalleFactura = () => {
       field: "pedido_id",
       headerName: "# Pedido",
       type: "number",
-      flex: 1.5,
+      flex: 0.8,
+      minWidth: 90,
       align: "center",
       headerAlign: "center",
     },
     {
       field: "proveedor_pedido_nombre",
       headerName: "Proveedor",
-      flex: 2,
-      align: "center",
-      headerAlign: "center",
+      flex: 1.8,
+      minWidth: 240,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ""}>
+          <Box
+            sx={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              width: "100%",
+            }}
+          >
+            {params.value}
+          </Box>
+        </Tooltip>
+      ),
     },
     {
       field: "fecha_pedido",
       headerName: "Fecha Pedido",
-      flex: 2.0,
-      align: "center",
-      headerAlign: "center",
+      flex: 1.2,
+      minWidth: 170,
+      renderCell: (params) => (
+        <Box
+          sx={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            width: "100%",
+          }}
+        >
+          {params.value}
+        </Box>
+      ),
     },
     {
       field: "sku",
       headerName: "SKU",
-      type: "text",
-      flex: 3,
+      flex: 1.3,
+      minWidth: 160,
       align: "center",
       headerAlign: "center",
     },
     {
       field: "descripcion",
       headerName: "Descripción",
-      type: "text",
-      flex: 4,
-      align: "center",
-      headerAlign: "center",
+      flex: 2.3,
+      minWidth: 320,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ""}>
+          <Box
+            sx={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              width: "100%",
+            }}
+          >
+            {params.value}
+          </Box>
+        </Tooltip>
+      ),
     },
     {
       field: "cantidad",
       headerName: "Cantidad",
-      type: "number",
-      flex: 1,
+      flex: 0.7,
+      minWidth: 100,
       align: "center",
       headerAlign: "center",
+    },
+    {
+      field: "ramas_info",
+      headerName: "Ramas OP",
+      flex: 0.9,
+      minWidth: 120,
+      sortable: false,
+      filterable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => {
+        const ramas = params.row.ramas_produccion || [];
+        const requiere = Number(params.row.requiere_seleccion_op || 0) === 1;
+
+        if (!ramas.length) {
+          return <Chip label="Sin OPD" size="small" color="default" />;
+        }
+
+        if (requiere) {
+          return (
+            <Chip
+              label={`${ramas.length} ramas`}
+              size="small"
+              color="warning"
+            />
+          );
+        }
+
+        return (
+          <Chip
+            label={`OP #${ramas[0]?.orden_id || "N/A"}`}
+            size="small"
+            color="success"
+            variant="outlined"
+          />
+        );
+      },
+    },
+    {
+      field: "seleccion_opd",
+      headerName: "Selección OPD",
+      flex: 1.8,
+      minWidth: 260,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const ramas = params.row.ramas_produccion || [];
+        const requiere = Number(params.row.requiere_seleccion_op || 0) === 1;
+        const pedidoLineaId = Number(
+          params.row.pedido_linea_id || params.row.id || 0,
+        );
+        const value = opDetalleSeleccionadoMap[pedidoLineaId] || "";
+
+        if (!ramas.length) {
+          return (
+            <Typography variant="caption" color="text.secondary">
+              Sin ramas disponibles
+            </Typography>
+          );
+        }
+
+        if (!requiere) {
+          const rama = ramas[0];
+          return (
+            <Box sx={{ fontSize: 12, lineHeight: 1.3, py: 0.5 }}>
+              <div>
+                <strong>OP:</strong> #{rama.orden_id}
+              </div>
+              <div>
+                <strong>OPD:</strong> #{rama.op_detalle_id}
+              </div>
+              <div>
+                <strong>Pendiente:</strong> {rama.pendiente_opd}
+              </div>
+              <div>
+                <strong>Estatus:</strong> {rama.op_estatus}
+              </div>
+            </Box>
+          );
+        }
+
+        return (
+          <Box
+            sx={{ width: "100%", minWidth: 220 }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <FormControl fullWidth size="small">
+              <Select
+                value={value}
+                displayEmpty
+                onChange={(e) => {
+                  e.stopPropagation();
+                  const opDetalleId = Number(e.target.value || 0);
+
+                  setOpDetalleSeleccionadoMap((prev) => ({
+                    ...prev,
+                    [pedidoLineaId]: opDetalleId,
+                  }));
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      zIndex: 2000,
+                      maxHeight: 260,
+                    },
+                  },
+                }}
+                renderValue={(selected) => {
+                  if (!selected) return "Selecciona una rama";
+
+                  const rama = ramas.find(
+                    (r) => Number(r.op_detalle_id) === Number(selected),
+                  );
+
+                  if (!rama) return "Selecciona una rama";
+
+                  return `OP #${rama.orden_id} · OPD #${rama.op_detalle_id}`;
+                }}
+                sx={{
+                  backgroundColor: "#fff",
+                  fontSize: 13,
+                }}
+              >
+                <MenuItem value="">
+                  <em>Selecciona una rama</em>
+                </MenuItem>
+
+                {ramas.map((rama) => (
+                  <MenuItem key={rama.op_detalle_id} value={rama.op_detalle_id}>
+                    {`OP #${rama.orden_id} · OPD #${rama.op_detalle_id} · Pendiente ${rama.pendiente_opd} · ${rama.op_estatus}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        );
+      },
     },
   ];
 
@@ -821,6 +1004,158 @@ const DetalleFactura = () => {
     }
   };
 
+  const abrirModalExcedente = (seleccionadas) => {
+    const filasExpandibles = [];
+
+    for (const row of seleccionadas) {
+      const ramas = Array.isArray(row.ramas_produccion)
+        ? row.ramas_produccion
+        : [];
+
+      for (const rama of ramas) {
+        const key = `${row.id}_${rama.orden_compra_detalle_id}_${rama.op_detalle_id}`;
+
+        filasExpandibles.push({
+          key,
+          pedido_linea_id: Number(row.id),
+          pedido_id: Number(row.pedido_id || 0),
+          sku: row.sku,
+          descripcion: row.descripcion,
+          cantidad_linea: Number(row.cantidad || 0),
+          orden_compra_detalle_id: Number(rama.orden_compra_detalle_id || 0),
+          op_detalle_id: Number(rama.op_detalle_id || 0),
+          orden_id: Number(rama.orden_id || 0),
+          cantidad_billete: Number(rama.cantidad_billete || 0),
+          cantidad_surtida: Number(rama.cantidad_surtida || 0),
+          pendiente_opd: Number(rama.pendiente_opd || 0),
+          op_estatus: rama.op_estatus || "N/A",
+        });
+      }
+    }
+
+    const inicial = {};
+    filasExpandibles.forEach((item) => {
+      inicial[item.key] = "";
+    });
+
+    setExcedenteRows(filasExpandibles);
+    setAsignacionesExcedente(inicial);
+    setOpenExcedenteModal(true);
+  };
+
+  const handleCantidadExcedenteChange = (key, value) => {
+    const limpio = value === "" ? "" : Number(value);
+    setAsignacionesExcedente((prev) => ({
+      ...prev,
+      [key]: limpio,
+    }));
+  };
+
+  const totalAsignadoExcedente = React.useMemo(() => {
+    return Object.values(asignacionesExcedente).reduce(
+      (sum, val) => sum + Number(val || 0),
+      0,
+    );
+  }, [asignacionesExcedente]);
+
+  const diferenciaExcedente = React.useMemo(() => {
+    return Number(
+      (Number(cantidadFactura || 0) - totalAsignadoExcedente).toFixed(2),
+    );
+  }, [cantidadFactura, totalAsignadoExcedente]);
+
+  const handleConfirmarExcedente = async () => {
+    try {
+      const cantidadFacturaFloat = Number(cantidadFactura || 0);
+
+      const asignaciones = excedenteRows
+        .map((row) => ({
+          pedido_linea_id: Number(row.pedido_linea_id),
+          orden_compra_detalle_id: Number(row.orden_compra_detalle_id),
+          op_detalle_id: Number(row.op_detalle_id),
+          cantidad_final: Number(asignacionesExcedente[row.key] || 0),
+        }))
+        .filter((a) => Number(a.cantidad_final) > 0);
+
+      const total = asignaciones.reduce(
+        (sum, item) => sum + Number(item.cantidad_final || 0),
+        0,
+      );
+
+      if (!asignaciones.length) {
+        await Swal.fire({
+          icon: "warning",
+          title: "Sin asignaciones",
+          text: "Debes capturar al menos una cantidad para continuar.",
+        });
+        return;
+      }
+
+      if (
+        Number(total.toFixed(2)) !== Number(cantidadFacturaFloat.toFixed(2))
+      ) {
+        await Swal.fire({
+          icon: "warning",
+          title: "Cantidad inválida",
+          text: `La suma de las asignaciones (${total}) debe ser igual a la cantidad de la factura (${cantidadFacturaFloat}).`,
+        });
+        return;
+      }
+
+      await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
+        factura_detalle_id: lineaId,
+        asignaciones,
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "Excedente enlazado correctamente",
+      });
+
+      setOpenExcedenteModal(false);
+      setExcedenteRows([]);
+      setAsignacionesExcedente({});
+      handleCloseModal();
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error al enlazar excedente",
+        text: error.response?.data?.message || "Error desconocido",
+      });
+    }
+  };
+
+  const obtenerCantidadEfectivaFila = (row) => {
+    const requiere = Number(row.requiere_seleccion_op || 0) === 1;
+
+    if (!requiere) {
+      return Number(row.cantidad || 0);
+    }
+
+    const pedidoLineaId = Number(row.id);
+    const opDetalleIdSeleccionada = Number(
+      opDetalleSeleccionadoMap[pedidoLineaId] || 0,
+    );
+
+    if (!opDetalleIdSeleccionada) {
+      return Number(row.cantidad || 0);
+    }
+
+    const ramas = Array.isArray(row.ramas_produccion)
+      ? row.ramas_produccion
+      : [];
+    const ramaSeleccionada = ramas.find(
+      (rama) => Number(rama.op_detalle_id) === opDetalleIdSeleccionada,
+    );
+
+    if (!ramaSeleccionada) {
+      return Number(row.cantidad || 0);
+    }
+
+    return Number(ramaSeleccionada.cantidad_billete || 0);
+  };
+
   const handleGuardarSeleccion = async () => {
     let advertencia = null;
     let result = null;
@@ -830,11 +1165,48 @@ const DetalleFactura = () => {
       selectionModel.includes(row.id),
     );
 
-    const pedido_linea_ids = seleccionadas.map((row) => row.id);
+    if (!seleccionadas.length) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Sin selección",
+        text: "Selecciona al menos una línea.",
+      });
+      return;
+    }
+
+    const pedido_linea_ids = seleccionadas.map((row) => Number(row.id));
+
+    const filasSinOpd = seleccionadas.filter((row) => {
+      const requiere = Number(row.requiere_seleccion_op || 0) === 1;
+      if (!requiere) return false;
+
+      const pedidoLineaId = Number(row.id);
+      const opDetalleId = Number(opDetalleSeleccionadoMap[pedidoLineaId] || 0);
+
+      return !opDetalleId;
+    });
+
+    if (filasSinOpd.length > 0) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Falta seleccionar rama OPD",
+        text: "Hay líneas con múltiples órdenes de producción activas y todavía no eliges la rama a usar.",
+      });
+      return;
+    }
+
+    const op_detalle_selecciones = seleccionadas
+      .filter((row) => Number(row.requiere_seleccion_op || 0) === 1)
+      .map((row) => ({
+        pedido_linea_id: Number(row.id),
+        op_detalle_id: Number(opDetalleSeleccionadoMap[row.id]),
+      }));
+
     const totalPedido = seleccionadas.reduce(
-      (sum, item) => sum + parseFloat(item.cantidad),
+      (sum, item) => sum + obtenerCantidadEfectivaFila(item),
       0,
     );
+
     const cantidadFacturaFloat = parseFloat(cantidadFactura);
     const usuario_id = user.id_usuario;
 
@@ -843,6 +1215,7 @@ const DetalleFactura = () => {
         await axios.post(`${apiUrl}/facturas/enlazarManual`, {
           factura_detalle_id: lineaId,
           pedido_linea_ids,
+          op_detalle_selecciones,
           usuario_id,
         });
       } else if (cantidadFacturaFloat < totalPedido) {
@@ -893,58 +1266,29 @@ const DetalleFactura = () => {
         await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
           factura_detalle_id: lineaId,
           pedido_linea_ids,
+          op_detalle_selecciones,
           usuario_id,
           mantener_backorder,
         });
       } else if (cantidadFacturaFloat > totalPedido) {
         advertencia = await Swal.fire({
           title: "⚠️ Excedente detectado",
-          text: `Existen otras líneas que podrías enlazar. ¿Deseas seleccionar más líneas antes de continuar?`,
-          icon: "warning",
+          text: "La factura trae más cantidad que la suma de las líneas seleccionadas. Ahora debes repartir manualmente el excedente entre las ramas OPD.",
+          icon: "info",
           showCancelButton: true,
-          confirmButtonText: "Sí, seleccionar más",
-          cancelButtonText: "No, continuar con excedente",
-          allowOutsideClick: false,
-        });
-
-        if (advertencia.isConfirmed) {
-          continuar = false;
-          return;
-        }
-
-        const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
-        const pedidosUnicos = [...new Set(pedidosSeleccionados)];
-
-        result = await Swal.fire({
-          title: "¿Deseas mantener el excedente?",
-          html: `El excedente será enlazado a los pedidos: <strong>${pedidosUnicos.join(
-            ", ",
-          )}</strong>`,
-          icon: "question",
-          showCancelButton: true,
-          showDenyButton: true,
-          confirmButtonText: "Sí",
-          denyButtonText: "No",
+          confirmButtonText: "Continuar",
           cancelButtonText: "Cancelar",
           allowOutsideClick: false,
         });
 
-        if (
-          result.isDismissed &&
-          result.dismiss === Swal.DismissReason.cancel
-        ) {
+        if (!advertencia.isConfirmed) {
           continuar = false;
           return;
         }
 
-        const mantenerBackorder = result.isConfirmed;
-
-        await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
-          factura_detalle_id: lineaId,
-          lineasPedidoIds: pedido_linea_ids,
-          usuario_id,
-          mantenerBackorder,
-        });
+        abrirModalExcedente(seleccionadas);
+        continuar = false;
+        return;
       } else {
         await Swal.fire({
           icon: "error",
@@ -960,10 +1304,23 @@ const DetalleFactura = () => {
         title: "Enlace realizado correctamente",
       });
     } catch (error) {
+      const apiError = error.response?.data;
+      const code = apiError?.code;
+
+      let msg = apiError?.message || "Error desconocido";
+
+      if (code === "MULTIPLES_OPD_ACTIVAS") {
+        msg =
+          "La línea seleccionada tiene múltiples órdenes de producción activas. Debes elegir una rama OPD.";
+      } else if (code === "OPD_SELECCION_INVALIDA") {
+        msg =
+          "La OPD seleccionada ya no es válida para una de las líneas. Recarga e intenta de nuevo.";
+      }
+
       await Swal.fire({
         icon: "error",
         title: "Error al guardar",
-        text: error.response?.data?.message || "Error desconocido",
+        text: msg,
       });
       continuar = false;
     } finally {
@@ -1163,6 +1520,79 @@ const DetalleFactura = () => {
     }
   };
 
+  const parseJsonSafe = (value, fallback = []) => {
+    if (Array.isArray(value)) return value;
+    if (!value) return fallback;
+
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const normalizarRamasProduccion = (producto) => {
+    const ramasRaw = parseJsonSafe(producto.produccion_relacionada, []);
+
+    const ramas = ramasRaw
+      .map((rama) => ({
+        op_detalle_id: Number(rama.op_detalle_id || 0),
+        orden_id: Number(rama.orden_id || 0),
+        cantidad_billete: Number(rama.cantidad_billete || 0),
+        cantidad_surtida: Number(rama.cantidad_surtida || 0),
+        pendiente_opd: Number(rama.pendiente_opd || 0),
+        op_estatus: rama.op_estatus || "N/A",
+      }))
+      .filter((rama) => rama.op_detalle_id > 0);
+
+    return ramas;
+  };
+
+  const extraerRamasProduccion = (producto) => {
+    const ordenesCompra = Array.isArray(producto?.ordenes_compra_relacionadas)
+      ? producto.ordenes_compra_relacionadas
+      : [];
+
+    const ramas = ordenesCompra.flatMap((oc) => {
+      const produccion = Array.isArray(oc?.produccion_relacionada)
+        ? oc.produccion_relacionada
+        : [];
+
+      return produccion.map((op) => ({
+        orden_compra_detalle_id: Number(oc?.orden_compra_detalle_id || 0),
+        op_detalle_id: Number(op?.op_detalle_id || 0),
+        orden_id: Number(op?.orden_id || 0),
+        orden_compra_id: Number(op?.orden_compra_id || 0),
+        cantidad_billete: Number(op?.cantidad_billete || 0),
+        cantidad_surtida: Number(op?.cantidad_surtida || 0),
+        pendiente_opd: Number(op?.pendiente_opd || 0),
+        op_estatus: op?.op_estatus || "N/A",
+      }));
+    });
+
+    // evitar duplicados por op_detalle_id
+    const seen = new Set();
+    return ramas.filter((rama) => {
+      if (!rama.op_detalle_id) return false;
+      if (seen.has(rama.op_detalle_id)) return false;
+      seen.add(rama.op_detalle_id);
+      return true;
+    });
+  };
+
+  const obtenerRequiereSeleccionOp = (producto) => {
+    if (Number(producto?.requiere_seleccion_op || 0) === 1) return 1;
+
+    const ocs = Array.isArray(producto?.ordenes_compra_relacionadas)
+      ? producto.ordenes_compra_relacionadas
+      : [];
+
+    return ocs.some((oc) => Number(oc?.requiere_seleccion_op || 0) === 1)
+      ? 1
+      : 0;
+  };
+
   const fetchProductosEnlaces = async (lineaId) => {
     if (yaPreguntado) return;
 
@@ -1189,21 +1619,43 @@ const DetalleFactura = () => {
               ? false
               : null;
 
-      // Flatten productos
       let productosConIds = [];
+      const opMapInicial = {};
+
       if (Array.isArray(pedidos)) {
         productosConIds = pedidos.flatMap((pedido) =>
-          (pedido.productos || []).map((producto) => ({
-            ...producto,
-            id: producto.pedido_linea_id,
-            pedido_id: pedido.pedido_id,
-            proveedor_pedido_nombre: producto.proveedor_pedido_nombre,
-            fecha_pedido: pedido.fecha_creacion,
-          })),
+          (pedido.productos || []).map((producto) => {
+            const pedidoLineaId = Number(producto.pedido_linea_id || 0);
+            const ramasProduccion = extraerRamasProduccion(producto);
+            const requiereSeleccion = obtenerRequiereSeleccionOp(producto);
+
+            // compatibilidad:
+            // si solo hay una rama, la preseleccionamos sola
+            if (ramasProduccion.length === 1) {
+              opMapInicial[pedidoLineaId] = Number(
+                ramasProduccion[0].op_detalle_id,
+              );
+            }
+
+            return {
+              ...producto,
+              id: pedidoLineaId,
+              pedido_linea_id: pedidoLineaId,
+              pedido_id: Number(producto.pedido_id || pedido.pedido_id || 0),
+              proveedor_pedido_nombre:
+                producto.proveedor_pedido_nombre ||
+                pedido.proveedor_pedido_nombre,
+              fecha_pedido: producto.fecha_pedido || pedido.fecha_creacion,
+
+              requiere_seleccion_op: requiereSeleccion,
+              ramas_produccion: ramasProduccion,
+            };
+          }),
         );
       }
 
       setDetalleData(productosConIds);
+      setOpDetalleSeleccionadoMap(opMapInicial);
 
       // ✅ Si hay resultados -> abre modal normal (tu flujo actual)
       if (productosConIds.length > 0) return;
@@ -1499,7 +1951,10 @@ const DetalleFactura = () => {
       force: true,
     };
 
-    console.log("RESET URL:", `${apiUrl}/facturas/detalle/desenlazarBackOrderMasivo`);
+    console.log(
+      "RESET URL:",
+      `${apiUrl}/facturas/detalle/desenlazarBackOrderMasivo`,
+    );
     console.log("RESET payload:", payload);
 
     const { data } = await axios.post(
@@ -1732,7 +2187,9 @@ const DetalleFactura = () => {
         chain={chainData?.chain || []}
         linkedCount={chainData?.linked_count || 0}
         parentPedidoLineaId={chainData?.parent_pedido_linea_id}
-        currentPedidoLineaId={pendingBackorderParams?.row?.pedido_linea_id || null}
+        currentPedidoLineaId={
+          pendingBackorderParams?.row?.pedido_linea_id || null
+        }
         onClose={() => {
           setOpenChainModal(false);
           setChainData(null);
@@ -2058,12 +2515,19 @@ const DetalleFactura = () => {
           </IconButton>
         </DialogTitle>
 
-        <DialogContent dividers sx={{ p: 3 }}>
+        <DialogContent
+          dividers
+          sx={{
+            p: 3,
+            overflow: "visible",
+          }}
+        >
           <DataGrid
             rows={detalleData}
             columns={columnsDetalles}
             checkboxSelection
             disableRowSelectionOnClick
+            rowHeight={100}
             getRowId={(row) => row.id}
             density="compact"
             showCellVerticalBorder
@@ -2082,6 +2546,20 @@ const DetalleFactura = () => {
               border: 2,
               borderColor: "#1e88e5",
               height: "60vh",
+              "& .MuiDataGrid-cell": {
+                display: "flex",
+                alignItems: "center",
+                overflow: "hidden",
+              },
+              "& .MuiDataGrid-columnHeaders": {
+                fontWeight: 600,
+              },
+              "& .MuiDataGrid-main": {
+                overflowX: "auto",
+              },
+              "& .MuiDataGrid-virtualScroller": {
+                overflowX: "auto",
+              },
             }}
           />
         </DialogContent>
@@ -2112,7 +2590,8 @@ const DetalleFactura = () => {
         maxWidth={false}
         PaperProps={{
           sx: {
-            width: { xs: "95vw", md: "70vw" },
+            width: { xs: "98vw", md: "88vw", lg: "92vw" },
+            maxWidth: "1500px",
             maxHeight: "90vh",
           },
         }}
@@ -2261,6 +2740,188 @@ const DetalleFactura = () => {
             }}
           >
             Confirmar asignación
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openExcedenteModal}
+        onClose={() => {
+          setOpenExcedenteModal(false);
+          setExcedenteRows([]);
+          setAsignacionesExcedente({});
+        }}
+        fullWidth
+        maxWidth="lg"
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: "bold",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          Asignar excedente por rama OPD
+          <IconButton
+            onClick={() => {
+              setOpenExcedenteModal(false);
+              setExcedenteRows([]);
+              setAsignacionesExcedente({});
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              <strong>Cantidad factura:</strong> {cantidadFactura}
+            </Typography>
+            <Typography variant="body1">
+              <strong>Total asignado:</strong> {totalAsignadoExcedente}
+            </Typography>
+            <Typography
+              variant="body1"
+              color={diferenciaExcedente === 0 ? "success.main" : "error.main"}
+            >
+              <strong>Diferencia:</strong> {diferenciaExcedente}
+            </Typography>
+          </Box>
+
+          <DataGrid
+            rows={excedenteRows}
+            getRowId={(row) => row.key}
+            autoHeight
+            density="compact"
+            disableRowSelectionOnClick
+            showCellVerticalBorder
+            showColumnVerticalBorder
+            columns={[
+              {
+                field: "pedido_linea_id",
+                headerName: "Pedido Línea",
+                flex: 1,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "pedido_id",
+                headerName: "Pedido",
+                flex: 0.8,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "sku",
+                headerName: "SKU",
+                flex: 1.5,
+              },
+              {
+                field: "descripcion",
+                headerName: "Descripción",
+                flex: 2,
+              },
+              {
+                field: "orden_compra_detalle_id",
+                headerName: "OC Detalle",
+                flex: 1,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "orden_id",
+                headerName: "OP",
+                flex: 0.8,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "op_detalle_id",
+                headerName: "OPD",
+                flex: 0.8,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "cantidad_billete",
+                headerName: "Billete actual",
+                flex: 1,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "cantidad_surtida",
+                headerName: "Surtida",
+                flex: 0.8,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "pendiente_opd",
+                headerName: "Pendiente",
+                flex: 0.9,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "op_estatus",
+                headerName: "Estatus OP",
+                flex: 1,
+                align: "center",
+                headerAlign: "center",
+              },
+              {
+                field: "cantidad_final_input",
+                headerName: "Cantidad final",
+                flex: 1.2,
+                sortable: false,
+                filterable: false,
+                renderCell: (params) => (
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={asignacionesExcedente[params.row.key] ?? ""}
+                    onChange={(e) =>
+                      handleCantidadExcedenteChange(
+                        params.row.key,
+                        e.target.value,
+                      )
+                    }
+                    inputProps={{
+                      min: 0,
+                      step: "0.01",
+                    }}
+                    fullWidth
+                  />
+                ),
+              },
+            ]}
+            sx={{
+              borderRadius: 2,
+              border: 2,
+              borderColor: "#1e88e5",
+            }}
+          />
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setOpenExcedenteModal(false);
+              setExcedenteRows([]);
+              setAsignacionesExcedente({});
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmarExcedente}
+            disabled={Number(diferenciaExcedente.toFixed(2)) !== 0}
+          >
+            Confirmar excedente
           </Button>
         </DialogActions>
       </Dialog>
