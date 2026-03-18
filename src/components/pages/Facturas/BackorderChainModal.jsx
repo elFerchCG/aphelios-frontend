@@ -174,8 +174,6 @@ const BackorderChainModal = ({
 
         <Typography sx={{ mt: 2 }} variant="body2">
           <b>¿Qué deseas hacer con este pedido?</b>
-          <br />• <b>Solo esta línea:</b> quita el enlace únicamente de esta
-          factura, sin tocar las demás.
           <br />• <b>Reset hasta papá:</b> deshace toda la cadena y regresa el
           pedido a como estaba originalmente (elimina hijas y enlaces
           posteriores).
@@ -189,9 +187,6 @@ const BackorderChainModal = ({
 
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={onSingle} color="warning">
-          Solo esta línea
-        </Button>
         <Button onClick={onReset} color="error" variant="contained">
           Reset hasta papá
         </Button>
