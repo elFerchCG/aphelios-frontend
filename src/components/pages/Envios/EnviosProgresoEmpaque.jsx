@@ -148,6 +148,71 @@ const EnviosProgresoEmpaque = () => {
             },
         },
         {
+            field: "prioridad_factura",
+            headerName: "Prioridad",
+            flex: 1.5,
+            renderCell: (params) => {
+                const map = {
+                    1: { label: "Crítico", color: "error" },
+                    2: { label: "Bajo", color: "warning" },
+                    3: { label: "Medio", color: "info" },
+                    4: { label: "Saludable", color: "success" },
+                    5: { label: "Sobrestock", color: "default" },
+                    6: { label: "Sin demanda", color: "default" },
+                };
+
+                const status = map[params.value] || {
+                    label: "N/A",
+                    color: "default",
+                };
+
+                return (
+                    <Chip
+                        label={status.label}
+                        color={status.color}
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                    />
+                );
+            }
+        },
+        {
+            field: "ops_criticas",
+            headerName: "Críticas",
+            flex: 1,
+            type: "number",
+            renderCell: (params) => {
+                const value = Number(params.value || 0);
+
+                return (
+                    <Chip
+                        label={value}
+                        size="small"
+                        color={value > 0 ? "error" : "default"}
+                        sx={{ fontWeight: 600 }}
+                    />
+                );
+            }
+        },
+        {
+            field: "ops_urgentes",
+            headerName: "Urgentes",
+            flex: 1,
+            type: "number",
+            renderCell: (params) => {
+                const value = Number(params.value || 0);
+
+                return (
+                    <Chip
+                        label={value}
+                        size="small"
+                        color={value > 0 ? "warning" : "default"}
+                        sx={{ fontWeight: 600 }}
+                    />
+                );
+            }
+        },
+        {
             field: "estatus",
             headerName: "Estatus",
             flex: 1,

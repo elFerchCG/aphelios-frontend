@@ -4,8 +4,14 @@ import GraficaProyeccionVsVentas from "./GraficaProyeccionVsVentas";
 import GraficaStockPastel from "./GraficaStockPastel";
 import GraficaStockPorCategoria from "./GraficaStockPorCategoria";
 import "./styles/meliVentas.css";
+import GraficaCoberturaStock from "./GraficaStockVsMaximo.jsx";
 
 function DashboardAphelios() {
+  const apiUrl =
+    process.env.NODE_ENV === "production"
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
   return (
     <div className="dashboard-wrap">
       {/* ======= VENTAS ======= */}
@@ -23,7 +29,7 @@ function DashboardAphelios() {
           <GraficaProyeccionVsVentas
             weeks={5}
             useBackend={true} // ✅ usa backend
-            apiUrl={process.env.REACT_APP_API_URL_LOCAL} // ✅ base URL, ej: http://localhost:3304
+            apiUrl={apiUrl} // ✅ base URL, ej: http://localhost:3304
           />
         </div>
       </section>
@@ -35,9 +41,19 @@ function DashboardAphelios() {
           <p className="board-subtitle">Distribución y estado por categoría</p>
         </header>
 
+        {/* FILA 1 */}
         <div className="score-grid-3">
           <GraficaStockPastel />
+        </div>
+
+        {/* FILA 2 */}
+        <div className="score-grid-3">
           <GraficaStockPorCategoria />
+        </div>
+
+        {/* FILA 3 */}
+        <div className="score-grid-3">
+          <GraficaCoberturaStock />
         </div>
       </section>
     </div>
