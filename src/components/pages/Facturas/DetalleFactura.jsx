@@ -13,12 +13,19 @@ import {
   MenuItem,
   Select,
   FormControl,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Typography,
 } from "@mui/material";
 
 import FlashAutoIcon from "@mui/icons-material/FlashAuto";
 import CloseIcon from "@mui/icons-material/Close";
 import InsercionManual from "./InsercionManual";
-import BackorderChainModal from "./BackorderChainModal";
+import BackordersPreviewModal from "./BackordersPreviewModal";
+import ExcedentePreviewModal from "./ExcedentePreviewModal";
 
 import {
   DataGrid,
@@ -32,7 +39,6 @@ import {
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import InsertLinkIcon from "@mui/icons-material/InsertLink";
-import Typography from "@mui/material/Typography";
 import Swal from "sweetalert2";
 import { useParams, useLocation } from "react-router-dom";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -86,6 +92,23 @@ const DetalleFactura = () => {
   const [openExcedenteModal, setOpenExcedenteModal] = useState(false);
   const [excedenteRows, setExcedenteRows] = useState([]);
   const [asignacionesExcedente, setAsignacionesExcedente] = useState({});
+  const [openBackordersModal, setOpenBackordersModal] = useState(false);
+  const [backordersPreview, setBackordersPreview] = useState(null);
+  const [loadingBackordersPreview, setLoadingBackordersPreview] =
+    useState(false);
+  const [loadingResetBackorders, setLoadingResetBackorders] = useState(false);
+  const [loadingSingleUnlink, setLoadingSingleUnlink] = useState(false);
+  const [openExcedentePreviewModal, setOpenExcedentePreviewModal] =
+    useState(false);
+  const [excedentePreviewRows, setExcedentePreviewRows] = useState([]);
+  const [loadingExcedentePreview, setLoadingExcedentePreview] = useState(false);
+  const [
+    facturaDetalleIdPreviewExcedente,
+    setFacturaDetalleIdPreviewExcedente,
+  ] = useState(null);
+  const [openBackorderModal, setOpenBackorderModal] = useState(false);
+  const [backorderRows, setBackorderRows] = useState([]);
+  const [backorderDistribucion, setBackorderDistribucion] = useState({});
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
@@ -106,26 +129,43 @@ const DetalleFactura = () => {
   };
 
   const getEstadoEnlace = (row) => {
-    if (!isEnlazada(row)) return "pendiente";
+    const {
+      factura_detalle_asignacion_id,
+      tipo_asignacion,
+      estatus_linea,
+      excedente,
+      back_order,
+    } = row;
 
-    const back =
-      Number(row.back_order || 0) === 1 ||
-      Number(row.cantidad_backorder || 0) > 0;
-    const exc =
-      Number(row.excedente || 0) === 1 ||
-      Number(row.cantidad_excedente || 0) > 0;
+    if (!factura_detalle_asignacion_id) return "pendiente";
 
-    if (exc) return "excedente";
-    if (back) return "backorder";
+    const esExcedente =
+      tipo_asignacion === "excedente" ||
+      estatus_linea === "excedente" ||
+      Number(excedente || 0) === 1;
+
+    const esBackorder =
+      tipo_asignacion === "backorder" ||
+      estatus_linea === "backorder" ||
+      Number(back_order || 0) === 1;
+
+    if (esExcedente) return "excedente";
+    if (esBackorder) return "backorder";
+
     return "ok";
   };
 
   const conteos = React.useMemo(() => {
     const c = { ok: 0, backorder: 0, excedente: 0, pendiente: 0, total: 0 };
+
     for (const r of data) {
       c.total++;
-      c[getEstadoEnlace(r)]++;
+      const estado = getEstadoEnlace(r);
+      if (c[estado] !== undefined) {
+        c[estado]++;
+      }
     }
+
     return c;
   }, [data]);
 
@@ -143,34 +183,56 @@ const DetalleFactura = () => {
   const estadoColumn = {
     field: "estado_visual",
     headerName: "Estado",
-    width: 70,
+    width: 80,
     sortable: false,
     filterable: false,
     renderCell: (params) => {
-      const { estatus, pedido_id, factura_detalle_id, excedente, back_order } =
-        params.row;
+      const {
+        estatus,
+        factura_detalle_asignacion_id,
+        tipo_asignacion,
+        cantidad,
+        cantidad_asignada,
+        estatus_linea,
+        excedente,
+        back_order,
+      } = params.row;
 
-      const estaLinkeado = !!pedido_id || !!factura_detalle_id;
+      const estaLinkeado = Boolean(factura_detalle_asignacion_id);
 
-      // Normaliza por si vienen como string "0"/"1"
-      const tieneExcedente = Number(excedente) === 1;
-      const tieneBackOrder = Number(back_order) === 1;
+      const esBackorder =
+        tipo_asignacion === "backorder" ||
+        estatus_linea === "backorder" ||
+        Number(back_order || 0) === 1;
 
-      const esVerde = estaLinkeado && !tieneExcedente && !tieneBackOrder;
+      const esExcedente =
+        tipo_asignacion === "excedente" ||
+        estatus_linea === "excedente" ||
+        Number(excedente || 0) === 1;
+
+      const esParcial =
+        !esBackorder &&
+        !esExcedente &&
+        Number(cantidad_asignada || 0) > 0 &&
+        Number(cantidad_asignada || 0) < Number(cantidad || 0);
 
       let icon = null;
 
+      // 1. Linkeado
       if (estaLinkeado) {
-        // Prioridad: backorder > excedente > normal
         let color = green[600];
-        let title = "Linkeado con éxito";
+        let title = "Linkeado correctamente";
 
-        if (tieneBackOrder) {
-          color = yellow[800];
-          title = "Linkeado (línea que generó backorder)";
-        } else if (tieneExcedente) {
+        // prioridad correcta
+        if (esExcedente) {
           color = blue[600];
-          title = "Linkeado con excedente";
+          title = "Excedente";
+        } else if (esBackorder) {
+          color = yellow[800];
+          title = "Backorder";
+        } else if (esParcial) {
+          color = orange[600];
+          title = "Parcial";
         }
 
         icon = (
@@ -178,19 +240,28 @@ const DetalleFactura = () => {
             <CheckCircleIcon sx={{ color }} />
           </Tooltip>
         );
-      } else if (estatus === "nuevo") {
+      }
+
+      // 2. Producto nuevo
+      else if (estatus === "nuevo") {
         icon = (
           <Tooltip title="Producto nuevo (Mercadotecnia)">
             <NewReleasesIcon sx={{ color: orange[600] }} />
           </Tooltip>
         );
-      } else if (estatus === "devolver") {
+      }
+
+      // 3. Devolver
+      else if (estatus === "devolver") {
         icon = (
           <Tooltip title="Producto a devolver">
             <LocalShippingIcon sx={{ color: grey[600] }} />
           </Tooltip>
         );
-      } else {
+      }
+
+      // 4. No enlazado
+      else {
         icon = (
           <Tooltip title="No linkeado">
             <LinkOffIcon sx={{ color: grey[500] }} />
@@ -441,6 +512,56 @@ const DetalleFactura = () => {
     }
   };
 
+  const validarDistribucionBackorder = (
+    rows = [],
+    asignacionesMap = {},
+    cantidadFactura = 0,
+  ) => {
+    const cantidadFacturaNum = Number(cantidadFactura || 0);
+
+    const valores = rows.map((row) => ({
+      ...row,
+      asignado: Number(asignacionesMap[row.rowKey] || 0),
+      pendiente: Number(row.pendiente_opd || 0),
+    }));
+
+    const totalAsignado = valores.reduce((sum, row) => sum + row.asignado, 0);
+
+    if (totalAsignado <= 0) {
+      return {
+        ok: false,
+        message: "Debes capturar al menos una cantidad para continuar.",
+      };
+    }
+
+    if (
+      Number(totalAsignado.toFixed(2)) !== Number(cantidadFacturaNum.toFixed(2))
+    ) {
+      return {
+        ok: false,
+        message: `La suma de las asignaciones (${totalAsignado}) debe ser igual a la cantidad de la factura (${cantidadFacturaNum}).`,
+      };
+    }
+
+    for (const row of valores) {
+      if (row.asignado < 0) {
+        return {
+          ok: false,
+          message: `La OPD ${row.op_detalle_id} tiene una cantidad inválida.`,
+        };
+      }
+
+      if (row.asignado > row.pendiente) {
+        return {
+          ok: false,
+          message: `La OPD ${row.op_detalle_id} excede su pendiente (${row.pendiente}).`,
+        };
+      }
+    }
+
+    return { ok: true };
+  };
+
   const handleCloseModal = () => {
     setOpenModal(false);
     setLineaId("");
@@ -606,23 +727,29 @@ const DetalleFactura = () => {
         const {
           pedido_id,
           pedido_linea_id,
-          estatus,
+          tipo_asignacion,
+          factura_detalle_asignacion_id,
           logistic_type,
           permitir_full,
+          estatus,
+          estatus_linea,
           excedente,
-          back_order,
         } = params.row;
 
-        // Ocultar icono si la fila es "nuevo" o "devolver"
         if (estatus === "nuevo" || estatus === "devolver") return [];
 
         const actions = [];
-        const enlazada = Boolean(pedido_id && pedido_linea_id);
+        const enlazada = Boolean(
+          pedido_id && pedido_linea_id && factura_detalle_asignacion_id,
+        );
 
-        const tieneExcedente = Number(excedente) === 1;
-        const tieneBackOrder = Number(back_order) === 1;
+        const esExcedente =
+          tipo_asignacion === "excedente" ||
+          estatus_linea === "excedente" ||
+          Number(excedente || 0) === 1;
 
-        // 1) Habilitar FULL (igual que antes)
+        const esBackorder = tipo_asignacion === "backorder";
+
         if (logistic_type !== "fulfillment" && permitir_full === 0) {
           actions.push(
             <Tooltip
@@ -641,34 +768,30 @@ const DetalleFactura = () => {
           );
         }
 
-        // 2) Si está enlazada -> Quitar enlace
         if (enlazada) {
-          // 🟦 EXCEDENTE → endpoint de excedente
-          if (tieneExcedente) {
+          if (esExcedente) {
             actions.push(
               <Tooltip
-                title="Desenlazar excedente"
-                key={`unlink-ex-${params.row.id}`}
+                title="Ver excedentes enlazados"
+                key={`preview-ex-${params.row.id}-${factura_detalle_asignacion_id}`}
               >
                 <GridActionsCellItem
                   icon={
                     <LinkOffIcon
                       fontSize="small"
-                      sx={{ ...actionIconSx, color: "#1565c0" }} // azul
+                      sx={{ ...actionIconSx, color: "#1565c0" }}
                     />
                   }
-                  label="Desenlazar excedente"
+                  label="Ver excedentes enlazados"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleQuitarEnlaceExcedente(params);
+                    handleAbrirPreviewExcedente(params);
                   }}
                   showInMenu={false}
                 />
               </Tooltip>,
             );
-          }
-          // 🟨 BACKORDER → endpoint de backorder
-          else if (tieneBackOrder) {
+          } else if (esBackorder) {
             actions.push(
               <Tooltip
                 title="Desenlazar backorder"
@@ -678,7 +801,7 @@ const DetalleFactura = () => {
                   icon={
                     <LinkOffIcon
                       fontSize="small"
-                      sx={{ ...actionIconSx, color: "#f9a825" }} // amarillo
+                      sx={{ ...actionIconSx, color: "#f9a825" }}
                     />
                   }
                   label="Desenlazar backorder"
@@ -697,7 +820,7 @@ const DetalleFactura = () => {
                   icon={
                     <LinkOffIcon
                       fontSize="small"
-                      sx={{ ...actionIconSx, color: "#d32f2f" }} // rojo
+                      sx={{ ...actionIconSx, color: "#d32f2f" }}
                     />
                   }
                   label="Quitar enlace"
@@ -712,7 +835,6 @@ const DetalleFactura = () => {
           }
         }
 
-        // 3) Si NO está enlazada -> Enlazar manual
         if (!enlazada) {
           actions.push(
             <Tooltip title="Enlazar manual" key={`facturas-${params.row.id}`}>
@@ -865,10 +987,12 @@ const DetalleFactura = () => {
       filterable: false,
       renderCell: (params) => {
         const ramas = params.row.ramas_produccion || [];
-        const requiere = Number(params.row.requiere_seleccion_op || 0) === 1;
+        const requiereSeleccion = ramas.length >= 2;
+
         const pedidoLineaId = Number(
           params.row.pedido_linea_id || params.row.id || 0,
         );
+
         const value = opDetalleSeleccionadoMap[pedidoLineaId] || "";
 
         if (!ramas.length) {
@@ -879,8 +1003,9 @@ const DetalleFactura = () => {
           );
         }
 
-        if (!requiere) {
+        if (!requiereSeleccion) {
           const rama = ramas[0];
+
           return (
             <Box sx={{ fontSize: 12, lineHeight: 1.3, py: 0.5 }}>
               <div>
@@ -946,11 +1071,24 @@ const DetalleFactura = () => {
                   <em>Selecciona una rama</em>
                 </MenuItem>
 
-                {ramas.map((rama) => (
-                  <MenuItem key={rama.op_detalle_id} value={rama.op_detalle_id}>
-                    {`OP #${rama.orden_id} · OPD #${rama.op_detalle_id} · Pendiente ${rama.pendiente_opd} · ${rama.op_estatus}`}
-                  </MenuItem>
-                ))}
+                {ramas.map((rama) => {
+                  const pendiente = Number(rama.pendiente_opd || 0);
+                  const deshabilitada = pendiente <= 0;
+
+                  return (
+                    <MenuItem
+                      key={rama.op_detalle_id}
+                      value={rama.op_detalle_id}
+                      disabled={deshabilitada}
+                      sx={{
+                        opacity: deshabilitada ? 0.5 : 1,
+                        fontStyle: deshabilitada ? "italic" : "normal",
+                      }}
+                    >
+                      {`OP #${rama.orden_id} · OPD #${rama.op_detalle_id} · Pendiente ${rama.pendiente_opd} · ${rama.op_estatus}`}
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
           </Box>
@@ -1004,42 +1142,90 @@ const DetalleFactura = () => {
     }
   };
 
-  const abrirModalExcedente = (seleccionadas) => {
-    const filasExpandibles = [];
+  const validarDistribucionExcedente = (
+    rows = [],
+    asignacionesMap = {},
+    cantidadFactura = 0,
+  ) => {
+    const cantidadFacturaNum = Number(cantidadFactura || 0);
 
-    for (const row of seleccionadas) {
-      const ramas = Array.isArray(row.ramas_produccion)
+    const valores = rows.map((row) => ({
+      ...row,
+      asignado: Number(asignacionesMap[row.key] || 0),
+      pendiente: Number(row.pendiente_opd || 0),
+    }));
+
+    const totalAsignado = valores.reduce((sum, row) => sum + row.asignado, 0);
+    const totalPendiente = valores.reduce((sum, row) => sum + row.pendiente, 0);
+
+    if (totalAsignado <= 0) {
+      return {
+        ok: false,
+        message: "Debes capturar al menos una cantidad para continuar.",
+      };
+    }
+
+    if (
+      Number(totalAsignado.toFixed(2)) !== Number(cantidadFacturaNum.toFixed(2))
+    ) {
+      return {
+        ok: false,
+        message: `La suma de las asignaciones (${totalAsignado}) debe ser igual a la cantidad de la factura (${cantidadFacturaNum}).`,
+      };
+    }
+
+    // Si es excedente, la factura debe ser al menos suficiente para cubrir todos los pendientes
+    if (cantidadFacturaNum < totalPendiente) {
+      return {
+        ok: false,
+        message: `La factura (${cantidadFacturaNum}) no alcanza para cubrir el mínimo requerido de todas las ramas (${totalPendiente}).`,
+      };
+    }
+
+    // Cada rama debe recibir al menos su pendiente
+    for (const row of valores) {
+      if (row.asignado < 0) {
+        return {
+          ok: false,
+          message: `La OPD ${row.op_detalle_id} tiene una cantidad inválida.`,
+        };
+      }
+
+      if (row.asignado < row.pendiente) {
+        return {
+          ok: false,
+          message: `Debes cubrir al menos ${row.pendiente} en la OPD ${row.op_detalle_id} antes de repartir el excedente.`,
+        };
+      }
+    }
+
+    return { ok: true };
+  };
+
+  const abrirModalExcedente = (seleccionadas = []) => {
+    const rows = seleccionadas.flatMap((row) => {
+      const ramas = Array.isArray(row?.ramas_produccion)
         ? row.ramas_produccion
         : [];
 
-      for (const rama of ramas) {
-        const key = `${row.id}_${rama.orden_compra_detalle_id}_${rama.op_detalle_id}`;
-
-        filasExpandibles.push({
-          key,
-          pedido_linea_id: Number(row.id),
-          pedido_id: Number(row.pedido_id || 0),
-          sku: row.sku,
+      return ramas
+        .filter((rama) => Number(rama?.pendiente_opd || 0) > 0)
+        .map((rama) => ({
+          key: `${row.pedido_linea_id}-${rama.op_detalle_id}`,
+          pedido_linea_id: Number(row.pedido_linea_id),
           descripcion: row.descripcion,
-          cantidad_linea: Number(row.cantidad || 0),
-          orden_compra_detalle_id: Number(rama.orden_compra_detalle_id || 0),
-          op_detalle_id: Number(rama.op_detalle_id || 0),
-          orden_id: Number(rama.orden_id || 0),
+          orden_compra_detalle_id: Number(rama.orden_compra_detalle_id),
+          orden_id: Number(rama.orden_id),
+          op_detalle_id: Number(rama.op_detalle_id),
           cantidad_billete: Number(rama.cantidad_billete || 0),
           cantidad_surtida: Number(rama.cantidad_surtida || 0),
           pendiente_opd: Number(rama.pendiente_opd || 0),
           op_estatus: rama.op_estatus || "N/A",
-        });
-      }
-    }
-
-    const inicial = {};
-    filasExpandibles.forEach((item) => {
-      inicial[item.key] = "";
+        }));
     });
 
-    setExcedenteRows(filasExpandibles);
-    setAsignacionesExcedente(inicial);
+    setExcedenteRows(rows);
+    setAsignacionesExcedente({});
     setOpenExcedenteModal(true);
   };
 
@@ -1068,6 +1254,21 @@ const DetalleFactura = () => {
     try {
       const cantidadFacturaFloat = Number(cantidadFactura || 0);
 
+      const validacion = validarDistribucionExcedente(
+        excedenteRows,
+        asignacionesExcedente,
+        cantidadFacturaFloat,
+      );
+
+      if (!validacion.ok) {
+        await Swal.fire({
+          icon: "warning",
+          title: "Cantidad inválida",
+          text: validacion.message,
+        });
+        return;
+      }
+
       const asignaciones = excedenteRows
         .map((row) => ({
           pedido_linea_id: Number(row.pedido_linea_id),
@@ -1076,31 +1277,6 @@ const DetalleFactura = () => {
           cantidad_final: Number(asignacionesExcedente[row.key] || 0),
         }))
         .filter((a) => Number(a.cantidad_final) > 0);
-
-      const total = asignaciones.reduce(
-        (sum, item) => sum + Number(item.cantidad_final || 0),
-        0,
-      );
-
-      if (!asignaciones.length) {
-        await Swal.fire({
-          icon: "warning",
-          title: "Sin asignaciones",
-          text: "Debes capturar al menos una cantidad para continuar.",
-        });
-        return;
-      }
-
-      if (
-        Number(total.toFixed(2)) !== Number(cantidadFacturaFloat.toFixed(2))
-      ) {
-        await Swal.fire({
-          icon: "warning",
-          title: "Cantidad inválida",
-          text: `La suma de las asignaciones (${total}) debe ser igual a la cantidad de la factura (${cantidadFacturaFloat}).`,
-        });
-        return;
-      }
 
       await axios.post(`${apiUrl}/facturas/enlaceFacturaConExcedente`, {
         factura_detalle_id: lineaId,
@@ -1156,13 +1332,346 @@ const DetalleFactura = () => {
     return Number(ramaSeleccionada.cantidad_billete || 0);
   };
 
+  const obtenerOpDetalleIdDeFila = (row) => {
+    const requiere = Number(row.requiere_seleccion_op || 0) === 1;
+
+    if (requiere) {
+      return Number(opDetalleSeleccionadoMap[row.id]?.op_detalle_id || 0);
+    }
+
+    return Number(
+      row.op_detalle_id ||
+        row.opd_activa_id ||
+        row.orden_produccion_detalle_id ||
+        0,
+    );
+  };
+
+  const obtenerOrdenCompraDetalleIdDeFila = (row) => {
+    return Number(
+      row.detalle_orden_compra_id ||
+        row.orden_compra_detalle_id ||
+        row.oc_detalle_id ||
+        0,
+    );
+  };
+
+  const construirAsignaciones = (seleccionadas) => {
+    return seleccionadas.map((row) => ({
+      pedido_linea_id: Number(row.id),
+      orden_compra_detalle_id: obtenerOrdenCompraDetalleIdDeFila(row),
+      op_detalle_id: obtenerOpDetalleIdDeFila(row),
+      cantidad_final: obtenerCantidadEfectivaFila(row),
+    }));
+  };
+
+  const getPedidoLineaId = (row) =>
+    Number(row?.pedido_linea_id || row?.id || 0);
+
+  const getCantidadFila = (row) =>
+    Number(
+      row?.cantidad ??
+        row?.cantidad_pendiente ??
+        row?.cantidad_restante ??
+        row?.pendiente ??
+        0,
+    );
+
+  const buildAsignacionDesdeFila = (
+    row,
+    opDetalleSeleccionadoMap = {},
+    cantidadOverride = null,
+  ) => {
+    const pedidoLineaId = getPedidoLineaId(row);
+    if (!pedidoLineaId) return null;
+
+    const ramas = Array.isArray(row?.ramas_produccion)
+      ? row.ramas_produccion
+      : [];
+
+    if (!ramas.length) return null;
+
+    const cantidadBase =
+      cantidadOverride != null
+        ? Number(cantidadOverride)
+        : Number(getCantidadFila(row));
+
+    if (!cantidadBase || cantidadBase <= 0) return null;
+
+    const requiereSeleccion = ramas.length >= 2;
+
+    if (!requiereSeleccion) {
+      const rama = ramas[0];
+
+      if (!rama?.orden_compra_detalle_id || !rama?.op_detalle_id) {
+        return null;
+      }
+
+      return {
+        pedido_linea_id: pedidoLineaId,
+        orden_compra_detalle_id: Number(rama.orden_compra_detalle_id),
+        op_detalle_id: Number(rama.op_detalle_id),
+        cantidad_final: Number(cantidadBase),
+      };
+    }
+
+    const opDetalleSeleccionado = Number(
+      opDetalleSeleccionadoMap[pedidoLineaId] || 0,
+    );
+
+    if (!opDetalleSeleccionado) return null;
+
+    const ramaSeleccionada = ramas.find(
+      (rama) => Number(rama.op_detalle_id) === opDetalleSeleccionado,
+    );
+
+    if (!ramaSeleccionada) return null;
+
+    if (
+      !ramaSeleccionada?.orden_compra_detalle_id ||
+      !ramaSeleccionada?.op_detalle_id
+    ) {
+      return null;
+    }
+
+    return {
+      pedido_linea_id: pedidoLineaId,
+      orden_compra_detalle_id: Number(ramaSeleccionada.orden_compra_detalle_id),
+      op_detalle_id: Number(ramaSeleccionada.op_detalle_id),
+      cantidad_final: Number(cantidadBase),
+    };
+  };
+
+  const getRamasActivas = (row) => {
+    const ramas = Array.isArray(row?.ramas_produccion)
+      ? row.ramas_produccion
+      : [];
+
+    return ramas.filter((rama) => {
+      const pendienteOpd = Number(rama?.pendiente_opd || 0);
+      const estatus = String(rama?.op_estatus || "").toLowerCase();
+
+      return (
+        pendienteOpd > 0 ||
+        ["planeada", "parcial", "en_proceso"].includes(estatus)
+      );
+    });
+  };
+
+  const tieneMultiplesRamasActivas = (rows = []) => {
+    return rows.some((row) => getRamasActivas(row).length >= 2);
+  };
+
+  const familiaYaEsBackorder = (rows = []) => {
+    return rows.some((row) => {
+      return (
+        Number(row?.back_order || 0) === 1 ||
+        Number(row?.cantidad_backorder || 0) > 0 ||
+        String(row?.estatus_linea || "").toLowerCase() === "backorder"
+      );
+    });
+  };
+
+  const handleChangeBackorderDistribucion = (rowKey, value) => {
+    const row = backorderRows.find((r) => r.rowKey === rowKey);
+    const max = Number(row?.pendiente_opd || 0);
+
+    let limpio = String(value ?? "");
+
+    // solo números y un punto decimal
+    limpio = limpio.replace(/[^0-9.]/g, "");
+
+    // evitar más de un punto
+    const parts = limpio.split(".");
+    if (parts.length > 2) {
+      limpio = parts[0] + "." + parts.slice(1).join("");
+    }
+
+    if (limpio === "") {
+      setBackorderDistribucion((prev) => ({
+        ...prev,
+        [rowKey]: "",
+      }));
+      return;
+    }
+
+    let num = Number(limpio);
+
+    if (Number.isNaN(num)) num = 0;
+    if (num < 0) num = 0;
+    if (num > max) num = max;
+
+    setBackorderDistribucion((prev) => ({
+      ...prev,
+      [rowKey]: num,
+    }));
+  };
+
+  const buildAsignacionesBackorderDistribuidas = () => {
+    return backorderRows
+      .map((row) => {
+        const cantidadFinal = Number(backorderDistribucion[row.rowKey] || 0);
+
+        if (cantidadFinal <= 0) return null;
+
+        return {
+          pedido_linea_id: Number(row.pedido_linea_id),
+          orden_compra_detalle_id: Number(row.orden_compra_detalle_id),
+          op_detalle_id: Number(row.op_detalle_id),
+          cantidad_final: Number(cantidadFinal.toFixed(2)),
+        };
+      })
+      .filter(Boolean);
+  };
+
+  const validarBackorderDistribuido = () => {
+    const asignaciones = buildAsignacionesBackorderDistribuidas();
+
+    const totalAsignado = asignaciones.reduce(
+      (sum, item) => sum + Number(item.cantidad_final || 0),
+      0,
+    );
+
+    const cantidadFacturaFloat = Number(cantidadFactura || 0);
+
+    if (
+      Number(totalAsignado.toFixed(2)) !==
+      Number(cantidadFacturaFloat.toFixed(2))
+    ) {
+      return {
+        ok: false,
+        message: `La suma asignada (${totalAsignado}) debe ser igual a la cantidad de la factura (${cantidadFacturaFloat}).`,
+      };
+    }
+
+    for (const asignacion of asignaciones) {
+      const rama = backorderRows.find(
+        (r) =>
+          Number(r.pedido_linea_id) === Number(asignacion.pedido_linea_id) &&
+          Number(r.op_detalle_id) === Number(asignacion.op_detalle_id),
+      );
+
+      if (!rama) {
+        return {
+          ok: false,
+          message:
+            "No se encontró una rama válida para una de las asignaciones.",
+        };
+      }
+
+      if (Number(asignacion.cantidad_final) > Number(rama.pendiente_opd || 0)) {
+        return {
+          ok: false,
+          message: `La cantidad para la OPD ${rama.op_detalle_id} excede su pendiente (${rama.pendiente_opd}).`,
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      asignaciones,
+    };
+  };
+
+  const totalAsignadoBackorder = Object.values(backorderDistribucion).reduce(
+    (sum, v) => sum + Number(v || 0),
+    0,
+  );
+
+  const diferenciaBackorder =
+    Number(cantidadFactura || 0) - totalAsignadoBackorder;
+
+  const handleGuardarBackorderDistribuido = async () => {
+    try {
+      const cantidadFacturaFloat = Number(cantidadFactura || 0);
+
+      const validacion = validarDistribucionBackorder(
+        backorderRows,
+        backorderDistribucion,
+        cantidadFacturaFloat,
+      );
+
+      if (!validacion.ok) {
+        await Swal.fire({
+          icon: "warning",
+          title: "Cantidad inválida",
+          text: validacion.message,
+        });
+        return;
+      }
+
+      const asignaciones = backorderRows
+        .map((row) => ({
+          pedido_linea_id: Number(row.pedido_linea_id),
+          orden_compra_detalle_id: Number(row.orden_compra_detalle_id),
+          op_detalle_id: Number(row.op_detalle_id),
+          cantidad_final: Number(backorderDistribucion[row.rowKey] || 0),
+        }))
+        .filter((a) => Number(a.cantidad_final) > 0);
+
+      await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
+        factura_detalle_id: lineaId,
+        asignaciones,
+        mantener_backorder: true,
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "Backorder enlazado correctamente",
+      });
+
+      setOpenBackorderModal(false);
+      setBackorderRows([]);
+      setBackorderDistribucion({});
+      handleCloseModal();
+      fetchDetalleFactura(facturaId);
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error al enlazar backorder",
+        text: error.response?.data?.message || "Error desconocido",
+      });
+    }
+  };
+
+  const abrirModalBackorder = (seleccionadas = []) => {
+    const rows = seleccionadas.flatMap((row) => {
+      const pedidoLineaId = Number(row?.pedido_linea_id || row?.id || 0);
+      const ramasActivas = getRamasActivas(row);
+
+      return ramasActivas.map((rama) => ({
+        rowKey: `${pedidoLineaId}-${rama.op_detalle_id}`,
+        pedido_linea_id: pedidoLineaId,
+        pedido_id: row?.pedido_id ?? null,
+        sku: row?.sku ?? "",
+        descripcion: row?.descripcion ?? "",
+        cantidad_factura_objetivo: Number(cantidadFactura || 0),
+
+        orden_compra_detalle_id: Number(rama?.orden_compra_detalle_id || 0),
+        op_detalle_id: Number(rama?.op_detalle_id || 0),
+        orden_id: Number(rama?.orden_id || 0),
+
+        pendiente_opd: Number(rama?.pendiente_opd || 0),
+        op_estatus: rama?.op_estatus || "N/A",
+      }));
+    });
+
+    setBackorderRows(rows);
+
+    const initial = {};
+    rows.forEach((r) => {
+      initial[r.rowKey] = "";
+    });
+
+    setBackorderDistribucion(initial);
+    setOpenBackorderModal(true);
+  };
+
   const handleGuardarSeleccion = async () => {
-    let advertencia = null;
-    let result = null;
     let continuar = true;
 
     const seleccionadas = detalleData.filter((row) =>
-      selectionModel.includes(row.id),
+      selectionModel.includes(getPedidoLineaId(row)),
     );
 
     if (!seleccionadas.length) {
@@ -1174,13 +1683,13 @@ const DetalleFactura = () => {
       return;
     }
 
-    const pedido_linea_ids = seleccionadas.map((row) => Number(row.id));
-
     const filasSinOpd = seleccionadas.filter((row) => {
-      const requiere = Number(row.requiere_seleccion_op || 0) === 1;
-      if (!requiere) return false;
+      const ramas = row.ramas_produccion || [];
+      const requiereSeleccion = ramas.length >= 2;
 
-      const pedidoLineaId = Number(row.id);
+      if (!requiereSeleccion) return false;
+
+      const pedidoLineaId = Number(row.pedido_linea_id || row.id || 0);
       const opDetalleId = Number(opDetalleSeleccionadoMap[pedidoLineaId] || 0);
 
       return !opDetalleId;
@@ -1195,31 +1704,124 @@ const DetalleFactura = () => {
       return;
     }
 
-    const op_detalle_selecciones = seleccionadas
-      .filter((row) => Number(row.requiere_seleccion_op || 0) === 1)
-      .map((row) => ({
-        pedido_linea_id: Number(row.id),
-        op_detalle_id: Number(opDetalleSeleccionadoMap[row.id]),
-      }));
+    const cantidadFacturaFloat = Number(parseFloat(cantidadFactura) || 0);
 
-    const totalPedido = seleccionadas.reduce(
-      (sum, item) => sum + obtenerCantidadEfectivaFila(item),
+    const asignaciones = seleccionadas
+      .map((row) => buildAsignacionDesdeFila(row, opDetalleSeleccionadoMap))
+      .filter(Boolean);
+
+    if (!asignaciones.length) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error al guardar",
+        text: "No se pudieron construir las asignaciones.",
+      });
+      return;
+    }
+
+    if (asignaciones.length !== seleccionadas.length) {
+      await Swal.fire({
+        icon: "error",
+        title: "Datos incompletos",
+        text: "Una o más líneas seleccionadas no tienen OC detalle u OP detalle válidos.",
+      });
+      return;
+    }
+
+    const totalPedido = asignaciones.reduce(
+      (sum, item) => sum + Number(item.cantidad_final || 0),
       0,
     );
 
-    const cantidadFacturaFloat = parseFloat(cantidadFactura);
-    const usuario_id = user.id_usuario;
+    const multiplesRamasActivas = tieneMultiplesRamasActivas(seleccionadas);
+    const esFamiliaBackorder = familiaYaEsBackorder(seleccionadas);
 
     try {
-      if (cantidadFacturaFloat === totalPedido) {
+      // 1) MANUAL
+      if (
+        cantidadFacturaFloat === totalPedido &&
+        !multiplesRamasActivas &&
+        !esFamiliaBackorder
+      ) {
         await axios.post(`${apiUrl}/facturas/enlazarManual`, {
           factura_detalle_id: lineaId,
-          pedido_linea_ids,
-          op_detalle_selecciones,
-          usuario_id,
+          asignaciones,
         });
-      } else if (cantidadFacturaFloat < totalPedido) {
-        if (detalleData.length > selectionModel.length) {
+      }
+
+      // 2) IGUAL AL PEDIDO PERO CON MÚLTIPLES RAMAS ACTIVAS
+      else if (cantidadFacturaFloat === totalPedido && multiplesRamasActivas) {
+        const advertencia = await Swal.fire({
+          title: "⚠️ Reparto entre ramas requerido",
+          text: "La factura coincide con el pedido, pero la línea tiene múltiples ramas activas. Debes repartir manualmente la cantidad entre las ramas.",
+          icon: "info",
+          showCancelButton: true,
+          confirmButtonText: "Continuar",
+          cancelButtonText: "Cancelar",
+          allowOutsideClick: false,
+        });
+
+        if (!advertencia.isConfirmed) {
+          continuar = false;
+          return;
+        }
+
+        abrirModalExcedente(seleccionadas);
+        continuar = false;
+        return;
+      }
+
+      // 3) EXCEDENTE REAL
+      // IMPORTANTE: esto debe ir antes que cualquier regla de backorder
+      else if (cantidadFacturaFloat > totalPedido) {
+        const advertencia = await Swal.fire({
+          title: "⚠️ Excedente detectado",
+          text: "La factura trae más cantidad que la suma de las líneas seleccionadas. Debes repartir manualmente el excedente entre las ramas OPD.",
+          icon: "info",
+          showCancelButton: true,
+          confirmButtonText: "Continuar",
+          cancelButtonText: "Cancelar",
+          allowOutsideClick: false,
+        });
+
+        if (!advertencia.isConfirmed) {
+          continuar = false;
+          return;
+        }
+
+        abrirModalExcedente(seleccionadas);
+        continuar = false;
+        return;
+      }
+
+      // 4) BACKORDER DISTRIBUIDO
+      else if (cantidadFacturaFloat < totalPedido && multiplesRamasActivas) {
+        const advertencia = await Swal.fire({
+          title: "🔄 Reparto de backorder requerido",
+          text: "La factura no cubre todo el pedido y la línea tiene múltiples ramas activas. Debes repartir manualmente la cantidad entre las ramas.",
+          icon: "info",
+          showCancelButton: true,
+          confirmButtonText: "Continuar",
+          cancelButtonText: "Cancelar",
+          allowOutsideClick: false,
+        });
+
+        if (!advertencia.isConfirmed) {
+          continuar = false;
+          return;
+        }
+
+        abrirModalBackorder(seleccionadas);
+        continuar = false;
+        return;
+      }
+
+      // 5) BACKORDER SIMPLE
+      else if (cantidadFacturaFloat < totalPedido || esFamiliaBackorder) {
+        if (
+          detalleData.length > selectionModel.length &&
+          cantidadFacturaFloat < totalPedido
+        ) {
           const advertenciaBack = await Swal.fire({
             title: "🔄 Backorder detectado",
             text: "Aún tienes líneas disponibles que podrías seleccionar. ¿Deseas elegir más antes de continuar?",
@@ -1239,7 +1841,7 @@ const DetalleFactura = () => {
         const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
         const pedidosUnicos = [...new Set(pedidosSeleccionados)];
 
-        result = await Swal.fire({
+        const result = await Swal.fire({
           title: "¿Deseas mantener el backorder?",
           html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(
             ", ",
@@ -1263,32 +1865,31 @@ const DetalleFactura = () => {
 
         const mantener_backorder = result.isConfirmed;
 
-        await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
-          factura_detalle_id: lineaId,
-          pedido_linea_ids,
-          op_detalle_selecciones,
-          usuario_id,
-          mantener_backorder,
-        });
-      } else if (cantidadFacturaFloat > totalPedido) {
-        advertencia = await Swal.fire({
-          title: "⚠️ Excedente detectado",
-          text: "La factura trae más cantidad que la suma de las líneas seleccionadas. Ahora debes repartir manualmente el excedente entre las ramas OPD.",
-          icon: "info",
-          showCancelButton: true,
-          confirmButtonText: "Continuar",
-          cancelButtonText: "Cancelar",
-          allowOutsideClick: false,
-        });
+        const asignacionesBackorder = seleccionadas
+          .map((row) =>
+            buildAsignacionDesdeFila(
+              row,
+              opDetalleSeleccionadoMap,
+              cantidadFacturaFloat,
+            ),
+          )
+          .filter(Boolean);
 
-        if (!advertencia.isConfirmed) {
+        if (!asignacionesBackorder.length) {
+          await Swal.fire({
+            icon: "error",
+            title: "Error al guardar",
+            text: "No se pudieron construir las asignaciones de backorder.",
+          });
           continuar = false;
           return;
         }
 
-        abrirModalExcedente(seleccionadas);
-        continuar = false;
-        return;
+        await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
+          factura_detalle_id: lineaId,
+          asignaciones: asignacionesBackorder,
+          mantener_backorder,
+        });
       } else {
         await Swal.fire({
           icon: "error",
@@ -1895,28 +2496,41 @@ const DetalleFactura = () => {
   };
 
   const handleQuitarEnlaceExcedente = async (params) => {
-    const facturaDetalleId = params.row.id;
+    const facturaDetalleAsignacionId = Number(
+      params.row.factura_detalle_asignacion_id,
+    );
+
     try {
+      if (!facturaDetalleAsignacionId) {
+        await Swal.fire(
+          "Error",
+          "La fila no tiene factura_detalle_asignacion_id.",
+          "error",
+        );
+        return;
+      }
+
       const confirm = await Swal.fire({
         title: "¿Desenlazar excedente?",
-        text: "Esto restaurará la línea original del pedido y dejará cantidad_recibida en 0.",
+        text: "Esto revertirá solo esta asignación de excedente.",
         icon: "warning",
         showCancelButton: true,
         confirmButtonText: "Sí, desenlazar",
         cancelButtonText: "Cancelar",
       });
+
       if (!confirm.isConfirmed) return;
 
       await axios.put(
-        `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarExcedente`,
+        `${apiUrl}/facturas/detalleAsignacion/${facturaDetalleAsignacionId}/desenlazarExcedente`,
       );
 
-      Swal.fire("Listo", "Excedente desenlazado.", "success");
+      await Swal.fire("Listo", "Excedente desenlazado.", "success");
 
       await fetchDetalleFactura(facturaId);
     } catch (err) {
       console.error(err);
-      Swal.fire(
+      await Swal.fire(
         "Error",
         err?.response?.data?.message || "No se pudo desenlazar excedente.",
         "error",
@@ -1924,21 +2538,16 @@ const DetalleFactura = () => {
     }
   };
 
-  const ejecutarDesenlaceBackorder = async ({
-    facturaDetalleId,
-    modo,
-    pedidoLineaId,
-    parentPedidoLineaId,
-  }) => {
-    const payload = {
-      modo,
-      pedido_linea_id: pedidoLineaId,
-      parent_pedido_linea_id: parentPedidoLineaId || null,
-    };
+  const obtenerPreviewBackorders = async ({ pedidoLineaId }) => {
+    const { data } = await axios.get(
+      `${apiUrl}/facturas/backorders/preview/${pedidoLineaId}`,
+    );
+    return data;
+  };
 
+  const ejecutarDesenlaceBackorder = async ({ facturaDetalleAsignacionId }) => {
     const { data } = await axios.put(
-      `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarBackOrder`,
-      payload,
+      `${apiUrl}/facturas/detalle/${facturaDetalleAsignacionId}/desenlazarBackOrder`,
     );
 
     return data;
@@ -1951,12 +2560,6 @@ const DetalleFactura = () => {
       force: true,
     };
 
-    console.log(
-      "RESET URL:",
-      `${apiUrl}/facturas/detalle/desenlazarBackOrderMasivo`,
-    );
-    console.log("RESET payload:", payload);
-
     const { data } = await axios.post(
       `${apiUrl}/facturas/detalle/desenlazarBackOrderMasivo`,
       payload,
@@ -1966,91 +2569,81 @@ const DetalleFactura = () => {
   };
 
   const handleQuitarBackOrder = async (params) => {
-    const facturaDetalleId = params.row.id;
-    const pedidoLineaId = params.row.pedido_linea_id;
-
-    if (!pedidoLineaId) {
-      await Swal.fire(
-        "Atención",
-        "No hay pedido_linea_id para validar la cadena.",
-        "warning",
-      );
-      return;
-    }
-
     try {
-      // 1) validar cadena
-      const { data: chainResp } = await axios.get(
-        `${apiUrl}/facturas/backorderChain/${pedidoLineaId}`,
+      const pedidoLineaId = Number(params?.row?.pedido_linea_id || 0);
+      const facturaDetalleAsignacionId = Number(
+        params?.row?.factura_detalle_asignacion_id || 0,
       );
 
-      if (!chainResp?.ok) {
+      if (!pedidoLineaId) {
         await Swal.fire(
           "Atención",
-          chainResp?.message || "No se pudo validar la cadena.",
+          "No se encontró pedido_linea_id válido.",
           "warning",
         );
         return;
       }
 
-      // 2) si hay cadena compleja -> abrir modal y detener flujo
-      if (Number(chainResp.should_prompt) === 1) {
-        setPendingBackorderParams(params); // guardamos la fila objetivo
-        setChainData(chainResp);
-        setOpenChainModal(true);
-        return;
-      }
+      setLoadingBackordersPreview(true);
 
-      // 3) caso simple -> confirm y desenlazar single
-      const confirm = await Swal.fire({
-        title: "¿Desenlazar Backorder?",
-        text: "Esto revertirá el split y eliminará las líneas de backorder.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sí, desenlazar",
-        cancelButtonText: "Cancelar",
-      });
-
-      if (!confirm.isConfirmed) return;
-
-      const data = await ejecutarDesenlaceBackorder({
-        facturaDetalleId,
-        modo: "single",
+      const data = await obtenerPreviewBackorders({
         pedidoLineaId,
       });
 
-      if (data?.ok) {
+      const asignaciones = data?.asignaciones || [];
+
+      // si no hay varias, permitir desenlace directo
+      if (asignaciones.length <= 1) {
+        if (!facturaDetalleAsignacionId) {
+          await Swal.fire(
+            "Atención",
+            "No se encontró la asignación de backorder.",
+            "warning",
+          );
+          return;
+        }
+
+        const confirm = await Swal.fire({
+          title: "¿Desenlazar backorder?",
+          text: "Se revertirá solo esta asignación.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Sí, desenlazar",
+          cancelButtonText: "Cancelar",
+        });
+
+        if (!confirm.isConfirmed) return;
+
+        setLoadingSingleUnlink(true);
+
+        await ejecutarDesenlaceBackorder({
+          facturaDetalleAsignacionId,
+        });
+
         await Swal.fire(
           "Listo",
           "Backorder desenlazado correctamente.",
           "success",
         );
+
         await fetchDetalleFactura(facturaId);
         return;
       }
 
+      // si hay varias, abrir modal
+      setBackordersPreview(data);
+      setOpenBackordersModal(true);
+    } catch (error) {
+      console.error("Error al consultar backorders:", error);
+
       await Swal.fire(
-        "Atención",
-        data?.message || "No se pudo desenlazar el backorder.",
-        "warning",
+        "No se pudo",
+        error?.response?.data?.message || "Error al consultar backorders.",
+        "error",
       );
-    } catch (err) {
-      const api = err?.response?.data;
-      const code = api?.code;
-
-      let msg = api?.message || "Error al desenlazar backorder.";
-
-      if (code === "CHILD_ALREADY_LINKED") {
-        msg = "No disponible: este backorder ya fue enlazado a otra factura.";
-      } else if (code === "OP_CHILD_HAS_MOVES") {
-        msg = "No disponible: la orden de producción ya tiene movimientos.";
-      } else if (code === "CHILD_NOT_FOUND_OR_MULTIPLE") {
-        msg = "Inconsistencia de datos: no se pudo identificar la línea hija.";
-      } else if (code === "NOT_A_BACKORDER_SPLIT") {
-        msg = "Esta línea no corresponde a un backorder.";
-      }
-
-      await Swal.fire("No se pudo", msg, "error");
+    } finally {
+      setLoadingBackordersPreview(false);
+      setLoadingSingleUnlink(false);
     }
   };
 
@@ -2091,15 +2684,89 @@ const DetalleFactura = () => {
     }
   };
 
+  const handleUnlinkSingleBackorder = async (asignacion) => {
+    try {
+      const facturaDetalleAsignacionId = Number(
+        asignacion?.factura_detalle_asignacion_id || 0,
+      );
+
+      if (!facturaDetalleAsignacionId) {
+        await Swal.fire(
+          "Atención",
+          "No se encontró la asignación a desenlazar.",
+          "warning",
+        );
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: "¿Desenlazar esta asignación?",
+        text: "Se revertirá solo esta asignación de backorder.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, desenlazar",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      setLoadingSingleUnlink(true);
+
+      await ejecutarDesenlaceBackorder({
+        facturaDetalleAsignacionId,
+      });
+
+      const pedidoLineaId = Number(
+        backordersPreview?.linea_base?.id || asignacion?.pedido_linea_id || 0,
+      );
+
+      const previewActualizado = await obtenerPreviewBackorders({
+        pedidoLineaId,
+      });
+
+      setBackordersPreview(previewActualizado);
+
+      await fetchDetalleFactura(facturaId);
+
+      await Swal.fire(
+        "Listo",
+        "Asignación desenlazada correctamente.",
+        "success",
+      );
+
+      if ((previewActualizado?.asignaciones || []).length === 0) {
+        setOpenBackordersModal(false);
+        setBackordersPreview(null);
+      }
+    } catch (error) {
+      console.error("Error al desenlazar asignación:", error);
+
+      await Swal.fire(
+        "No se pudo",
+        error?.response?.data?.message || "Error al desenlazar asignación.",
+        "error",
+      );
+    } finally {
+      setLoadingSingleUnlink(false);
+    }
+  };
+
   const handleResetToParent = async () => {
     if (!pendingBackorderParams || !chainData) return;
 
-    const parentPedidoLineaId = Number(chainData.parent_pedido_linea_id || 0);
-    if (!parentPedidoLineaId) return;
+    const parentPedidoLineaId = Number(chainData.parent_id || 0);
+    if (!parentPedidoLineaId) {
+      await Swal.fire(
+        "Atención",
+        "No se encontró la línea base para el reset.",
+        "warning",
+      );
+      return;
+    }
 
     const confirm = await Swal.fire({
-      title: "¿Reset hasta la línea original?",
-      text: "Esto regresará el papá a como estaba y eliminará todas las hijas (aunque estén en otras facturas).",
+      title: "¿Reset masivo de backorder?",
+      text: "Esto revertirá todas las asignaciones backorder de esta familia, incluso si están en otras facturas.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Sí, reset",
@@ -2109,7 +2776,9 @@ const DetalleFactura = () => {
     if (!confirm.isConfirmed) return;
 
     try {
-      const data = await ejecutarResetBackorderMasivo({ parentPedidoLineaId });
+      const data = await ejecutarResetBackorderMasivo({
+        parentPedidoLineaId,
+      });
 
       if (data?.ok) {
         setOpenChainModal(false);
@@ -2132,6 +2801,240 @@ const DetalleFactura = () => {
         err?.response?.data?.message || "Error al aplicar reset.",
         "error",
       );
+    }
+  };
+
+  const handleResetBackordersFamilia = async () => {
+    try {
+      const parentPedidoLineaId = Number(backordersPreview?.parent_id || 0);
+
+      if (!parentPedidoLineaId) {
+        await Swal.fire(
+          "Atención",
+          "No se encontró la línea base para el reset.",
+          "warning",
+        );
+        return;
+      }
+
+      const hayBloqueadas =
+        (backordersPreview?.ops_bloqueadas || []).length > 0;
+
+      if (hayBloqueadas) {
+        await Swal.fire(
+          "Bloqueado",
+          "Hay órdenes de producción en surtida o empacada. No se puede hacer reset.",
+          "error",
+        );
+        return;
+      }
+
+      const confirm = await Swal.fire({
+        title: "¿Reset masivo de backorder?",
+        text: "Esto revertirá todas las asignaciones backorder de esta familia.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Sí, reset",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      setLoadingResetBackorders(true);
+
+      const data = await ejecutarResetBackorderMasivo({
+        parentPedidoLineaId,
+      });
+
+      if (data?.ok) {
+        setOpenBackordersModal(false);
+        setBackordersPreview(null);
+
+        await Swal.fire(
+          "Listo",
+          "Reset masivo aplicado correctamente.",
+          "success",
+        );
+
+        await fetchDetalleFactura(facturaId);
+        return;
+      }
+
+      await Swal.fire(
+        "Atención",
+        data?.message || "No se pudo aplicar el reset.",
+        "warning",
+      );
+    } catch (error) {
+      console.error("Error en reset masivo:", error);
+
+      await Swal.fire(
+        "No se pudo",
+        error?.response?.data?.message || "Error al aplicar reset.",
+        "error",
+      );
+    } finally {
+      setLoadingResetBackorders(false);
+    }
+  };
+
+  const getExcedentesPreview = async (facturaDetalleId) => {
+    const { data } = await axios.get(
+      `${apiUrl}/facturas/detalle/${facturaDetalleId}/excedentes/preview`,
+    );
+
+    return data;
+  };
+
+  const desenlazarExcedenteIndividual = async ({
+    facturaDetalleAsignacionId,
+  }) => {
+    const { data } = await axios.put(
+      `${apiUrl}/facturas/detalleAsignacion/${facturaDetalleAsignacionId}/desenlazarExcedente`,
+    );
+
+    return data;
+  };
+
+  const desenlazarExcedenteMasivo = async ({ facturaDetalleId }) => {
+    const { data } = await axios.put(
+      `${apiUrl}/facturas/detalle/${facturaDetalleId}/desenlazarExcedenteMasivo`,
+    );
+
+    return data;
+  };
+
+  const handleAbrirPreviewExcedente = async (params) => {
+    const facturaDetalleId = Number(params.row.id);
+
+    if (!facturaDetalleId) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se encontró el facturaDetalleId.",
+      });
+      return;
+    }
+
+    try {
+      setLoadingExcedentePreview(true);
+
+      const data = await getExcedentesPreview(facturaDetalleId);
+
+      setFacturaDetalleIdPreviewExcedente(facturaDetalleId);
+      setExcedentePreviewRows(data?.rows || []);
+      setOpenExcedentePreviewModal(true);
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text:
+          error?.response?.data?.message ||
+          "No se pudo obtener el preview de excedentes.",
+      });
+    } finally {
+      setLoadingExcedentePreview(false);
+    }
+  };
+
+  const handleDesenlazarExcedenteIndividual = async (row) => {
+    const facturaDetalleAsignacionId = Number(
+      row.factura_detalle_asignacion_id,
+    );
+
+    if (!facturaDetalleAsignacionId) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "La fila no tiene factura_detalle_asignacion_id.",
+      });
+      return;
+    }
+
+    try {
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "¿Desenlazar excedente?",
+        text: "Se revertirá únicamente esta asignación de excedente.",
+        showCancelButton: true,
+        confirmButtonText: "Sí, desenlazar",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      await desenlazarExcedenteIndividual({ facturaDetalleAsignacionId });
+
+      await Swal.fire({
+        icon: "success",
+        title: "Listo",
+        text: "Excedente desenlazado correctamente.",
+      });
+
+      if (facturaDetalleIdPreviewExcedente) {
+        const preview = await getExcedentesPreview(
+          facturaDetalleIdPreviewExcedente,
+        );
+        setExcedentePreviewRows(preview?.rows || []);
+      }
+
+      await fetchDetalleFactura(facturaId);
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text:
+          error?.response?.data?.message ||
+          "No se pudo desenlazar el excedente.",
+      });
+    }
+  };
+
+  const handleDesenlazarExcedenteMasivo = async () => {
+    const facturaDetalleId = Number(facturaDetalleIdPreviewExcedente);
+
+    if (!facturaDetalleId) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se encontró el facturaDetalleId.",
+      });
+      return;
+    }
+
+    try {
+      const confirm = await Swal.fire({
+        icon: "warning",
+        title: "¿Desenlazar todos los excedentes?",
+        text: "Se revertirán todas las asignaciones de excedente de esta línea de factura.",
+        showCancelButton: true,
+        confirmButtonText: "Sí, desenlazar todo",
+        cancelButtonText: "Cancelar",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      await desenlazarExcedenteMasivo({ facturaDetalleId });
+
+      await Swal.fire({
+        icon: "success",
+        title: "Listo",
+        text: "Excedentes desenlazados correctamente.",
+      });
+
+      setOpenExcedentePreviewModal(false);
+      setExcedentePreviewRows([]);
+      setFacturaDetalleIdPreviewExcedente(null);
+
+      await fetchDetalleFactura(facturaId);
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text:
+          error?.response?.data?.message ||
+          "No se pudieron desenlazar los excedentes.",
+      });
     }
   };
 
@@ -2182,21 +3085,30 @@ const DetalleFactura = () => {
         fontWeight: "bold",
       }}
     >
-      <BackorderChainModal
-        open={openChainModal}
-        chain={chainData?.chain || []}
-        linkedCount={chainData?.linked_count || 0}
-        parentPedidoLineaId={chainData?.parent_pedido_linea_id}
-        currentPedidoLineaId={
-          pendingBackorderParams?.row?.pedido_linea_id || null
-        }
+      <BackordersPreviewModal
+        open={openBackordersModal}
+        previewData={backordersPreview}
         onClose={() => {
-          setOpenChainModal(false);
-          setChainData(null);
-          setPendingBackorderParams(null);
+          setOpenBackordersModal(false);
+          setBackordersPreview(null);
         }}
-        onSingle={handleSingleUnlink}
-        onReset={handleResetToParent}
+        onUnlinkSingle={handleUnlinkSingleBackorder}
+        onResetAll={handleResetBackordersFamilia}
+        loadingSingle={loadingSingleUnlink}
+        loadingReset={loadingResetBackorders}
+      />
+
+      <ExcedentePreviewModal
+        open={openExcedentePreviewModal}
+        rows={excedentePreviewRows}
+        loading={loadingExcedentePreview}
+        onClose={() => {
+          setOpenExcedentePreviewModal(false);
+          setExcedentePreviewRows([]);
+          setFacturaDetalleIdPreviewExcedente(null);
+        }}
+        onSingle={handleDesenlazarExcedenteIndividual}
+        onMassive={handleDesenlazarExcedenteMasivo}
       />
       <InsercionManual
         open={openProdDialog}
@@ -2454,7 +3366,11 @@ const DetalleFactura = () => {
             setSelectedLineasFacturas(ids);
           }}
           disableRowSelectionOnClick
-          getRowId={(row) => row.id}
+          getRowId={(row) =>
+            row.factura_detalle_asignacion_id
+              ? `asig-${row.factura_detalle_asignacion_id}`
+              : `detalle-${row.id}-pedido-${row.pedido_linea_id ?? "null"}`
+          }
           columnVisibilityModel={columnVisibilityModel}
           onColumnVisibilityModelChange={(newModel) =>
             setColumnVisibilityModel(newModel)
@@ -2486,6 +3402,197 @@ const DetalleFactura = () => {
           }}
         />
       </div>
+
+      <Dialog
+        open={openBackorderModal}
+        onClose={(_, reason) => {
+          if (reason === "backdropClick") return;
+          setOpenBackorderModal(false);
+          setBackorderRows([]);
+          setBackorderDistribucion({});
+        }}
+        fullWidth
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: "92vw",
+            height: "85vh",
+            maxWidth: "none",
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: "bold",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          Repartir backorder por rama OPD
+          <IconButton
+            onClick={() => {
+              setOpenBackorderModal(false);
+              setBackorderRows([]);
+              setBackorderDistribucion({});
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent
+          dividers
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            overflow: "hidden",
+          }}
+        >
+          <Box>
+            <Typography variant="body1">
+              <strong>Cantidad factura:</strong> {cantidadFactura}
+            </Typography>
+
+            <Typography variant="body1">
+              <strong>Total asignado:</strong> {totalAsignadoBackorder}
+            </Typography>
+
+            <Typography
+              variant="body1"
+              color={diferenciaBackorder === 0 ? "success.main" : "error.main"}
+            >
+              <strong>Diferencia:</strong> {diferenciaBackorder}
+            </Typography>
+          </Box>
+
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <DataGrid
+              rows={backorderRows}
+              getRowId={(row) => row.rowKey}
+              density="compact"
+              disableRowSelectionOnClick
+              showCellVerticalBorder
+              showColumnVerticalBorder
+              columns={[
+                {
+                  field: "descripcion",
+                  headerName: "Descripción",
+                  flex: 2,
+                  minWidth: 220,
+                },
+                {
+                  field: "orden_compra_detalle_id",
+                  headerName: "OC Detalle",
+                  flex: 1,
+                  minWidth: 120,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "orden_id",
+                  headerName: "OP",
+                  flex: 0.7,
+                  minWidth: 90,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "op_detalle_id",
+                  headerName: "OPD",
+                  flex: 0.8,
+                  minWidth: 90,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "pendiente_opd",
+                  headerName: "Pendiente",
+                  flex: 1,
+                  minWidth: 110,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "op_estatus",
+                  headerName: "Estatus OP",
+                  flex: 0.9,
+                  minWidth: 110,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "cantidad_final_input",
+                  headerName: "Cantidad final",
+                  flex: 1,
+                  minWidth: 140,
+                  sortable: false,
+                  filterable: false,
+                  renderCell: (params) => {
+                    const max = Number(params.row.pendiente_opd || 0);
+
+                    return (
+                      <TextField
+                        size="small"
+                        type="text"
+                        value={backorderDistribucion[params.row.rowKey] ?? ""}
+                        fullWidth
+                        inputProps={{
+                          inputMode: "decimal",
+                          pattern: "[0-9]*[.]?[0-9]*",
+                        }}
+                        onWheel={(e) => e.target.blur()}
+                        onKeyDown={(e) => {
+                          const teclasBloqueadas = ["-", "+", "e", "E"];
+                          if (teclasBloqueadas.includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) =>
+                          handleChangeBackorderDistribucion(
+                            params.row.rowKey,
+                            e.target.value,
+                          )
+                        }
+                      />
+                    );
+                  },
+                },
+              ]}
+              sx={{
+                height: "100%",
+                borderRadius: 2,
+                "& .MuiDataGrid-columnHeaders": {
+                  backgroundColor: "#f5f5f5",
+                  fontWeight: "bold",
+                },
+              }}
+            />
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button
+            onClick={() => {
+              setOpenBackorderModal(false);
+              setBackorderRows([]);
+              setBackorderDistribucion({});
+            }}
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            variant="contained"
+            onClick={handleGuardarBackorderDistribuido}
+            disabled={Number(diferenciaBackorder.toFixed(2)) !== 0}
+          >
+            Confirmar backorder
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Ventana Modal Details Componente*/}
       <Dialog
@@ -2746,13 +3853,22 @@ const DetalleFactura = () => {
 
       <Dialog
         open={openExcedenteModal}
-        onClose={() => {
+        onClose={(_, reason) => {
+          if (reason === "backdropClick") return;
           setOpenExcedenteModal(false);
           setExcedenteRows([]);
           setAsignacionesExcedente({});
         }}
         fullWidth
-        maxWidth="lg"
+        maxWidth={false}
+        PaperProps={{
+          sx: {
+            width: "92vw",
+            height: "85vh",
+            maxWidth: "none",
+            borderRadius: 3,
+          },
+        }}
       >
         <DialogTitle
           sx={{
@@ -2774,14 +3890,24 @@ const DetalleFactura = () => {
           </IconButton>
         </DialogTitle>
 
-        <DialogContent dividers>
-          <Box sx={{ mb: 2 }}>
+        <DialogContent
+          dividers
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            overflow: "hidden",
+          }}
+        >
+          <Box>
             <Typography variant="body1">
               <strong>Cantidad factura:</strong> {cantidadFactura}
             </Typography>
+
             <Typography variant="body1">
               <strong>Total asignado:</strong> {totalAsignadoExcedente}
             </Typography>
+
             <Typography
               variant="body1"
               color={diferenciaExcedente === 0 ? "success.main" : "error.main"}
@@ -2790,123 +3916,153 @@ const DetalleFactura = () => {
             </Typography>
           </Box>
 
-          <DataGrid
-            rows={excedenteRows}
-            getRowId={(row) => row.key}
-            autoHeight
-            density="compact"
-            disableRowSelectionOnClick
-            showCellVerticalBorder
-            showColumnVerticalBorder
-            columns={[
-              {
-                field: "pedido_linea_id",
-                headerName: "Pedido Línea",
-                flex: 1,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "pedido_id",
-                headerName: "Pedido",
-                flex: 0.8,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "sku",
-                headerName: "SKU",
-                flex: 1.5,
-              },
-              {
-                field: "descripcion",
-                headerName: "Descripción",
-                flex: 2,
-              },
-              {
-                field: "orden_compra_detalle_id",
-                headerName: "OC Detalle",
-                flex: 1,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "orden_id",
-                headerName: "OP",
-                flex: 0.8,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "op_detalle_id",
-                headerName: "OPD",
-                flex: 0.8,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "cantidad_billete",
-                headerName: "Billete actual",
-                flex: 1,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "cantidad_surtida",
-                headerName: "Surtida",
-                flex: 0.8,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "pendiente_opd",
-                headerName: "Pendiente",
-                flex: 0.9,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "op_estatus",
-                headerName: "Estatus OP",
-                flex: 1,
-                align: "center",
-                headerAlign: "center",
-              },
-              {
-                field: "cantidad_final_input",
-                headerName: "Cantidad final",
-                flex: 1.2,
-                sortable: false,
-                filterable: false,
-                renderCell: (params) => (
-                  <TextField
-                    size="small"
-                    type="number"
-                    value={asignacionesExcedente[params.row.key] ?? ""}
-                    onChange={(e) =>
-                      handleCantidadExcedenteChange(
-                        params.row.key,
-                        e.target.value,
-                      )
-                    }
-                    inputProps={{
-                      min: 0,
-                      step: "0.01",
-                    }}
-                    fullWidth
-                  />
-                ),
-              },
-            ]}
-            sx={{
-              borderRadius: 2,
-              border: 2,
-              borderColor: "#1e88e5",
-            }}
-          />
+          <Box sx={{ flex: 1, minHeight: 0 }}>
+            <DataGrid
+              rows={excedenteRows}
+              getRowId={(row) => row.key}
+              density="compact"
+              disableRowSelectionOnClick
+              showCellVerticalBorder
+              showColumnVerticalBorder
+              columns={[
+                {
+                  field: "descripcion",
+                  headerName: "Descripción",
+                  flex: 2,
+                  minWidth: 220,
+                },
+                {
+                  field: "orden_compra_detalle_id",
+                  headerName: "OC Detalle",
+                  flex: 1,
+                  minWidth: 120,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "orden_id",
+                  headerName: "OP",
+                  flex: 0.7,
+                  minWidth: 90,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "op_detalle_id",
+                  headerName: "OPD",
+                  flex: 0.8,
+                  minWidth: 90,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "cantidad_billete",
+                  headerName: "Billete actual",
+                  flex: 1,
+                  minWidth: 120,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "cantidad_surtida",
+                  headerName: "Surtida",
+                  flex: 0.8,
+                  minWidth: 100,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "pendiente_opd",
+                  headerName: "Pendiente",
+                  flex: 1,
+                  minWidth: 110,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "op_estatus",
+                  headerName: "Estatus OP",
+                  flex: 0.9,
+                  minWidth: 110,
+                  align: "center",
+                  headerAlign: "center",
+                },
+                {
+                  field: "cantidad_final_input",
+                  headerName: "Cantidad final",
+                  flex: 1,
+                  minWidth: 140,
+                  sortable: false,
+                  filterable: false,
+                  renderCell: (params) => {
+                    return (
+                      <TextField
+                        size="small"
+                        type="text"
+                        value={asignacionesExcedente[params.row.key] ?? ""}
+                        fullWidth
+                        inputProps={{
+                          inputMode: "decimal",
+                          pattern: "[0-9]*[.]?[0-9]*",
+                        }}
+                        onWheel={(e) => e.target.blur()}
+                        onKeyDown={(e) => {
+                          const teclasBloqueadas = ["-", "+", "e", "E"];
+                          if (teclasBloqueadas.includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          if (!/^\d*\.?\d*$/.test(pasted)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) => {
+                          let value = String(e.target.value ?? "");
+
+                          // solo números y un punto decimal
+                          value = value.replace(/[^0-9.]/g, "");
+
+                          // evitar múltiples puntos
+                          const parts = value.split(".");
+                          if (parts.length > 2) {
+                            value = parts[0] + "." + parts.slice(1).join("");
+                          }
+
+                          // permitir vacío mientras escribe
+                          if (value === "") {
+                            handleCantidadExcedenteChange(params.row.key, "");
+                            return;
+                          }
+
+                          const num = Number(value);
+
+                          if (Number.isNaN(num) || num < 0) {
+                            handleCantidadExcedenteChange(params.row.key, "");
+                            return;
+                          }
+
+                          handleCantidadExcedenteChange(params.row.key, num);
+                        }}
+                      />
+                    );
+                  },
+                },
+              ]}
+              sx={{
+                height: "100%",
+                borderRadius: 2,
+                "& .MuiDataGrid-columnHeaders": {
+                  backgroundColor: "#f5f5f5",
+                  fontWeight: "bold",
+                },
+              }}
+            />
+          </Box>
         </DialogContent>
 
-        <DialogActions>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
             onClick={() => {
               setOpenExcedenteModal(false);
@@ -2916,6 +4072,7 @@ const DetalleFactura = () => {
           >
             Cancelar
           </Button>
+
           <Button
             variant="contained"
             onClick={handleConfirmarExcedente}
