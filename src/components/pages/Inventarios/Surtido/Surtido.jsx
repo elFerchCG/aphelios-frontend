@@ -48,6 +48,7 @@ const Surtido = () => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
+    const [envioDescripcion, setEnvioDescripcion] = useState("");
 
     const inputRef = useRef(null);
 
@@ -304,8 +305,31 @@ const Surtido = () => {
     //     document.body.removeChild(link);
     // };
 
+    const fetchEnvioActual = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/fetchEnvioActual`);
+            if (response.data.ok) {
+                return response.data.data;
+            }
+            return '';
+        } catch (error) {
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+            return '';
+        }
+    };
+
     const generarYDescargarTXT = async (data) => {
         const { sku, title, inventory_id, cantidadEtiquetas } = data;
+
+        const envioDescripcion = await fetchEnvioActual();
 
         // Bloque condicional para inventory_id
         const bloqueInventory = inventory_id
@@ -324,7 +348,7 @@ const Surtido = () => {
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}/env^FS
+            ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}:/${envioDescripcion}^FS
 
             ${bloqueInventory}
 
@@ -341,7 +365,6 @@ const Surtido = () => {
         link.click();
         document.body.removeChild(link);
     };
-
 
     const imprimirEtiquetasNoFULL = async () => {
         try {

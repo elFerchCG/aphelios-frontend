@@ -40,6 +40,8 @@ const COLORS = {
 export default function GraficaCoberturaStock() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [proveedores, setProveedores] = useState([]);
+  const [proveedorId, setProveedorId] = useState("");
 
   // Total para el centro del donut
   const total = useMemo(
@@ -47,17 +49,21 @@ export default function GraficaCoberturaStock() {
     [data]
   );
 
-  const fetchData = async () => {
-    setLoading(true);
-
+  // 🔹 Obtener proveedores
+  const fetchProveedores = async () => {
     try {
-      if (!apiUrl) {
-        return;
-      }
+      const { data } = await axios.get(`${apiUrl}/proveedores/`);
+      setProveedores(data);
+    } catch (e) {
+      console.error("Error cargando proveedores:", e);
+    }
+  };
 
+  const fetchDataGeneral = async () => {
+    setLoading(true);
+    try {
       const { data: resp } = await axios.get(
-        `${apiUrl}/analiticas/stock/maximo_vs_sotck`,
-        { params: { soloConStock: 1 } }
+        `${apiUrl}/analiticas/stock/maximo_vs_sotck`
       );
 
       const series = (resp?.data ?? []).map((b) => ({
@@ -68,17 +74,49 @@ export default function GraficaCoberturaStock() {
       }));
 
       setData(series);
-
     } catch (e) {
-      console.error("Error cargando cobertura de stock:", e);
+      console.error("Error cargando cobertura general:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDataProveedor = async () => {
+    if (!proveedorId) return;
+
+    setLoading(true);
+    try {
+      const { data: resp } = await axios.get(
+        `${apiUrl}/analiticas/stock-actual/${proveedorId}`
+      );
+
+      const series = (resp?.data ?? []).map((b) => ({
+        key: b.bucket,
+        name: NOMBRE[b.bucket] ?? b.bucket,
+        value: Number(b.items || 0),
+        color: COLORS[b.bucket] ?? "#999999",
+      }));
+
+      setData(series);
+    } catch (e) {
+      console.error("Error cargando cobertura por proveedor:", e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchProveedores();
+    fetchDataGeneral();
   }, []);
+
+  useEffect(() => {
+    if (proveedorId) {
+      fetchDataProveedor();
+    } else {
+      fetchDataGeneral();
+    }
+  }, [proveedorId]);
 
   return (
     <section className="meli-card meli-card--accent">
@@ -91,13 +129,34 @@ export default function GraficaCoberturaStock() {
         </div>
 
         <div className="meli-filters">
+          {/* 🔹 SELECT PROVEEDORES */}
+          <select
+            className="meli-select"
+            value={proveedorId}
+            onChange={(e) => setProveedorId(e.target.value)}
+          >
+            <option value="">Todos los proveedores</option>
+            {proveedores.map((p) => (
+              <option key={p.id_proveedor} value={p.id_proveedor}>
+                {p.razon_social}
+              </option>
+            ))}
+          </select>
+
           <button
             className="meli-button"
-            onClick={fetchData}
+            onClick={() => {
+              if (proveedorId) {
+                fetchDataProveedor();
+              } else {
+                fetchDataGeneral();
+              }
+            }}
             disabled={loading}
           >
             {loading ? "Cargando…" : "Actualizar"}
           </button>
+
         </div>
       </header>
 
