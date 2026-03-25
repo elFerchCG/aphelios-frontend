@@ -27,6 +27,13 @@ const EmpaqueCajaAbierta = () => {
         alto: false,
         peso: false
     });
+
+    const soundError = new Audio("/sounds/sound-error-scan.mp3");
+    soundError.volume = 1;
+
+    // const soundSuccess = new Audio("/sounds/sound-success-scan.mp3");
+    // soundSuccess.volume = 1;
+
     const navigate = useNavigate();
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
@@ -166,10 +173,17 @@ const EmpaqueCajaAbierta = () => {
                 title: response.data.title,
             };
 
+            // soundSuccess.currentTime = 0;
+            // soundSuccess.play();
+
             setData((prevData) => [newRow, ...prevData]); // agrega al inicio
             setInventoryId(""); // Limpiar input
         } catch (error) {
             const errorMessage = error.response.data.message;
+
+            soundError.currentTime = 0;
+            soundError.play();
+
             Swal.fire({
                 title: 'Error',
                 text: errorMessage,
@@ -183,11 +197,13 @@ const EmpaqueCajaAbierta = () => {
     };
 
     useEffect(() => {
+        if (!inventoryId) return;
+
         const timeout = setTimeout(() => {
             if (inventoryId.length === 9) { // Puedes ajustar la longitud mínima esperada
                 handleScan();
             }
-        }, 150); // Pequeño delay para dejar que el escáner termine de escribir
+        }, 120); // Pequeño delay para dejar que el escáner termine de escribir
 
         return () => clearTimeout(timeout); // Limpiar timeout si el usuario sigue escribiendo
     }, [inventoryId]);

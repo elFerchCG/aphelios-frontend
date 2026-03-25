@@ -58,6 +58,8 @@ const Publicaciones = () => {
             }
         },
         { field: 'costo_envio', headerName: 'Costo de envio', type: 'number', minWidth: 120 },
+        { field: 'costo_fijo', headerName: 'Costo Fijo', type: 'number', minWidth: 120 },
+        { field: 'porcentaje_comision', headerName: '% Comisión', type: 'number', minWidth: 120 },
         {
             field: "actions",
             headerName: "Acciones",
@@ -332,6 +334,8 @@ const Publicaciones = () => {
         costo: false,
         free_shipping: false,
         costo_envio: false,
+        costo_fijo: false,
+        porcentaje_comision: false,
         title: true,
         sku: true,
         inventory_id: true,

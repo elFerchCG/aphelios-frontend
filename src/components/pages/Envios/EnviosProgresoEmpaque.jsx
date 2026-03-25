@@ -78,11 +78,11 @@ const EnviosProgresoEmpaque = () => {
     }, [apiUrl]);
 
     const facturasCols = [
-        { field: "factura_id", headerName: "#FacturaDB", flex: 1.5 },
-        { field: "razon_social", headerName: "Proveedor", flex: 1.5 },
+        { field: "factura_id", headerName: "#FacturaDB", flex: 1 },
+        { field: "razon_social", headerName: "Proveedor", flex: 3 },
         { field: "numero_factura", headerName: "#Factura", flex: 1 },
         { field: "serie", headerName: "Serie", flex: 1 },
-        { field: "folio", headerName: "Folio", flex: 1.5 },
+        { field: "folio", headerName: "Folio", flex: 1 },
         {
             field: "fecha_factura", headerName: "Fecha Factura", flex: 1.5, valueFormatter: (params) =>
                 dayjs(params.value).format("DD/MM/YYYY"),
@@ -101,7 +101,7 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "total_piezas_surtidas",
             headerName: "Piezas Surtidas",
-            flex: 1,
+            flex: 1.5,
             type: "number",
             valueFormatter: (value) => Math.round(Number(value ?? 0)),
         },
@@ -109,7 +109,7 @@ const EnviosProgresoEmpaque = () => {
             field: "avance",
             headerName: "Avance",
             type: "number",
-            flex: 1.5,
+            flex: 2,
             renderCell: (params) => {
                 const total = Number(params.row.total_piezas) || 0;
                 const surtidas = Number(params.row.total_piezas_surtidas) || 0;
@@ -147,10 +147,75 @@ const EnviosProgresoEmpaque = () => {
                 );
             },
         },
+        // {
+        //     field: "prioridad_factura",
+        //     headerName: "Prioridad",
+        //     flex: 1,
+        //     renderCell: (params) => {
+        //         const map = {
+        //             1: { label: "Crítico", color: "error" },
+        //             2: { label: "Bajo", color: "warning" },
+        //             3: { label: "Medio", color: "info" },
+        //             4: { label: "Saludable", color: "success" },
+        //             5: { label: "Sobrestock", color: "default" },
+        //             6: { label: "Sin demanda", color: "default" },
+        //         };
+
+        //         const status = map[params.value] || {
+        //             label: "N/A",
+        //             color: "default",
+        //         };
+
+        //         return (
+        //             <Chip
+        //                 label={status.label}
+        //                 color={status.color}
+        //                 size="small"
+        //                 sx={{ fontWeight: 600 }}
+        //             />
+        //         );
+        //     }
+        // },
+        // {
+        //     field: "ops_criticas",
+        //     headerName: "Críticas",
+        //     flex: 1,
+        //     type: "number",
+        //     renderCell: (params) => {
+        //         const value = Number(params.value || 0);
+
+        //         return (
+        //             <Chip
+        //                 label={value}
+        //                 size="small"
+        //                 color={value > 0 ? "error" : "default"}
+        //                 sx={{ fontWeight: 600 }}
+        //             />
+        //         );
+        //     }
+        // },
+        // {
+        //     field: "ops_urgentes",
+        //     headerName: "Urgentes",
+        //     flex: 1,
+        //     type: "number",
+        //     renderCell: (params) => {
+        //         const value = Number(params.value || 0);
+
+        //         return (
+        //             <Chip
+        //                 label={value}
+        //                 size="small"
+        //                 color={value > 0 ? "warning" : "default"}
+        //                 sx={{ fontWeight: 600 }}
+        //             />
+        //         );
+        //     }
+        // },
         {
             field: "estatus",
             headerName: "Estatus",
-            flex: 1,
+            flex: 1.5,
             renderCell: (params) => {
                 const statusMap = {
                     asignada: {
@@ -707,7 +772,7 @@ const EnviosProgresoEmpaque = () => {
                 density="compact"
                 pageSizeOptions={[10, 25, 50, 100]}
                 initialState={{
-                    pagination: { paginationModel: { pageSize: 10, page: 0 } }
+                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
@@ -735,7 +800,7 @@ const EnviosProgresoEmpaque = () => {
                 density="compact"
                 pageSizeOptions={[10, 25, 50, 100]}
                 initialState={{
-                    pagination: { paginationModel: { pageSize: 10, page: 0 } }
+                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
@@ -763,7 +828,7 @@ const EnviosProgresoEmpaque = () => {
                 density="compact"
                 pageSizeOptions={[10, 25, 50, 100]}
                 initialState={{
-                    pagination: { paginationModel: { pageSize: 10, page: 0 } }
+                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
@@ -791,7 +856,7 @@ const EnviosProgresoEmpaque = () => {
                 density="compact"
                 pageSizeOptions={[10, 25, 50, 100]}
                 initialState={{
-                    pagination: { paginationModel: { pageSize: 10, page: 0 } }
+                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
                 }}
                 sx={{ ...dashboardGridSx, mb: 4 }}
                 slots={{ toolbar: GridToolbar }}
