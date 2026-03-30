@@ -64,7 +64,43 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
     ? detalle.ordenes_compra
     : [];
 
-  const factura = detalle.factura || null;
+  const facturasRaw = Array.isArray(detalle.facturas) ? detalle.facturas : [];
+  const facturasAgrupadasMap = new Map();
+
+  for (const f of facturasRaw) {
+    const key = `${f.factura_id}-${f.factura_detalle_id}`;
+
+    if (!facturasAgrupadasMap.has(key)) {
+      facturasAgrupadasMap.set(key, {
+        ...f,
+        cantidad_asignada_total: Number(f.cantidad_asignada || 0),
+        asignaciones: [
+          {
+            factura_detalle_asignacion_id: f.factura_detalle_asignacion_id,
+            cantidad_asignada: f.cantidad_asignada,
+            tipo_asignacion: f.tipo_asignacion,
+          },
+        ],
+      });
+    } else {
+      const actual = facturasAgrupadasMap.get(key);
+
+      actual.cantidad_asignada_total = Number(
+        (
+          Number(actual.cantidad_asignada_total || 0) +
+          Number(f.cantidad_asignada || 0)
+        ).toFixed(2),
+      );
+
+      actual.asignaciones.push({
+        factura_detalle_asignacion_id: f.factura_detalle_asignacion_id,
+        cantidad_asignada: f.cantidad_asignada,
+        tipo_asignacion: f.tipo_asignacion,
+      });
+    }
+  }
+
+  const facturas = Array.from(facturasAgrupadasMap.values());
 
   return (
     <Modal open={open} onClose={handleClose}>
@@ -107,7 +143,10 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
             label="Cantidad backorder"
             value={detalle.cantidad_backorder}
           />
-          <LabelValue label="Fecha backorder" value={formatFecha(detalle.fecha_back)} />
+          <LabelValue
+            label="Fecha backorder"
+            value={formatFecha(detalle.fecha_back)}
+          />
           <LabelValue
             label="Estatus línea"
             value={<StatusChip label={detalle.pedido_linea_estatus} />}
@@ -167,7 +206,8 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
                     Producción relacionada
                   </Typography>
 
-                  {!Array.isArray(oc.produccion) || oc.produccion.length === 0 ? (
+                  {!Array.isArray(oc.produccion) ||
+                  oc.produccion.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
                       Esta OC no tiene líneas de producción relacionadas.
                     </Typography>
@@ -193,10 +233,7 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
                               label="Producto ID"
                               value={prod.producto_id}
                             />
-                            <LabelValue
-                              label="Tipo"
-                              value={prod.opd_tipo}
-                            />
+                            <LabelValue label="Tipo" value={prod.opd_tipo} />
                             <LabelValue
                               label="Fecha asignación"
                               value={formatFecha(prod.opd_fecha_asignacion)}
@@ -236,7 +273,7 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
                             <LabelValue
                               label="Fecha creación OP"
                               value={formatFecha(
-                                prod.orden_produccion_fecha_creacion
+                                prod.orden_produccion_fecha_creacion,
                               )}
                             />
                             <LabelValue
@@ -256,65 +293,134 @@ const DetallePedidoModal = ({ open, handleClose, detalle }) => {
 
         <Divider sx={{ my: 3 }} />
 
-        {/* Factura */}
+        {/* Facturas */}
         <Typography variant="h6" gutterBottom color="primary">
-          🧾 Factura asociada
+          🧾 Facturas asociadas
         </Typography>
 
-        {!factura ? (
+        {facturas.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No hay factura asociada.
+            No hay facturas asociadas.
           </Typography>
         ) : (
-          <Grid container spacing={2}>
-            <LabelValue label="Factura ID" value={factura.factura_id} />
-            <LabelValue
-              label="Factura detalle ID"
-              value={factura.factura_detalle_id}
-            />
-            <LabelValue
-              label="Serie / Folio"
-              value={
-                factura.serie || factura.folio
-                  ? `${factura.serie ?? ""} ${factura.folio ?? ""}`.trim()
-                  : "N/A"
-              }
-            />
-            <LabelValue
-              label="Número factura"
-              value={factura.numero_factura}
-            />
-            <LabelValue
-              label="Fecha factura"
-              value={formatFecha(factura.fecha_factura)}
-            />
-            <LabelValue
-              label="Fecha arribo"
-              value={formatFecha(factura.fecha_arribo)}
-            />
-            <LabelValue
-              label="Estatus factura"
-              value={<StatusChip label={factura.factura_estatus} />}
-            />
-            <LabelValue label="SKU factura" value={factura.factura_sku} />
-            <LabelValue
-              label="Cantidad factura"
-              value={factura.factura_cantidad}
-            />
-            <LabelValue
-              label="Precio detalle"
-              value={factura.factura_precio}
-            />
-            <LabelValue
-              label="Total detalle"
-              value={factura.factura_total_detalle}
-            />
-            <LabelValue
-              label="Precio Aphelios"
-              value={factura.precio_aphelios}
-            />
-            <LabelValue label="UUID CFDI" value={factura.uuid_cfdi} xs={12} />
-          </Grid>
+          <Stack spacing={2}>
+            {facturas.map((factura) => (
+              <Card
+                key={`${factura.factura_id}-${factura.factura_detalle_id}`}
+                variant="outlined"
+              >
+                <CardContent>
+                  <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                    Factura #{showNA(factura.factura_id)} / Detalle #
+                    {showNA(factura.factura_detalle_id)}
+                  </Typography>
+
+                  <Grid container spacing={2}>
+                    <LabelValue label="Factura ID" value={factura.factura_id} />
+                    <LabelValue
+                      label="Factura detalle ID"
+                      value={factura.factura_detalle_id}
+                    />
+                    <LabelValue
+                      label="Serie / Folio"
+                      value={
+                        factura.serie || factura.folio
+                          ? `${factura.serie ?? ""} ${factura.folio ?? ""}`.trim()
+                          : "N/A"
+                      }
+                    />
+                    <LabelValue
+                      label="Número factura"
+                      value={factura.numero_factura}
+                    />
+                    <LabelValue
+                      label="Fecha factura"
+                      value={formatFecha(factura.fecha_factura)}
+                    />
+                    <LabelValue
+                      label="Fecha arribo"
+                      value={formatFecha(factura.fecha_arribo)}
+                    />
+                    <LabelValue
+                      label="Estatus factura"
+                      value={<StatusChip label={factura.factura_estatus} />}
+                    />
+                    <LabelValue
+                      label="SKU factura"
+                      value={factura.factura_sku}
+                    />
+                    <LabelValue
+                      label="Cantidad factura"
+                      value={factura.factura_cantidad}
+                    />
+                    <LabelValue
+                      label="Precio detalle"
+                      value={factura.factura_precio}
+                    />
+                    <LabelValue
+                      label="Total detalle"
+                      value={factura.factura_total_detalle}
+                    />
+                    <LabelValue
+                      label="Precio Aphelios"
+                      value={factura.precio_aphelios}
+                    />
+                    <LabelValue
+                      label="Cantidad asignada total"
+                      value={factura.cantidad_asignada_total}
+                    />
+                    <LabelValue
+                      label="UUID CFDI"
+                      value={factura.uuid_cfdi}
+                      xs={12}
+                    />
+                  </Grid>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  <Typography
+                    variant="subtitle2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
+                    Asignaciones relacionadas
+                  </Typography>
+
+                  <Stack spacing={1}>
+                    {factura.asignaciones.map((a) => (
+                      <Box
+                        key={a.factura_detalle_asignacion_id}
+                        sx={{
+                          p: 1.5,
+                          border: "1px solid #e0e0e0",
+                          borderRadius: 2,
+                          bgcolor: "#fafafa",
+                        }}
+                      >
+                        <Grid container spacing={2}>
+                          <LabelValue
+                            label="Asignación ID"
+                            value={a.factura_detalle_asignacion_id}
+                            xs={4}
+                          />
+                          <LabelValue
+                            label="Cantidad asignada"
+                            value={a.cantidad_asignada}
+                            xs={4}
+                          />
+                          <LabelValue
+                            label="Tipo asignación"
+                            value={<StatusChip label={a.tipo_asignacion} />}
+                            xs={4}
+                          />
+                        </Grid>
+                      </Box>
+                    ))}
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
         )}
       </Box>
     </Modal>

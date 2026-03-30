@@ -3603,7 +3603,7 @@ const DetalleFactura = () => {
         maxWidth={false}
         PaperProps={{
           sx: {
-            width: { xs: "95vw", md: "70vw" },
+            width: { xs: "105vw", md: "90vw" },
             maxHeight: "90vh",
           },
         }}
