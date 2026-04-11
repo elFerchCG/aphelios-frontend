@@ -42,6 +42,7 @@ import Procesos from '../components/pages/Jobs/ProcesosPage';
 import TableOrdenes from '../components/pages/Inventarios/OrdenBodegas/TableOrdenes';
 import OrdenRetiro from '../components/pages/Orden Retiro/OrdenRetiro';
 import EnviosProgresoEmpaque from '../components/pages/Envios/EnviosProgresoEmpaque';
+import VentasME from '../components/pages/Ventas/VentasME';
 
 
 const Rutas = () => {
@@ -96,7 +97,8 @@ const Rutas = () => {
                 <Route path="/graficas" element={<Graficas />} />
                 <Route path="/procesos" element={<Procesos />} />
                 <Route path='/ordenes-retiro' element={<OrdenRetiro />} />
-                <Route path="/envios/detalle/:envioId/progresoEmpaque" element={<EnviosProgresoEmpaque />} />"
+                <Route path="/envios/detalle/:envioId/progresoEmpaque" element={<EnviosProgresoEmpaque />} />
+                <Route path="/ventas-me" element={<VentasME />} />
                 <Route path='*' element={
                     <div>
                         <h1>Usuario sin permisos suficientes!</h1>

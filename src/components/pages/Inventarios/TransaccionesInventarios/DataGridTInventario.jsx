@@ -37,21 +37,22 @@ const DataGridTInventario = ({ filter }) => {
 
   const fmtNA = (v) => (v == null || v === "" ? "N/A" : v);
 
-    const [columnVisibilityModelTransacciones, setColumnVisibilityModelTransacciones] = useState({
-        transaccion_id: false,
-        orden_id: false,
-        tipo: true,
-        sku: true,
-        inventory_id: true,
-        localidad_id: false,
-        localidad_descripcion: true,
-        cantidad: true,
-        inventario_inicial: true,
-        inventario_final: true,
-        fecha_transaccion: true,
-        usuario_autorizacion: true,
-        usuario_transaccion: true,
-    })
+  const [columnVisibilityModelTransacciones, setColumnVisibilityModelTransacciones] = useState({
+    transaccion_id: false,
+    orden_id: false,
+    tipo: true,
+    sku: true,
+    inventory_id: true,
+    localidad_id: false,
+    localidad_descripcion: true,
+    cantidad: true,
+    inventario_inicial: true,
+    inventario_final: true,
+    fecha_transaccion: true,
+    usuario_autorizacion: true,
+    usuario_transaccion: true,
+    agregado_por: true
+  })
 
   const columns = [
     // { field: 'id', headerName: 'ID', flex: 1 },
@@ -119,6 +120,14 @@ const DataGridTInventario = ({ filter }) => {
       flex: 1,
       renderCell: (params) => formatFecha(params.value),
     },
+    {
+      field: "agregado_por",
+      headerName: "Agregó",
+      type: "string",
+      flex: 1,
+      headerAlign: "center",
+      valueFormatter: fmtNA,
+    },
     // 👇 Estas dos con valueFormatter seguro (sin acceder a row)
     {
       field: "orden_confirmado_por",
@@ -150,51 +159,51 @@ const DataGridTInventario = ({ filter }) => {
     fetchData();
   }, [refresh]);
 
-    return (
-        <div className='contenido'>
-            <div className='encabezado'>
-                <h1>Transacciones de Inventario</h1>
-            </div>
-            <div style={{ height: 500, width: 'auto', margin: '30px' }}>
+  return (
+    <div className='contenido'>
+      <div className='encabezado'>
+        <h1>Transacciones de Inventario</h1>
+      </div>
+      <div style={{ height: 500, width: 'auto', margin: '30px' }}>
 
-                <DataGrid
-                    style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
-                    rows={data}
-                    columns={columns}
-                    pageSize={5}
-                    showCellVerticalBorder
-                    showColumnVerticalBorder
-                    getRowId={(row) => row.transaccion_id}
-                    experimentalFeatures={{ newEditingApi: true }}
-                    columnVisibilityModel={columnVisibilityModelTransacciones}
-                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelTransacciones(newModel)}
-                    localeText={{
-                        ...GRID_DEFAULT_LOCALE_TEXT, ...{
-                            toolbarColumns: 'Columnas',
-                            toolbarDensity: 'Densidad',
-                            toolbarExport: 'Exportar',
-                            toolbarFilters: 'Filtros',
-                            filterPanelOperator: 'Operador',
-                            toolbarFiltersTooltipHide: 'Ocultar filtros',
-                            toolbarFiltersTooltipShow: 'Mostrar filtros',
-                            footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
-                            footerTotalVisibleRows: (visibleCount, totalCount) =>
-                                `${visibleCount} de ${totalCount}`,
-                            footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
-                        }
-                    }} // Localización en español
-                    slots={{ toolbar: GridToolbar }}
-                    sortModel={[
-                        {
-                            field: 'linea_orden_id',
-                            sort: 'desc',
-                        },
-                    ]}
-                />
+        <DataGrid
+          style={{ fontFamily: "Montserrat", fontWeight: "bold" }}
+          rows={data}
+          columns={columns}
+          pageSize={5}
+          showCellVerticalBorder
+          showColumnVerticalBorder
+          getRowId={(row) => row.transaccion_id}
+          experimentalFeatures={{ newEditingApi: true }}
+          columnVisibilityModel={columnVisibilityModelTransacciones}
+          onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelTransacciones(newModel)}
+          localeText={{
+            ...GRID_DEFAULT_LOCALE_TEXT, ...{
+              toolbarColumns: 'Columnas',
+              toolbarDensity: 'Densidad',
+              toolbarExport: 'Exportar',
+              toolbarFilters: 'Filtros',
+              filterPanelOperator: 'Operador',
+              toolbarFiltersTooltipHide: 'Ocultar filtros',
+              toolbarFiltersTooltipShow: 'Mostrar filtros',
+              footerRowSelected: (count) => `${count} fila(s) seleccionada(s)`,
+              footerTotalVisibleRows: (visibleCount, totalCount) =>
+                `${visibleCount} de ${totalCount}`,
+              footerPaginationRowsPerPage: 'Filas por página', // Traducción de Rows per page
+            }
+          }} // Localización en español
+          slots={{ toolbar: GridToolbar }}
+          sortModel={[
+            {
+              field: 'linea_orden_id',
+              sort: 'desc',
+            },
+          ]}
+        />
 
-            </div>
-        </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default DataGridTInventario;
