@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-route
 import { useEffect, useState } from 'react';
 import Login from './components/login/Login';
 import useAuthStore from './store/authStore';
+import { ProcessProvider } from "../src/components/loaders/ProcessContext";
 
 const AppWrapper = () => {
   const navigate = useNavigate();
@@ -32,7 +33,11 @@ const AppWrapper = () => {
   if (!token) return <Navigate to="/login" replace />;
   if (!checked) return null;
 
-  return <Rutas />;
+  return (
+    <ProcessProvider>
+      <Rutas />
+    </ProcessProvider>
+  );
 };
 
 function App() {

@@ -10,6 +10,9 @@ import { useNavigate } from 'react-router-dom';
 import '../Inventarios/estilosPrueba.css'
 import { useParams } from 'react-router-dom';
 import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
+import { ToggleButton, ToggleButtonGroup } from '@mui/material';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import StoreIcon from '@mui/icons-material/Store';
 
 
 const EmpaqueCajaAbierta = () => {
@@ -27,6 +30,7 @@ const EmpaqueCajaAbierta = () => {
         alto: false,
         peso: false
     });
+    const [tipoEmpaque, setTipoEmpaque] = useState("factura");
 
     const soundError = new Audio("/sounds/sound-error-scan.mp3");
     soundError.volume = 1;
@@ -161,7 +165,7 @@ const EmpaqueCajaAbierta = () => {
 
     const handleScan = async () => {
         try {
-            const response = await axios.post(`${apiUrl}/empaque/agregarEscaneo/inventory_id/${inventoryId}/caja/${cajaId}/envio/${envioId}`,
+            const response = await axios.post(`${apiUrl}/empaque/agregarEscaneo/inventory_id/${inventoryId}/caja/${cajaId}/envio/${envioId}/tipo/${tipoEmpaque}`,
                 {},
             );
 
@@ -516,15 +520,45 @@ const EmpaqueCajaAbierta = () => {
                 <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold", marginTop: "-10px" }}>
                     <h1>Empaque</h1>
                 </div>
-                <div style={{ position: "absolute", top: "20px", right: "0", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold" }}># Envio:</Typography>
-                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "red" }}>{envioId}</Typography>
+                <div style={{
+                    position: "absolute",
+                    top: "20px",
+                    right: "0",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: "5px",
+                    fontFamily: "Montserrat",
+                    fontWeight: "bold"
+                }}
+                >
+                    <div style={{ display: "flex", gap: "10px" }}>
+                        <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold" }}># Envio:</Typography>
+                        <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "red" }}>{envioId}</Typography>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                        <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", marginTop: "5px" }}># Caja:</Typography>
+                        <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{visualIdCaja}</Typography>
+                    </div>
+                    <ToggleButtonGroup
+                        value={tipoEmpaque}
+                        exclusive
+                        onChange={(e, newValue) => {
+                            if (newValue !== null) setTipoEmpaque(newValue);
+                        }}
+                        size="small"
+                    >
+                        <ToggleButton value="factura" >
+                            <ReceiptIcon color="success" sx={{ mr: 1 }} />
+                            Factura
+                        </ToggleButton>
+                        <ToggleButton value="retiro">
+                            <StoreIcon color="primary" sx={{ mr: 1 }} />
+                            Retiro
+                        </ToggleButton>
+                    </ToggleButtonGroup>
                 </div>
-                <div style={{ position: "absolute", top: "60px", right: "0", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", marginTop: "5px" }}># Caja:</Typography>
-                    <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{visualIdCaja}</Typography>
-                </div>
-                <div style={{ position: "absolute", top: "40px", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
+                <div style={{ position: "absolute", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
                     <FormControl variant='outlined'>
                         <InputLabel>
                             Escanear...
@@ -541,7 +575,7 @@ const EmpaqueCajaAbierta = () => {
                         />
                     </FormControl>
                 </div>
-                <DataGrid sx={{ marginTop: 2, borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", fontFamily: "Montserrat", fontWeight: "bold" }}
+                <DataGrid sx={{ marginTop: 8, borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", fontFamily: "Montserrat", fontWeight: "bold" }}
                     rows={data}
                     columns={columns}
                     showCellVerticalBorder

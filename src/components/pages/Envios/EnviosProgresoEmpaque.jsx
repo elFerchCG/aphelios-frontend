@@ -11,9 +11,16 @@ import {
     LinearProgress,
     Chip,
     Card,
-    CardContent
+    CardContent,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    Button,
+    DialogActions
 } from "@mui/material";
 import { GridToolbar } from '@mui/x-data-grid';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import IconButton from '@mui/material/IconButton';
 
 const EnviosProgresoEmpaque = () => {
 
@@ -26,6 +33,10 @@ const EnviosProgresoEmpaque = () => {
     const [ordenesProduccionFacturas, setOrdenesProduccionFacturas] = useState([]);
     const [ordenesProduccionRetiros, setOrdenesProduccionRetiros] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [openModal, setOpenModal] = useState(false);
+    const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
+    const [detalleOrden, setDetalleOrden] = useState([]);
+    const [loadingDetalle, setLoadingDetalle] = useState(false);
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -46,6 +57,11 @@ const EnviosProgresoEmpaque = () => {
         "& .MuiDataGrid-row:hover": {
             backgroundColor: "#f9fafb",
         },
+    };
+
+    const handleCloseModal = () => {
+        setOpenModal(false);
+        setOrdenSeleccionada(null);
     };
 
     const fetchPiezasYFacturas = async () => {
@@ -75,7 +91,94 @@ const EnviosProgresoEmpaque = () => {
 
     useEffect(() => {
         fetchPiezasYFacturas();
-    }, [apiUrl]);
+    }, [envioId]);
+
+    const handleOpenModal = async (row) => {
+        try {
+            setLoadingDetalle(true);
+            setOpenModal(true);
+            setOrdenSeleccionada(row);
+
+            const response = await axios.get(`${apiUrl}/empaque/getDetalleOrden/${row.id}`);
+            setDetalleOrden(response.data.data);
+            setLoadingDetalle(false);
+        } catch (error) {
+            setLoadingDetalle(false);
+            Swal.fire("Error", "No se pudo cargar el detalle", "error");
+        }
+    };
+
+    const detalleCols = [
+        { field: "id", headerName: "ID Detalle", flex: 1 },
+        { field: "orden_id", headerName: "ID Orden", flex: 1 },
+        { field: "componente_id", headerName: "Componente", flex: 1 },
+        { field: "sku", headerName: "SKU", flex: 3 },
+        { field: "descripcion", headerName: "Descripción", flex: 4 },
+        { field: "cantidad_billete", headerName: "Requerida", flex: 1, type: "number" },
+        { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
+        {
+            field: "avance",
+            headerName: "Avance",
+            type: "number",
+            flex: 1.5,
+            renderCell: (params) => {
+                const requeridas = Number(params.row.cantidad_billete) || 0;
+                const surtidas = Number(params.row.cantidad_surtida) || 0;
+
+                const pct = requeridas > 0
+                    ? Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            Math.round((surtidas / requeridas) * 100)
+                        )
+                    )
+                    : 0;
+
+                return (
+                    <Box sx={{ width: "100%" }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                mb: 0.5,
+                            }}
+                        >
+                            <Typography variant="caption">{pct}%</Typography>
+                            <Typography variant="caption">
+                                {Math.round(surtidas)}/{Math.round(requeridas)}
+                            </Typography>
+                        </Box>
+                        <LinearProgress
+                            variant="determinate"
+                            value={Number(pct)}
+                            sx={{ height: 6, borderRadius: 4 }}
+                        />
+                    </Box>
+                );
+            },
+        },
+        {
+            field: "estatus",
+            headerName: "Estatus",
+            flex: 1,
+            renderCell: (params) => {
+                const faltante =
+                    (params.row.cantidad_billete || 0) -
+                    (params.row.cantidad_surtida || 0);
+
+                let color = "success";
+                let label = "Completo";
+
+                if (faltante > 0) {
+                    color = "warning";
+                    label = "Pendiente";
+                }
+
+                return <Chip label={label} color={color} size="small" />;
+            }
+        }
+    ];
 
     const facturasCols = [
         { field: "factura_id", headerName: "#FacturaDB", flex: 1 },
@@ -374,6 +477,20 @@ const EnviosProgresoEmpaque = () => {
                 );
             },
         },
+        {
+            field: "acciones",
+            headerName: "Acciones",
+            width: 100,
+            sortable: false,
+            renderCell: (params) => (
+                <IconButton
+                    color="primary"
+                    onClick={() => handleOpenModal(params.row)}
+                >
+                    <VisibilityIcon />
+                </IconButton>
+            )
+        }
     ];
 
     const ordenesProduccionRetirosCols = [
@@ -500,6 +617,20 @@ const EnviosProgresoEmpaque = () => {
                 );
             },
         },
+        {
+            field: "acciones",
+            headerName: "Acciones",
+            width: 100,
+            sortable: false,
+            renderCell: (params) => (
+                <IconButton
+                    color="primary"
+                    onClick={() => handleOpenModal(params.row)}
+                >
+                    <VisibilityIcon />
+                </IconButton>
+            )
+        }
     ];
 
     const ordenesDeRetiros = [
@@ -605,6 +736,12 @@ const EnviosProgresoEmpaque = () => {
 
     const [columnVisibilityRetiros, setColumnVisibilityModelRetiros] = useState({
         orden_bodega_id: true,
+    });
+
+    const [columnVisibilityDetalles, setColumnVisibilityDetalles] = useState({
+        id: false,
+        orden_id: false,
+        componente_id: false
     });
 
     const processRowUpdate = async (newRow, oldRow) => {
@@ -868,6 +1005,48 @@ const EnviosProgresoEmpaque = () => {
                     },
                 }}
             />
+            <Dialog open={openModal} onClose={handleCloseModal} maxWidth="lg" fullWidth>
+                <DialogTitle>
+                    Detalle Orden Producción #{ordenSeleccionada?.id}
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="h6" mb={1}>
+                        Componentes de la Orden
+                    </Typography>
+
+                    <DataGrid
+                        rows={detalleOrden}
+                        columns={detalleCols}
+                        getRowId={(row) => row.id}
+                        showCellVerticalBorder
+                        showColumnVerticalBorder
+                        columnVisibilityModel={columnVisibilityDetalles}
+                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityDetalles(newModel)}
+                        density="compact"
+                        loading={loadingDetalle}
+                        disableRowSelectionOnClick
+                        hideFooterSelectedRowCount
+                        pageSizeOptions={[10, 25, 50, 100]}
+                        initialState={{
+                            pagination: { paginationModel: { pageSize: 100, page: 0 } }
+                        }}
+                        sx={{ ...dashboardGridSx, mb: 4 }}
+                        slots={{ toolbar: GridToolbar }}
+                        slotProps={{
+                            loadingOverlay: {
+                                variant: 'skeleton',
+                                noRowsVariant: 'skeleton',
+                            },
+                        }}
+                    />
+                </DialogContent>
+
+                <DialogActions>
+                    <Button onClick={handleCloseModal} variant="contained">
+                        Cerrar
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

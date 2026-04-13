@@ -18,6 +18,7 @@ const Home = () => {
           <Button onClick={() => navigate('/surtido')}>Surtido</Button>
           <Button onClick={() => navigate('/ordenes')}>Orden Bodega</Button>
           <Button onClick={() => navigate('/existencias')}>Existencias</Button>
+          <Button onClick={() => navigate('/ventas-me')}>Ventas ME</Button>
         </div>
       </div>
       <div className='right-section'>

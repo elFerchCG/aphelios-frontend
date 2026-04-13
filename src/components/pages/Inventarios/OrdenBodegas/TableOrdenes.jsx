@@ -22,6 +22,7 @@ import { useRef } from 'react';
 import apiUrl from '../../../../config';
 import '../../Inventarios/estilosPrueba.css'
 import { useNavigate } from "react-router-dom";
+import { useProcess } from '../../../loaders/UseProcess';
 
 
 const getCurrentDateTime = () => {
@@ -37,6 +38,9 @@ const getCurrentDateTime = () => {
 };
 
 const TableOrdenes = () => {
+    const { execute } = useProcess();
+    const [loadingProducts, setLoadingProducts] = useState(false);
+
     // Estado adicional para controlar el valor del input
     const [inputValueUbicacion, setInputValueUbicacion] = useState('');
     const [bodegaSalida, setBodegaSalida] = useState([]);
@@ -530,7 +534,7 @@ const TableOrdenes = () => {
         return isNaN(parsedValue) ? null : parsedValue;
     };
 
-    const handleGenerarOrder = async () => {
+    const handleGenerarOrder = () => {
         if (selectedUbicacionSalida && parseInt(inputValue) > parseInt(existenciaProducto)) {
             Swal.fire({
                 title: '¡Error!',
@@ -542,53 +546,202 @@ const TableOrdenes = () => {
             });
             return TableOrdenes;
         }
-        const handleAddRow = (lineasIds = []) => {
 
-            const selectedUbicacionSalidaDescripcion = ubicaciones.find(ubic => ubic.id === selectedUbicacionSalida)?.descripcion || '';
-            const selectedUbicacionEntradaDescripcion = ubicacionEntrada.find(ubicacion => ubicacion.id === selectedUbicacionEntrada)?.descripcion || '';
+        execute(async () => {
 
-            const newRow = {
-                id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
-                cantidad: parseInt(inputValue),
-                producto_id: productoId, // ID del producto seleccionado,
-                sku: productoSku,
-                inventory_id: productoMlm,
-                producto_title: productoTitle,
-                existencias_origen: existenciaProducto,
-                existencias_destino: existenciaProductoDestino,
-                localidad_entrada: selectedUbicacionEntradaDescripcion,
-                localidad_salida: selectedUbicacionSalidaDescripcion,
-                localidad_entrada_id: selectedUbicacionEntrada,
-                localidad_salida_id: selectedUbicacionSalida,
-                comentario: selectedComment
-            };
+            const handleAddRow = (lineasIds = []) => {
 
-            setRows((prevRows) => [...prevRows, newRow]);
+                const selectedUbicacionSalidaDescripcion = ubicaciones.find(ubic => ubic.id === selectedUbicacionSalida)?.descripcion || '';
+                const selectedUbicacionEntradaDescripcion = ubicacionEntrada.find(ubicacion => ubicacion.id === selectedUbicacionEntrada)?.descripcion || '';
 
-            setProductoId('');
-            setProductoSku('');
-            setProductoMlm('');
-            setSelectedUbicacionSalida('');
-            setSelectedUbicacionEntrada('');
-            setExistenciaProducto('');
-            setExistenciaProductoDestino('');
-            setInputValue('');
-            setComment('');
-            setIsButtonDisabled(true);
-        }
-
-        if (estatus === 'abierto') {
-            const lineasData = {
-                lineas: [{
-                    producto_id: productoId,
+                const newRow = {
+                    id: lineasIds[0] || (rows.length + 1), // Asigna un ID único
                     cantidad: parseInt(inputValue),
-                    comentario: selectedComment,
-                    localidad_salida_id: parseOrNull(selectedUbicacionSalida),
-                    localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
-                }]
-            };
+                    producto_id: productoId, // ID del producto seleccionado,
+                    sku: productoSku,
+                    inventory_id: productoMlm,
+                    producto_title: productoTitle,
+                    existencias_origen: existenciaProducto,
+                    existencias_destino: existenciaProductoDestino,
+                    localidad_entrada: selectedUbicacionEntradaDescripcion,
+                    localidad_salida: selectedUbicacionSalidaDescripcion,
+                    localidad_entrada_id: selectedUbicacionEntrada,
+                    localidad_salida_id: selectedUbicacionSalida,
+                    comentario: selectedComment
+                };
 
-            const enviarLineas = async (ordenId) => {
+                setRows((prevRows) => [...prevRows, newRow]);
+
+                setProductoId('');
+                setProductoSku('');
+                setProductoMlm('');
+                setSelectedUbicacionSalida('');
+                setSelectedUbicacionEntrada('');
+                setExistenciaProducto('');
+                setExistenciaProductoDestino('');
+                setInputValue('');
+                setComment('');
+                setIsButtonDisabled(true);
+            }
+
+            if (estatus === 'abierto') {
+                const lineasData = {
+                    lineas: [{
+                        producto_id: productoId,
+                        cantidad: parseInt(inputValue),
+                        comentario: selectedComment,
+                        localidad_salida_id: parseOrNull(selectedUbicacionSalida),
+                        localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
+                    }]
+                };
+
+                const enviarLineas = async (ordenId) => {
+                    if (ubicacionSalidaRef.current) {
+                        ubicacionSalidaRef.current.classList.remove('error');
+                    }
+                    if (ubicacionEntradaRef.current) {
+                        ubicacionEntradaRef.current.classList.remove('error');
+                    }
+
+                    if (cantidadRef.current) {
+                        cantidadRef.current.classList.remove('error');
+                    }
+
+                    let isValid = true;
+
+                    try {
+                        if (categoriaTemp === 'transferencia') {
+                            if (!selectedUbicacionSalida) {
+                                if (ubicacionSalidaRef.current) {
+                                    ubicacionSalidaRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!selectedUbicacionEntrada) {
+                                if (ubicacionEntradaRef.current) {
+                                    ubicacionEntradaRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!inputValue) {
+                                if (cantidadRef.current) {
+                                    cantidadRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!isValid) {
+                                Swal.fire({
+                                    title: '¡Faltan datos!',
+                                    text: 'Por favor, selecciona y rellena todos los campos',
+                                    icon: 'warning',
+                                    timer: 5000,
+                                    showCloseButton: true,
+                                    allowEscapeKey: true
+                                });
+                                return;
+                            }
+                        } else if (categoriaTemp === 'salida') {
+                            if (!selectedUbicacionSalida) {
+                                if (ubicacionSalidaRef.current) {
+                                    ubicacionSalidaRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!inputValue) {
+                                if (cantidadRef.current) {
+                                    cantidadRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!isValid) {
+                                Swal.fire({
+                                    title: '¡Faltan datos!',
+                                    text: 'Por favor, selecciona y rellena todos los campos',
+                                    icon: 'warning',
+                                    timer: 5000,
+                                    showCloseButton: true,
+                                    allowEscapeKey: true
+                                });
+                                return;
+                            }
+                        } else if (categoriaTemp === 'entrada') {
+                            if (!selectedUbicacionEntrada) {
+                                if (ubicacionEntradaRef.current) {
+                                    ubicacionEntradaRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!inputValue) {
+                                if (cantidadRef.current) {
+                                    cantidadRef.current.classList.add('error');
+                                }
+                                isValid = false;
+                            }
+                            if (!isValid) {
+                                Swal.fire({
+                                    title: '¡Faltan datos!',
+                                    text: 'Por favor, selecciona y rellena todos los campos',
+                                    icon: 'warning',
+                                    timer: 5000,
+                                    showCloseButton: true,
+                                    allowEscapeKey: true
+                                });
+                                return;
+                            }
+                        }
+                        const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        if (response.data.ok && response.data.lineasIds) {
+                            handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
+                        }
+
+                    } catch (error) {
+                        if (error.response && error.response.data && error.response.data.message) {
+                            const { messageText } = error.response.data.message;
+                            Swal.fire({
+                                title: 'Error',
+                                text: `Error: ${messageText}`,
+                                icon: 'error',
+                                timer: 5000,
+                                showCloseButton: true,
+                                allowEscapeKey: true
+                            });
+                        }
+                    }
+                };
+
+                // Llamar a la función con el ID de la orden correspondiente
+                const ordenId = idOrder; // Cambia esto por el ID de la orden real
+                await enviarLineas(ordenId);
+
+            } else if (!estatus) {
+                const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+                const data = {
+                    fecha_abierto: dateTime,
+                    tipo_transaccion_id: idTraspaso,
+                    bodega_salida_id: parseOrNull(selectedBodegaSalida),
+                    bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
+                    estatus: "abierto",
+                    descripcion: descripcion,
+                    lineas: [
+                        {
+                            producto_id: productoId,
+                            cantidad: parseInt(inputValue),
+                            comentario: selectedComment,
+                            localidad_salida_id: parseOrNull(selectedUbicacionSalida),
+                            localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
+                        }
+                    ]
+                };
+
+                if (descripcionRef.current) {
+                    descripcionRef.current.classList.remove('error');
+                }
+
                 if (ubicacionSalidaRef.current) {
                     ubicacionSalidaRef.current.classList.remove('error');
                 }
@@ -602,153 +755,6 @@ const TableOrdenes = () => {
 
                 let isValid = true;
 
-                try {
-                    if (categoriaTemp === 'transferencia') {
-                        if (!selectedUbicacionSalida) {
-                            if (ubicacionSalidaRef.current) {
-                                ubicacionSalidaRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!selectedUbicacionEntrada) {
-                            if (ubicacionEntradaRef.current) {
-                                ubicacionEntradaRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!inputValue) {
-                            if (cantidadRef.current) {
-                                cantidadRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!isValid) {
-                            Swal.fire({
-                                title: '¡Faltan datos!',
-                                text: 'Por favor, selecciona y rellena todos los campos',
-                                icon: 'warning',
-                                timer: 5000,
-                                showCloseButton: true,
-                                allowEscapeKey: true
-                            });
-                            return;
-                        }
-                    } else if (categoriaTemp === 'salida') {
-                        if (!selectedUbicacionSalida) {
-                            if (ubicacionSalidaRef.current) {
-                                ubicacionSalidaRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!inputValue) {
-                            if (cantidadRef.current) {
-                                cantidadRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!isValid) {
-                            Swal.fire({
-                                title: '¡Faltan datos!',
-                                text: 'Por favor, selecciona y rellena todos los campos',
-                                icon: 'warning',
-                                timer: 5000,
-                                showCloseButton: true,
-                                allowEscapeKey: true
-                            });
-                            return;
-                        }
-                    } else if (categoriaTemp === 'entrada') {
-                        if (!selectedUbicacionEntrada) {
-                            if (ubicacionEntradaRef.current) {
-                                ubicacionEntradaRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!inputValue) {
-                            if (cantidadRef.current) {
-                                cantidadRef.current.classList.add('error');
-                            }
-                            isValid = false;
-                        }
-                        if (!isValid) {
-                            Swal.fire({
-                                title: '¡Faltan datos!',
-                                text: 'Por favor, selecciona y rellena todos los campos',
-                                icon: 'warning',
-                                timer: 5000,
-                                showCloseButton: true,
-                                allowEscapeKey: true
-                            });
-                            return;
-                        }
-                    }
-                    const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`, lineasData, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                    if (response.data.ok && response.data.lineasIds) {
-                        handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
-                    }
-
-                } catch (error) {
-                    if (error.response && error.response.data && error.response.data.message) {
-                        const { messageText } = error.response.data.message;
-                        Swal.fire({
-                            title: 'Error',
-                            text: `Error: ${messageText}`,
-                            icon: 'error',
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true
-                        });
-                    }
-                }
-            };
-
-            // Llamar a la función con el ID de la orden correspondiente
-            const ordenId = idOrder; // Cambia esto por el ID de la orden real
-            enviarLineas(ordenId);
-
-        } else if (!estatus) {
-            const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
-            const data = {
-                fecha_abierto: dateTime,
-                tipo_transaccion_id: idTraspaso,
-                bodega_salida_id: parseOrNull(selectedBodegaSalida),
-                bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
-                estatus: "abierto",
-                descripcion: descripcion,
-                lineas: [
-                    {
-                        producto_id: productoId,
-                        cantidad: parseInt(inputValue),
-                        comentario: selectedComment,
-                        localidad_salida_id: parseOrNull(selectedUbicacionSalida),
-                        localidad_entrada_id: parseOrNull(selectedUbicacionEntrada)
-                    }
-                ]
-            };
-
-            if (descripcionRef.current) {
-                descripcionRef.current.classList.remove('error');
-            }
-
-            if (ubicacionSalidaRef.current) {
-                ubicacionSalidaRef.current.classList.remove('error');
-            }
-            if (ubicacionEntradaRef.current) {
-                ubicacionEntradaRef.current.classList.remove('error');
-            }
-
-            if (cantidadRef.current) {
-                cantidadRef.current.classList.remove('error');
-            }
-
-            let isValid = true;
-
-            try {
                 if (!descripcion) {
                     if (descripcionRef.current) {
                         descripcionRef.current.classList.add('error');
@@ -874,20 +880,27 @@ const TableOrdenes = () => {
                         handleAddRow(); // Si no hay lineasIds, agregar la fila sin esa información
                     }
                 }
-            } catch (error) {
-                if (error.response && error.response.data && error.response.data.message) {
+            }
+        }, {
+            loadingText: "Generando orden...",
+            onError: (error) => {
+                if (error.response?.data?.message) {
                     const { messageText } = error.response.data.message;
                     Swal.fire({
                         title: 'Error',
                         text: `Error: ${messageText}`,
-                        icon: 'error',
-                        timer: 5000,
-                        showCloseButton: true,
-                        allowEscapeKey: true
+                        icon: 'error'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Ocurrió un error inesperado',
+                        icon: 'error'
                     });
                 }
             }
-        }
+
+        });
     }
 
     const handleImportExcel = async (e) => {
@@ -1009,18 +1022,22 @@ const TableOrdenes = () => {
         reader.readAsArrayBuffer(file);
     };
 
-    const handleConfirmarOrden = async () => {
-        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        const data = {
-            fecha_confirmada: dateTime,
-        };
+    const handleConfirmarOrden = () => {
 
-        try {
+        execute(async () => {
+
+            const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            const data = {
+                fecha_confirmada: dateTime,
+            };
+
+
             const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/confirmar/${idOrder}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
             if (response.data.ok) {
                 setIdOrder(response.data.ordenId);
                 setEstatus(response.data.estatus);
@@ -1033,32 +1050,41 @@ const TableOrdenes = () => {
                     allowEscapeKey: true
                 });
             }
-        } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                const errorMessage = error.response.data.message;
-                Swal.fire({
-                    title: 'Error',
-                    text: errorMessage,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
+
+        }, {
+            loadingText: "Confirmando orden...",
+            onError: (error) => {
+                if (error.response?.data?.message) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: error.response.data.message,
+                        icon: 'error'
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Ocurrió un error inesperado',
+                        icon: 'error'
+                    });
+                }
             }
-        }
+        });
     }
 
-    const handleCancelOrden = async () => {
-        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        const data = {
-            fecha_procesada: dateTime
-        }
-        try {
+    const handleCancelOrden = () => {
+        execute(async () => {
+
+            const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            const data = {
+                fecha_procesada: dateTime
+            }
+
             const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/cancelar/${idOrder}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
             if (response.data.ok) {
                 setIdOrder(response.data.ordenId);
                 setEstatus(response.data.estatus);
@@ -1071,23 +1097,27 @@ const TableOrdenes = () => {
                     allowEscapeKey: true
                 });
             }
-        } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                const errorMessage = error.response.data.message;
-                Swal.fire({
-                    title: 'Error',
-                    text: errorMessage,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
+        }, {
+            loadingText: "Cancelando orden...",
+            onError: (error) => {
+                if (error.response && error.response.data && error.response.data.message) {
+                    const errorMessage = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: errorMessage,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
             }
-        }
+        });
     }
 
-    const handleRevertirOrden = async () => {
-        try {
+    const handleRevertirOrden = () => {
+        execute(async () => {
+
             const response = await axios.put(
                 `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/revertir`,
                 {}, // Este es el cuerpo de la solicitud (si no envías datos, puedes pasar un objeto vacío)
@@ -1109,34 +1139,38 @@ const TableOrdenes = () => {
                     allowEscapeKey: true
                 });
             }
-        } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
-                const errorMessage = error.response.data.message;
-                Swal.fire({
-                    title: 'Error',
-                    text: errorMessage,
-                    icon: 'error',
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
+        }, {
+            loadingText: "Revirtiendo orden...",
+            onError: (error) => {
+                if (error.response && error.response.data && error.response.data.message) {
+                    const errorMessage = error.response.data.message;
+                    Swal.fire({
+                        title: 'Error',
+                        text: errorMessage,
+                        icon: 'error',
+                        timer: 5000,
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
             }
-        }
+        });
     }
 
-    const handleProcesarOrden = async () => {
-        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        const data = {
-            fecha_procesada: dateTime,
-            usuario: user.nombre
-        };
+    const handleProcesarOrden = () => {
+        execute(async () => {
+            const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            const data = {
+                fecha_procesada: dateTime,
+                usuario: user.nombre
+            };
 
-        try {
             const response = await axios.post(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/procesar/${idOrder}`, data, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
             if (response.data.ok) {
                 setIdOrder(response.data.id);
                 setEstatus(response.data.estatus);
@@ -1149,46 +1183,42 @@ const TableOrdenes = () => {
                     allowEscapeKey: true
                 });
             }
-        } catch (error) {
-            if (error.response && error.response.data && error.response.data.message) {
+        }, {
+            loadingText: "Procesando orden...",
+            onError: (error) => {
+                if (error.response?.data?.message) {
+                    const { messageText, errores } = error.response.data.message;
 
-                const { messageText, errores } = error.response.data.message;
+                    let detalleErrores = '';
 
-                let detalleErrores = '';
+                    if (errores && errores.length > 0) {
+                        detalleErrores = errores.map(err => `
+                            • SKU: ${err.sku}
+                            | ML: ${err.inventory_id}
+                            | Localidad: ${err.localidad}
+                            | Disponible: ${err.cantidad_disponible}
+                            | Requerido: ${err.cantidad_requerida}
+                        `).join('<br>');
+                    }
 
-                if (errores && errores.length > 0) {
-                    detalleErrores = errores
-                        .map(err => `
-                    • SKU: ${err.sku}
-                    | ML: ${err.inventory_id}
-                    | Localidad: ${err.localidad}
-                    | Disponible: ${err.cantidad_disponible}
-                    | Requerido: ${err.cantidad_requerida}
-                `)
-                        .join('<br>');
+                    Swal.fire({
+                        title: 'Error',
+                        html: `<strong>${messageText}</strong><br><br>${detalleErrores}`,
+                        icon: 'error',
+                        width: 1000,
+                        showCloseButton: true
+                    });
+
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Ocurrió un error inesperado',
+                        icon: 'error'
+                    });
                 }
-
-                Swal.fire({
-                    title: 'Error',
-                    html: `
-                <strong>${messageText}</strong><br><br>
-                ${detalleErrores}
-            `,
-                    icon: 'error',
-                    width: 1000,
-                    showCloseButton: true,
-                    allowEscapeKey: true
-                });
-
-            } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Ocurrió un error inesperado',
-                    icon: 'error'
-                });
             }
-        }
-    }
+        });
+    };
 
     const deleteLine = (id) => async (e) => {
         e.preventDefault();
@@ -1311,6 +1341,8 @@ const TableOrdenes = () => {
 
     const fetchsku = async (productoSku) => {
         try {
+            setLoadingProducts(true);
+
             const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoSku}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -1354,6 +1386,8 @@ const TableOrdenes = () => {
                     allowEscapeKey: true
                 });
             }
+        } finally {
+            setLoadingProducts(false);
         }
     };
 
@@ -1375,8 +1409,6 @@ const TableOrdenes = () => {
         setProductoSku(sku);
         setSearchTerm(sku);
     }
-
-
 
     useEffect(() => {
         const isAdmin = user?.rol_id === 1;
@@ -1666,6 +1698,7 @@ const TableOrdenes = () => {
             setOpen(false); // Cierra la modal
         }
     };
+
     useEffect(() => {
         // Filtra los productos en base al término de búsqueda
         let filtered = rowsProducts;
@@ -1704,8 +1737,6 @@ const TableOrdenes = () => {
         setFilteredProducts(filtered);
     }, [searchTerm, rowsProducts]);
 
-
-
     const columnsProducts = [
         {
             field: 'select',
@@ -1729,11 +1760,9 @@ const TableOrdenes = () => {
         { field: 'tipo_publicacion', headerName: 'Tipo\npublicación', type: 'number', flex: 1, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'id', headerName: '#Publicación', type: 'text', flex: 1 },
         { field: 'catalog_id', headerName: '#Catalogo', type: 'text', flex: 1 },
-        { field: 'title', headerName: 'Titulo', type: 'text', flex: 3 },
-        { field: 'sku', headerName: 'SKU', type: 'text', flex: 2, headerAlign: 'center' },
-        { field: 'variation_id', headerName: '#Variación', type: 'number', headerAlign: 'center' },
+        { field: 'sku', headerName: 'SKU', type: 'text', flex: 1, headerAlign: 'center' },
         { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 1, headerAlign: 'center' },
-        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1.7 },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 1 },
     ]
 
     const puedeEditar = estatus === 'abierto' && (isAdmin || user.rol_id === rolMovimiento);
@@ -1917,6 +1946,7 @@ const TableOrdenes = () => {
                         <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: "1800px" }}
                             rows={filteredProducts}
                             columns={columnsProducts}
+                            loading={loadingProducts}
                             pageSize={5}
                             showCellVerticalBorder
                             showColumnVerticalBorder
@@ -1926,7 +1956,6 @@ const TableOrdenes = () => {
                             density="compact"
                             columnVisibilityModel={{
                                 producto_id: false,
-                                variation_id: false,
                                 tipo_publicacion: false,
                                 id: false,
                                 catalog_id: false
