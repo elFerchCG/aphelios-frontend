@@ -746,43 +746,55 @@ const handleCerrarSeleccionadas = async () => {
   }
 };
 
-  const handleCerrarTodas = async () => {
-    if (!backorderActivo) return;
+const handleCerrarTodas = async () => {
+  if (!backorderActivo) return;
 
-    const confirm = await Swal.fire({
-      title: "Cerrar TODAS las órdenes",
-      text: `Se cerrarán todas las líneas/órdenes abiertas del proveedor.`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Sí, cerrar todas",
-      cancelButtonText: "Cancelar",
-    });
-    if (!confirm.isConfirmed) return;
+  const confirm = await Swal.fire({
+    title: "Cerrar TODAS las órdenes",
+    text: "Se cerrarán todas las líneas/órdenes abiertas del proveedor.",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Sí, cerrar todas",
+    cancelButtonText: "Cancelar",
+  });
 
-    try {
-      setBusy(true);
-      await axios.post(`${apiUrl}/mrp/cerrarTodoProveedorBackorder`, {
+  if (!confirm.isConfirmed) return;
+
+  try {
+    setBusy(true);
+    openLoader("Cerrando todas las órdenes del proveedor…", null);
+
+    const { data } = await axios.post(
+      `${apiUrl}/mrp/cerrarTodoProveedorBackorder`,
+      {
         proveedor_id: Number(proveedorId),
-      });
-      setBusy(false);
-      await Swal.fire(
-        "Listo",
-        "Cierre total ejecutado y stock actualizado.",
-        "success",
-      );
-      setRowSelectionModel([]);
-      await cargarMrpDelProveedor();
-    } catch (err) {
-      setBusy(true);
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "No se pudo cerrar todo.";
-      await Swal.fire("Error", msg, "error");
-    } finally {
-      setBusy(false);
-    }
-  };
+      }
+    );
+
+    closeLoader();
+
+    await Swal.fire({
+      icon: "success",
+      title: "Listo",
+      text: data?.message || "Cierre total ejecutado y stock actualizado.",
+    });
+
+    setRowSelectionModel([]);
+    await cargarMrpDelProveedor();
+  } catch (err) {
+    closeLoader();
+
+    const msg =
+      err?.response?.data?.message ||
+      err?.message ||
+      "No se pudo cerrar todo.";
+
+    await Swal.fire("Error", msg, "error");
+  } finally {
+    setBusy(false);
+    closeLoader();
+  }
+};
 
   const columns = [
     { field: "pedido_id", headerName: "#Pedido", minWidth: 100 },
