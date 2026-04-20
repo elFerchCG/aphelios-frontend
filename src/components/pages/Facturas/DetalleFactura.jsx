@@ -943,9 +943,9 @@ const DetalleFactura = () => {
     },
     {
       field: "ramas_info",
-      headerName: "Ramas OP",
+      headerName: "Órdenes relacionadas",
       flex: 0.9,
-      minWidth: 120,
+      minWidth: 180,
       sortable: false,
       filterable: false,
       align: "center",
@@ -970,7 +970,7 @@ const DetalleFactura = () => {
 
         return (
           <Chip
-            label={`OP #${ramas[0]?.orden_id || "N/A"}`}
+            label={`Orden Produccion #${ramas[0]?.orden_id || "N/A"}`}
             size="small"
             color="success"
             variant="outlined"
@@ -980,7 +980,7 @@ const DetalleFactura = () => {
     },
     {
       field: "seleccion_opd",
-      headerName: "Selección OPD",
+      headerName: "Detalle a enlazar",
       flex: 1.8,
       minWidth: 260,
       sortable: false,
@@ -1009,13 +1009,13 @@ const DetalleFactura = () => {
           return (
             <Box sx={{ fontSize: 12, lineHeight: 1.3, py: 0.5 }}>
               <div>
-                <strong>OP:</strong> #{rama.orden_id}
+                <strong>Orden de producción:</strong> #{rama.orden_id}
               </div>
               <div>
-                <strong>OPD:</strong> #{rama.op_detalle_id}
+                <strong>Detalle:</strong> #{rama.op_detalle_id}
               </div>
               <div>
-                <strong>Pendiente:</strong> {rama.pendiente_opd}
+                <strong>Cantidad pendiente:</strong> {rama.pendiente_opd}
               </div>
               <div>
                 <strong>Estatus:</strong> {rama.op_estatus}
@@ -1060,7 +1060,7 @@ const DetalleFactura = () => {
 
                   if (!rama) return "Selecciona una rama";
 
-                  return `OP #${rama.orden_id} · OPD #${rama.op_detalle_id}`;
+                  return `Orden producción #${rama.orden_id} · Detalle #${rama.op_detalle_id}`;
                 }}
                 sx={{
                   backgroundColor: "#fff",
@@ -1085,7 +1085,7 @@ const DetalleFactura = () => {
                         fontStyle: deshabilitada ? "italic" : "normal",
                       }}
                     >
-                      {`OP #${rama.orden_id} · OPD #${rama.op_detalle_id} · Pendiente ${rama.pendiente_opd} · ${rama.op_estatus}`}
+                      {`Orden producción #${rama.orden_id} · Detalle #${rama.op_detalle_id} · Pendiente ${rama.pendiente_opd} piezas  · Estado: ${rama.op_estatus}`}
                     </MenuItem>
                   );
                 })}
@@ -3603,7 +3603,7 @@ const DetalleFactura = () => {
         maxWidth={false}
         PaperProps={{
           sx: {
-            width: { xs: "105vw", md: "90vw" },
+            width: { xs: "115vw", md: "110vw" },
             maxHeight: "90vh",
           },
         }}

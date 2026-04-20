@@ -339,7 +339,7 @@ const VistaPedidos = () => {
           display="flex"
           justifyContent="center"
           alignItems="center"
-          height="300px"
+          height="250px"
         >
           <CircularProgress />
         </Box>
@@ -365,6 +365,7 @@ const VistaPedidos = () => {
           onColumnVisibilityModelChange={(newModel) =>
             setColumnVisibilityModel(newModel)
           }
+          autoHeight
         />
       )}
 
