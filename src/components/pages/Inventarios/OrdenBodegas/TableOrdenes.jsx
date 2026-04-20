@@ -65,6 +65,7 @@ const TableOrdenes = () => {
     const [productoId, setProductoId] = useState('');
     const [productoTitle, setProductoTitle] = useState('');
     const [ubicaciones, setUbicaciones] = useState([]);
+    const [ubicacionesReservadas, setUbicacionesReservadas] = useState([]);
     const [selectedUbicacionEntrada, setSelectedUbicacionEntrada] = useState('');
     const [selectedUbicacionSalida, setSelectedUbicacionSalida] = useState('');
     const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
@@ -271,12 +272,15 @@ const TableOrdenes = () => {
     }, []);
 
     const handleUbicacionSelectSalida = (e) => {
-        const selectedId = parseInt(e.target.value, 10); //selectedId sea un número
+        const selectedId = parseInt(e.target.value, 10);
         setSelectedUbicacionSalida(selectedId);
-        const selectedUbicacionSalida = ubicaciones.find(ubic => ubic.id === parseInt(selectedId));
+
+        const selectedUbicacionSalida = ubicaciones.find(
+            ubic => ubic.id === selectedId
+        );
 
         if (selectedUbicacionSalida) {
-            setExistenciaProducto(selectedUbicacionSalida.cantidad)
+            setExistenciaProducto(selectedUbicacionSalida.disponible);
         }
 
         if (ubicacionSalidaRef.current) {
@@ -441,7 +445,12 @@ const TableOrdenes = () => {
                     }
                 });
                 // Verificar si el producto existe
-                if (!response.data || !response.data.data || response.data.data.length === 0) {
+                if (
+                    !response.data ||
+                    !response.data.data ||
+                    !Array.isArray(response.data.data.existencias) ||
+                    response.data.data.existencias.length === 0
+                ) {
                     Swal.fire({
                         title: '!Producto no encontrado!',
                         text: 'No se encontraron existencias, verifique el producto',
@@ -2120,10 +2129,10 @@ const TableOrdenes = () => {
                             style={{ backgroundColor: ubicacionSalidaHabilitada ? 'white' : '#f0f0f0' }}
                         >
                             {ubicaciones
-                                .sort((a, b) => b.cantidad - a.cantidad)
+                                .sort((a, b) => b.existencia_actual - a.existencia_actual) // 🔥 mejor ordenar por disponible
                                 .map((ubic, index) => (
                                     <MenuItem key={index} value={ubic.id}>
-                                        {`${ubic.descripcion} : ${ubic.cantidad}`}
+                                        {`${ubic.descripcion} : ${ubic.existencia_actual} (${ubic.total_reservado} reservados) | ${ubic.disponible} disponibles`}
                                     </MenuItem>
                                 ))}
                         </Select>
@@ -2144,7 +2153,7 @@ const TableOrdenes = () => {
                                 return a.descripcion.localeCompare(b.descripcion, 'es', { sensitivity: 'base' });
                             })
                         }
-                        getOptionLabel={(option) => `${option.descripcion} : ${option.cantidad ?? 0}`}
+                        getOptionLabel={(option) => `${option.descripcion} : ${option.cantidad ?? 0} (${option.pendiente_ingreso ?? 0} Por ingresar)`}
                         value={
                             ubicacionEntrada.find(u => u.id === selectedUbicacionEntrada)
                             || null
@@ -2176,7 +2185,7 @@ const TableOrdenes = () => {
                                     padding: '4px 8px',
                                 }}
                             >
-                                {`${option.descripcion} : ${option.cantidad ?? 0}`}
+                                {`${option.descripcion} : ${option.cantidad ?? 0} (${option.pendiente_ingreso ?? 0} Por ingresar)`}
                             </li>
                         )}
                         renderInput={(params) => (
@@ -2184,7 +2193,7 @@ const TableOrdenes = () => {
                                 {...params}
                                 label="Ubicación de entrada"
                                 variant="standard" // mismo estilo que tu Select
-                                size="small"       // mismo tamaño
+                                size="large"       // mismo tamaño
                                 sx={{
                                     backgroundColor: ubicacionEntradaHabilitada ? 'white' : '#f0f0f0',
                                     mr: 1

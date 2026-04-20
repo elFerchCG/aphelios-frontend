@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import { Box, Button, Typography } from '@mui/material';
+import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 
 const VentasME = () => {
     const [rows, setRows] = useState([]);
@@ -35,6 +36,10 @@ const VentasME = () => {
 
         if (tab === 'transito') {
             return filtered.filter(r => r.estado === 'en_camino');
+        }
+
+        if (tab === 'finalizado') {
+            return filtered.filter(r => r.estado === 'finalizado');
         }
 
         if (tab === 'proximos') {
@@ -88,20 +93,33 @@ const VentasME = () => {
         { field: 'title', headerName: 'Titulo', flex: 1 },
         { field: 'cantidad', headerName: 'Cantidad', flex: 1 },
         { field: 'logistic_type', headerName: 'Logística', flex: 1 },
-        { field: 'localidad_sugerida', headerName: 'Ubicación sugerida', flex: 1 },
+        { field: 'localidad_sugerida', headerName: 'Ubicación a retirar', flex: 1 },
         {
             field: 'acciones',
             headerName: 'Acciones',
             flex: 1,
-            renderCell: (params) => (
-                <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => surtirVenta(params.row)}
-                >
-                    Surtir
-                </Button>
-            )
+            renderCell: (params) => {
+                if (params.row.seccion !== 'hoy') return null;
+
+                return (
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        title="Imprimir etiqueta"
+                        onClick={() => surtirVenta(params.row)}
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '2px',
+                            textTransform: 'none'
+                        }}
+                    >
+                        <ArticleOutlinedIcon />
+                        Imprimir
+                    </Button>
+                );
+            }
         }
     ];
 
@@ -154,6 +172,12 @@ const VentasME = () => {
                     onClick={() => { setTab('transito'); setSubTab(null); }}
                 >
                     En tránsito
+                </Button>
+                <Button
+                    variant={tab === 'finalizado' ? 'contained' : 'outlined'}
+                    onClick={() => { setTab('finalizado'); setSubTab(null); }}
+                >
+                    Finalizado
                 </Button>
             </Box>
             {tab === 'proximos' && (

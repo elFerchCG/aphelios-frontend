@@ -770,29 +770,36 @@ const Surtido = () => {
     ];
 
     return (
-        <div>
-            <div className='DataG' style={{ width: "90%" }}>
-                <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold", marginTop: "-20px" }}>
-                    <h1>Surtido</h1>
-                </div>
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        fontFamily: "Montserrat",
-                        fontWeight: "bold",
-                        marginTop: "-20px",
-                        marginBottom: "10px",
-                    }}
-                >
+        <div
+            style={{
+                maxWidth: "90%",
+                margin: "0 auto",
+                width: "100%"
+            }}
+        >
+            <h1 style={{
+                fontFamily: "Montserrat",
+                fontWeight: "bold",
+                textAlign: "center",
+                margin: 0
+            }}>Surtido</h1>
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto 1fr",
+                    alignItems: "center",
+                    marginTop: "10px",
+                    marginBottom: "10px"
+                }}
+            >
+                <div style={{ justifySelf: "start" }}>
                     <TextField
                         inputRef={inputRef}
                         id="outlined-basic"
                         label="Ingresar SKU"
                         variant="outlined"
+                        size='small'
                         sx={{
-                            fontFamily: "Montserrat",
                             width: "20rem",
                             backgroundColor: "white",
                         }}
@@ -817,16 +824,36 @@ const Surtido = () => {
                                     />
                                 </InputAdornment>
                             ),
-                        }}
-                        inputProps={{
-                            style: {
-                                width: "20rem",
-                                height: "5px", // Altura interna del input
-                                backgroundColor: "white",
-                                color: "black",
-                            },
+                            sx: {
+                                height: 40 // 🔹 altura real controlada aquí
+                            }
                         }}
                     />
+                </div>
+                <div style={{ justifySelf: "center" }}>
+                    <FormControl sx={{ minWidth: 200 }} size="small">
+                        <InputLabel id="envio-label">Envio</InputLabel>
+                        <Select
+                            labelId="envio-label"
+                            label="Envio"
+                            sx={{
+                                height: 40,
+                                '& .MuiSelect-select': {
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '8.5px 14px' // 🔹 mismo padding que TextField outlined small
+                                }
+                            }}
+                        >
+                            <MenuItem value="">
+                                <em>None</em>
+                            </MenuItem>
+                            <MenuItem value={1}>Envio 1</MenuItem>
+                            <MenuItem value={2}>Envio 2</MenuItem>
+                        </Select>
+                    </FormControl>
+                </div>
+                <div style={{ justifySelf: "end" }}>
                     {['administrador'].includes(user?.rol_descripcion) && (
                         <Button
                             variant="contained"
@@ -836,50 +863,51 @@ const Surtido = () => {
                         </Button>
                     )}
                 </div>
-                <DataGrid
-                    sx={{
-                        fontFamily: "Montserrat",
-                        fontWeight: "bold",
-                        borderRadius: 4,
-                        boxShadow: 24,
-                        borderWidth: 3,
-                        '& .fila-full': {
-                            backgroundColor: '#E8F5E9', // verde claro
-                            '&:hover': {
-                                backgroundColor: '#C8E6C9',
-                            },
-                        },
-                        '& .fila-no-full': {
-                            backgroundColor: '#FDECEA', // rojo claro
-                            '&:hover': {
-                                backgroundColor: '#F9D6D5',
-                            },
-                        },
-                        // si quieres mantener esto
-                        '& .fila-repetida': {
-                            backgroundColor: '#FFF9C4',
-                        },
-                    }}
-                    rows={data}
-                    columns={columns}
-                    showCellVerticalBorder
-                    showColumnVerticalBorder
-                    getRowId={(row) => row.unique_id}
-                    //processRowUpdate={processRowUpdate}
-                    columnVisibilityModel={columnVisibilityModel}
-                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
-                    disableRowSelectionOnClick
-                    experimentalFeatures={{ newEditingApi: true }}
-                    density="compact" // Establece el tamaño de las filas en compacto por defecto
-                    slots={{ toolbar: CustomToolbar }}
-                    getRowClassName={(params) => {
-                        if (params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1) {
-                            return 'fila-full';
-                        }
-                        return 'fila-no-full';
-                    }}
-                />
+
             </div>
+            <DataGrid
+                sx={{
+                    fontFamily: "Montserrat",
+                    fontWeight: "bold",
+                    borderRadius: 4,
+                    boxShadow: 24,
+                    borderWidth: 3,
+                    '& .fila-full': {
+                        backgroundColor: '#E8F5E9', // verde claro
+                        '&:hover': {
+                            backgroundColor: '#C8E6C9',
+                        },
+                    },
+                    '& .fila-no-full': {
+                        backgroundColor: '#FDECEA', // rojo claro
+                        '&:hover': {
+                            backgroundColor: '#F9D6D5',
+                        },
+                    },
+                    // si quieres mantener esto
+                    '& .fila-repetida': {
+                        backgroundColor: '#FFF9C4',
+                    },
+                }}
+                rows={data}
+                columns={columns}
+                showCellVerticalBorder
+                showColumnVerticalBorder
+                getRowId={(row) => row.unique_id}
+                //processRowUpdate={processRowUpdate}
+                columnVisibilityModel={columnVisibilityModel}
+                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
+                disableRowSelectionOnClick
+                experimentalFeatures={{ newEditingApi: true }}
+                density="compact" // Establece el tamaño de las filas en compacto por defecto
+                slots={{ toolbar: CustomToolbar }}
+                getRowClassName={(params) => {
+                    if (params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1) {
+                        return 'fila-full';
+                    }
+                    return 'fila-no-full';
+                }}
+            />
             <Modal id={"modal-asignar"} open={openAsignar} onClose={handleCloseAsignar}>
                 <Box sx={styleModalAsignar}>
 
