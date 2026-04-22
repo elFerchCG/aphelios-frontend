@@ -112,14 +112,14 @@ const MrpSimple = () => {
   const actualizarPublicacionesManual = async () => {
     try {
       setLoaderText("Actualizando publicaciones…");
-      setLoaderPct(null); 
-      setLoaderOpen(true); 
+      setLoaderPct(null);
+      setLoaderOpen(true);
 
       const response = await axios.post(
         `${apiUrl}/mrp/actualizarPublicacionesManual`,
       );
 
-      setLoaderOpen(false); 
+      setLoaderOpen(false);
 
       Swal.fire({
         title: "Actualizacion exitosa!",
@@ -130,7 +130,7 @@ const MrpSimple = () => {
         allowEscapeKey: true,
       });
     } catch (error) {
-      setLoaderOpen(false); 
+      setLoaderOpen(false);
 
       Swal.fire({
         title: "Error",
@@ -141,7 +141,7 @@ const MrpSimple = () => {
         allowEscapeKey: true,
       });
     } finally {
-      setBusy(false); 
+      setBusy(false);
     }
   };
 
@@ -157,7 +157,6 @@ const MrpSimple = () => {
     if (!mlInfo?.ok || !mlInfo?.max) return false;
     return isSameLocalDay(mlInfo.max, new Date());
   }, [mlInfo]);
-
 
   useEffect(() => {
     let cancel = false;
@@ -621,180 +620,188 @@ const MrpSimple = () => {
     }
   };
 
-const handleCerrarSeleccionadas = async () => {
-  if (!backorderActivo) return;
+  const handleCerrarSeleccionadas = async () => {
+    if (!backorderActivo) return;
 
-  if (rowSelectionModel.length === 0) {
-    await Swal.fire("Atención", "Selecciona al menos una línea.", "info");
-    return;
-  }
-
-  const bulk = {
-    op_detalle_ids: [],
-    orden_compra_detalle_ids: [],
-    pedido_linea_ids: [],
-    familias: [],
-  };
-
-  const selectedRows = [];
-  const familiasMap = new Map();
-
-  rowSelectionModel.forEach((rid) => {
-    const row = mrp.find(
-      (r) =>
-        (r.op_detalle_id
-          ? `opd-${r.op_detalle_id}`
-          : r.orden_id
-            ? `op-${r.orden_id}`
-            : `row-${r.producto_id ?? "x"}`) === rid,
-    );
-
-    if (!row) return;
-
-    selectedRows.push(row);
-
-    if (row.op_detalle_id) {
-      bulk.op_detalle_ids.push(Number(row.op_detalle_id));
-    }
-
-    if (row.detalle_orden_compra_id) {
-      bulk.orden_compra_detalle_ids.push(Number(row.detalle_orden_compra_id));
-    }
-
-    if (row.pedido_linea_id) {
-      bulk.pedido_linea_ids.push(Number(row.pedido_linea_id));
-    }
-
-    const pedidoId = Number(row.pedido_id || 0);
-    const sku = String(
-      row.componente_sku || row.sku || row.sku_componente || "",
-    ).trim();
-
-    if (pedidoId && sku) {
-      const key = `${pedidoId}-${sku}`;
-
-      if (!familiasMap.has(key)) {
-        familiasMap.set(key, {
-          pedido_id: pedidoId,
-          sku,
-        });
-      }
-    }
-  });
-
-  bulk.op_detalle_ids = [...new Set(bulk.op_detalle_ids)];
-  bulk.orden_compra_detalle_ids = [...new Set(bulk.orden_compra_detalle_ids)];
-  bulk.pedido_linea_ids = [...new Set(bulk.pedido_linea_ids)];
-  bulk.familias = Array.from(familiasMap.values());
-
-  console.log("rowSelectionModel:", rowSelectionModel);
-  console.log("selectedRows:", selectedRows);
-  console.log("bulk a enviar:", bulk);
-
-  const confirm = await Swal.fire({
-    title: "Cerrar seleccionadas",
-    text: `Se cerrarán ${rowSelectionModel.length} selección(es).`,
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "Sí, cerrar",
-    cancelButtonText: "Cancelar",
-  });
-
-  if (!confirm.isConfirmed) return;
-
-  try {
-    setBusy(true);
-
-    await axios.post(`${apiUrl}/mrp/lineas/cerrar`, bulk);
-
-    await Swal.fire("Listo", "Líneas cerradas correctamente.", "success");
-
-    setRowSelectionModel([]);
-    await cargarMrpDelProveedor();
-  } catch (err) {
-    const backendCode = err?.response?.data?.code;
-    const backendMsg =
-      err?.response?.data?.message ||
-      err?.message ||
-      "No se pudieron cerrar las líneas.";
-
-    if (backendCode === "GRUPO_INCOMPLETO") {
-      const grupos = err?.response?.data?.grupos_bloqueados || [];
-
-      const detalle = grupos.length
-        ? grupos
-            .map(
-              (g) =>
-                `Pedido ${g.pedido_id} · SKU ${g.sku}\nFaltan ramas/líneas: ${(g.lineas_faltantes || []).join(", ")}`,
-            )
-            .join("\n\n")
-        : "Hay ramas activas relacionadas que también deben cerrarse.";
-
-      await Swal.fire({
-        icon: "warning",
-        title: "Grupo incompleto",
-        text: "Debes seleccionar todas las ramas activas del mismo SKU dentro del pedido antes de cerrarlo.",
-        footer: `<pre style="text-align:left;white-space:pre-wrap;">${detalle}</pre>`,
-      });
-
+    if (rowSelectionModel.length === 0) {
+      await Swal.fire("Atención", "Selecciona al menos una línea.", "info");
       return;
     }
 
-    await Swal.fire("Error", backendMsg, "error");
-  } finally {
-    setBusy(false);
-  }
-};
+    const bulk = {
+      op_detalle_ids: [],
+      orden_compra_detalle_ids: [],
+      pedido_linea_ids: [],
+      familias: [],
+    };
 
-const handleCerrarTodas = async () => {
-  if (!backorderActivo) return;
+    const selectedRows = [];
+    const familiasMap = new Map();
 
-  const confirm = await Swal.fire({
-    title: "Cerrar TODAS las órdenes",
-    text: "Se cerrarán todas las líneas/órdenes abiertas del proveedor.",
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "Sí, cerrar todas",
-    cancelButtonText: "Cancelar",
-  });
+    rowSelectionModel.forEach((rid) => {
+      const row = mrp.find(
+        (r) =>
+          (r.op_detalle_id
+            ? `opd-${r.op_detalle_id}`
+            : r.orden_id
+              ? `op-${r.orden_id}`
+              : `row-${r.producto_id ?? "x"}`) === rid,
+      );
 
-  if (!confirm.isConfirmed) return;
+      if (!row) return;
 
-  try {
-    setBusy(true);
-    openLoader("Cerrando todas las órdenes del proveedor…", null);
+      selectedRows.push(row);
 
-    const { data } = await axios.post(
-      `${apiUrl}/mrp/cerrarTodoProveedorBackorder`,
-      {
-        proveedor_id: Number(proveedorId),
+      if (row.op_detalle_id) {
+        bulk.op_detalle_ids.push(Number(row.op_detalle_id));
       }
-    );
 
-    closeLoader();
+      if (row.detalle_orden_compra_id) {
+        bulk.orden_compra_detalle_ids.push(Number(row.detalle_orden_compra_id));
+      }
 
-    await Swal.fire({
-      icon: "success",
-      title: "Listo",
-      text: data?.message || "Cierre total ejecutado y stock actualizado.",
+      if (row.pedido_linea_id) {
+        bulk.pedido_linea_ids.push(Number(row.pedido_linea_id));
+      }
+
+      const pedidoId = Number(row.pedido_id || 0);
+      const sku = String(
+        row.componente_sku || row.sku || row.sku_componente || "",
+      ).trim();
+
+      if (pedidoId && sku) {
+        const key = `${pedidoId}-${sku}`;
+
+        if (!familiasMap.has(key)) {
+          familiasMap.set(key, {
+            pedido_id: pedidoId,
+            sku,
+          });
+        }
+      }
     });
 
-    setRowSelectionModel([]);
-    await cargarMrpDelProveedor();
-  } catch (err) {
-    closeLoader();
+    bulk.op_detalle_ids = [...new Set(bulk.op_detalle_ids)];
+    bulk.orden_compra_detalle_ids = [...new Set(bulk.orden_compra_detalle_ids)];
+    bulk.pedido_linea_ids = [...new Set(bulk.pedido_linea_ids)];
+    bulk.familias = Array.from(familiasMap.values());
 
-    const msg =
-      err?.response?.data?.message ||
-      err?.message ||
-      "No se pudo cerrar todo.";
+    const confirm = await Swal.fire({
+      title: "Cerrar seleccionadas",
+      text: `Se cerrarán ${rowSelectionModel.length} selección(es).`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar",
+      cancelButtonText: "Cancelar",
+    });
 
-    await Swal.fire("Error", msg, "error");
-  } finally {
-    setBusy(false);
-    closeLoader();
-  }
-};
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBusy(true);
+
+      // 🔥 AQUI ABRES EL LOADER
+      openLoader("Cerrando líneas seleccionadas…", null);
+
+      await axios.post(`${apiUrl}/mrp/lineas/cerrar`, bulk);
+
+      // 🔥 CIERRAS LOADER ANTES DEL SUCCESS
+      closeLoader();
+
+      await Swal.fire("Listo", "Líneas cerradas correctamente.", "success");
+
+      setRowSelectionModel([]);
+      await cargarMrpDelProveedor();
+    } catch (err) {
+      // 🔥 IMPORTANTE: cerrar loader también en error
+      closeLoader();
+
+      const backendCode = err?.response?.data?.code;
+      const backendMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "No se pudieron cerrar las líneas.";
+
+      if (backendCode === "GRUPO_INCOMPLETO") {
+        const grupos = err?.response?.data?.grupos_bloqueados || [];
+
+        const detalle = grupos.length
+          ? grupos
+              .map(
+                (g) =>
+                  `Pedido ${g.pedido_id} · SKU ${g.sku}\nFaltan ramas/líneas: ${(g.lineas_faltantes || []).join(", ")}`,
+              )
+              .join("\n\n")
+          : "Hay ramas activas relacionadas que también deben cerrarse.";
+
+        await Swal.fire({
+          icon: "warning",
+          title: "Grupo incompleto",
+          text: "Debes seleccionar todas las ramas activas del mismo SKU dentro del pedido antes de cerrarlo.",
+          footer: `<pre style="text-align:left;white-space:pre-wrap;">${detalle}</pre>`,
+        });
+
+        return;
+      }
+
+      await Swal.fire("Error", backendMsg, "error");
+    } finally {
+      setBusy(false);
+
+      // 🔥 fallback (por si algo raro pasa)
+      closeLoader();
+    }
+  };
+
+  const handleCerrarTodas = async () => {
+    if (!backorderActivo) return;
+
+    const confirm = await Swal.fire({
+      title: "Cerrar TODAS las órdenes",
+      text: "Se cerrarán todas las líneas/órdenes abiertas del proveedor.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar todas",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setBusy(true);
+      openLoader("Cerrando todas las órdenes del proveedor…", null);
+
+      const { data } = await axios.post(
+        `${apiUrl}/mrp/cerrarTodoProveedorBackorder`,
+        {
+          proveedor_id: Number(proveedorId),
+        },
+      );
+
+      closeLoader();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Listo",
+        text: data?.message || "Cierre total ejecutado y stock actualizado.",
+      });
+
+      setRowSelectionModel([]);
+      await cargarMrpDelProveedor();
+    } catch (err) {
+      closeLoader();
+
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "No se pudo cerrar todo.";
+
+      await Swal.fire("Error", msg, "error");
+    } finally {
+      setBusy(false);
+      closeLoader();
+    }
+  };
 
   const columns = [
     { field: "pedido_id", headerName: "#Pedido", minWidth: 100 },
