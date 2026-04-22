@@ -107,6 +107,7 @@ const DataGridE = () => {
         variation_desc: false,
         localidad_descripcion: true,
         cantidad: true,
+        cantidad_ordenada_ajustada: true,
     });
 
     const CustomToolbar = () => (
@@ -195,17 +196,19 @@ const DataGridE = () => {
     }
 
     const columns = [
-        { field: 'cantidad', headerName: 'Cantidad', type: 'number', flex: 0.5 },
+        { field: 'existencia_actual', headerName: 'Cantidad Actual', type: 'number', flex: 1 },
+        { field: 'total_reservado', headerName: 'Cantidad Reservada', type: 'number', flex: 1 },
+        { field: 'total_por_recibir', headerName: 'Cantidad Por Ingresar', type: 'number', flex: 1 },
+        { field: 'disponible', headerName: 'Cantidad Disponible', type: 'number', flex: 1 },
         { field: 'id', headerName: 'ID', type: 'number' },
         { field: 'producto_id', headerName: 'ID Producto', type: 'text', flex: 1 },
         { field: 'mlm', headerName: '#De Publicación', type: 'text', flex: 1, pinned: 'left' },
         { field: 'catalog_id', headerName: '#De Catalogo', type: 'text', flex: 1 },
-        { field: 'title', headerName: 'Titulo', type: 'text', flex: 2 },
+        { field: 'title', headerName: 'Titulo', type: 'text', flex: 1.5 },
         { field: 'sku', headerName: 'SKU', type: 'text', flex: 1.7 },
         { field: 'inventory_id', headerName: 'ML', type: 'text', flex: 0.7 },
-        { field: 'variation_desc', headerName: 'Variante', type: 'text', flex: 1 },
         { field: 'localidad_id', headerName: 'Ubicacion ID', type: 'number', flex: 1 },
-        { field: 'localidad_descripcion', headerName: 'Ubicación', type: 'text', flex: 0.5 },
+        { field: 'localidad_descripcion', headerName: 'Ubicación', type: 'text', flex: 1 },
     ];
 
     useEffect(() => {

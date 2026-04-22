@@ -23,6 +23,7 @@ const NOMBRE = {
   saludable: "Inventario Saludable > Punto reorden Y <= Máximo",
   sobrestock: "Sobrestock > Máximo",
   sin_demanda: "Sin demanda",
+  sin_demanda_con_stock: "Sin demanda (con stock)",
 };
 
 
@@ -34,6 +35,7 @@ const COLORS = {
   saludable: "#22c55e",    // verde
   sobrestock: "#2563eb",   // azul
   sin_demanda: "#9ca3af",  // gris
+  sin_demanda_con_stock: "#4a4d53", // gris oscuro
 };
 
 
@@ -63,7 +65,7 @@ export default function GraficaCoberturaStock() {
     setLoading(true);
     try {
       const { data: resp } = await axios.get(
-        `${apiUrl}/analiticas/stock/maximo_vs_sotck`
+        `${apiUrl}/analiticas/stock/maximo_vs_stock`
       );
 
       const series = (resp?.data ?? []).map((b) => ({
