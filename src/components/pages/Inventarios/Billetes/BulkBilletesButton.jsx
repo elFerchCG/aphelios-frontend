@@ -45,6 +45,21 @@ export default function BulkBilletesButton({ onSuccess }) {
   const [openConfirmReplace, setOpenConfirmReplace] = useState(false);
   const [ackReplace, setAckReplace] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
+  const [errorExcel, setErrorExcel] = useState(null);
+
+  const hasErrors = report?.errores?.length > 0;
+  const isSimulation = report?.dryRun;
+
+  let alertType = "success";
+  let alertMessage = "Cambios aplicados correctamente";
+
+  if (isSimulation) {
+    alertType = "info";
+    alertMessage = "Simulación completada. No se realizaron cambios en la BD.";
+  } else if (hasErrors) {
+    alertType = "warning";
+    alertMessage = "Carga aplicada con errores. Revisa los detalles.";
+  }
 
   const handleOpenMenu = () => setOpenMenu(true);
   const handleCloseMenu = () => setOpenMenu(false);
@@ -64,6 +79,7 @@ export default function BulkBilletesButton({ onSuccess }) {
 
       let filename = "plantilla_billetes.xlsx";
       const cd = res.headers?.["content-disposition"];
+
       if (cd) {
         const match = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
         if (match && match[1]) filename = decodeURIComponent(match[1]);
@@ -75,8 +91,10 @@ export default function BulkBilletesButton({ onSuccess }) {
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
+
       a.href = url;
       a.download = filename;
+
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -94,9 +112,36 @@ export default function BulkBilletesButton({ onSuccess }) {
     fileRef.current?.click();
   };
 
+  const downloadErrorExcel = () => {
+    if (!errorExcel?.base64) return;
+
+    const byteCharacters = atob(errorExcel.base64);
+    const byteNumbers = new Array(byteCharacters.length);
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+
+    const blob = new Blob([new Uint8Array(byteNumbers)], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = errorExcel.filename || "errores_billetes.xlsx";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const uploadFile = async (file) => {
     setLoading(true);
     setReport(null);
+    setErrorExcel(null);
 
     try {
       const form = new FormData();
@@ -109,24 +154,42 @@ export default function BulkBilletesButton({ onSuccess }) {
         form,
         {
           headers: { "Content-Type": "multipart/form-data" },
-        }
+        },
       );
 
       setReport(res.data?.report || res.data);
+
+      setErrorExcel({
+        base64: res.data?.errorExcelBase64 || null,
+        filename: res.data?.errorExcelFilename || "errores_billetes.xlsx",
+      });
+
       setOpenReport(true);
-      onSuccess?.();
+
+      if (!dryRun) {
+        onSuccess?.();
+      }
     } catch (e) {
       console.error(e);
-      const msg =
-        e?.response?.data?.message ||
-        e?.message ||
-        "Error al subir el archivo.";
 
-      setReport({ error: msg, raw: e?.response?.data });
+      const responseData = e?.response?.data;
+      const msg =
+        responseData?.message || e?.message || "Error al subir el archivo.";
+
+      setReport({
+        error: msg,
+        raw: responseData,
+        errores: responseData?.report?.errores || responseData?.errores || [],
+      });
+
+      setErrorExcel({
+        base64: responseData?.errorExcelBase64 || null,
+        filename: responseData?.errorExcelFilename || "errores_billetes.xlsx",
+      });
+
       setOpenReport(true);
     } finally {
       setLoading(false);
-      onSuccess?.();
     }
   };
 
@@ -168,18 +231,16 @@ export default function BulkBilletesButton({ onSuccess }) {
     setAckReplace(false);
   };
 
+  const errores = Array.isArray(report?.errores)
+    ? report.errores
+    : Array.isArray(report?.raw?.report?.errores)
+      ? report.raw.report.errores
+      : [];
+
   return (
     <>
-      {/* CONTENEDOR GENERAL */}
       <Box sx={{ width: "100%" }}>
-        {/* FILA CENTRADA DE CONTROLES */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            mb: 1.5,
-          }}
-        >
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
           <Stack
             direction="row"
             spacing={2}
@@ -208,10 +269,10 @@ export default function BulkBilletesButton({ onSuccess }) {
               title={
                 <div style={{ maxWidth: 320 }}>
                   <b>Agregar/Actualizar:</b> hace upsert de componentes y
-                  suma/actualiza líneas de billetes.
+                  actualiza líneas de billetes.
                   <br />
-                  <b>Reemplazar:</b> borra las líneas del billete por
-                  producto_id y recrea exactamente lo del Excel.
+                  <b>Reemplazar:</b> borra líneas por producto_id y tipo, y las
+                  recrea con el Excel.
                 </div>
               }
               arrow
@@ -223,7 +284,6 @@ export default function BulkBilletesButton({ onSuccess }) {
                     checked={modeReplace}
                     onChange={(e) => setModeReplace(e.target.checked)}
                     disabled={loading}
-                    inputProps={{ "aria-label": "Modo de carga" }}
                     size="small"
                   />
                 }
@@ -259,7 +319,6 @@ export default function BulkBilletesButton({ onSuccess }) {
           </Stack>
         </Box>
 
-        {/* ALERTAS DEBAJO */}
         <Box
           sx={{
             width: "100%",
@@ -276,16 +335,15 @@ export default function BulkBilletesButton({ onSuccess }) {
               icon={<WarningAmberIcon />}
               variant="outlined"
             >
-              <b>Reemplazar</b> eliminará las líneas actuales de cada billete
-              (por <code>producto_id</code>) y las creará de nuevo con lo del
-              Excel. Úsalo solo si quieres resincronizar completamente.
+              <b>Reemplazar</b> eliminará líneas actuales por{" "}
+              <code>producto_id</code> y <code>tipo</code>, y las creará de
+              nuevo con lo del Excel.
             </Alert>
           )}
 
           {dryRun && (
             <Alert severity="info" variant="outlined">
-              <b>Modo simulación activado.</b> El archivo solo se validará y se
-              mostrará un reporte de lo que sucedería, pero{" "}
+              <b>Modo simulación activado.</b> El archivo solo se validará y{" "}
               <b>no se guardará ningún cambio</b> en la base de datos.
             </Alert>
           )}
@@ -355,21 +413,18 @@ export default function BulkBilletesButton({ onSuccess }) {
         <DialogTitle>¿Cómo funciona la carga masiva?</DialogTitle>
         <DialogContent dividers>
           <Typography gutterBottom>
-            <b>Agregar/Actualizar</b> (recomendado): no borra nada. Crea
-            componentes que no existan y actualiza campos de los que ya existen.
-            En billetes, inserta líneas nuevas o actualiza cantidades si ya
-            existían.
+            <b>Agregar/Actualizar</b>: crea componentes que no existan y
+            actualiza los existentes. En billetes, inserta o actualiza cantidad.
           </Typography>
 
           <Typography gutterBottom>
-            <b>Reemplazar</b>: para cada <code>producto_id</code> del Excel,
-            borra todas las líneas actuales del billete y lo deja exactamente
-            como indica el archivo.
+            <b>Reemplazar</b>: para cada <code>producto_id</code> y{" "}
+            <code>tipo</code> del Excel, elimina líneas actuales y las recrea.
           </Typography>
 
           <Typography gutterBottom>
-            Puedes activar <b>Simular primero</b> para ver un reporte de lo que
-            sucedería antes de escribir en la base de datos.
+            <b>Simular primero</b>: valida y muestra qué pasaría sin guardar
+            cambios.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -386,8 +441,8 @@ export default function BulkBilletesButton({ onSuccess }) {
         <DialogTitle>Confirmar reemplazo</DialogTitle>
         <DialogContent dividers>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Estás por <b>eliminar</b> las líneas actuales de los billetes
-            incluidos en el Excel y volver a crearlas.
+            Estás por <b>eliminar</b> las líneas actuales incluidas en el Excel
+            y volver a crearlas.
           </Alert>
 
           <FormControlLabel
@@ -420,71 +475,94 @@ export default function BulkBilletesButton({ onSuccess }) {
         maxWidth="md"
       >
         <DialogTitle>Resultado de la carga</DialogTitle>
+
         <DialogContent dividers>
           {!report ? (
             <Typography>No hay datos.</Typography>
           ) : report.error ? (
-            <>
-              <Typography color="error" gutterBottom>
-                {String(report.error)}
-              </Typography>
-
-              {report.raw && (
-                <pre style={{ whiteSpace: "pre-wrap" }}>
-                  {JSON.stringify(report.raw, null, 2)}
-                </pre>
-              )}
-            </>
+            <Alert severity="error">{String(report.error)}</Alert>
           ) : (
             <>
               <Stack spacing={1} sx={{ mb: 2 }}>
                 {"dryRun" in report && (
-                  <Alert severity={report.dryRun ? "info" : "success"}>
-                    {report.dryRun
-                      ? "Simulación completada. No se realizaron cambios en la BD."
-                      : "Cambios aplicados correctamente."}
-                  </Alert>
+                  <Alert severity={alertType}>{alertMessage}</Alert>
                 )}
 
-                <Typography>
+                <Typography color="success.main">
                   Componentes insertados:{" "}
                   <b>{report.insertados_componentes || 0}</b>
                 </Typography>
-                <Typography>
+
+                <Typography color="warning.main">
                   Componentes actualizados:{" "}
                   <b>{report.actualizados_componentes || 0}</b>
                 </Typography>
-                <Typography>
+
+                <Typography color="primary.main">
                   Líneas de billete insertadas:{" "}
                   <b>{report.insertadas_lineas_billete || 0}</b>
                 </Typography>
-                <Typography>
+
+                <Typography color="info.main">
                   Líneas de billete actualizadas:{" "}
                   <b>{report.actualizadas_lineas_billete || 0}</b>
                 </Typography>
               </Stack>
+            </>
+          )}
 
-              {Array.isArray(report.errores) && report.errores.length > 0 && (
-                <>
-                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                    Errores ({report.errores.length})
-                  </Typography>
-                  <pre
-                    style={{
-                      maxHeight: 240,
-                      overflow: "auto",
-                      background: "#0b102055",
-                      padding: 8,
-                    }}
-                  >
-                    {JSON.stringify(report.errores, null, 2)}
-                  </pre>
-                </>
-              )}
+          {errores.length > 0 && (
+            <>
+              <Typography variant="subtitle1" sx={{ mb: 1, mt: 2 }}>
+                Errores ({errores.length})
+              </Typography>
+
+              <Box
+                sx={{
+                  maxHeight: 280,
+                  overflow: "auto",
+                  border: "1px solid #ddd",
+                  borderRadius: 1,
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f5f5f5" }}>
+                      <th style={{ padding: 8, textAlign: "left" }}>Hoja</th>
+                      <th style={{ padding: 8, textAlign: "left" }}>Fila</th>
+                      <th style={{ padding: 8, textAlign: "left" }}>Campo</th>
+                      <th style={{ padding: 8, textAlign: "left" }}>Valor</th>
+                      <th style={{ padding: 8, textAlign: "left" }}>Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {errores.map((e, i) => (
+                      <tr key={`${e.hoja}-${e.fila}-${i}`}>
+                        <td style={{ padding: 8 }}>{e.hoja}</td>
+                        <td style={{ padding: 8 }}>{e.fila}</td>
+                        <td style={{ padding: 8 }}>{e.campo}</td>
+                        <td style={{ padding: 8 }}>{String(e.valor ?? "")}</td>
+                        <td style={{ padding: 8 }}>{e.mensaje}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
             </>
           )}
         </DialogContent>
+
         <DialogActions>
+          {errorExcel?.base64 && (
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={downloadErrorExcel}
+            >
+              Descargar Excel de errores
+            </Button>
+          )}
+
           <Button onClick={() => setOpenReport(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>

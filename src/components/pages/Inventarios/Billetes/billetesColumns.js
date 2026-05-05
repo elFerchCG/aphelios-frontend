@@ -1,12 +1,13 @@
 import React from "react";
-import { GridActionsCellItem, GridDeleteIcon, GridEditInputCell } from "@mui/x-data-grid";
+import {
+  GridActionsCellItem,
+  GridDeleteIcon,
+  GridEditInputCell,
+} from "@mui/x-data-grid";
 import { Tooltip } from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 
-export const getBilletesColumns = ({
-  onOpenDetalle,
-  onDeleteBillete,
-}) => [
+export const getBilletesColumns = ({ onOpenDetalle, onDeleteBillete }) => [
   {
     field: "billete_id",
     headerName: "ID",
@@ -86,7 +87,7 @@ export const getBilletesColumns = ({
     headerName: "Acciones",
     type: "actions",
     getActions: (params) => [
-      <Tooltip title="Ver detalles del billete" key={`details-${params.id}`}>
+      <Tooltip title="Ver detalles del componente" key={`details-${params.id}`}>
         <GridActionsCellItem
           icon={<InfoIcon />}
           label="Detalles"
@@ -100,7 +101,7 @@ export const getBilletesColumns = ({
         <GridActionsCellItem
           icon={<GridDeleteIcon />}
           sx={{ color: "red" }}
-          onClick={onDeleteBillete(params.row.billete_id)}
+          onClick={onDeleteBillete(params.row)}
           label="Eliminar"
         />
       </Tooltip>,
