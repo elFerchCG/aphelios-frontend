@@ -24,6 +24,7 @@ import AgregarBilleteModal from "./AgregarBilleteModal";
 import { getBilletesColumns } from "./billetesColumns";
 import { getProductosColumns } from "./productosColumns";
 import { getComponentesBilleteColumns } from "./componentesBilleteColumns";
+import UbicacionesComponenteModal from "./UbicacionesComponenteModal";
 
 import BilletesToolbar from "./BilletesToolbar";
 
@@ -59,6 +60,10 @@ const Billetes = () => {
   const [openEditComp, setOpenEditComp] = useState(false);
   const [componenteEditando, setComponenteEditando] = useState(null);
   const [listaProveedores, setListaProveedores] = useState([]);
+
+  const [openUbicaciones, setOpenUbicaciones] = useState(false);
+  const [ubicacionesComponente, setUbicacionesComponente] = useState([]);
+  const [componenteUbicaciones, setComponenteUbicaciones] = useState(null);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     billete_id: false,
@@ -173,10 +178,31 @@ const Billetes = () => {
         ? componentesRes.data.data
         : [];
 
+      const componentesCompartidos = componentes.filter(
+        (c) => Number(c.totalProductosUso || 0) > 1,
+      );
+
+      const ubicacionesCompartidas = await Promise.all(
+        componentesCompartidos.map(async (comp) => {
+          const { data } = await axios.get(
+            `${apiUrl}/billetes/componente/${comp.componenteId}/ubicaciones`,
+          );
+
+          return {
+            componenteId: comp.componenteId,
+            sku: comp.sku,
+            descripcion: comp.descripcion,
+            totalProductosUso: comp.totalProductosUso,
+            ubicaciones: data?.data || [],
+          };
+        }),
+      );
+
       setBilleteSeleccionado({
         ...row,
         ...detalle,
         componentes,
+        ubicacionesCompartidas,
       });
 
       setOpenDetalle(true);
@@ -344,6 +370,16 @@ const Billetes = () => {
   const handleCloseAddComponents = () => {
     setOpenAddComp(false);
     setBilleteParaAgregar(null);
+  };
+
+  const handleSelectProductoFromDetalle = async (producto) => {
+    setOpenDetalle(false);
+
+    setProductoId(producto.producto_id);
+    setProductoSku(producto.producto_sku || "");
+    setTitle(producto.producto_title || "");
+
+    await fetchData(producto.producto_id);
   };
 
   const handleSaveComponente = async (values) => {
@@ -603,22 +639,18 @@ const Billetes = () => {
     }
 
     try {
-      const componentesResponse = await axios.get(
-        `${apiUrl}/billetes/${productoId}`,
-      );
+      const [componentesResponse, titleResponse] = await Promise.all([
+        axios.get(`${apiUrl}/billetes/${productoId}`),
+        axios.get(`${apiUrl}/billetes/${productoId}/title`),
+      ]);
 
-      if (
-        componentesResponse.data.data &&
-        Array.isArray(componentesResponse.data.data)
-      ) {
-        setData(componentesResponse.data.data);
+      const componentesData = componentesResponse.data;
+
+      if (Array.isArray(componentesData.data)) {
+        setData(componentesData.data);
       } else {
         setData([]);
       }
-
-      const titleResponse = await axios.get(
-        `${apiUrl}/billetes/${productoId}/title`,
-      );
 
       if (
         titleResponse.data &&
@@ -628,6 +660,17 @@ const Billetes = () => {
         setTitle(titleResponse.data[0].title);
       } else {
         setTitle("");
+      }
+
+      if (componentesData.warning) {
+        Swal.fire({
+          title: "Producto sin billete",
+          text: componentesData.warning,
+          icon: "info",
+          timer: 4000,
+          showCloseButton: true,
+          allowEscapeKey: true,
+        });
       }
     } catch (error) {
       setData([]);
@@ -1012,45 +1055,118 @@ const Billetes = () => {
     setCantidad(parseInt(e.target.value, 10) || 0);
   };
 
-  const deleteBillete = (billete_id) => async () => {
+  const deleteBillete = (row) => async () => {
     try {
-      const result = await Swal.fire({
-        title: "¿Estás seguro?",
-        text: "¡No podrás revertir esto!",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Sí, eliminarlo",
-      });
-
-      if (!result.isConfirmed) return;
-
-      await axios.delete(`${apiUrl}/billetes/${billete_id}`);
-
+      // Si hay producto seleccionado, borrar solo esa línea y recargar ese producto
       if (productoId) {
+        const result = await Swal.fire({
+          title: "¿Estás seguro?",
+          text: "Se eliminará este componente del producto seleccionado.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Sí, eliminar",
+          cancelButtonText: "Cancelar",
+        });
+
+        if (!result.isConfirmed) return;
+
+        const { data } = await axios.delete(
+          `${apiUrl}/billetes/${row.billete_id}`,
+        );
+
         await fetchData(productoId);
-      } else {
-        await fetchBilletes();
+
+        await Swal.fire({
+          title: data?.warning ? "Eliminado con advertencia" : "Eliminado",
+          text: data?.message || "La línea fue eliminada.",
+          icon: data?.warning ? "warning" : "success",
+        });
+
+        return;
       }
 
-      Swal.fire({
-        title: "¡Eliminado!",
-        text: "Tu línea ha sido eliminada.",
-        icon: "success",
-      });
+      // Si NO hay producto seleccionado, abrir modal con ubicaciones
+      if (!row?.componente_id) {
+        Swal.fire("Error", "No se encontró el componente_id.", "error");
+        return;
+      }
+
+      const { data } = await axios.get(
+        `${apiUrl}/billetes/componente/${row.componente_id}/ubicaciones`,
+      );
+
+      setComponenteUbicaciones(row);
+      setUbicacionesComponente(data?.data || []);
+      setOpenUbicaciones(true);
     } catch (error) {
       const errorMessage =
-        error?.response?.data?.message || "Error al eliminar el billete";
+        error?.response?.data?.message ||
+        "Error al eliminar/buscar ubicaciones";
+
+      Swal.fire("Error", errorMessage, "error");
+    }
+  };
+
+  const handleEliminarUbicacion = async (ubicacion) => {
+    setOpenUbicaciones(false);
+
+    const esUltimoComponente =
+      Number(ubicacion.total_componentes_producto || 0) <= 1;
+
+    const result = await Swal.fire({
+      title: esUltimoComponente
+        ? "Este es el único componente del producto"
+        : "¿Eliminar relación?",
+      html: `
+      <p>Se eliminará este componente del producto:</p>
+      <p><b>${ubicacion.producto_title || "Sin título"}</b></p>
+      <p><b>Tipo:</b> ${ubicacion.tipo}</p>
+      <p><b>Cantidad:</b> ${ubicacion.cantidad}</p>
+
+      ${
+        esUltimoComponente
+          ? `<hr />
+             <p style="color:#d97706;">
+               <b>Advertencia:</b> este producto quedará sin componentes/billetes asociados.
+             </p>`
+          : ""
+      }
+    `,
+      icon: esUltimoComponente ? "warning" : "question",
+      showCancelButton: true,
+      confirmButtonText: esUltimoComponente
+        ? "Sí, eliminar aunque quede vacío"
+        : "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!result.isConfirmed) {
+      setOpenUbicaciones(true);
+      return;
+    }
+
+    try {
+      const { data } = await axios.delete(
+        `${apiUrl}/billetes/${ubicacion.billete_id}`,
+      );
+
+      setUbicacionesComponente((prev) =>
+        prev.filter((item) => item.billete_id !== ubicacion.billete_id),
+      );
+
+      await fetchBilletes();
 
       Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
+        title: data?.warning ? "Eliminado con advertencia" : "Eliminado",
+        text: data?.message || "Relación eliminada correctamente.",
+        icon: data?.warning ? "warning" : "success",
       });
+    } catch (error) {
+      const msg =
+        error?.response?.data?.message || "No se pudo eliminar la relación";
+
+      Swal.fire("Error", msg, "error");
+      setOpenUbicaciones(true);
     }
   };
 
@@ -1193,6 +1309,17 @@ const Billetes = () => {
         onDeleteComponent={handleDeleteComponent}
         onAddComponent={handleOpenComponents}
         onShowAlert={handleShowAlertBillete}
+        onSelectProducto={handleSelectProductoFromDetalle}
+        productoSeleccionado={Boolean(productoId)}
+      />
+
+      <UbicacionesComponenteModal
+        open={openUbicaciones}
+        onClose={() => setOpenUbicaciones(false)}
+        componente={componenteUbicaciones}
+        ubicaciones={ubicacionesComponente}
+        onEliminar={handleEliminarUbicacion}
+        onSelectProducto={handleSelectProductoFromDetalle}
       />
 
       <AgregarComponenteDialog
@@ -1289,6 +1416,11 @@ const Billetes = () => {
             <Typography variant="body2">
               3. Selecciona el componente, captura cantidad y tipo, y guarda.
             </Typography>
+            <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
+              Nota: si un componente está compartido en varios productos,
+              elimínalo desde la vista general para elegir exactamente de qué
+              producto quitarlo.
+            </Typography>
           </Box>
         ) : (
           <Box
@@ -1312,7 +1444,7 @@ const Billetes = () => {
         <Box
           sx={{
             mt: 2,
-            height: "70vh", 
+            height: "70vh",
           }}
         >
           <DataGrid

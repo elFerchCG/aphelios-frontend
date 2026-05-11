@@ -165,65 +165,148 @@ const Componentes = () => {
     }
   };
 
-  const handleFileChangeSimular = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+const handleFileChangeSimular = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const formData = new FormData();
-    formData.append("file", file);
+  const formData = new FormData();
+  formData.append("file", file);
 
-    const simularFlag = simularPrimero ? "1" : "0";
+  const simularFlag = simularPrimero ? "1" : "0";
 
-    try {
-      const { data } = await axios.post(
-        `${apiUrl}/componentes/cargaMasiva?simular=${simularFlag}`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        },
-      );
+  const downloadErrorExcel = (base64, filename) => {
+    if (!base64) return;
 
-      if (data.ok) {
-        const { resumen, simular } = data;
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
 
-        Swal.fire({
-          icon: simular ? "info" : "success",
-          title: simular
-            ? "Simulación de carga masiva"
-            : "Carga masiva aplicada",
-          html: `
-            <p><b>Total filas leídas:</b> ${resumen.totalFilas}</p>
-            <p><b>Insertados:</b> ${resumen.insertados.length}</p>
-            <p><b>Actualizados por SKU:</b> ${
-              resumen.actualizadosPorSku?.length || 0
-            }</p>
-            <p><b>Actualizados por SKU viejo:</b> ${
-              resumen.actualizadosPorSkuViejo?.length || 0
-            }</p>
-            <p><b>Errores:</b> ${resumen.errores.length}</p>
-          `,
-          width: 600,
-        });
-
-        if (!simular) {
-          await fetchComponentesTodos();
-        }
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: data.message || "Error al procesar la carga masiva",
-        });
-      }
-    } catch (error) {
-      console.error("Error al subir Excel:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "No se pudo procesar el archivo",
-      });
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
+
+    const byteArray = new Uint8Array(byteNumbers);
+
+    const blob = new Blob([byteArray], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename || "componentes_errores.xlsx";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
   };
+
+  const buildErroresHtml = (errores = []) => {
+    if (!errores.length) return "";
+
+    return `
+      <hr />
+      <div style="text-align:left; max-height:260px; overflow:auto; margin-top:12px;">
+        <p><b>Detalle de errores:</b></p>
+        <ul style="padding-left:18px;">
+          ${errores
+            .map(
+              (e) => `
+                <li style="margin-bottom:10px;">
+                  <b>Fila ${e.fila}</b>
+                  ${e.campo ? ` · Campo: <b>${e.campo}</b>` : ""}
+                  ${
+                    e.valor !== undefined && e.valor !== null
+                      ? ` · Valor: <b>${e.valor}</b>`
+                      : ""
+                  }
+                  <br />
+                  <span><b>SKU:</b> ${e.sku || "N/A"}</span><br />
+                  <span>${e.mensaje || "Error no especificado"}</span>
+                </li>
+              `,
+            )
+            .join("")}
+        </ul>
+      </div>
+    `;
+  };
+
+  try {
+    const { data } = await axios.post(
+      `${apiUrl}/componentes/cargaMasiva?simular=${simularFlag}`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+
+    const { resumen, simular, errorExcelBase64, errorExcelFilename } = data;
+    const tieneErrores = resumen.errores?.length > 0;
+
+    const result = await Swal.fire({
+      icon: tieneErrores ? "warning" : simular ? "info" : "success",
+      title: simular
+        ? "Simulación de carga masiva"
+        : tieneErrores
+          ? "Carga aplicada con observaciones"
+          : "Carga masiva aplicada",
+      html: `
+        <div style="text-align:left;">
+          ${
+            data.message
+              ? `<p><b>Resultado:</b> ${data.message}</p>`
+              : ""
+          }
+
+          <p><b>Total filas leídas:</b> ${resumen.totalFilas}</p>
+          <p><b>Insertados:</b> ${resumen.insertados.length}</p>
+          <p><b>Actualizados por SKU:</b> ${
+            resumen.actualizadosPorSku?.length || 0
+          }</p>
+          <p><b>Actualizados por SKU viejo:</b> ${
+            resumen.actualizadosPorSkuViejo?.length || 0
+          }</p>
+          <p><b>Errores:</b> ${resumen.errores.length}</p>
+
+          ${buildErroresHtml(resumen.errores)}
+
+          ${
+            errorExcelBase64
+              ? `<p style="margin-top:12px;">
+                  <b>Excel de errores:</b> Algunas filas no se guardaron. Descarga el archivo, corrige esas filas y vuelve a subirlo.
+                </p>`
+              : ""
+          }
+        </div>
+      `,
+      width: 750,
+      showCancelButton: Boolean(errorExcelBase64),
+      confirmButtonText: "Entendido",
+      cancelButtonText: "Descargar Excel de errores",
+    });
+
+    if (result.dismiss === Swal.DismissReason.cancel && errorExcelBase64) {
+      downloadErrorExcel(errorExcelBase64, errorExcelFilename);
+    }
+
+    if (!simular) {
+      await fetchComponentesTodos();
+    }
+  } catch (error) {
+    console.error("Error al subir Excel:", error);
+
+    const data = error?.response?.data;
+
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: data?.message || data?.error || "No se pudo procesar el archivo",
+    });
+  }
+};
 
   const handleDownloadPlantillaComponentes = async () => {
     try {
