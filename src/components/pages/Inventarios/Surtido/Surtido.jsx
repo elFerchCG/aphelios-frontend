@@ -49,6 +49,8 @@ const Surtido = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
     const [dateTime, setDateTime] = useState(getCurrentDateTime());
     const [envioDescripcion, setEnvioDescripcion] = useState("");
+    const [envios, setEnvios] = useState([]);
+    const [envioSeleccionado, setEnvioSeleccionado] = useState(null);
 
     const inputRef = useRef(null);
 
@@ -307,11 +309,10 @@ const Surtido = () => {
 
     const fetchEnvioActual = async () => {
         try {
-            const response = await axios.get(`${apiUrl}/empaque/fetchEnvioActual`);
+            const response = await axios.get(`${apiUrl}/empaque/fetchEnviosAbiertos`);
             if (response.data.ok) {
-                return response.data.data;
+                setEnvios(response.data.data);
             }
-            return '';
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
             Swal.fire({
@@ -322,14 +323,19 @@ const Surtido = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
-            return '';
         }
     };
+
+    useEffect(() => {
+        fetchEnvioActual();
+    }, [apiUrl]);
 
     const generarYDescargarTXT = async (data) => {
         const { sku, title, inventory_id, cantidadEtiquetas } = data;
 
-        const envioDescripcion = await fetchEnvioActual();
+        const envioDescripcion = envios.find(
+            envio => envio.id === envioSeleccionado
+        )?.descripcion || "";
 
         // Bloque condicional para inventory_id
         const bloqueInventory = inventory_id
@@ -836,20 +842,25 @@ const Surtido = () => {
                         <Select
                             labelId="envio-label"
                             label="Envio"
+                            value={envioSeleccionado || ""}
+                            onChange={(e) => setEnvioSeleccionado(e.target.value)}
                             sx={{
                                 height: 40,
                                 '& .MuiSelect-select': {
                                     display: 'flex',
                                     alignItems: 'center',
-                                    padding: '8.5px 14px' // 🔹 mismo padding que TextField outlined small
+                                    padding: '8.5px 14px'
                                 }
                             }}
                         >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            <MenuItem value={1}>Envio 1</MenuItem>
-                            <MenuItem value={2}>Envio 2</MenuItem>
+                            {envios.map((envio) => (
+                                <MenuItem
+                                    key={envio.id}
+                                    value={envio.id}
+                                >
+                                    ID: {envio.id} Descripción: {envio.descripcion} Estatus: {envio.estatus}
+                                </MenuItem>
+                            ))}
                         </Select>
                     </FormControl>
                 </div>
