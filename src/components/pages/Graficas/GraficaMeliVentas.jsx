@@ -12,7 +12,7 @@ import {
   Cell,
 } from "recharts";
 
-import './styles/meliVentas.css';
+import "./styles/meliVentas.css";
 
 const currency = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -21,8 +21,14 @@ const currency = new Intl.NumberFormat("es-MX", {
 });
 
 export default function GraficaMeliVentas() {
-  const [anio, setAnio] = useState(2025);
-  const [mes, setMes] = useState(1);
+  const currentYear = new Date().getFullYear();
+
+  const years = Array.from(
+    { length: currentYear - 2024 + 1 },
+    (_, i) => 2024 + i,
+  );
+  const [anio, setAnio] = useState(new Date().getFullYear());
+  const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [detalle, setDetalle] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -40,14 +46,13 @@ export default function GraficaMeliVentas() {
         params: { anio, mes },
       });
 
-      const r =
-        (res.data?.raw || [])[0] || {
-          ventas_netas: 0,
-          costo: 0,
-          comision: 0,
-          envio: 0,
-          utilidad: 0,
-        };
+      const r = (res.data?.raw || [])[0] || {
+        ventas_netas: 0,
+        costo: 0,
+        comision: 0,
+        envio: 0,
+        utilidad: 0,
+      };
 
       setDetalle([
         { name: "Ventas (sin IVA)", value: r.ventas_netas },
@@ -67,6 +72,26 @@ export default function GraficaMeliVentas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anio, mes]);
 
+  const descargarExcel = async () => {
+    const res = await axios.get(`${apiUrl}/analiticas/meli/ventas/excel`, {
+      params: { anio, mes },
+      responseType: "blob",
+    });
+
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `reporte_meli_${anio}_${String(mes).padStart(2, "0")}.xlsx`,
+    );
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const colors = ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#0ea5e9"];
   const maxValue = Math.max(0, ...detalle.map((d) => d.value || 0));
   const domainMax = Math.ceil(maxValue * 1.15);
@@ -76,6 +101,9 @@ export default function GraficaMeliVentas() {
       {/* Header */}
       <header className="meli-header">
         <div>
+          <button className="meli-button" onClick={descargarExcel}>
+            Descargar Reporte
+          </button>
           <h2 className="meli-title">Ventas MeLi por mes</h2>
           <p className="meli-subtitle">Montos en MXN — Ventas sin IVA</p>
         </div>
@@ -89,8 +117,11 @@ export default function GraficaMeliVentas() {
               value={anio}
               onChange={(e) => setAnio(Number(e.target.value))}
             >
-              <option value={2024}>2024</option>
-              <option value={2025}>2025</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -109,7 +140,11 @@ export default function GraficaMeliVentas() {
             </select>
           </label>
 
-          <button className="meli-button" onClick={fetchData} disabled={loading}>
+          <button
+            className="meli-button"
+            onClick={fetchData}
+            disabled={loading}
+          >
             {loading ? "Cargando…" : "Actualizar"}
           </button>
         </div>
@@ -118,7 +153,7 @@ export default function GraficaMeliVentas() {
       {error && <div className="meli-alert">⚠️ {String(error)}</div>}
 
       <div className="meli-chart">
-         {loading && (
+        {loading && (
           <div
             style={{
               position: "absolute",

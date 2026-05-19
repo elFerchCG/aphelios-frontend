@@ -16,21 +16,57 @@ const currency = new Intl.NumberFormat("es-MX", {
 });
 
 export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
-  const [anio, setAnio] = useState(anioProp ?? 2025);
-  const [mes, setMes] = useState(mesProp ?? 1);
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
+
+  const [anio, setAnio] = useState(anioProp ?? currentYear);
+  const [mes, setMes] = useState(mesProp ?? currentMonth);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const years = Array.from(
+    { length: currentYear - 2024 + 1 },
+    (_, i) => 2024 + i,
+  );
+
+  const months = Array.from({ length: 12 }, (_, i) => i + 1).filter((m) => {
+    if (anio < currentYear) return true;
+    return m <= currentMonth;
+  });
+
   useEffect(() => {
-    if (anioProp != null) setAnio(anioProp);
-    if (mesProp != null) setMes(mesProp);
-  }, [anioProp, mesProp]);
+    if (anio === currentYear && mes > currentMonth) {
+      setMes(currentMonth);
+    }
+  }, [anio, mes, currentYear, currentMonth]);
 
   const apiUrl =
     process.env.NODE_ENV === "production"
       ? process.env.REACT_APP_API_URL
       : process.env.REACT_APP_API_URL_LOCAL;
+
+  const descargarExcel = async () => {
+    const res = await axios.get(`${apiUrl}/analiticas/meli/ventas/excel`, {
+      params: { anio, mes },
+      responseType: "blob",
+    });
+
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `reporte_meli_${anio}_${String(mes).padStart(2, "0")}.xlsx`,
+    );
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -41,14 +77,18 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
       });
 
       const r = (res.data?.raw || [])[0] || {
-        ventas_netas: 0, costo: 0, comision: 0, envio: 0, utilidad: 0,
+        ventas_netas: 0,
+        costo: 0,
+        comision: 0,
+        envio: 0,
+        utilidad: 0,
       };
 
       const gastos = (r.costo || 0) + (r.comision || 0) + (r.envio || 0);
-      const utilidad = r.utilidad ?? (r.ventas_netas - gastos);
+      const utilidad = r.utilidad ?? r.ventas_netas - gastos;
       setData([
         { name: "Utilidad", value: Math.max(0, utilidad) },
-        { name: "Gastos",   value: Math.max(0, gastos) },
+        { name: "Gastos", value: Math.max(0, gastos) },
       ]);
     } catch (e) {
       setError(e?.response?.data?.error || e.message);
@@ -57,11 +97,13 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
     }
   };
 
-  useEffect(() => { fetchData(); }, [anio, mes]);
+  useEffect(() => {
+    fetchData();
+  }, [anio, mes]);
 
   const total = useMemo(
     () => data.reduce((a, b) => a + (b.value || 0), 0),
-    [data]
+    [data],
   );
 
   const COLORS = ["#0ea5e9", "#94a3b8"]; // util + gastos
@@ -71,7 +113,9 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
       <header className="meli-header">
         <div>
           <h2 className="meli-title">Composición de Ventas</h2>
-          <p className="meli-subtitle">Utilidad vs Gastos (Costo+Comisión+Envío)</p>
+          <p className="meli-subtitle">
+            Utilidad vs Gastos (Costo+Comisión+Envío)
+          </p>
         </div>
 
         {/* Si prefieres sincronizar con la otra card, oculta estos inputs y pasa props */}
@@ -83,8 +127,11 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
               value={anio}
               onChange={(e) => setAnio(Number(e.target.value))}
             >
-              <option value={2024}>2024</option>
-              <option value={2025}>2025</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
             </select>
           </label>
           <label className="meli-field">
@@ -94,15 +141,27 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
               value={mes}
               onChange={(e) => setMes(Number(e.target.value))}
             >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              {months.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
               ))}
             </select>
           </label>
-          <button className="meli-button" onClick={fetchData} disabled={loading}>
+          <button
+            className="meli-button"
+            onClick={fetchData}
+            disabled={loading}
+          >
             {loading ? "Cargando…" : "Actualizar"}
+          </button>
+
+          <button
+            className="meli-button"
+            onClick={descargarExcel}
+            disabled={loading}
+          >
+            Reporte
           </button>
         </div>
       </header>
@@ -110,7 +169,7 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
       {error && <div className="meli-alert">⚠️ {String(error)}</div>}
 
       <div className="meli-chart">
-         {loading && (
+        {loading && (
           <div
             style={{
               position: "absolute",
@@ -138,7 +197,9 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
               endAngle={-270}
               labelLine={false}
               // etiquetas limpias (solo %), fuera del aro para que no choquen
-              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+              label={({ name, percent }) =>
+                `${name}: ${(percent * 100).toFixed(1)}%`
+              }
             >
               {data.map((entry, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />

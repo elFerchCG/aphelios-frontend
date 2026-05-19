@@ -369,11 +369,12 @@ const DetalleFactura = () => {
     try {
       const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
 
-      if (
-        Array.isArray(response.data.factura) &&
-        response.data.factura.length
-      ) {
-        setFacturaHeader(response.data.factura[0]);
+      console.log(response.data.factura);
+
+      if (Array.isArray(response.data.factura)) {
+        setFacturaHeader(response.data.factura[0] || null);
+      } else if (response.data.factura) {
+        setFacturaHeader(response.data.factura);
       }
 
       if (response.data && Array.isArray(response.data.detalles)) {
@@ -383,6 +384,7 @@ const DetalleFactura = () => {
     } catch (error) {
       const errorMessage =
         error.response?.data?.message || "Error al cargar los datos";
+
       Swal.fire({
         title: "Error",
         text: errorMessage,

@@ -214,6 +214,24 @@ const MrpSimple = () => {
     return Array.from(set); // array de orden_id únicos
   }, [rowSelectionModel, rowIdToOrdenId]);
 
+  const descargarExcel = async () => {
+    const response = await axios.get(`${apiUrl}/mrp/excel`, {
+      params: { proveedor_id: proveedorId },
+      responseType: "blob",
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute("download", `mrp_${proveedorId}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  };
+
   const TablaToolbar = ({ tieneProveedor, backorderActivo, seleccionadas }) => {
     if (!tieneProveedor) return null;
     return (
@@ -1057,6 +1075,15 @@ const MrpSimple = () => {
                     disabled={loaderOpen}
                   >
                     Actualizar publicaciones
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={descargarExcel}
+                    disabled={!proveedorId || loadingMrp || !mrp.length}
+                  >
+                    Descargar Excel
                   </Button>
                 </Stack>
               </Stack>
