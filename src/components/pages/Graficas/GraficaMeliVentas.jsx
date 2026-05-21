@@ -101,9 +101,6 @@ export default function GraficaMeliVentas() {
       {/* Header */}
       <header className="meli-header">
         <div>
-          <button className="meli-button" onClick={descargarExcel}>
-            Descargar Reporte
-          </button>
           <h2 className="meli-title">Ventas MeLi por mes</h2>
           <p className="meli-subtitle">Montos en MXN — Ventas sin IVA</p>
         </div>
@@ -146,6 +143,10 @@ export default function GraficaMeliVentas() {
             disabled={loading}
           >
             {loading ? "Cargando…" : "Actualizar"}
+          </button>
+
+          <button className="meli-button" onClick={descargarExcel}>
+            Descargar Reporte
           </button>
         </div>
       </header>

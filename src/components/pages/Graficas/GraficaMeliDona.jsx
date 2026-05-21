@@ -161,7 +161,7 @@ export default function GraficaMeliDona({ anio: anioProp, mes: mesProp }) {
             onClick={descargarExcel}
             disabled={loading}
           >
-            Reporte
+            Descargar Reporte
           </button>
         </div>
       </header>

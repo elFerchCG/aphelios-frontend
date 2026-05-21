@@ -251,10 +251,10 @@ const Facturas = () => {
           fontFamily: "Montserrat",
           textAlign: "center",
           width: "90%",
-          marginTop: "-20px",
+          marginTop: "10px",
         }}
       >
-        <h2>Facturas</h2>
+        <h1>Facturas</h1>
         <div
           style={{
             display: "flex",

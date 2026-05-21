@@ -603,6 +603,30 @@ const DetalleFactura = () => {
       flex: 2,
       align: "center",
       headerAlign: "center",
+      renderCell: ({ value, row }) => {
+        if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
+        return (
+          <Tooltip
+            title="Haz clic para ver los detalles de este producto en el pedido"
+            arrow
+          >
+            <Link
+              to="/pedidos"
+              state={{
+                buscarLineaPedido: String(value), 
+
+              }}
+              style={{
+                textDecoration: "none",
+                color: "#1976d2",
+                fontWeight: "bold",
+              }}
+            >
+              {value}
+            </Link>
+          </Tooltip>
+        );
+      },
     },
     {
       field: "cantidad",
@@ -663,31 +687,6 @@ const DetalleFactura = () => {
       align: "center",
       headerAlign: "center",
       headerClassName: "header-wrap",
-      renderCell: ({ value, row }) => {
-        if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
-        return (
-          <Tooltip
-            title="Haz clic para ver los detalles de este producto en el pedido"
-            arrow
-          >
-            <Link
-              to="/pedidos"
-              state={{
-                buscarLineaPedido: String(value), // <-- lo mandamos como texto
-                // opcional: si también quieres llevar el pedido
-                pedidoIdDesdeFactura: row.pedido_id,
-              }}
-              style={{
-                textDecoration: "none",
-                color: "#1976d2",
-                fontWeight: "bold",
-              }}
-            >
-              {value}
-            </Link>
-          </Tooltip>
-        );
-      },
     },
     {
       field: "envio_id",
