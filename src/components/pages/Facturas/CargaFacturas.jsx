@@ -56,7 +56,7 @@ const CargaFacturas = () => {
             // si usas auth por token:
             // Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const resultados = response.data.resultados || [];
@@ -94,19 +94,79 @@ const CargaFacturas = () => {
     xlsxFiles.forEach((file) => formData.append("archivo_excel", file));
 
     try {
-      await axios.post(`${apiUrl}/facturas/cargarRemisionesExcel`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          // Authorization: `Bearer ${token}`,
+      const response = await axios.post(
+        `${apiUrl}/facturas/cargarRemisionesExcel`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            // Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
+
+      const resultados = response.data.resultados || [];
+
+      const exitosos = resultados.filter((r) => !r.error);
+      const errores = resultados.filter((r) => r.error);
+
+      if (errores.length > 0 && exitosos.length === 0) {
+        Swal.fire({
+          title: "No se pudo cargar la remisión",
+          html: errores
+            .map(
+              (r) => `
+              <b>${r.archivo}</b><br/>
+              ${r.error.replace(/\n/g, "<br/>")}
+            `,
+            )
+            .join("<br/><br/>"),
+          icon: "warning",
+          showCloseButton: true,
+          width: 700,
+        });
+        return;
+      }
+
+      if (errores.length > 0 && exitosos.length > 0) {
+        Swal.fire({
+          title: "Carga parcial",
+          html: `
+          <b>Archivos cargados:</b> ${exitosos.length}<br/>
+          <b>Archivos con error:</b> ${errores.length}<br/><br/>
+          ${errores
+            .map(
+              (r) => `
+                <b>${r.archivo}</b><br/>
+                ${r.error.replace(/\n/g, "<br/>")}
+              `,
+            )
+            .join("<br/><br/>")}
+        `,
+          icon: "warning",
+          showCloseButton: true,
+          width: 700,
+        });
+        return;
+      }
 
       Swal.fire({
         title: "¡Listo!",
-        text: "Remisiones (Excel) cargadas correctamente.",
+        html: exitosos
+          .map(
+            (r) => `
+            <b>${r.archivo}</b><br/>
+            ${r.mensaje}<br/>
+            Líneas: ${r.lineas}<br/>
+            Enlazadas: ${r.lineas_enlazadas}<br/>
+            Estatus: ${r.estatus}
+          `,
+          )
+          .join("<br/><br/>"),
         icon: "success",
-        timer: 5000,
+        timer: 6000,
         showCloseButton: true,
+        width: 700,
       });
     } catch (error) {
       Swal.fire({
@@ -121,10 +181,10 @@ const CargaFacturas = () => {
   const onDrop = useCallback(
     (acceptedFiles) => {
       const xmlFiles = acceptedFiles.filter((f) =>
-        f.name.toLowerCase().endsWith(".xml")
+        f.name.toLowerCase().endsWith(".xml"),
       );
       const xlsxFiles = acceptedFiles.filter((f) =>
-        f.name.toLowerCase().endsWith(".xlsx")
+        f.name.toLowerCase().endsWith(".xlsx"),
       );
 
       setLastUploadSummary({
@@ -134,7 +194,11 @@ const CargaFacturas = () => {
       });
 
       if (!xmlFiles.length && !xlsxFiles.length) {
-        Swal.fire("Atención", "Solo se permiten archivos .xml y .xlsx", "warning");
+        Swal.fire(
+          "Atención",
+          "Solo se permiten archivos .xml y .xlsx",
+          "warning",
+        );
         return;
       }
 
@@ -142,7 +206,7 @@ const CargaFacturas = () => {
       if (xmlFiles.length) handleXmlUpload(xmlFiles);
       if (xlsxFiles.length) handleExcelUpload(xlsxFiles);
     },
-    [apiUrl] // token si lo metes en headers
+    [apiUrl], // token si lo metes en headers
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -166,7 +230,10 @@ const CargaFacturas = () => {
             style={{ cursor: "pointer" }}
             onClick={handleMostrarFacturas}
           >
-            <DescriptionOutlinedIcon className="action-icon" sx={{ fontSize: 30 }} />
+            <DescriptionOutlinedIcon
+              className="action-icon"
+              sx={{ fontSize: 30 }}
+            />
             <span>Ver Facturas</span>
           </div>
 
@@ -202,9 +269,11 @@ const CargaFacturas = () => {
             </Typography>
             <Divider sx={{ my: 1 }} />
             <Typography variant="body2">
-              <b>XML (Factura CFDI):</b> factura real timbrada, actualiza UUID/costos.
+              <b>XML (Factura CFDI):</b> factura real timbrada, actualiza
+              UUID/costos.
               <br />
-              <b>Excel (Remisión):</b> documento provisional para recibir mercancía sin XML. Cuando llegue el XML se actualizará.
+              <b>Excel (Remisión):</b> documento provisional para recibir
+              mercancía sin XML. Cuando llegue el XML se actualizará.
             </Typography>
           </Paper>
 

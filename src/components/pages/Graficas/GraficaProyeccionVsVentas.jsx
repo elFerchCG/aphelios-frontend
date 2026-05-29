@@ -17,24 +17,9 @@ const currency = new Intl.NumberFormat("es-MX", {
   maximumFractionDigits: 2,
 });
 
-// ---- Mock (solo para pruebas locales si tú quieres) ----
-function buildMockData(weeks = 5) {
-  const base = 1_500_000;
-  return Array.from({ length: weeks }, (_, i) => {
-    const idx = i + 1;
-    const tendencia = base + i * 200_000;
-    const proyeccion = Math.round(tendencia * (0.95 + 0.15 * Math.random()));
-    const ventas = Math.round(proyeccion * (0.9 + 0.2 * Math.random()));
-    return { semana: `S${idx}`, proyeccion, ventas };
-  });
-}
-
-// Adapta el payload del backend a [{ semana, proyeccion, ventas }]
 function adaptBackendToSeries(payload) {
-  // Legacy: { data: [{ semana, proyeccion, ventas }, ...] }
   if (Array.isArray(payload?.data)) return payload.data;
 
-  // Nuevo formato: { labels, datasets: { proyeccion, vendidos|ventas } }
   const labels = payload?.labels ?? [];
   const proy = payload?.datasets?.proyeccion ?? [];
   const vend = payload?.datasets?.vendidos ?? payload?.datasets?.ventas ?? [];
@@ -48,25 +33,31 @@ function adaptBackendToSeries(payload) {
 
 export default function GraficaProyeccionVsVentas({
   weeks = 5,
-  apiUrl, 
-  useBackend = true, // true para pegarle al backend
-  compactWeekLabel = true, // "2025-S01" -> "S1"
+  apiUrl,
+  useBackend = true,
+  compactWeekLabel = true,
 }) {
   const [data, setData] = useState([]);
+  const [rawLabels, setRawLabels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
     setError("");
-    setData([]); 
+    setData([]);
+
     try {
       if (useBackend && apiUrl) {
         const { data: resp } = await axios.get(
-          `${apiUrl}/analiticas/proyeccionVSventas`, 
+          `${apiUrl}/analiticas/proyeccionVSventas`,
           { params: { weeks } }
         );
+
+        setRawLabels(resp?.labels ?? []);
+
         let series = adaptBackendToSeries(resp);
+
         if (compactWeekLabel) {
           series = series.map((d) => ({
             ...d,
@@ -79,17 +70,64 @@ export default function GraficaProyeccionVsVentas({
                 : d.semana,
           }));
         }
+
         setData(series);
-      } else {
-        // setData(buildMockData(weeks));
       }
     } catch (e) {
       console.error("Error en fetchData Proyección vs Ventas:", e);
       setError(e?.response?.data?.message || e.message || "Error de red");
-
       setData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const descargarExcel = async () => {
+    try {
+      setError("");
+
+      const lastRawLabel = rawLabels[rawLabels.length - 1];
+
+      if (!lastRawLabel) {
+        setError("No hay semana disponible para descargar.");
+        return;
+      }
+
+      const [anioStr, semanaStr] = String(lastRawLabel).split("-S");
+
+      const anio = Number(anioStr);
+      const semana = Number(semanaStr);
+
+      if (!anio || !semana) {
+        setError("No se pudo detectar el año y semana del reporte.");
+        return;
+      }
+
+      const response = await axios.get(
+        `${apiUrl}/analiticas/proyeccionVSventas/productos/excel`,
+        {
+          params: { anio, semana },
+          responseType: "blob",
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `proyeccion_vs_ventas_${anio}_S${String(semana).padStart(2, "0")}.xlsx`
+      );
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error descargando Excel:", e);
+      setError("No se pudo descargar el Excel");
     }
   };
 
@@ -97,7 +135,6 @@ export default function GraficaProyeccionVsVentas({
     fetchData();
   }, [weeks, apiUrl, useBackend]);
 
-  // margen superior para evitar que se “pisen” las etiquetas
   const domainMax = useMemo(() => {
     const max = Math.max(
       0,
@@ -117,13 +154,18 @@ export default function GraficaProyeccionVsVentas({
             P = Proyección · V = Ventas · Fuente: MRP
           </p>
         </div>
+
         <div className="meli-filters">
+          <button className="meli-button" onClick={fetchData} disabled={loading}>
+            {loading ? "Cargando…" : "Actualizar"}
+          </button>
+
           <button
             className="meli-button"
-            onClick={fetchData}
-            disabled={loading}
+            onClick={descargarExcel}
+            disabled={loading || !rawLabels.length}
           >
-            {loading ? "Cargando…" : "Actualizar"}
+            Descargar Reporte
           </button>
         </div>
       </header>

@@ -369,11 +369,12 @@ const DetalleFactura = () => {
     try {
       const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
 
-      if (
-        Array.isArray(response.data.factura) &&
-        response.data.factura.length
-      ) {
-        setFacturaHeader(response.data.factura[0]);
+      console.log(response.data.factura);
+
+      if (Array.isArray(response.data.factura)) {
+        setFacturaHeader(response.data.factura[0] || null);
+      } else if (response.data.factura) {
+        setFacturaHeader(response.data.factura);
       }
 
       if (response.data && Array.isArray(response.data.detalles)) {
@@ -383,6 +384,7 @@ const DetalleFactura = () => {
     } catch (error) {
       const errorMessage =
         error.response?.data?.message || "Error al cargar los datos";
+
       Swal.fire({
         title: "Error",
         text: errorMessage,
@@ -601,6 +603,30 @@ const DetalleFactura = () => {
       flex: 2,
       align: "center",
       headerAlign: "center",
+      renderCell: ({ value, row }) => {
+        if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
+        return (
+          <Tooltip
+            title="Haz clic para ver los detalles de este producto en el pedido"
+            arrow
+          >
+            <Link
+              to="/pedidos"
+              state={{
+                buscarLineaPedido: String(value), 
+
+              }}
+              style={{
+                textDecoration: "none",
+                color: "#1976d2",
+                fontWeight: "bold",
+              }}
+            >
+              {value}
+            </Link>
+          </Tooltip>
+        );
+      },
     },
     {
       field: "cantidad",
@@ -661,31 +687,6 @@ const DetalleFactura = () => {
       align: "center",
       headerAlign: "center",
       headerClassName: "header-wrap",
-      renderCell: ({ value, row }) => {
-        if (!value) return <span style={{ opacity: 0.6 }}>N/A</span>;
-        return (
-          <Tooltip
-            title="Haz clic para ver los detalles de este producto en el pedido"
-            arrow
-          >
-            <Link
-              to="/pedidos"
-              state={{
-                buscarLineaPedido: String(value), // <-- lo mandamos como texto
-                // opcional: si también quieres llevar el pedido
-                pedidoIdDesdeFactura: row.pedido_id,
-              }}
-              style={{
-                textDecoration: "none",
-                color: "#1976d2",
-                fontWeight: "bold",
-              }}
-            >
-              {value}
-            </Link>
-          </Tooltip>
-        );
-      },
     },
     {
       field: "envio_id",
