@@ -169,19 +169,48 @@ const EmpaqueCajaAbierta = () => {
                 {},
             );
 
-            const newRow = {
-                id: response.data.id,
-                inventory_id: inventoryId,
-                cantidad: 1,
-                sku: response.data.sku,
-                title: response.data.title,
-            };
+            const productoId = response.data.producto_id;
 
-            // soundSuccess.currentTime = 0;
-            // soundSuccess.play();
+            setData((prevData) => {
 
-            setData((prevData) => [newRow, ...prevData]); // agrega al inicio
-            setInventoryId(""); // Limpiar input
+                // calcular total actual del producto
+                const totalActual = prevData
+                    .filter(item => item.producto_id === productoId)
+                    .reduce((acc, item) =>
+                        acc + Number(item.cantidad || 0), 0);
+
+                const nuevoTotal = totalActual + 1;
+
+                // actualizar filas existentes del mismo producto
+                const dataActualizada = prevData.map(item => {
+
+                    if (item.producto_id === productoId) {
+                        return {
+                            ...item,
+                            total_producto_caja: nuevoTotal
+                        };
+                    }
+
+                    return item;
+                });
+
+                // nuevo escaneo
+                const newRow = {
+                    id: response.data.id,
+                    producto_id: productoId,
+                    inventory_id: inventoryId,
+                    cantidad: 1,
+                    sku: response.data.sku,
+                    title: response.data.title,
+                    total_producto_caja: nuevoTotal
+                };
+
+                // agregar arriba
+                return [newRow, ...dataActualizada];
+            });
+
+            setInventoryId("");
+
         } catch (error) {
             const errorMessage = error.response.data.message;
 
@@ -305,7 +334,24 @@ const EmpaqueCajaAbierta = () => {
             const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosAbierta/${cajaId}`);
             const result = response.data.data;
             if (Array.isArray(result) && result.length > 0) {
-                setData(result);
+
+                const ordenados = result.sort((a, b) => b.id - a.id);
+
+                const conteoProductos = {};
+
+                ordenados.forEach((item) => {
+                    const productoId = item.producto_id;
+
+                    conteoProductos[productoId] =
+                        (conteoProductos[productoId] || 0) + Number(item.cantidad || 0);
+                });
+
+                const dataConTotales = ordenados.map((item) => ({
+                    ...item,
+                    total_producto_caja: conteoProductos[item.producto_id]
+                }));
+
+                setData(dataConTotales);
             }
         } catch (error) {
             setData([]);
@@ -318,7 +364,24 @@ const EmpaqueCajaAbierta = () => {
                 const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosAbierta/${cajaId}`);
                 const result = response.data.data;
                 if (Array.isArray(result) && result.length > 0) {
-                    setData(result);
+
+                    const ordenados = result.sort((a, b) => b.id - a.id);
+
+                    const conteoProductos = {};
+
+                    ordenados.forEach((item) => {
+                        const productoId = item.producto_id;
+
+                        conteoProductos[productoId] =
+                            (conteoProductos[productoId] || 0) + Number(item.cantidad || 0);
+                    });
+
+                    const dataConTotales = ordenados.map((item) => ({
+                        ...item,
+                        total_producto_caja: conteoProductos[item.producto_id]
+                    }));
+
+                    setData(dataConTotales);
                 }
             } catch (error) {
                 setData([]);
@@ -482,6 +545,14 @@ const EmpaqueCajaAbierta = () => {
         //     }
         // },
         { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center' },
+        {
+            field: "total_producto_caja",
+            headerName: "Suma producto",
+            type: "number",
+            flex: 1,
+            headerAlign: 'center',
+            align: 'center'
+        },
         { field: "sku", headerName: "SKU", type: "text", flex: 3 },
         { field: "title", headerName: "Descripción", type: "text", flex: 5 },
         {

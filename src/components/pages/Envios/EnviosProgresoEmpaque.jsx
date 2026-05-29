@@ -114,7 +114,7 @@ const EnviosProgresoEmpaque = () => {
         { field: "componente_id", headerName: "Componente", flex: 1 },
         { field: "sku", headerName: "SKU", flex: 3 },
         { field: "descripcion", headerName: "Descripción", flex: 4 },
-        { field: "cantidad_billete", headerName: "Requerida", flex: 1, type: "number" },
+        { field: "cantidad_facturada", headerName: "Requerida (Factura)", flex: 1, type: "number" },
         { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
         {
             field: "avance",
@@ -122,7 +122,7 @@ const EnviosProgresoEmpaque = () => {
             type: "number",
             flex: 1.5,
             renderCell: (params) => {
-                const requeridas = Number(params.row.cantidad_billete) || 0;
+                const requeridas = Number(params.row.cantidad_facturada) || 0;
                 const surtidas = Number(params.row.cantidad_surtida) || 0;
 
                 const pct = requeridas > 0
@@ -164,7 +164,7 @@ const EnviosProgresoEmpaque = () => {
             flex: 1,
             renderCell: (params) => {
                 const faltante =
-                    (params.row.cantidad_billete || 0) -
+                    (params.row.cantidad_facturada || 0) -
                     (params.row.cantidad_surtida || 0);
 
                 let color = "success";
@@ -371,7 +371,11 @@ const EnviosProgresoEmpaque = () => {
             }
         },
         {
-            field: "cantidad_a_producir", headerName: "A Producir", flex: 1, type: "number",
+            field: "cantidad_mrp", headerName: "Cantidad MRP", flex: 1, type: "number",
+            valueFormatter: (value) => Math.round(value ?? 0)
+        },
+        {
+            field: "cantidad_a_producir", headerName: "Factura", flex: 1, type: "number",
             valueFormatter: (value) => Math.round(value ?? 0)
         },
         {

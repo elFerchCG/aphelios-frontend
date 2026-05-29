@@ -35,6 +35,7 @@ const Surtido = () => {
     const [titleEtiquetasModal, setTitleEtiquetasModal] = useState("");
     const [skuEtiquetasModal, setSkuEtiquetasModal] = useState("");
     const [cantidadEtiquetasModal, setCantidadEtiquetasModal] = useState("");
+    const [inventoryIdEtiquetasModal, setInventoryIdEtiquetasModal] = useState("");
     const [cantidadEtiquetas, setCantidadEtiquetas] = useState("");
     const [selectedOrdenId, setSelectedOrdenId] = useState(null);
     const [selectedDetalleId, setSelectedDetalleId] = useState(null);
@@ -354,7 +355,7 @@ const Surtido = () => {
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}:/${envioDescripcion}^FS
+            ^FT385,105^A0B,22,22^FH^FD${user.nombre}:/${envioDescripcion}^FS
 
             ${bloqueInventory}
 
@@ -444,10 +445,11 @@ const Surtido = () => {
             if (response.data.ok) {
                 setTitleEtiquetasModal(response.data.title);
                 setSkuEtiquetasModal(response.data.sku);
+                setInventoryIdEtiquetasModal(response.data.inventory_id);
                 await generarYDescargarTXT({
-                    title: response.data.title,
                     sku: response.data.sku,
-                    inventory_id: ml,
+                    title: response.data.title,
+                    inventory_id: response.data.inventory_id,
                     cantidadEtiquetas: cantidadEtiquetasModal
                 });
             }

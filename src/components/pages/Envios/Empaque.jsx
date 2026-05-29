@@ -64,7 +64,10 @@ const Empaque = () => {
                 const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosCerrada/${cajaId}`);
                 const result = response.data.data;
                 if (Array.isArray(result) && result.length > 0) {
-                    setData(result);
+
+                    const ordenados = result.sort((a, b) => b.id - a.id);
+
+                    setData(ordenados);
                 }
             } catch (error) {
                 const errorMessage = error.response?.data?.message || error.message;

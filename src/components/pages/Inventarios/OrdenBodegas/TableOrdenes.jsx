@@ -2144,13 +2144,30 @@ const TableOrdenes = () => {
                             .sort((a, b) => {
                                 const aCantidad = a.cantidad || 0;
                                 const bCantidad = b.cantidad || 0;
-                                // Prioriza cantidad > 0
+
+                                const aPendiente = a.pendiente_ingreso || 0;
+                                const bPendiente = b.pendiente_ingreso || 0;
+                                // 1. Prioriza ubicaciones con cantidad > 0
                                 if (bCantidad > 0 && aCantidad === 0) return 1;
                                 if (aCantidad > 0 && bCantidad === 0) return -1;
-                                // Si ambos tienen cantidad > 0, ordenar por cantidad descendente
-                                if (aCantidad > 0 && bCantidad > 0) return bCantidad - aCantidad;
-                                // Si ambos 0 o undefined, ordenar alfabéticamente
-                                return a.descripcion.localeCompare(b.descripcion, 'es', { sensitivity: 'base' });
+
+                                // 2. Si ambos tienen cantidad > 0, ordenar por cantidad descendente
+                                if (aCantidad > 0 && bCantidad > 0) {
+                                    if (bCantidad !== aCantidad) {
+                                        return bCantidad - aCantidad;
+                                    }
+                                }
+
+                                // 3. Priorizar por pendiente de ingreso
+                                if (bPendiente !== aPendiente) {
+                                    return bPendiente - aPendiente;
+                                }
+
+                                // 4. Finalmente alfabético
+                                return a.descripcion.localeCompare(
+                                    b.descripcion,
+                                    'es',
+                                    { sensitivity: 'base' });
                             })
                         }
                         getOptionLabel={(option) => `${option.descripcion} : ${option.cantidad ?? 0} (${option.pendiente_ingreso ?? 0} Por ingresar)`}
