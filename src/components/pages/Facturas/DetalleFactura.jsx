@@ -613,8 +613,7 @@ const DetalleFactura = () => {
             <Link
               to="/pedidos"
               state={{
-                buscarLineaPedido: String(value), 
-
+                buscarLineaPedido: String(value),
               }}
               style={{
                 textDecoration: "none",
@@ -1773,7 +1772,6 @@ const DetalleFactura = () => {
       }
 
       // 3) EXCEDENTE REAL
-      // IMPORTANTE: esto debe ir antes que cualquier regla de backorder
       else if (cantidadFacturaFloat > totalPedido) {
         const advertencia = await Swal.fire({
           title: "⚠️ Excedente detectado",
@@ -1839,33 +1837,6 @@ const DetalleFactura = () => {
           }
         }
 
-        const pedidosSeleccionados = seleccionadas.map((row) => row.pedido_id);
-        const pedidosUnicos = [...new Set(pedidosSeleccionados)];
-
-        const result = await Swal.fire({
-          title: "¿Deseas mantener el backorder?",
-          html: `La cantidad será enlazada a los pedidos: <strong>${pedidosUnicos.join(
-            ", ",
-          )}</strong>`,
-          icon: "question",
-          showCancelButton: true,
-          showDenyButton: true,
-          confirmButtonText: "Sí",
-          denyButtonText: "No",
-          cancelButtonText: "Cancelar",
-          allowOutsideClick: false,
-        });
-
-        if (
-          result.isDismissed &&
-          result.dismiss === Swal.DismissReason.cancel
-        ) {
-          continuar = false;
-          return;
-        }
-
-        const mantener_backorder = result.isConfirmed;
-
         const asignacionesBackorder = seleccionadas
           .map((row) =>
             buildAsignacionDesdeFila(
@@ -1884,6 +1855,181 @@ const DetalleFactura = () => {
           });
           continuar = false;
           return;
+        }
+
+        const evaluacionBackorder = await axios.post(
+          `${apiUrl}/facturas/evaluarBackorder`,
+          {
+            factura_detalle_id: lineaId,
+            asignaciones: asignacionesBackorder,
+          },
+        );
+
+        let mantener_backorder = evaluacionBackorder.data?.mantener_backorder;
+
+        if (
+          evaluacionBackorder.data?.accionSugerida === "cerrar_automatico" &&
+          evaluacionBackorder.data?.mantener_backorder === false
+        ) {
+          const detalleBackorder =
+            evaluacionBackorder.data?.detalles?.[0] || {};
+
+          await Swal.fire({
+            icon: "info",
+            title: "Backorder no permitido",
+            html: `
+      <div style="text-align:left;">
+        <p>
+          El proveedor <strong>${detalleBackorder.proveedor || ""}</strong>
+          no acepta backorders.
+        </p>
+
+        <p>
+          La línea será cerrada automáticamente con la cantidad recibida.
+        </p>
+
+        <hr />
+
+        <p><strong>SKU:</strong> ${detalleBackorder.sku || ""}</p>
+
+        <p>
+          No se mantendrá saldo pendiente para futuras facturas.
+        </p>
+      </div>
+    `,
+          });
+        }
+
+        if (evaluacionBackorder.data?.requiereConfirmacion) {
+          const pedidosSeleccionados = seleccionadas.map(
+            (row) => row.pedido_id,
+          );
+          const pedidosUnicos = [...new Set(pedidosSeleccionados)];
+
+          const detalleBackorder =
+            evaluacionBackorder.data?.detalles?.[0] || {};
+          const esUltimaLineaPendiente =
+            evaluacionBackorder.data?.esUltimaLineaPendiente;
+
+          const hayOtrasFacturas =
+            evaluacionBackorder.data?.hayOtrasLineasFacturaPendientes;
+
+          const hayOtrasLineasPedido =
+            evaluacionBackorder.data?.hayOtrasLineasPedidoPendientes;
+
+          const proveedorNoAceptaBackorder =
+            evaluacionBackorder.data?.accionSugerida ===
+            "preguntar_proveedor_sin_backorder_con_pendientes";
+
+          const result = await Swal.fire({
+            title: proveedorNoAceptaBackorder
+              ? "Proveedor sin backorder, pero hay más facturas"
+              : esUltimaLineaPendiente
+                ? "Última línea pendiente del producto"
+                : "Backorder detectado",
+            html: proveedorNoAceptaBackorder
+              ? `
+    <div style="text-align:left;">
+      <p>
+        El proveedor <strong>${detalleBackorder?.proveedor || ""}</strong>
+        <strong>no acepta backorders</strong>.
+      </p>
+
+      <p>
+        Este SKU todavía aparece en otras facturas pendientes/parciales,
+        por lo que puedes mantenerlo abierto temporalmente.
+      </p>
+
+      <p>
+        Cuando ya no queden más líneas pendientes para este SKU,
+        el sistema deberá cerrar la línea con la cantidad recibida.
+      </p>
+
+      <hr />
+
+      <p><strong>SKU:</strong> ${detalleBackorder?.sku || ""}</p>
+      <p><strong>Pedido(s):</strong> ${pedidosUnicos.join(", ")}</p>
+
+      <hr />
+
+      <p>
+        ¿Deseas mantenerlo temporalmente como backorder?
+      </p>
+    </div>
+  `
+              : esUltimaLineaPendiente
+                ? `
+      <div style="text-align:left;">
+        <p>
+          El proveedor <strong>${detalleBackorder?.proveedor || ""}</strong>
+          acepta backorder.
+        </p>
+
+        <p>
+          Sin embargo, este SKU ya no tiene otras líneas pendientes ni aparece
+          en más facturas por enlazar.
+        </p>
+
+        <hr />
+
+        <p><strong>SKU:</strong> ${detalleBackorder?.sku || ""}</p>
+        <p><strong>Pedido(s):</strong> ${pedidosUnicos.join(", ")}</p>
+
+        <hr />
+
+        <p>
+          ¿Deseas mantener el backorder abierto o prefieres cerrar la línea
+          con la cantidad recibida?
+        </p>
+      </div>
+    `
+                : `
+      <div style="text-align:left;">
+        <p>
+          El proveedor <strong>${detalleBackorder?.proveedor || ""}</strong>
+          acepta backorder.
+        </p>
+
+        <p>
+          Todavía existen registros relacionados para este SKU:
+        </p>
+
+        <ul>
+          <li>Otras facturas pendientes/parciales: <strong>${
+            hayOtrasFacturas ? "Sí" : "No"
+          }</strong></li>
+        </ul>
+
+        <hr />
+
+        <p><strong>SKU:</strong> ${detalleBackorder?.sku || ""}</p>
+        <p><strong>Pedido(s):</strong> ${pedidosUnicos.join(", ")}</p>
+
+        <hr />
+
+        <p>
+          ¿Deseas mantener el backorder abierto?
+        </p>
+      </div>
+      `,
+            icon: "question",
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: "Mantener Backorder",
+            denyButtonText: "Cerrar Línea",
+            cancelButtonText: "Cancelar",
+            allowOutsideClick: false,
+          });
+
+          if (
+            result.isDismissed &&
+            result.dismiss === Swal.DismissReason.cancel
+          ) {
+            continuar = false;
+            return;
+          }
+
+          mantener_backorder = result.isConfirmed;
         }
 
         await axios.post(`${apiUrl}/facturas/enlazarFacturaConBackOrder`, {
