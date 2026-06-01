@@ -48,6 +48,7 @@ const Publicaciones = () => {
                 }
             }
         },
+        { field: 'tamaño', headerName: 'Tamaño', type: 'text', minWidth: 100 },
         { field: 'costo', headerName: 'Costo', type: 'number', minWidth: 100 },
         {
             field: 'free_shipping', headerName: 'Envio Gratis', type: 'number', minWidth: 100,
@@ -176,8 +177,8 @@ const Publicaciones = () => {
     const imprimirEtiquetas = async () => {
         try {
             await generarYDescargarTXT({
-                title: titleEtiquetasModal,
                 sku: skuEtiquetasModal,
+                title: titleEtiquetasModal,
                 inventory_id: ml,
                 cantidadEtiquetas: cantidadEtiquetasModal
             });
@@ -197,36 +198,42 @@ const Publicaciones = () => {
     }
 
     const generarYDescargarTXT = async (data) => {
-        const { sku, title, inventory_id, cantidadEtiquetas } = data; // Extrae los valores desde la respuesta
+        const { sku, title, inventory_id, cantidadEtiquetas } = data;
 
-        // Estructura del contenido del TXT con los valores reemplazados
-        const contenido =
-            `^XA
+        // const envioDescripcion = envios.find(
+        //     envio => envio.id === envioSeleccionado
+        // )?.descripcion || "";
+
+        // Bloque condicional para inventory_id
+        const bloqueInventory = inventory_id
+            ? `
+            ^FO65,18^BY2^BCN,54,N,N
+            ^FD${inventory_id}^FS
+            ^FT150,98^A0N,22,22^FH^FD${inventory_id}^FS
+            ^FT149,98^A0N,22,22^FH^FD${inventory_id}^FS
+            `
+            : ``; // Si es null, no imprime nada
+
+        const contenido = `
+            ^XA
             ^CI28
             ^LH0,0
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
-            ^FO22,165^A0N,25,25^FD^FS
-            ^FB350,2,2
-            ^FO22,145^A0N,18,18^FD^FS
-            ^FO21,145^A0N,18,18^FD^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FHFD${user.nombre}/env^FS
-            ^FO65,18^BY2^BCN,54,N,N
-            ^FD${inventory_id}^FS
-        ^FT150,98^A0N,22,22^FHFD${inventory_id}^FS
-        ^FT149,98^A0N,22,22^FHFD${inventory_id}^FS
-            ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
+            ^FT385,105^A0B,22,22^FH^FD${user.nombre}^FS
 
-        // Crear un Blob con el contenido del archivo
+            ${bloqueInventory}
+
+            ^PQ${cantidadEtiquetas},0,1,Y
+            ^XZ
+            `;
+
         const blob = new Blob([contenido], { type: "text/plain" });
-
-        // Crear un enlace de descarga
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `archivo_${inventory_id}.txt`;
+        link.download = `archivo_${inventory_id ?? "sin_inventory"}.txt`;
 
-        // Simular clic para iniciar la descarga
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -340,6 +347,7 @@ const Publicaciones = () => {
         sku: true,
         inventory_id: true,
         actions: true,
+        tamaño: true
     })
 
     useEffect(() => {
@@ -569,42 +577,46 @@ const Publicaciones = () => {
     }
 
     return (
-        <div>
-            <div className='DataG' style={{ height: 500, width: "90%", marginTop: '-20px' }}>
-                <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                    <h1>Publicaciones</h1>
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-start", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                    <TextField
-                        id="outlined-basic"
-                        label="Buscar publicación"
-                        variant='outlined'
-                        sx={{
-                            fontFamily: "Montserrat",
-                            width: '20rem',
-                            marginTop: "-20px",
-                            marginBottom: '10px',
-                            backgroundColor: "white"
-                        }}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <DataGrid
-                    sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", ontFamily: "Montserrat", fontWeight: "bold" }}
-                    rows={filteredProducts}
-                    columns={columnsProducts}
-                    showCellVerticalBorder
-                    showColumnVerticalBorder
-                    getRowId={(row) => row.producto_id}
-                    //processRowUpdate={processRowUpdate}
-                    columnVisibilityModel={columnVisibilityModelProducts}
-                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelProducts(newModel)}
-                    experimentalFeatures={{ newEditingApi: true }}
-                    density="compact" // Establece el tamaño de las filas en compacto por defecto
-                    slots={{ toolbar: CustomToolbar }}
+        <Box p={2} backgroundColor="#f0f0f0" minHeight="100vh">
+            <Typography
+                variant="h5"
+                fontWeight="bold"
+                textAlign="center"
+            >
+                Publicaciones
+            </Typography>
+            <Box
+                display="flex"
+                gap={2}
+                mb={1}
+            >
+                <TextField
+                    id="outlined-basic"
+                    label="Buscar publicación"
+                    variant='outlined'
+                    sx={{
+                        fontFamily: "Montserrat",
+                        width: '20rem',
+                        backgroundColor: "white"
+                    }}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                 />
-            </div>
+            </Box>
+            <DataGrid
+                sx={{ borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", FontFamily: "Montserrat", fontWeight: "bold", backgroundColor: "white" }}
+                rows={filteredProducts}
+                columns={columnsProducts}
+                showCellVerticalBorder
+                showColumnVerticalBorder
+                getRowId={(row) => row.producto_id}
+                //processRowUpdate={processRowUpdate}
+                columnVisibilityModel={columnVisibilityModelProducts}
+                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelProducts(newModel)}
+                experimentalFeatures={{ newEditingApi: true }}
+                density="compact" // Establece el tamaño de las filas en compacto por defecto
+                slots={{ toolbar: CustomToolbar }}
+            />
             {/* Ventana Modal Details Producto*/}
             <Modal id="modal-details" open={openDetailsProduct} onClose={handleCloseDetailsProduct}>
                 <Box sx={styleDetailsProduct}>
@@ -706,7 +718,7 @@ const Publicaciones = () => {
                     </Box>
                 </Box>
             </Modal>
-        </div>
+        </Box>
     )
 }
 

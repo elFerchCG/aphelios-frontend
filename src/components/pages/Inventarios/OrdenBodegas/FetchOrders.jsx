@@ -4,6 +4,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import { formatISO } from 'date-fns';
 import DatePicker from 'react-datepicker';
+import { useProcess } from '../../../loaders/UseProcess';
 
 import "react-datepicker/dist/react-datepicker.css";
 import "./DatePickerStyles.css"; // Archivo CSS personalizado
@@ -16,6 +17,7 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
     const [endDate, setEndDate] = useState('');
     const [estatusFilter, setEstatusFilter] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const { execute } = useProcess();
 
     const handleCloseModal = () => {
         setSearchTerm('');
@@ -24,30 +26,42 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
 
     useEffect(() => {
         if (openModal) {
-            const fetchOrders = async () => {
+
+            execute(async () => {
+
                 const token = localStorage.getItem('token');
-                try {
-                    const response = await axios.get(`${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/`, {
+
+                const response = await axios.get(
+                    `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/`,
+                    {
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            Authorization: `Bearer ${token}`
                         }
-                    });
-                    if (response.data.ok) {
-                        const formattedData = response.data.data.map(row => {
-                            return {
-                                ...row,
-                                fecha_abierto: formatISO(new Date(row.fecha_abierto), { representation: 'date' })
-                            };
-                        });
-                        setOrders(formattedData);
-                        setFilteredOrders(formattedData);
                     }
-                } catch (error) {
-                    console.error("Error al obtener las órdenes", error);
-                    alert('No hay ordenes registradas');
+                );
+
+                if (response.data.ok) {
+
+                    const formattedData = response.data.data.map(row => ({
+                        ...row,
+                        fecha_abierto: formatISO(
+                            new Date(row.fecha_abierto),
+                            { representation: 'date' }
+                        )
+                    }));
+
+                    setOrders(formattedData);
+                    setFilteredOrders(formattedData);
                 }
-            };
-            fetchOrders();
+
+            }, {
+                loadingText: "Obteniendo órdenes...",
+                onError: (error) => {
+                    console.error("Error al obtener las órdenes", error);
+                    alert('No hay órdenes registradas');
+                }
+            });
+
         }
     }, [openModal]);
 
@@ -128,12 +142,12 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
                     fontFamily: "Montserrat",
                 }}>
                     <div style={{ display: 'flex', gap: '16px', marginBottom: "10px" }}>
-                        <Select 
-                            value={estatusFilter} 
+                        <Select
+                            value={estatusFilter}
                             onChange={handleFilterChange}
                             displayEmpty
                             sx={{ width: "200px", height: "41px", padding: "8px", borderRadius: "8px" }}
-                            >
+                        >
                             <MenuItem value="">Todas las ordenes</MenuItem>
                             <MenuItem value="abierto">Ordenes Abiertas</MenuItem>
                             <MenuItem value="confirmado">Ordenes Confirmadas</MenuItem>
