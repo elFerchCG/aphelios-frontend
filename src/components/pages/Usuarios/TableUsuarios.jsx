@@ -23,13 +23,15 @@ const TableUsuarios = () => {
         password: '',
         estado: '',
         rol_id: '',
-        rol_descripcion: ''
+        rol_descripcion: '',
+        pin: ''
     });
 
     const [newUserData, setNewUserData] = useState({
         nombre: '',
         password: "",
-        rol_id: ""
+        rol_id: "",
+        pin: ""
     })
 
     const fetchUsuarios = async () => {
@@ -116,6 +118,7 @@ const TableUsuarios = () => {
         setUserData({
             ...user,
             password: '',
+            pin: '',
             rol_descripcion: getRolDescripcion(user.rol_id),
         });
         setOpenModal(true);
@@ -148,13 +151,26 @@ const TableUsuarios = () => {
         });
     };
 
+    // Helper para validar que el input del PIN solo acepte números y un máximo de 6 dígitos
+    const handlePinChange = (e, isNewUser = false) => {
+        const val = e.target.value;
+        if (val === '' || (/^[0-9\b]+$/.test(val) && val.length <= 6)) {
+            if (isNewUser) {
+                setNewUserData({ ...newUserData, pin: val });
+            } else {
+                setUserData({ ...userData, pin: val });
+            }
+        }
+    };
+
     const handleSaveChanges = async () => {
         try {
             const response = await axios.put(`${apiUrl}/usuarios/actualizar/${userData.id_usuario}`, {
                 nombre: userData.nombre,
                 password: userData.password,
                 rol: parseInt(userData.rol_id, 10), // Convertir a número entero
-                estado: userData.estado // Enviar el estado (1 o 0)
+                estado: userData.estado, // Enviar el estado (1 o 0)
+                pin: userData.pin // Enviar el PIN actualizado
             });
             if (response.status === 200) {
                 Swal.fire({
@@ -189,7 +205,8 @@ const TableUsuarios = () => {
             const response = await axios.post(`${apiUrl}/auth/register`, {
                 nombre: newUserData.nombre,
                 password: newUserData.password,
-                rol_id: newUserData.rol_id
+                rol_id: newUserData.rol_id,
+                pin: newUserData.pin || null
             });
             if (response.data.ok) {
                 Swal.fire({
@@ -323,6 +340,16 @@ const TableUsuarios = () => {
                         value={userData.password}
                         onChange={(e) => setUserData({ ...userData, password: e.target.value })}
                     />
+                    <TextField
+                        label={'PIN de Autorización (4-6 dígitos)'}
+                        fullWidth
+                        margin="normal"
+                        type='text'
+                        inputProps={{ maxLength: 6, inputMode: 'numeric', pattern: '[0-9]*' }}
+                        placeholder="Solo números"
+                        value={userData.pin}
+                        onChange={(e) => handlePinChange(e, false)}
+                    />
                     <FormControl fullWidth margin="normal">
                         <InputLabel>{'Rol'}</InputLabel>
                         <Select
@@ -389,6 +416,17 @@ const TableUsuarios = () => {
                         type='password'
                         value={newUserData.password}
                         onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                    />
+                    {/* 2. Campo PIN en Creación */}
+                    <TextField
+                        label={'PIN de Autorización (Opcional, 4-6 dígitos)'}
+                        fullWidth
+                        margin="normal"
+                        type='text'
+                        inputProps={{ maxLength: 6, inputMode: 'numeric', pattern: '[0-9]*' }}
+                        placeholder="Solo números"
+                        value={newUserData.pin}
+                        onChange={(e) => handlePinChange(e, true)}
                     />
                     <FormControl fullWidth margin="normal">
                         <InputLabel>{'Rol'}</InputLabel>

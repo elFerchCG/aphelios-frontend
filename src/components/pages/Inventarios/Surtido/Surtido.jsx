@@ -52,6 +52,10 @@ const Surtido = () => {
     const [envioDescripcion, setEnvioDescripcion] = useState("");
     const [envios, setEnvios] = useState([]);
     const [envioSeleccionado, setEnvioSeleccionado] = useState(null);
+    const [cellModesModel, setCellModesModel] = useState({});
+    const [yaEnfocado, setYaEnfocado] = useState(false);
+    const [openModalPin, setOpenModalPin] = useState(false);
+    const [pinSupervisor, setPinSupervisor] = useState('');
 
     const inputRef = useRef(null);
 
@@ -93,6 +97,28 @@ const Surtido = () => {
             />
         </GridToolbarContainer>
     );
+
+    // Efecto para activar la edición de la primera fila al abrir cualquiera de las modales
+    useEffect(() => {
+        if ((openAsignar || openSurtirNoFull) && componentes.length > 0 && !yaEnfocado) {
+            const primerId = componentes[0].id; // Toma el ID de la primera fila
+
+            // Seteamos el modelo para indicarle que esa celda específica debe estar editándose
+            setCellModesModel({
+                [primerId]: {
+                    cantidad_a_contar: { mode: 'edit' },
+                },
+            });
+
+            setYaEnfocado(true);
+        }
+        // Cuando las dos modales estén cerradas, limpiamos todo para la siguiente apertura
+        if (!openAsignar && !openSurtirNoFull) {
+            setCellModesModel({});
+            setYaEnfocado(false); // 🔴 Reseteamos el flag para la próxima vez
+        }
+        // 💡 Quitamos 'componentes' de las dependencias para que no se dispare al editar los valores
+    }, [openAsignar, openSurtirNoFull, yaEnfocado]);
 
     const styleModalAsignar = {
         position: 'absolute',
@@ -272,42 +298,6 @@ const Surtido = () => {
         setCantidadEtiquetasModal("");
     };
 
-    // const generarYDescargarTXT = async (data) => {
-    //     const { sku, title, inventory_id, cantidadEtiquetas } = data; // Extrae los valores desde la respuesta
-
-    //     // Estructura del contenido del TXT con los valores reemplazados
-    //     const contenido =
-    //         `^XA
-    //         ^CI28
-    //         ^LH0,0
-    //         ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
-    //         ^FO22,165^A0N,25,25^FD^FS
-    //         ^FB350,2,2
-    //         ^FO22,145^A0N,18,18^FD^FS
-    //         ^FO21,145^A0N,18,18^FD^FS
-    //         ^FB350,2,2
-    //         ^FO22,105^A0N,20,20^FD${title}^FS
-    //         ^FT385,105^A0B,22,22^FH^FD${selectedUsuario.nombre || user.nombre}/env^FS
-    //         ^FO65,18^BY2^BCN,54,N,N
-    //         ^FD${inventory_id}^FS
-    //     ^FT150,98^A0N,22,22^FH^FD${inventory_id}^FS
-    //     ^FT149,98^A0N,22,22^FH^FD${inventory_id}^FS
-    //         ^PQ${cantidadEtiquetas},0,1,Y^XZ`;
-
-    //     // Crear un Blob con el contenido del archivo
-    //     const blob = new Blob([contenido], { type: "text/plain" });
-
-    //     // Crear un enlace de descarga
-    //     const link = document.createElement("a");
-    //     link.href = URL.createObjectURL(blob);
-    //     link.download = `archivo_${inventory_id}.txt`;
-
-    //     // Simular clic para iniciar la descarga
-    //     document.body.appendChild(link);
-    //     link.click();
-    //     document.body.removeChild(link);
-    // };
-
     const fetchEnvioActual = async () => {
         try {
             const response = await axios.get(`${apiUrl}/empaque/fetchEnviosAbiertos`);
@@ -437,25 +427,63 @@ const Surtido = () => {
         }
     }
 
-    const imprimirEtiquetas = async () => {
+    const puedeImprimir = user && (
+        user.rol_descripcion === 'administrador' ||
+        (user.rol_descripcion === 'Produccion' && user.permisos === 'supervisor')
+    );
+
+    console.log("Usuario actual:", user);
+
+    // 1. EL FILTRO / INTERCEPTOR
+    const imprimirEtiquetas = () => {
+        // Si el usuario actual ya es administrador, ejecuta directo sin pedir PIN
+        if (puedeImprimir) {
+            ejecutarPeticionImpresion(null);
+        } else {
+            // Si es operario, pausamos el flujo y abrimos el modal para que el supervisor ponga su PIN
+            setOpenModalPin(true);
+        }
+    };
+
+    // 2. LA ACCIÓN REAL (Tu código original con la integración del PIN)
+    const ejecutarPeticionImpresion = async (pinAutorizacion = null) => {
         try {
-            const response = await axios.post(`${apiUrl}/mrp/imprimirEtiquetas`, {
-                inventory_id: ml
-            });
+            // Enviamos el inventory_id (ml) y añadimos el pinSupervisor al body
+            // 1. Enviamos el body y en el 3er parámetro pasamos la configuración de los headers
+            const response = await axios.post(
+                `${apiUrl}/mrp/imprimirEtiquetas`,
+                {
+                    inventory_id: ml,
+                    pinSupervisor: pinAutorizacion
+                },
+                {
+                    headers: {
+                        // Asegúrate de usar la estructura clásica 'Bearer TOKEN'
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
             if (response.data.ok) {
                 setTitleEtiquetasModal(response.data.title);
                 setSkuEtiquetasModal(response.data.sku);
                 setInventoryIdEtiquetasModal(response.data.inventory_id);
+
                 await generarYDescargarTXT({
                     sku: response.data.sku,
                     title: response.data.title,
                     inventory_id: response.data.inventory_id,
                     cantidadEtiquetas: cantidadEtiquetasModal
                 });
+
+                // Si todo salió bien, cerramos ambos modales y limpiamos el PIN cargado
+                setOpenModalPin(false);
+                setPinSupervisor('');
+                handleCloseImprimir();
             }
-            handleCloseImprimir();
         } catch (error) {
             const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
+
             Swal.fire({
                 title: 'Error',
                 text: errorMessage,
@@ -464,9 +492,13 @@ const Surtido = () => {
                 showCloseButton: true,
                 allowEscapeKey: true
             });
+
+            // En caso de error, también es buena práctica cerrar el modal del PIN para que no se quede trabado
+            setOpenModalPin(false);
+            setPinSupervisor('');
             handleCloseImprimir();
         }
-    }
+    };
 
     const fetchValoresOrden = async (cantidadEtiquetas) => {
         try {
@@ -499,21 +531,6 @@ const Surtido = () => {
             });
         }
     }
-
-    // const ordenesRepetidas = useMemo(() => {
-    //     const counts = {};
-    //     data.forEach(row => {
-    //         if (row.id_orden != null) {
-    //             counts[row.id_orden] = (counts[row.id_orden] || 0) + 1;
-    //         }
-    //     });
-
-    //     return new Set(
-    //         Object.entries(counts)
-    //             .filter(([_, count]) => count > 1)
-    //             .map(([id_orden]) => Number(id_orden))
-    //     );
-    // }, [data]);
 
     const validarPaquete = async (id) => {
         try {
@@ -629,9 +646,35 @@ const Surtido = () => {
         { field: "unique_id", headerName: "Folio linea", type: "text", flex: 1 },
         { field: 'id_orden', headerName: "# Orden", type: "number", flex: 1 },
         { field: 'id_detalle_orden', headerName: "# Detalle orden", type: "number", flex: 1 },
+        {
+            field: "thumbnail", headerName: "Producto", flex: 1,
+            renderCell: (params) => {
+                return (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        width: '100%',
+                        height: '100%'
+                    }}>
+                        <img
+                            src={params.row.thumbnail}
+                            alt={params.row.id_detalle_orden || 'Producto'}
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                borderRadius: '8px',       // Bordes redondeados profesionales
+                                objectFit: 'contain',      // Mantiene la proporción sin deformar
+                                boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' // Una sombra sutil elegante
+                            }}
+                        />
+                    </div>
+                )
+            }
+        },
         { field: "componente_sku", headerName: "SKU Componente", type: "text", flex: 2 },
         {
-            field: "descripcion", headerName: "Descripcion", type: "text", flex: 2, renderCell: (params) => (
+            field: "descripcion", headerName: "Descripcion", type: "text", flex: 3, renderCell: (params) => (
                 params.value ?? "Sin descripción"
             )
         },
@@ -716,6 +759,7 @@ const Surtido = () => {
             renderEditCell: (params) => (
                 <GridEditInputCell
                     {...params}
+                    autoFocus
                     type="number"
                     inputProps={{ min: 0 }}
                     onWheel={(e) => e.target.blur()}
@@ -757,6 +801,7 @@ const Surtido = () => {
             renderEditCell: (params) => (
                 <GridEditInputCell
                     {...params}
+                    autoFocus
                     type="number"
                     inputProps={{ min: 0 }}
                     onWheel={(e) => e.target.blur()}
@@ -867,14 +912,12 @@ const Surtido = () => {
                     </FormControl>
                 </div>
                 <div style={{ justifySelf: "end" }}>
-                    {['administrador'].includes(user?.rol_descripcion) && (
-                        <Button
-                            variant="contained"
-                            onClick={handleOpenImprimir}
-                        >
-                            Imprimir Etiqueta
-                        </Button>
-                    )}
+                    <Button
+                        variant="contained"
+                        onClick={handleOpenImprimir}
+                    >
+                        Imprimir Etiqueta
+                    </Button>
                 </div>
 
             </div>
@@ -907,12 +950,12 @@ const Surtido = () => {
                 showCellVerticalBorder
                 showColumnVerticalBorder
                 getRowId={(row) => row.unique_id}
+                rowHeight={150}
                 //processRowUpdate={processRowUpdate}
                 columnVisibilityModel={columnVisibilityModel}
                 onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                 disableRowSelectionOnClick
                 experimentalFeatures={{ newEditingApi: true }}
-                density="compact" // Establece el tamaño de las filas en compacto por defecto
                 slots={{ toolbar: CustomToolbar }}
                 getRowClassName={(params) => {
                     if (params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1) {
@@ -952,6 +995,8 @@ const Surtido = () => {
                             rows={componentes}
                             columns={columnsFULLAsignar}
                             getRowId={(row) => row.id}
+                            cellModesModel={cellModesModel} // 🔴 Controla el modo edición activo
+                            onCellModesModelChange={(newModel) => setCellModesModel(newModel)} // 🔴 Mantiene el estado sincronizado si el usuario cambia de celda
                             pageSize={10}
                             rowsPerPageOptions={[10, 25, 50]}
                             density="compact"
@@ -1026,6 +1071,7 @@ const Surtido = () => {
             </Modal>
             {/* Modal para surtir productos ME */}
             <Modal
+                id={"modal-surtirNoFull"}
                 open={openSurtirNoFull}
                 onClose={handleCloseSurtirNoFull}
             >
@@ -1058,6 +1104,8 @@ const Surtido = () => {
                             rows={componentes}
                             columns={columnsSurtirNoFull}
                             getRowId={(row) => row.id}
+                            cellModesModel={cellModesModel} // 🔴 Controla el modo edición activo
+                            onCellModesModelChange={(newModel) => setCellModesModel(newModel)} // 🔴 Mantiene el estado sincronizado
                             density="compact"
                             disableRowSelectionOnClick
                             processRowUpdate={processRowUpdateNoFull}
@@ -1137,6 +1185,62 @@ const Surtido = () => {
                     <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "50px" }}>
                         <Button onClick={handleCloseImprimir} variant="contained" color="primary" sx={{ width: 80 }}>Cerrar</Button>
                         <Button onClick={imprimirEtiquetas} variant="contained" color="success" sx={{ width: 190 }}>Imprimir</Button>
+                    </Box>
+                </Box>
+            </Modal>
+            {/* Modal para que el supervisor ingrese su PIN */}
+            <Modal
+                id={'modal-pin-autorizacion'}
+                open={openModalPin}
+                onClose={() => setOpenModalPin(false)}
+            >
+                <Box sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 320,
+                    bgcolor: 'background.paper',
+                    boxShadow: 24,
+                    p: 4,
+                    borderRadius: 2
+                }}>
+                    <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "15px" }}>
+                        Se requiere Autorización
+                    </Typography>
+                    <Typography variant="body2" sx={{ textAlign: 'center', mb: 2, color: 'text.secondary' }}>
+                        Un administrador debe ingresar su PIN para permitir esta impresión.
+                    </Typography>
+
+                    <FormControl fullWidth variant="outlined">
+                        <InputLabel>PIN de Supervisor</InputLabel>
+                        <OutlinedInput
+                            type="password" // Para que no se vea el PIN en pantalla mientras lo teclean
+                            label="PIN de Supervisor"
+                            value={pinSupervisor}
+                            onChange={(e) => setPinSupervisor(e.target.value)}
+                            inputProps={{ maxLength: 6, style: { textAlign: 'center', fontSize: '20px', letterSpacing: '5px' } }}
+                        />
+                    </FormControl>
+
+                    <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between", marginTop: "25px" }}>
+                        <Button
+                            onClick={() => { setOpenModalPin(false); setPinSupervisor(''); }}
+                            variant="outlined"
+                            color="error"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (!pinSupervisor) return alert("Por favor ingresa un PIN");
+                                ejecutarPeticionImpresion(pinSupervisor);
+                            }}
+                            variant="contained"
+                            color="success"
+                        >
+                            Confirmar
+                        </Button>
                     </Box>
                 </Box>
             </Modal>

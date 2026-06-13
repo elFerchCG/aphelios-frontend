@@ -33,6 +33,9 @@ const apiUrl =
 
 const MrpSimple = () => {
   const [mrp, setMrp] = useState([]);
+  const [ordenesRetiro, setOrdenesRetiro] = useState([]);
+  const [modoRetiro, setModoRetiro] = useState(false);
+  const [loadingRetiro, setLoadingRetiro] = useState(false);
   const [proveedores, setProveedores] = useState([]);
   const [loadingMrp, setLoadingMrp] = useState(false);
   const [loadingProv, setLoadingProv] = useState(true);
@@ -94,9 +97,9 @@ const MrpSimple = () => {
   const fmtDT = (s) =>
     s
       ? new Date(s).toLocaleString("es-MX", {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
       : "—";
 
   const fetchMlInfo = async () => {
@@ -179,6 +182,8 @@ const MrpSimple = () => {
   useEffect(() => {
     setRowSelectionModel([]);
     cargarMrpDelProveedor();
+    setModoRetiro(false);
+    setOrdenesRetiro([]);
   }, [proveedorId]);
 
   useEffect(() => {
@@ -273,9 +278,8 @@ const MrpSimple = () => {
 
     const confirm = await Swal.fire({
       title: "¿Generar pedidos?",
-      text: `Proveedor: ${
-        proveedorSel?.razon_social || proveedorId
-      } · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"}`,
+      text: `Proveedor: ${proveedorSel?.razon_social || proveedorId
+        } · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"}`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, generar",
@@ -516,8 +520,8 @@ const MrpSimple = () => {
       await Swal.fire(
         "Error",
         err?.response?.data?.message ||
-          err?.message ||
-          "No se pudo actualizar el stock ML.",
+        err?.message ||
+        "No se pudo actualizar el stock ML.",
         "error",
       );
     } finally {
@@ -609,9 +613,8 @@ const MrpSimple = () => {
 
     const confirm = await Swal.fire({
       title: "Cerrar línea",
-      text: `¿Cerrar esta línea? (Numero de Orden de Produccion #${
-        row?.orden_id ?? "?"
-      })`,
+      text: `¿Cerrar esta línea? (Numero de Orden de Produccion #${row?.orden_id ?? "?"
+        })`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, cerrar",
@@ -745,11 +748,11 @@ const MrpSimple = () => {
 
         const detalle = grupos.length
           ? grupos
-              .map(
-                (g) =>
-                  `Pedido ${g.pedido_id} · SKU ${g.sku}\nFaltan ramas/líneas: ${(g.lineas_faltantes || []).join(", ")}`,
-              )
-              .join("\n\n")
+            .map(
+              (g) =>
+                `Pedido ${g.pedido_id} · SKU ${g.sku}\nFaltan ramas/líneas: ${(g.lineas_faltantes || []).join(", ")}`,
+            )
+            .join("\n\n")
           : "Hay ramas activas relacionadas que también deben cerrarse.";
 
         await Swal.fire({
@@ -937,6 +940,231 @@ const MrpSimple = () => {
     },
   ];
 
+  const cargarOrdenesRetiro = async () => {
+    if (!proveedorId) return;
+
+    setLoadingRetiro(true);
+
+    try {
+      const { data } = await axios.get(
+        `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/ordenes_retiro_proveedor/${proveedorId}`
+      );
+
+      setOrdenesRetiro(data.data || []);
+      setModoRetiro(true);
+
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        "No se pudieron cargar las órdenes de retiro",
+        "error"
+      );
+    } finally {
+      setLoadingRetiro(false);
+    }
+  };
+
+  const handleCerrarRetiroSeleccionadas = async () => {
+
+    if (rowSelectionModel.length === 0) {
+      await Swal.fire("Atención", "Selecciona al menos una línea.", "info");
+      return;
+    }
+
+    const ordenesProduccionIds =
+      rowSelectionModel.map(Number);
+
+    const confirm = await Swal.fire({
+      title: "Cerrar seleccionadas",
+      text: `Se cerrarán ${rowSelectionModel.length} selección(es).`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+
+      setBusy(true);
+
+      // 🔥 AQUI ABRES EL LOADER
+      openLoader("Cerrando líneas seleccionadas…", null);
+
+      const { data } = await axios.post(
+        `${apiUrl}/mrp/cerrarOrdenesRetiroSeleccionadas`,
+        {
+          ordenes_produccion_ids: ordenesProduccionIds
+        }
+      );
+
+      closeLoader();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Listo",
+        text: data?.message || "Cierre total ejecutado y stock actualizado.",
+      });
+
+      setRowSelectionModel([]);
+
+      await cargarOrdenesRetiro();
+
+    } catch (error) {
+      // 🔥 IMPORTANTE: cerrar loader también en error
+      closeLoader();
+
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "No se pudieron cerrar las órdenes.";
+
+      await Swal.fire(
+        "Error",
+        msg,
+        "error"
+      );
+
+    } finally {
+      setBusy(false);
+      closeLoader();
+    }
+  };
+
+  const handleCerrarTodasRetiro = async () => {
+
+    const ordenesProduccionIds =
+      ordenesRetiro.map(r => Number(r.orden_produccion_id));
+
+    if (!ordenesProduccionIds.length) {
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: "Cerrar TODAS las órdenes de retiro",
+      text: `Se cerrarán ${ordenesProduccionIds.length} órdenes.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Sí, cerrar todas",
+      cancelButtonText: "Cancelar",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+
+      setBusy(true);
+
+      openLoader(
+        "Cerrando todas las órdenes de retiro…",
+        null
+      );
+
+      const { data } = await axios.post(
+        `${apiUrl}/mrp/cerrarTodasOrdenesRetiro`,
+        {
+          ordenes_produccion_ids: ordenesProduccionIds
+        }
+      );
+
+      closeLoader();
+
+      await Swal.fire({
+        icon: "success",
+        title: "Listo",
+        text:
+          data?.message ||
+          "Todas las órdenes fueron cerradas."
+      });
+
+      setRowSelectionModel([]);
+
+      await cargarOrdenesRetiro();
+
+    } catch (error) {
+      closeLoader();
+
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "No se pudieron cerrar las órdenes.";
+
+      await Swal.fire(
+        "Error",
+        msg,
+        "error"
+      );
+    } finally {
+
+      setBusy(false);
+      closeLoader();
+
+    }
+  };
+
+  const columnsRetiro = [
+    {
+      field: "orden_bodega_id",
+      headerName: "Orden Bodega",
+      minWidth: 140,
+    },
+    {
+      field: "orden_produccion_id",
+      headerName: "Orden Producción",
+      minWidth: 150,
+    },
+    {
+      field: "mlm",
+      headerName: "MLM",
+      minWidth: 130,
+    },
+    {
+      field: "sku_publicacion",
+      headerName: "SKU",
+      minWidth: 180,
+    },
+    {
+      field: "title",
+      headerName: "Titulo",
+      minWidth: 350,
+      flex: 1,
+    },
+    {
+      field: "inventory_id",
+      headerName: "Inventory",
+      minWidth: 180,
+    },
+    {
+      field: "cantidad_a_producir",
+      headerName: "A producir",
+      minWidth: 120,
+      type: "number",
+    },
+    {
+      field: "cantidad_a_enviar",
+      headerName: "A enviar",
+      minWidth: 120,
+      type: "number",
+    },
+    {
+      field: "cantidad_empacada",
+      headerName: "Empacada",
+      minWidth: 120,
+      type: "number",
+    },
+    {
+      field: "estatus",
+      headerName: "Estatus",
+      minWidth: 120,
+    },
+    {
+      field: "fecha_creacion",
+      headerName: "Fecha creación",
+      minWidth: 180,
+    },
+  ];
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom align="center">
@@ -1016,6 +1244,28 @@ const MrpSimple = () => {
                   />
                 </Box>
               )}
+              <Box mt={2}>
+                {!modoRetiro ? (
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    color="secondary"
+                    disabled={!proveedorId}
+                    onClick={cargarOrdenesRetiro}
+                  >
+                    Ver órdenes de retiro
+                  </Button>
+                ) : (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setModoRetiro(false)}
+                  >
+                    Regresar a órdenes planeadas
+                  </Button>
+                )}
+              </Box>
             </Box>
 
             {/* Columna derecha: Pasos */}
@@ -1089,7 +1339,7 @@ const MrpSimple = () => {
               </Stack>
 
               {/* Paso 2 (opcional) solo si SÍ acepta backorder */}
-              {backorderActivo && (
+              {(backorderActivo || modoRetiro) && (
                 <Stack spacing={1}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                     Paso 2 · (Opcional) Cerrar órdenes abiertas
@@ -1108,16 +1358,33 @@ const MrpSimple = () => {
                     <Button
                       variant="outlined"
                       color="error"
-                      onClick={handleCerrarSeleccionadas}
-                      disabled={ordenesSeleccionadas.length === 0 || busy}
+                      onClick={
+                        modoRetiro
+                          ? handleCerrarRetiroSeleccionadas
+                          : handleCerrarSeleccionadas
+                      }
+                      disabled={
+                        modoRetiro
+                          ? rowSelectionModel.length === 0
+                          : ordenesSeleccionadas.length === 0
+                      }
                     >
                       Cerrar seleccionadas
                     </Button>
+
                     <Button
                       variant="outlined"
                       color="error"
-                      onClick={handleCerrarTodas}
-                      disabled={(mrp?.length ?? 0) === 0 || busy}
+                      onClick={
+                        modoRetiro
+                          ? handleCerrarTodasRetiro
+                          : handleCerrarTodas
+                      }
+                      disabled={
+                        modoRetiro
+                          ? ordenesRetiro.length === 0
+                          : mrp.length === 0
+                      }
                     >
                       Cerrar todas
                     </Button>
@@ -1157,7 +1424,7 @@ const MrpSimple = () => {
         </CardContent>
       </Card>
       <Box sx={{ height: 460, width: "100%" }}>
-        {loadingMrp ? (
+        {loadingMrp || loadingRetiro ? (
           <Box
             height="100%"
             display="flex"
@@ -1180,26 +1447,18 @@ const MrpSimple = () => {
                 opacity: 0.5,
                 pointerEvents: "none",
                 filter: "grayscale(100%)",
-              },
-
-              // 🔴 FILAS NO FULL (ESTE ES EL BUENO)
-              "& .MuiDataGrid-row.fila-no-full .MuiDataGrid-cell": {
-                backgroundColor: "#FDECEA",
-              },
-
-              // 🔴 hover correcto
-              "& .MuiDataGrid-row.fila-no-full:hover .MuiDataGrid-cell": {
-                backgroundColor: "#F9D6D5",
-              },
+              }
             }}
-            rows={mrp}
-            columns={columns}
+            rows={modoRetiro ? ordenesRetiro : mrp}
+            columns={modoRetiro ? columnsRetiro : columns}
             getRowId={(row) =>
-              row?.op_detalle_id
-                ? `opd-${row.op_detalle_id}`
-                : row?.orden_id
-                  ? `op-${row.orden_id}`
-                  : `row-${row?.producto_id ?? "x"}`
+              modoRetiro
+                ? row.orden_produccion_id
+                : row?.op_detalle_id
+                  ? `opd-${row.op_detalle_id}`
+                  : row?.orden_id
+                    ? `op-${row.orden_id}`
+                    : `row-${row?.producto_id ?? "x"}`
             }
             pageSize={10}
             rowsPerPageOptions={[10, 25, 50]}
@@ -1211,35 +1470,33 @@ const MrpSimple = () => {
             onColumnVisibilityModelChange={(newModel) =>
               setColumnVisibilityModel(newModel)
             }
-            checkboxSelection={backorderActivo} // ⬅️ sólo si hay backorder
+            checkboxSelection={backorderActivo || modoRetiro} // ⬅️ sólo si hay backorder o en modo retiro
             rowSelectionModel={rowSelectionModel}
             onRowSelectionModelChange={(m) => setRowSelectionModel(m)}
             getRowClassName={(params) => {
-              // 1. Si NO hay backorder activo → deshabilitar fila
+              // 1. Si está en modo retiro, NO deshabilitamos nada, permitimos flujo libre
+              if (modoRetiro) {
+                return "";
+              }
+
+              // 2. Si NO hay backorder activo (y no es modo retiro) → deshabilitar fila
               if (!backorderActivo) {
                 return "row-disabled";
               }
 
-              // 2. Si NO es fulfillment y permitir_full = 0 → fila roja
-              if (
-                params.row.logistic_type !== "fulfillment" &&
-                params.row.permitir_full === 0
-              ) {
-                return "fila-no-full";
-              }
               return "";
             }}
             slots={
               tieneProveedor
                 ? {
-                    toolbar: () => (
-                      <TablaToolbar
-                        tieneProveedor={tieneProveedor}
-                        backorderActivo={backorderActivo}
-                        seleccionadas={ordenesSeleccionadas.length}
-                      />
-                    ),
-                  }
+                  toolbar: () => (
+                    <TablaToolbar
+                      tieneProveedor={tieneProveedor}
+                      backorderActivo={backorderActivo || modoRetiro}
+                      seleccionadas={modoRetiro ? rowSelectionModel.length : ordenesSeleccionadas.length}
+                    />
+                  ),
+                }
                 : undefined // ⬅️ sin toolbar si no hay proveedor
             }
           />
