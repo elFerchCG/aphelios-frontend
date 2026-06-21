@@ -41,15 +41,17 @@ const TableUsuarios = () => {
     password: "",
     estado: "",
     rol_id: "",
-    rol_descripcion: "",
+    rol_descripcion: "",,
+        pin: ''
   });
   const [search, setSearch] = useState("");
 
-  const [newUserData, setNewUserData] = useState({
-    nombre: "",
-    password: "",
-    rol_id: "",
-  });
+    const [newUserData, setNewUserData] = useState({
+        nombre: '',
+        password: "",
+        rol_id: "",
+        pin: ""
+    })
 
   const fetchUsuarios = async () => {
     try {
@@ -105,15 +107,16 @@ const TableUsuarios = () => {
     }
   }, [apiUrl, selectedUser, openModalPost]);
 
-  const handleOpenModal = (user) => {
-    setSelectedUser(user);
-    setUserData({
-      ...user,
-      password: "",
-      rol_descripcion: getRolDescripcion(user.rol_id),
-    });
-    setOpenModal(true);
-  };
+    const handleOpenModal = (user) => {
+        setSelectedUser(user);
+        setUserData({
+            ...user,
+            password: '',
+            pin: '',
+            rol_descripcion: getRolDescripcion(user.rol_id),
+        });
+        setOpenModal(true);
+    };
 
   const handleCloseModal = () => {
     setOpenModal(false);
@@ -132,97 +135,100 @@ const TableUsuarios = () => {
     return rol ? rol.descripcion : "Desconocido";
   };
 
-  const handleChangeEstado = (e) => {
-    const selectedEstado = e.target.value;
-    const descripcionEstado = selectedEstado === 1 ? "Activo" : "Inactivo";
-    setUserData({
-      ...userData,
-      estado: selectedEstado,
-      estado_descripcion: descripcionEstado,
-    });
-  };
-
-  const handleSaveChanges = async () => {
-    try {
-      const response = await axios.put(
-        `${apiUrl}/usuarios/actualizar/${userData.id_usuario}`,
-        {
-          nombre: userData.nombre,
-          password: userData.password,
-          rol: parseInt(userData.rol_id, 10), // Convertir a número entero
-          estado: userData.estado, // Enviar el estado (1 o 0)
-        },
-      );
-      if (response.status === 200) {
-        Swal.fire({
-          title: "Usuario actualizado",
-          text: "Los cambios se guardaron correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
+    const handleChangeEstado = (e) => {
+        const selectedEstado = e.target.value;
+        const descripcionEstado = selectedEstado === 1 ? 'Activo' : 'Inactivo';
+        setUserData({
+            ...userData,
+            estado: selectedEstado,
+            estado_descripcion: descripcionEstado,
         });
-        setUserData("");
-        fetchUsuarios();
-        setOpenModal(false);
-      }
-    } catch (error) {
-      setUserData("");
-      const errorMessage =
-        error.response?.data?.message || "Hubo un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-      setOpenModal(false);
-    }
-  };
+    };
 
-  const addUser = async () => {
-    try {
-      const response = await axios.post(`${apiUrl}/auth/register`, {
-        nombre: newUserData.nombre,
-        password: newUserData.password,
-        rol_id: newUserData.rol_id,
-      });
-      if (response.data.ok) {
-        Swal.fire({
-          title: "Usuario creado",
-          text: "El nuevo usuario se ha creado correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-        fetchUsuarios();
-        setNewUserData("");
-        handleCloseModalPost();
-      }
-    } catch (error) {
-      setNewUserData("");
-      const errorMessage =
-        error.response?.data?.message || "Hubo un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-      setOpenModalPost(false);
-    }
-  };
+    // Helper para validar que el input del PIN solo acepte números y un máximo de 6 dígitos
+    const handlePinChange = (e, isNewUser = false) => {
+        const val = e.target.value;
+        if (val === '' || (/^[0-9\b]+$/.test(val) && val.length <= 6)) {
+            if (isNewUser) {
+                setNewUserData({ ...newUserData, pin: val });
+            } else {
+                setUserData({ ...userData, pin: val });
+            }
+        }
+    };
 
-  const filteredRows = rows.filter(
-    (usuario) =>
-      usuario.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      usuario.rol_descripcion.toLowerCase().includes(search.toLowerCase()),
-  );
+    const handleSaveChanges = async () => {
+        try {
+            const response = await axios.put(`${apiUrl}/usuarios/actualizar/${userData.id_usuario}`, {
+                nombre: userData.nombre,
+                password: userData.password,
+                rol: parseInt(userData.rol_id, 10), // Convertir a número entero
+                estado: userData.estado, // Enviar el estado (1 o 0)
+                pin: userData.pin // Enviar el PIN actualizado
+            });
+            if (response.status === 200) {
+                Swal.fire({
+                    title: 'Usuario actualizado',
+                    text: 'Los cambios se guardaron correctamente',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+                setUserData('');
+                fetchUsuarios();
+                setOpenModal(false);
+            }
+        } catch (error) {
+            setUserData('');
+            const errorMessage = error.response?.data?.message || "Hubo un error desconocido";
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            setOpenModal(false);
+        }
+    };
+
+    const addUser = async () => {
+        try {
+            const response = await axios.post(`${apiUrl}/auth/register`, {
+                nombre: newUserData.nombre,
+                password: newUserData.password,
+                rol_id: newUserData.rol_id,
+                pin: newUserData.pin || null
+            });
+            if (response.data.ok) {
+                Swal.fire({
+                    title: 'Usuario creado',
+                    text: 'El nuevo usuario se ha creado correctamente',
+                    icon: 'success',
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+                fetchUsuarios();
+                setNewUserData('');
+                handleCloseModalPost();
+            }
+        } catch (error) {
+            setNewUserData('');
+            const errorMessage = error.response?.data?.message || "Hubo un error desconocido";
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true
+            });
+            setOpenModalPost(false);
+        }
+    }
 
   const columns = [
     { field: "id_usuario", headerName: "Folio", flex: 1 },

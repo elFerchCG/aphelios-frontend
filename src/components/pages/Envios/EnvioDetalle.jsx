@@ -19,6 +19,11 @@ import { Button, TextField, Box, Typography, CircularProgress, Tooltip, Collapse
 
 
 const EnvioDetalle = () => {
+    const apiUrl =
+        process.env.NODE_ENV === 'production'
+            ? process.env.REACT_APP_API_URL
+            : process.env.REACT_APP_API_URL_LOCAL;
+
     const { envioId } = useParams(); // 👈 obtenemos el id de la URL
     const location = useLocation();
     const [estatusEnvio, setEstatusEnvio] = useState(location.state?.estatusEnvio || '');
@@ -69,12 +74,8 @@ const EnvioDetalle = () => {
         return () => {
             window.removeEventListener('storage', handleStorageChange);
         };
-    }, []);
+    }, [apiUrl]);
 
-    const apiUrl =
-        process.env.NODE_ENV === 'production'
-            ? process.env.REACT_APP_API_URL
-            : process.env.REACT_APP_API_URL_LOCAL;
 
     const [columnVisibilityModel, setColumnVisibilityModel] = useState({
         id: false,
@@ -413,8 +414,18 @@ const EnvioDetalle = () => {
         setFilteredTarimas(filtered);
     }, [searchTerm, tarimas]);
 
+    // Validamos primero que 'user' exista para evitar errores si está cargando
+    const puederVerBotonProgeso = user && (
+        user.rol_descripcion === 'administrador' ||
+        (user.rol_descripcion === 'Produccion' && user.permisos === 'supervisor')
+    );
+
+    const puedeVerBotonCerrarEnvio = user && (user.rol_descripcion === 'administrador');
+
     return (
         <div>
+            {/* Título y botón de progreso */}
+
             <Box
                 sx={{
                     display: "flex",
@@ -424,16 +435,19 @@ const EnvioDetalle = () => {
                     mb: 3,
                 }}
             >
-                <Button
-                    variant='contained'
-                    color="success"
-                    label="Progreso de Empaque"
-                    onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`)}
-                    sx={{ textTransform: "none" }}
-                >
-                    Progreso
-                </Button>
+                {puederVerBotonProgeso && (
+                    <Button
+                        variant='contained'
+                        color="success"
+                        label="Progreso de Empaque"
+                        onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`)}
+                        sx={{ textTransform: "none" }}
+                    >
+                        Progreso
+                    </Button>
+                )}
             </Box >
+
             {/* Muestra el CircularProgress mientras cargan los datos */}
             < Box sx={{ px: 4 }}>
                 <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2, mt: -2 }}>
@@ -598,14 +612,16 @@ const EnvioDetalle = () => {
                 <Box
                     sx={{ display: "flex", flexDirection: "row" }}
                 >
-                    <Button
-                        variant="contained"
-                        onClick={() => cerrarEnvio(envioId)}
-                        disabled={estatusEnvio === 'finalizado'}
-                        sx={{ mt: 2, ml: "auto" }}
-                    >
-                        Cerrar Envio
-                    </Button>
+                    {puedeVerBotonCerrarEnvio && (
+                        <Button
+                            variant="contained"
+                            onClick={() => cerrarEnvio(envioId)}
+                            disabled={estatusEnvio === 'finalizado'}
+                            sx={{ mt: 2, ml: "auto" }}
+                        >
+                            Cerrar Envio
+                        </Button>
+                    )}
                 </Box>
             </Box >
         </div >

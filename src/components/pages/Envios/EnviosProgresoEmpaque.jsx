@@ -112,9 +112,15 @@ const EnviosProgresoEmpaque = () => {
         { field: "id", headerName: "ID Detalle", flex: 1 },
         { field: "orden_id", headerName: "ID Orden", flex: 1 },
         { field: "componente_id", headerName: "Componente", flex: 1 },
-        { field: "sku", headerName: "SKU", flex: 3 },
-        { field: "descripcion", headerName: "Descripción", flex: 4 },
-        { field: "cantidad_facturada", headerName: "Requerida (Factura)", flex: 1, type: "number" },
+        { field: "sku", headerName: "SKU", flex: 2 },
+        { field: "descripcion", headerName: "Descripción", flex: 3 },
+        {
+            field: "cantidad_facturada", headerName: "Requerida (Factura)", flex: 2, type: "number",
+            renderCell: (params) => {
+                const value = Number(params.value || 0);
+                return value;
+            }
+        },
         { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
         {
             field: "avance",
@@ -250,71 +256,6 @@ const EnviosProgresoEmpaque = () => {
                 );
             },
         },
-        // {
-        //     field: "prioridad_factura",
-        //     headerName: "Prioridad",
-        //     flex: 1,
-        //     renderCell: (params) => {
-        //         const map = {
-        //             1: { label: "Crítico", color: "error" },
-        //             2: { label: "Bajo", color: "warning" },
-        //             3: { label: "Medio", color: "info" },
-        //             4: { label: "Saludable", color: "success" },
-        //             5: { label: "Sobrestock", color: "default" },
-        //             6: { label: "Sin demanda", color: "default" },
-        //         };
-
-        //         const status = map[params.value] || {
-        //             label: "N/A",
-        //             color: "default",
-        //         };
-
-        //         return (
-        //             <Chip
-        //                 label={status.label}
-        //                 color={status.color}
-        //                 size="small"
-        //                 sx={{ fontWeight: 600 }}
-        //             />
-        //         );
-        //     }
-        // },
-        // {
-        //     field: "ops_criticas",
-        //     headerName: "Críticas",
-        //     flex: 1,
-        //     type: "number",
-        //     renderCell: (params) => {
-        //         const value = Number(params.value || 0);
-
-        //         return (
-        //             <Chip
-        //                 label={value}
-        //                 size="small"
-        //                 color={value > 0 ? "error" : "default"}
-        //                 sx={{ fontWeight: 600 }}
-        //             />
-        //         );
-        //     }
-        // },
-        // {
-        //     field: "ops_urgentes",
-        //     headerName: "Urgentes",
-        //     flex: 1,
-        //     type: "number",
-        //     renderCell: (params) => {
-        //         const value = Number(params.value || 0);
-
-        //         return (
-        //             <Chip
-        //                 label={value}
-        //                 size="small"
-        //                 color={value > 0 ? "warning" : "default"}
-        //                 sx={{ fontWeight: 600 }}
-        //             />
-        //         );
-        //     }
-        // },
         {
             field: "estatus",
             headerName: "Estatus",
@@ -352,22 +293,29 @@ const EnviosProgresoEmpaque = () => {
         { field: "inventory_id", headerName: "ML", flex: 1 },
         { field: "sku", headerName: "SKU", flex: 1 },
         {
-            field: "logistic_type", headerName: "Logistica", flex: 1,
+            field: "logistic_type",
+            headerName: "Logistica",
+            flex: 1,
             renderCell: (params) => {
                 const logisticType = params.value;
                 const permitir_full = params.row.permitir_full;
+
                 let color = "default";
+                let labelText = logisticType; // Variable local para almacenar el texto sin mutar params
+
                 if (logisticType === "fulfillment") {
                     color = "success";
-                    params.value = "FULL";
+                    labelText = "FULL";
                 } else if (logisticType !== "fulfillment" && permitir_full === 1) {
-                    color = "error"; // naranja para casos ME con permitir_full activo
-                    params.value = "ME > FULL";
+                    color = "error"; // o "secondary" según tu configuración en la otra columna
+                    labelText = "ME > FULL";
                 } else if (logisticType !== "fulfillment" && permitir_full === 0) {
                     color = "warning";
-                    params.value = "ME";
+                    labelText = "ME";
                 }
-                return <Chip label={params.value} size="small" color={color} />;
+
+                // Usamos labelText en lugar de params.value
+                return <Chip label={labelText} size="small" color={color} />;
             }
         },
         {
@@ -505,39 +453,34 @@ const EnviosProgresoEmpaque = () => {
         { field: "inventory_id", headerName: "ML", flex: 1 },
         { field: "sku", headerName: "SKU", flex: 1 },
         {
-            field: "logistic_type", headerName: "Logistica", flex: 1,
+            field: "logistic_type",
+            headerName: "Logistica",
+            flex: 1,
             renderCell: (params) => {
                 const logisticType = params.value;
                 const permitir_full = params.row.permitir_full;
+
                 let color = "default";
+                let labelText = logisticType; // Variable local para almacenar el texto sin mutar params
+
                 if (logisticType === "fulfillment") {
                     color = "success";
-                    params.value = "FULL";
+                    labelText = "FULL";
                 } else if (logisticType !== "fulfillment" && permitir_full === 1) {
-                    color = "secondary"; // naranja para casos ME con permitir_full activo
-                    params.value = "ME > FULL";
+                    color = "error"; // o "secondary" según tu configuración en la otra columna
+                    labelText = "ME > FULL";
                 } else if (logisticType !== "fulfillment" && permitir_full === 0) {
                     color = "warning";
-                    params.value = "ME";
+                    labelText = "ME";
                 }
-                return <Chip label={params.value} size="small" color={color} />;
+
+                // Usamos labelText en lugar de params.value
+                return <Chip label={labelText} size="small" color={color} />;
             }
         },
         { field: "cantidad_a_producir", headerName: "A Producir", flex: 1, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)),
-            // renderEditCell: (params) => {
-            //     return (
-            //         <GridEditInputCell
-            //             {...params}
-            //             type="number"
-            //             inputProps={{
-            //                 min: 0, // Establecer el mínimo permitido en el input
-            //             }}
-            //             onWheel={(e) => e.target.blur()} // Evitar cambios accidentales con la rueda del mouse
-            //         />
-            //     );
-            // },
         },
         { field: "cantidad_empacada", headerName: "Empacada", flex: 1, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         {

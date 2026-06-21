@@ -1,7 +1,7 @@
 import { Button, FormControl, Input, InputAdornment, InputLabel, Modal, TextField, Tooltip, Typography } from '@mui/material';
 import { GridActionsCellItem, GridEditInputCell, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
 import { DataGrid, GridToolbarColumnsButton, GridToolbarContainer } from '@mui/x-data-grid'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import { Box } from '@mui/system';
 import axios from 'axios';
@@ -164,55 +164,36 @@ const EmpaqueCajaAbierta = () => {
     }
 
     const handleScan = async () => {
+        // 1. Guardamos el ID actual en una constante local y vaciamos el input INMEDIATAMENTE
+        const idAProcesar = inventoryId.trim();
+        setInventoryId("");
+
+        if (!idAProcesar) return;
+
         try {
-            const response = await axios.post(`${apiUrl}/empaque/agregarEscaneo/inventory_id/${inventoryId}/caja/${cajaId}/envio/${envioId}/tipo/${tipoEmpaque}`,
-                {},
+            const response = await axios.post(
+                `${apiUrl}/empaque/agregarEscaneo/inventory_id/${idAProcesar}/caja/${cajaId}/envio/${envioId}/tipo/${tipoEmpaque}`,
+                {}
             );
 
-            const productoId = response.data.producto_id;
+            console.log(response.data);
 
-            setData((prevData) => {
+            // Creamos el nuevo registro de escaneo de forma simple
+            const newRow = {
+                id: response.data.id,
+                producto_id: response.data.producto_id,
+                inventory_id: idAProcesar,
+                cantidad: 1,
+                sku: response.data.sku,
+                title: response.data.title
+                // Ya no es necesario 'total_producto_caja' aquí, valueGetter lo calculará
+            };
 
-                // calcular total actual del producto
-                const totalActual = prevData
-                    .filter(item => item.producto_id === productoId)
-                    .reduce((acc, item) =>
-                        acc + Number(item.cantidad || 0), 0);
-
-                const nuevoTotal = totalActual + 1;
-
-                // actualizar filas existentes del mismo producto
-                const dataActualizada = prevData.map(item => {
-
-                    if (item.producto_id === productoId) {
-                        return {
-                            ...item,
-                            total_producto_caja: nuevoTotal
-                        };
-                    }
-
-                    return item;
-                });
-
-                // nuevo escaneo
-                const newRow = {
-                    id: response.data.id,
-                    producto_id: productoId,
-                    inventory_id: inventoryId,
-                    cantidad: 1,
-                    sku: response.data.sku,
-                    title: response.data.title,
-                    total_producto_caja: nuevoTotal
-                };
-
-                // agregar arriba
-                return [newRow, ...dataActualizada];
-            });
-
-            setInventoryId("");
+            // Simplemente agregamos el nuevo escaneo al principio del array anterior
+            setData((prevData) => [newRow, ...prevData]);
 
         } catch (error) {
-            const errorMessage = error.response.data.message;
+            const errorMessage = error.response?.data?.message || "Error al procesar el escaneo";
 
             soundError.currentTime = 0;
             soundError.play();
@@ -221,25 +202,23 @@ const EmpaqueCajaAbierta = () => {
                 title: 'Error',
                 text: errorMessage,
                 icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true,
+                confirmButtonText: 'Revisado',
+                showCloseButton: false,
+                allowEscapeKey: false,
+                allowOutsideClick: false
             });
-            setInventoryId("");
         }
     };
 
-    useEffect(() => {
-        if (!inventoryId) return;
-
-        const timeout = setTimeout(() => {
-            if (inventoryId.length === 9) { // Puedes ajustar la longitud mínima esperada
+    const handleKeyDown = (e) => {
+        // La mayoría de los escáneres mandan 'Enter' al final
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Evitamos que el formulario intente recargar la página
+            if (inventoryId.trim()) {
                 handleScan();
             }
-        }, 120); // Pequeño delay para dejar que el escáner termine de escribir
-
-        return () => clearTimeout(timeout); // Limpiar timeout si el usuario sigue escribiendo
-    }, [inventoryId]);
+        }
+    };
 
     const generarYDescargarTXT = async (data) => {
         const { envio, numeroCaja } = data; // Extrae los valores desde la respuesta
@@ -476,74 +455,13 @@ const EmpaqueCajaAbierta = () => {
         }
     }
 
-    // const processRowUpdate = async (newRow, oldRow) => {
-    //     try {
-    //         // Enviar la actualización al backend
-    //         const response = await axios.put(`${apiUrl}/empaque/actualizarCantidadEscaneo/${newRow.id}`, {
-    //             cantidad: newRow.cantidad,
-    //         });
+    // Asegúrate de agregar useMemo a tus imports de React arriba:
+    // import React, { useEffect, useState, useMemo } from 'react'
 
-    //         if (response.data.ok) {
-    //             Swal.fire({
-    //                 title: 'Actualizado!',
-    //                 text: response.data.message,
-    //                 icon: 'success',
-    //                 timer: 3000,
-    //                 showCloseButton: true,
-    //                 allowEscapeKey: true
-    //             });
-    //             return newRow; // Devuelve la fila actualizada
-    //         }
-    //     } catch (error) {
-    //         // Capturar errores del backend
-    //         const errorMessage = error.response?.data?.message || 'Error desconocido';
-
-    //         Swal.fire({
-    //             title: 'Error',
-    //             text: errorMessage,
-    //             icon: 'error',
-    //             timer: 5000,
-    //             showCloseButton: true,
-    //             allowEscapeKey: true
-    //         });
-
-    //         return oldRow; // Revertir cambios en la UI
-    //     }
-    // };
-
-    const columns = [
+    const columns = useMemo(() => [
         { field: "id", headerName: "# Escaneo", type: "number", flex: 1 },
         { field: "inventory_id", headerName: "ML", type: "text", flex: 1 },
         { field: "orden", headerName: "# Orden", type: "text", flex: 1 },
-        // {
-        //     field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center', editable: true, cellClassName: "celdaEditable",
-        //     renderEditCell: (params) => {
-        //         return (
-        //             <GridEditInputCell
-        //                 {...params}
-        //                 type="number"
-        //                 inputProps={{
-        //                     min: 1,
-        //                 }}
-        //                 onWheel={(e) => e.target.blur()}
-        //             />
-        //         )
-        //     },
-        //     preProcessEditCellProps: (params) => {
-        //         const { props } = params;
-
-        //         // Asegurar que el valor sea al menos 0
-        //         const value = Math.max(1, props.value);
-
-        //         const isValid = /^[1-9]+$/.test(value);
-
-        //         return {
-        //             ...props,
-        //             value, // Forzar el valor a 0 si es menor
-        //             error: !isValid,  // Marca la celda con error si la validación falla
-        //         };
-        //     }
-        // },
         { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center' },
         {
             field: "total_producto_caja",
@@ -551,7 +469,16 @@ const EmpaqueCajaAbierta = () => {
             type: "number",
             flex: 1,
             headerAlign: 'center',
-            align: 'center'
+            align: 'center',
+            valueGetter: (value, row) => {
+                const rowData = row || value;
+                if (!rowData) return 0;
+
+                // Filtramos el estado 'data' (que ahora se actualiza gracias a la dependencia del useMemo)
+                return data
+                    .filter(item => String(item.producto_id) === String(rowData.producto_id))
+                    .reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
+            }
         },
         { field: "sku", headerName: "SKU", type: "text", flex: 3 },
         { field: "title", headerName: "Descripción", type: "text", flex: 5 },
@@ -564,13 +491,13 @@ const EmpaqueCajaAbierta = () => {
                     <GridActionsCellItem
                         icon={<DeleteForeverRoundedIcon />}
                         sx={{ color: "red" }}
-                        label="Elimiar escaneo"
+                        label="Eliminar escaneo"
                         onClick={() => eliminarEscaneo(params.row.id)}
                     />
                 </Tooltip>
             ],
         }
-    ]
+    ], [data]); // 👈 CRUCIAL: Cada vez que 'data' cambie, las columnas se refrescan con el nuevo conteo.
 
     const handleDetailLargoCaja = (e) => {
         let value = e.target.value;
@@ -635,9 +562,10 @@ const EmpaqueCajaAbierta = () => {
                             Escanear...
                         </InputLabel>
                         <Input
+                            autoFocus
                             value={inventoryId}
                             onChange={(e) => setInventoryId(e.target.value)}
-                            //onKeyDown={handleKeyDown} // Detectar Enter o Tab
+                            onKeyDown={handleKeyDown} // 👈 Agregamos el detector de Enter instantáneo
                             endAdornment={
                                 <InputAdornment position='end'>
                                     <QrCodeScannerIcon />
@@ -652,7 +580,6 @@ const EmpaqueCajaAbierta = () => {
                     showCellVerticalBorder
                     showColumnVerticalBorder
                     getRowId={(row) => row.id}
-                    //processRowUpdate={processRowUpdate}
                     columnVisibilityModel={columnVisibilityModel}
                     onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
                     experimentalFeatures={{ newEditingApi: true }}
