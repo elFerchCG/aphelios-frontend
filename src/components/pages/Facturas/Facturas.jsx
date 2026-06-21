@@ -1,4 +1,4 @@
-import { Button, Tooltip, Chip } from "@mui/material";
+import { Button, Tooltip, Chip, TextField, Box, MenuItem } from "@mui/material";
 import {
   DataGrid,
   GridActionsCellItem,
@@ -29,6 +29,8 @@ const Facturas = () => {
   const [selectedEnvio, setSelectedEnvio] = useState(null);
   const [openEnvioModal, setOpenEnvioModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [busqueda, setBusqueda] = useState("");
+  const [proveedorFiltro, setProveedorFiltro] = useState("");
   const navigate = useNavigate();
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: true,
@@ -40,6 +42,27 @@ const Facturas = () => {
     process.env.NODE_ENV === "production"
       ? process.env.REACT_APP_API_URL
       : process.env.REACT_APP_API_URL_LOCAL;
+
+  const dataFiltrada = data.filter((factura) => {
+    const texto = busqueda.toLowerCase().trim();
+
+    const coincideTexto =
+      !texto ||
+      String(factura.folio || "")
+        .toLowerCase()
+        .includes(texto) ||
+      String(factura.numero_factura || "")
+        .toLowerCase()
+        .includes(texto) ||
+      String(factura.envio_id || "")
+        .toLowerCase()
+        .includes(texto);
+
+    const coincideProveedor =
+      !proveedorFiltro || factura.proveedor_nombre === proveedorFiltro;
+
+    return coincideTexto && coincideProveedor;
+  });
 
   const CustomToolbar = () => (
     <GridToolbarContainer>
@@ -280,14 +303,56 @@ const Facturas = () => {
             Asignar facturas a un envío ({selectedFacturas.length})
           </Button>
         </div>
+
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            mb: 2,
+            alignItems: "center",
+          }}
+        >
+          <TextField
+            label="Buscar factura o envío"
+            size="small"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Número de factura o envío..."
+            sx={{ width: 320 }}
+          />
+
+          <TextField
+            select
+            label="Proveedor"
+            size="small"
+            value={proveedorFiltro}
+            onChange={(e) => setProveedorFiltro(e.target.value)}
+            sx={{ width: 360 }}
+          >
+            <MenuItem value="">Todos</MenuItem>
+
+            {[
+              ...new Set(
+                data.map((item) => item.proveedor_nombre).filter(Boolean),
+              ),
+            ]
+              .sort()
+              .map((proveedor) => (
+                <MenuItem key={proveedor} value={proveedor}>
+                  {proveedor}
+                </MenuItem>
+              ))}
+          </TextField>
+        </Box>
         <DataGrid
           sx={{
+            height: "65vh",
             borderRadius: 4,
             boxShadow: 24,
             borderWidth: 3,
             borderColor: "#1e88e5",
           }}
-          rows={data}
+          rows={dataFiltrada}
           columns={columns}
           showCellVerticalBorder
           showColumnVerticalBorder
