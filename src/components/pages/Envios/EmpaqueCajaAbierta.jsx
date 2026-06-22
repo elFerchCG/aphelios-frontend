@@ -35,9 +35,6 @@ const EmpaqueCajaAbierta = () => {
     const soundError = new Audio("/sounds/sound-error-scan.mp3");
     soundError.volume = 1;
 
-    // const soundSuccess = new Audio("/sounds/sound-success-scan.mp3");
-    // soundSuccess.volume = 1;
-
     const navigate = useNavigate();
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
@@ -57,9 +54,9 @@ const EmpaqueCajaAbierta = () => {
             console.log('🔴 Desmontado Escaneos');
 
             // Llamar metodo de elimicación caja si es necesario
-            (async () => {
-                await eliminarCajaAutomatico();
-            })();
+            // (async () => {
+            //     await eliminarCajaAutomatico();
+            // })();
         };
     }, []);
 
@@ -447,13 +444,13 @@ const EmpaqueCajaAbierta = () => {
         }
     }
 
-    const eliminarCajaAutomatico = async () => {
-        try {
-            await axios.delete(`${apiUrl}/empaque/eliminarCaja/${cajaId}`)
-        } catch (error) {
-            console.log("No se pudo eliminar la caja automaticamente");
-        }
-    }
+    // const eliminarCajaAutomatico = async () => {
+    //     try {
+    //         await axios.delete(`${apiUrl}/empaque/eliminarCaja/${cajaId}`)
+    //     } catch (error) {
+    //         console.log("No se pudo eliminar la caja automaticamente");
+    //     }
+    // }
 
     // Asegúrate de agregar useMemo a tus imports de React arriba:
     // import React, { useEffect, useState, useMemo } from 'react'
