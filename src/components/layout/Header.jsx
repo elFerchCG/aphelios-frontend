@@ -1,26 +1,34 @@
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import '../../estilos/header.css';
-import logo from '../../images/APHELIOS negro.png';
-import inicio from '../../images/hogar.svg';
-import envio from '../../images/shipment.svg';
-import reCharts from '../../images/reCharts.png';
-import inventario from '../../images/inventory.png';
-import configuracion from '../../images/settings.png';
-import sesion from '../../images/sesion.png';
-import { useNavigate } from 'react-router-dom';
-import useAuthStore from '../../store/authStore';
+import React from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import "../../estilos/header.css";
+import logo from "../../images/APHELIOS negro.png";
+import inicio from "../../images/hogar.svg";
+import envio from "../../images/shipment.svg";
+import reCharts from "../../images/reCharts.png";
+import inventario from "../../images/inventory.png";
+import configuracion from "../../images/settings.png";
+import sesion from "../../images/sesion.png";
+import marketing from "../../images/marketing.png";
+import { useNavigate } from "react-router-dom";
+import useAuthStore from "../../store/authStore";
 
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { token, user, logout } = useAuthStore();
 
-  if (!token || location.pathname === '/login') return null;
+  const rolesMarketing = [
+    "administrador",
+    "Marketing",
+    "Coordinador Comercial",
+    "Lider Marketing",
+  ];
+
+  if (!token || location.pathname === "/login") return null;
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -35,7 +43,7 @@ const Header = () => {
             <img src={envio} alt="Envios" className="nav-icon" />
             <span>Envios</span>
           </NavLink>
-          {['administrador'].includes(user?.rol_descripcion) && (
+          {["administrador"].includes(user?.rol_descripcion) && (
             <NavLink to="/reCharts" className="nav-link">
               <img src={reCharts} alt="reCharts" className="nav-icon" />
               <span>Graficas</span>
@@ -45,9 +53,19 @@ const Header = () => {
             <img src={inventario} alt="Inventario" className="nav-icon" />
             <span>Inventario</span>
           </NavLink>
-          {['administrador', 'Planeador'].includes(user?.rol_descripcion) && (
+          {rolesMarketing.includes(user?.rol_descripcion) && (
+            <NavLink to="/marketing" className="nav-link">
+              <img src={marketing} alt="Marketing" className="nav-icon" />
+              <span>Marketing</span>
+            </NavLink>
+          )}
+          {["administrador", "Planeador"].includes(user?.rol_descripcion) && (
             <NavLink to="/configuraciones" className="nav-link">
-              <img src={configuracion} alt="Configuracion" className="nav-icon" />
+              <img
+                src={configuracion}
+                alt="Configuracion"
+                className="nav-icon"
+              />
               <span>Configuracion</span>
             </NavLink>
           )}
@@ -67,7 +85,9 @@ const Header = () => {
             <span className="letra-person">{user?.nombre}</span>
           </div>
           <div className="person-nav">
-            <button className="logout-button" onClick={handleLogout}>Cerrar sesión</button>
+            <button className="logout-button" onClick={handleLogout}>
+              Cerrar sesión
+            </button>
           </div>
         </div>
       </div>
