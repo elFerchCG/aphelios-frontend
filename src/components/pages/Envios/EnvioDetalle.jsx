@@ -354,9 +354,7 @@ const EnvioDetalle = () => {
             });
 
             // 3. Opcional: Aseguramos que el estado del ID expandido se sincronice
-            if (expandedRowId !== tarimaAbierta.id) {
-                setExpandedRowId(tarimaAbierta.id);
-            }
+            setExpandedRowId(tarimaAbierta.id);
         }
     }, [tarimas]); // 🔑 Se ejecutará cada vez que la lista de tarimas cambie (por ejemplo, al renderizar por primera vez)
 
@@ -604,7 +602,7 @@ const EnvioDetalle = () => {
                     {tarimas.map((tarima) => (
                         <Collapse
                             key={tarima.id}
-                            in={expandedRowId === tarima.id || tarima.estatus === 'abierta'}
+                            in={expandedRowId === tarima.id}
                             timeout="auto"
                             unmountOnExit
                             sx={{ width: "60%" }}
@@ -633,7 +631,7 @@ const EnvioDetalle = () => {
                                             gap: 1, // Espacio entre botón y tabla
                                         }}>
                                             <Typography variant="h6" sx={{ mb: 1 }}>
-                                                Cajas de la tarima #{tarima.id}
+                                                Cajas de la tarima #{tarima.visual_id}
                                             </Typography>
                                             <Button
                                                 variant="contained"

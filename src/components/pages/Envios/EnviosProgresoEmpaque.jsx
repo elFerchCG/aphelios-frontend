@@ -405,7 +405,7 @@ const EnviosProgresoEmpaque = () => {
             flex: 1,
             renderCell: (params) => {
                 const statusMap = {
-                    recibida: {
+                    recibido: {
                         label: "Recibida",
                         color: "default",   // gris
                     },
