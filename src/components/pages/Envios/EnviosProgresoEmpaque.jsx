@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
 import { DataGrid, GridEditInputCell } from "@mui/x-data-grid";
@@ -25,6 +25,9 @@ import IconButton from '@mui/material/IconButton';
 const EnviosProgresoEmpaque = () => {
 
     const { envioId } = useParams();
+    const location = useLocation();
+
+    const [descripcionEnvio] = useState(location.state?.descripcionEnvio || '');
 
     const [totalPiezas, setTotalPiezas] = useState(0);
     const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
@@ -860,7 +863,7 @@ const EnviosProgresoEmpaque = () => {
                             <Typography variant="subtitle2" color="text.secondary">
                                 Envío
                             </Typography>
-                            <Typography variant="h6">{envioId}</Typography>
+                            <Typography variant="h6">{descripcionEnvio || `ID: ${envioId}`}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>

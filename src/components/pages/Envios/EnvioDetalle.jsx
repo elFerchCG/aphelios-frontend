@@ -27,6 +27,7 @@ const EnvioDetalle = () => {
     const { envioId } = useParams(); // 👈 obtenemos el id de la URL
     const location = useLocation();
     const [estatusEnvio, setEstatusEnvio] = useState(location.state?.estatusEnvio || '');
+    const [descripcionEnvio, setDescripcionEnvio] = useState(location.state?.descripcionEnvio || '');
 
     //console.log("Estatus envio:", estatusEnvio);
 
@@ -485,7 +486,7 @@ const EnvioDetalle = () => {
                             <Typography variant="subtitle2" color="text.secondary">
                                 Envío
                             </Typography>
-                            <Typography variant="h6">{envioId}</Typography>
+                            <Typography variant="h6">{descripcionEnvio || `ID: ${envioId}`}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -548,7 +549,9 @@ const EnvioDetalle = () => {
                         variant='contained'
                         color="success"
                         label="Progreso de Empaque"
-                        onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`)}
+                        onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`, {
+                            state: { descripcionEnvio }
+                        })}
                         sx={{ textTransform: "none" }}
                     >
                         Progreso
