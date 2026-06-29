@@ -40,6 +40,7 @@ const Billetes = () => {
   const [productoSkuComponente, setProductoSkuComponente] = useState("");
   const [open, setOpen] = useState(false);
   const [openComponentes, setOpenComponentes] = useState(false);
+  const [loadingBilletes, setLoadingBilletes] = useState(true);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [filteredProductsComponente, setFilteredProductsComponente] = useState(
     [],
@@ -1171,11 +1172,14 @@ const Billetes = () => {
   };
 
   const fetchBilletes = useCallback(async () => {
+    setLoadingBilletes(true);
     try {
       const response = await axios.get(`${apiUrl}/billetes`);
       if (response?.data?.ok && Array.isArray(response.data.data)) {
         setData(response.data.data);
       } else {
+        setData([]);
+
         Swal.fire({
           title: "¡Billetes no encontrados!",
           text: "No se encontraron registros",
@@ -1186,6 +1190,8 @@ const Billetes = () => {
         });
       }
     } catch (error) {
+      setData([]);
+
       Swal.fire({
         title: "Error",
         text: error?.response?.data?.message || "Error al obtener billetes",
@@ -1194,6 +1200,8 @@ const Billetes = () => {
         showCloseButton: true,
         allowEscapeKey: true,
       });
+    } finally {
+      setLoadingBilletes(false);
     }
   }, [apiUrl]);
 
@@ -1468,6 +1476,7 @@ const Billetes = () => {
             experimentalFeatures={{ newEditingApi: true }}
             density="compact"
             slots={{ toolbar: GridToolbar }}
+            loading={loadingBilletes}
           />
         </Box>
       </Box>

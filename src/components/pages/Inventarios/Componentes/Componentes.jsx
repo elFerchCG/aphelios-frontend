@@ -36,6 +36,7 @@ const Componentes = () => {
   const [openAddComponent, setOpenAddComponent] = useState(false);
   const [openDetailsComponente, setOpenDetailsComponente] = useState(false);
   const [openHowItWorks, setOpenHowItWorks] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     componente_id: false,
@@ -165,48 +166,48 @@ const Componentes = () => {
     }
   };
 
-const handleFileChangeSimular = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const handleFileChangeSimular = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append("file", file);
+    const formData = new FormData();
+    formData.append("file", file);
 
-  const simularFlag = simularPrimero ? "1" : "0";
+    const simularFlag = simularPrimero ? "1" : "0";
 
-  const downloadErrorExcel = (base64, filename) => {
-    if (!base64) return;
+    const downloadErrorExcel = (base64, filename) => {
+      if (!base64) return;
 
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
 
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
 
-    const byteArray = new Uint8Array(byteNumbers);
+      const byteArray = new Uint8Array(byteNumbers);
 
-    const blob = new Blob([byteArray], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
+      const blob = new Blob([byteArray], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
 
-    link.href = url;
-    link.download = filename || "componentes_errores.xlsx";
+      link.href = url;
+      link.download = filename || "componentes_errores.xlsx";
 
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
-    window.URL.revokeObjectURL(url);
-  };
+      window.URL.revokeObjectURL(url);
+    };
 
-  const buildErroresHtml = (errores = []) => {
-    if (!errores.length) return "";
+    const buildErroresHtml = (errores = []) => {
+      if (!errores.length) return "";
 
-    return `
+      return `
       <hr />
       <div style="text-align:left; max-height:260px; overflow:auto; margin-top:12px;">
         <p><b>Detalle de errores:</b></p>
@@ -232,34 +233,30 @@ const handleFileChangeSimular = async (e) => {
         </ul>
       </div>
     `;
-  };
+    };
 
-  try {
-    const { data } = await axios.post(
-      `${apiUrl}/componentes/cargaMasiva?simular=${simularFlag}`,
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      },
-    );
+    try {
+      const { data } = await axios.post(
+        `${apiUrl}/componentes/cargaMasiva?simular=${simularFlag}`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
 
-    const { resumen, simular, errorExcelBase64, errorExcelFilename } = data;
-    const tieneErrores = resumen.errores?.length > 0;
+      const { resumen, simular, errorExcelBase64, errorExcelFilename } = data;
+      const tieneErrores = resumen.errores?.length > 0;
 
-    const result = await Swal.fire({
-      icon: tieneErrores ? "warning" : simular ? "info" : "success",
-      title: simular
-        ? "Simulación de carga masiva"
-        : tieneErrores
-          ? "Carga aplicada con observaciones"
-          : "Carga masiva aplicada",
-      html: `
+      const result = await Swal.fire({
+        icon: tieneErrores ? "warning" : simular ? "info" : "success",
+        title: simular
+          ? "Simulación de carga masiva"
+          : tieneErrores
+            ? "Carga aplicada con observaciones"
+            : "Carga masiva aplicada",
+        html: `
         <div style="text-align:left;">
-          ${
-            data.message
-              ? `<p><b>Resultado:</b> ${data.message}</p>`
-              : ""
-          }
+          ${data.message ? `<p><b>Resultado:</b> ${data.message}</p>` : ""}
 
           <p><b>Total filas leídas:</b> ${resumen.totalFilas}</p>
           <p><b>Insertados:</b> ${resumen.insertados.length}</p>
@@ -282,31 +279,31 @@ const handleFileChangeSimular = async (e) => {
           }
         </div>
       `,
-      width: 750,
-      showCancelButton: Boolean(errorExcelBase64),
-      confirmButtonText: "Entendido",
-      cancelButtonText: "Descargar Excel de errores",
-    });
+        width: 750,
+        showCancelButton: Boolean(errorExcelBase64),
+        confirmButtonText: "Entendido",
+        cancelButtonText: "Descargar Excel de errores",
+      });
 
-    if (result.dismiss === Swal.DismissReason.cancel && errorExcelBase64) {
-      downloadErrorExcel(errorExcelBase64, errorExcelFilename);
+      if (result.dismiss === Swal.DismissReason.cancel && errorExcelBase64) {
+        downloadErrorExcel(errorExcelBase64, errorExcelFilename);
+      }
+
+      if (!simular) {
+        await fetchComponentesTodos();
+      }
+    } catch (error) {
+      console.error("Error al subir Excel:", error);
+
+      const data = error?.response?.data;
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: data?.message || data?.error || "No se pudo procesar el archivo",
+      });
     }
-
-    if (!simular) {
-      await fetchComponentesTodos();
-    }
-  } catch (error) {
-    console.error("Error al subir Excel:", error);
-
-    const data = error?.response?.data;
-
-    Swal.fire({
-      icon: "error",
-      title: "Error",
-      text: data?.message || data?.error || "No se pudo procesar el archivo",
-    });
-  }
-};
+  };
 
   const handleDownloadPlantillaComponentes = async () => {
     try {
@@ -332,6 +329,7 @@ const handleFileChangeSimular = async (e) => {
   };
 
   const fetchComponentesTodos = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await axios.get(`${apiUrl}/componentes/todos`);
 
@@ -347,6 +345,7 @@ const handleFileChangeSimular = async (e) => {
         setFilteredProductsComponente([]);
       }
     } catch (error) {
+      setRowsComponentes([]);
       const message =
         error?.response?.data?.message || "Error al obtener componentes";
 
@@ -358,6 +357,8 @@ const handleFileChangeSimular = async (e) => {
         showCloseButton: true,
         allowEscapeKey: true,
       });
+    } finally {
+      setLoading(false);
     }
   }, [apiUrl]);
 
@@ -684,6 +685,7 @@ const handleFileChangeSimular = async (e) => {
           }}
           rows={filteredProductsComponente}
           columns={columnsProductsComponentes}
+          loading={loading}
           showCellVerticalBorder
           showColumnVerticalBorder
           getRowId={(row) => row.componente_id}

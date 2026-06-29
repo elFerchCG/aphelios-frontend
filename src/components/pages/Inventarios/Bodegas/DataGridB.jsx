@@ -1,34 +1,56 @@
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Modal, Select, TextField, Tooltip } from '@mui/material';
-import { DataGrid, GridActionsCellItem, GridToolbarColumnsButton, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid'
-import axios from 'axios';
-import React from 'react'
-import { useEffect } from 'react';
-import { useState } from 'react';
-import Swal from 'sweetalert2';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Modal,
+  Select,
+  TextField,
+  Tooltip,
+} from "@mui/material";
+import {
+  DataGrid,
+  GridActionsCellItem,
+  GridToolbarColumnsButton,
+  GridToolbarContainer,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarFilterButton,
+} from "@mui/x-data-grid";
+import axios from "axios";
+import React from "react";
+import { useEffect } from "react";
+import { useState } from "react";
+import Swal from "sweetalert2";
+import EditNoteIcon from "@mui/icons-material/EditNote";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 
 const DataGridB = () => {
   const apiUrl =
-    process.env.NODE_ENV === 'production'
+    process.env.NODE_ENV === "production"
       ? process.env.REACT_APP_API_URL
       : process.env.REACT_APP_API_URL_LOCAL;
 
   const theme = createTheme({
     palette: {
-      primary: { main: '#1976d2' },
+      primary: { main: "#1976d2" },
     },
   });
 
   // Estilos del modal de ubicaciones
   const modalStyle = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    bgcolor: 'background.paper',
-    border: '2px solid #000',
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    bgcolor: "background.paper",
+    border: "2px solid #000",
     borderRadius: 6,
     boxShadow: 24,
     p: 4,
@@ -38,83 +60,90 @@ const DataGridB = () => {
   const [roles, setRoles] = useState([]);
   const [rowsUbicaciones, setRowsUbicaciones] = useState([]);
   const [filteredUbicaciones, setFilteredUbicaciones] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedBodega, setSelectedBodega] = useState(null);
   const [selectedUbicacion, setSelectedUbicacion] = useState(null);
   const [openModal, setOpenModal] = useState(false);
   const [openModalPost, setOpenModalPost] = useState(false);
   const [openModalUbicaciones, setOpenModalUbicaciones] = useState(false);
-  const [openModalUbicacionesPost, setOpenModalUbicacionesPost] = useState(false);
-  const [openModalUbicacionesUpdate, setOpenModalUbicacionesUpdate] = useState(false);
+  const [openModalUbicacionesPost, setOpenModalUbicacionesPost] =
+    useState(false);
+  const [openModalUbicacionesUpdate, setOpenModalUbicacionesUpdate] =
+    useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [bodegaData, setBodegaData] = useState({
     id: "",
-    Nombre: '',
+    Nombre: "",
     Tipo: "",
     Neteable: "",
     rol_id: "",
     activo: "",
-  })
+  });
 
   const [newBodegaData, setNewBodegaData] = useState({
-    Nombre: '',
+    Nombre: "",
     Tipo: "",
     Neteable: "",
-    rol_id: ""
-  })
+    rol_id: "",
+  });
 
   const [ubicacionData, setUbicacionData] = useState({
-    id: '',
+    id: "",
     descripcion: "",
     disponible: "",
-    activo: ""
-  })
+    activo: "",
+  });
 
   const [newUbicacionData, setNewUbicacionData] = useState({
-    descripcion: '',
+    descripcion: "",
     disponible: "",
-    bodega_id: ""
-  })
+    bodega_id: "",
+  });
 
   const CustomToolbar = () => (
     <GridToolbarContainer>
       {/* Mantener solo los botones necesarios */}
-      <GridToolbarColumnsButton />  {/* Botón de Columnas */}
-      <GridToolbarFilterButton />   {/* Botón de Filtros */}
-      <GridToolbarDensitySelector />{/* Botón de Densidad */}
+      <GridToolbarColumnsButton /> {/* Botón de Columnas */}
+      <GridToolbarFilterButton /> {/* Botón de Filtros */}
+      <GridToolbarDensitySelector />
+      {/* Botón de Densidad */}
       <GridToolbarExport
         csvOptions={{
           fileName: "ubicaciones_exportadas",
-          utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
+          utf8WithBom: true, //  Esto garantiza que la codificación sea UTF-8
         }}
       />
     </GridToolbarContainer>
   );
 
-  const [columnVisibilityModelProducts, setColumnVisibilityModelProducts] = useState({
-    id: false,
-    descripcion: true,
-    disponible: false,
-    bodega_nombre: false,
-    activo: false,
-    actions: true,
-  })
+  const [columnVisibilityModelProducts, setColumnVisibilityModelProducts] =
+    useState({
+      id: false,
+      descripcion: true,
+      disponible: false,
+      bodega_nombre: false,
+      activo: false,
+      actions: true,
+    });
 
   const fetchUbicaciones = async () => {
     try {
-      console.log("Esta es la bodega que se manda: ", selectedBodega);
-      const response = await axios.get(`${apiUrl}/inventario/localidades/${selectedBodega}`);
+      //console.log("Esta es la bodega que se manda: ", selectedBodega);
+      const response = await axios.get(
+        `${apiUrl}/inventario/localidades/${selectedBodega}`,
+      );
       if (response.data && Array.isArray(response.data)) {
         setRowsUbicaciones(response.data);
       }
     } catch (error) {
       Swal.fire({
-        title: 'Error',
-        text: 'No se pudieron cargar las ubicaciones',
-        icon: 'error',
+        title: "Error",
+        text: "No se pudieron cargar las ubicaciones",
+        icon: "error",
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
       });
     }
   };
@@ -126,51 +155,54 @@ const DataGridB = () => {
         setRows(response.data);
       } else {
         Swal.fire({
-          title: '!Bodegas no encontradas!',
-          text: 'No se encontraron bodegas',
-          icon: 'error',
+          title: "!Bodegas no encontradas!",
+          text: "No se encontraron bodegas",
+          icon: "error",
           timer: 5000,
           showCloseButton: true,
-          allowEscapeKey: true
+          allowEscapeKey: true,
         });
       }
     } catch (error) {
       Swal.fire({
-        title: 'Error',
+        title: "Error",
         text: `Error: ${error.message}`,
-        icon: 'error',
+        icon: "error",
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
       });
     }
   };
 
   useEffect(() => {
     const fetchBodegas = async () => {
+      setLoading(true);
       try {
         const response = await axios.get(`${apiUrl}/inventario/bodegas`);
         if (response.data && Array.isArray(response.data)) {
           setRows(response.data);
         } else {
           Swal.fire({
-            title: '!Bodegas no encontradas!',
-            text: 'No se encontraron bodegas',
-            icon: 'error',
+            title: "!Bodegas no encontradas!",
+            text: "No se encontraron bodegas",
+            icon: "error",
             timer: 5000,
             showCloseButton: true,
-            allowEscapeKey: true
+            allowEscapeKey: true,
           });
         }
       } catch (error) {
         Swal.fire({
-          title: 'Error',
+          title: "Error",
           text: `Error: ${error.message}`,
-          icon: 'error',
+          icon: "error",
           timer: 5000,
           showCloseButton: true,
-          allowEscapeKey: true
+          allowEscapeKey: true,
         });
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -182,12 +214,12 @@ const DataGridB = () => {
         }
       } catch (error) {
         Swal.fire({
-          title: 'Error',
-          text: 'No se pudieron cargar los roles',
-          icon: 'error',
+          title: "Error",
+          text: "No se pudieron cargar los roles",
+          icon: "error",
           timer: 5000,
           showCloseButton: true,
-          allowEscapeKey: true
+          allowEscapeKey: true,
         });
       }
     };
@@ -200,18 +232,20 @@ const DataGridB = () => {
     const fetchUbicaciones = async () => {
       try {
         console.log("Esta es la bodega que se manda: ", selectedBodega);
-        const response = await axios.get(`${apiUrl}/inventario/localidades/${selectedBodega}`);
+        const response = await axios.get(
+          `${apiUrl}/inventario/localidades/${selectedBodega}`,
+        );
         if (response.data && Array.isArray(response.data)) {
           setRowsUbicaciones(response.data);
         }
       } catch (error) {
         Swal.fire({
-          title: 'Error',
-          text: 'No se pudieron cargar las ubicaciones',
-          icon: 'error',
+          title: "Error",
+          text: "No se pudieron cargar las ubicaciones",
+          icon: "error",
           timer: 5000,
           showCloseButton: true,
-          allowEscapeKey: true
+          allowEscapeKey: true,
         });
       }
     };
@@ -233,35 +267,36 @@ const DataGridB = () => {
       });
       if (response.data.ok) {
         Swal.fire({
-          title: 'Bodega creada',
-          text: 'La nueva bodega se ha creado correctamente',
-          icon: 'success',
+          title: "Bodega creada",
+          text: "La nueva bodega se ha creado correctamente",
+          icon: "success",
           timer: 5000,
           showCloseButton: true,
-          allowEscapeKey: true
+          allowEscapeKey: true,
         });
         fetchBodegas();
-        setNewBodegaData('');
+        setNewBodegaData("");
         handleCloseModalPost();
       }
     } catch (error) {
-      setNewBodegaData('');
-      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+      setNewBodegaData("");
+      const errorMessage =
+        error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
-        title: 'Error',
+        title: "Error",
         text: errorMessage,
-        icon: 'error',
+        icon: "error",
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
       });
       handleCloseModalPost();
     }
-  }
+  };
 
   const getRolDescripcion = (rolId) => {
-    const rol = roles.find(role => role.id === rolId);
-    return rol ? rol.descripcion : 'Desconocido';
+    const rol = roles.find((role) => role.id === rolId);
+    return rol ? rol.descripcion : "Desconocido";
   };
 
   const handleOpenModal = (bodega) => {
@@ -275,14 +310,14 @@ const DataGridB = () => {
 
   const handleOpenModalUbicaciones = (row) => {
     // Obtener el id directamente de la fila seleccionada
-    const selectedBodegaId = row.id;  // `row.id` ya contiene el ID de la bodega
+    const selectedBodegaId = row.id; // `row.id` ya contiene el ID de la bodega
     setSelectedBodega(selectedBodegaId);
 
     // Ahora puedes abrir la modal si has encontrado la bodega
     if (selectedBodegaId) {
       setOpenModalUbicaciones(true);
     }
-  }
+  };
 
   const handleCloseModal = () => {
     setOpenModal(false);
@@ -290,11 +325,11 @@ const DataGridB = () => {
 
   const handleOpenModalPost = () => {
     setOpenModalPost(true);
-  }
+  };
 
   const handleOpenModalPostUbicacion = () => {
     setOpenModalUbicacionesPost(true);
-  }
+  };
 
   const handleCloseModalPost = () => {
     setOpenModalPost(false);
@@ -302,7 +337,8 @@ const DataGridB = () => {
 
   const handleChangeNeteable = (e) => {
     const selectedNeteable = e.target.value;
-    const descripcionNeteable = selectedNeteable === 1 ? 'Disponible para ventas' : 'No disponible';
+    const descripcionNeteable =
+      selectedNeteable === 1 ? "Disponible para ventas" : "No disponible";
     setBodegaData({
       ...bodegaData,
       Neteable: selectedNeteable,
@@ -312,7 +348,8 @@ const DataGridB = () => {
 
   const handleChangeActivo = (e) => {
     const selectedActivo = e.target.value;
-    const descripcionActivo = selectedActivo === 1 ? 'Disponible para ventas' : 'No disponible';
+    const descripcionActivo =
+      selectedActivo === 1 ? "Disponible para ventas" : "No disponible";
     setBodegaData({
       ...bodegaData,
       activo: selectedActivo,
@@ -322,42 +359,46 @@ const DataGridB = () => {
 
   const handleCloseModalUbicaciones = () => {
     // Restablecer el searchTerm cuando se cierra la modal
-    setSearchTerm('');
+    setSearchTerm("");
     setOpenModalUbicaciones(false);
   };
 
   const handleSaveChanges = async () => {
     try {
-      const response = await axios.put(`${apiUrl}/inventario/bodegas/${bodegaData.id}`, {
-        nombre: bodegaData.Nombre,
-        tipo: bodegaData.Tipo,
-        neteable: bodegaData.Neteable, // Enviar el ID del rol
-        activo: bodegaData.activo, // Enviar permisos como string
-        rol_id: bodegaData.rol_id // Enviar el estado (1 o 0)
-      });
+      const response = await axios.put(
+        `${apiUrl}/inventario/bodegas/${bodegaData.id}`,
+        {
+          nombre: bodegaData.Nombre,
+          tipo: bodegaData.Tipo,
+          neteable: bodegaData.Neteable, // Enviar el ID del rol
+          activo: bodegaData.activo, // Enviar permisos como string
+          rol_id: bodegaData.rol_id, // Enviar el estado (1 o 0)
+        },
+      );
       if (response.data.ok) {
         Swal.fire({
-          title: 'Bodega actualizada',
-          text: 'Los cambios se guardaron correctamente',
-          icon: 'success',
+          title: "Bodega actualizada",
+          text: "Los cambios se guardaron correctamente",
+          icon: "success",
           timer: 5000,
           showCloseButton: true,
-          allowEscapeKey: true
+          allowEscapeKey: true,
         });
-        setBodegaData('');
+        setBodegaData("");
         fetchBodegas();
         setOpenModal(false);
       }
     } catch (error) {
-      setBodegaData('');
-      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+      setBodegaData("");
+      const errorMessage =
+        error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
-        title: 'Error',
+        title: "Error",
         text: errorMessage,
-        icon: 'error',
+        icon: "error",
         timer: 5000,
         showCloseButton: true,
-        allowEscapeKey: true
+        allowEscapeKey: true,
       });
       setOpenModal(false);
     }
@@ -373,37 +414,41 @@ const DataGridB = () => {
 
   const handleSaveChangesUbicacion = async () => {
     try {
-      const response = await axios.put(`${apiUrl}/inventario/localidades/${ubicacionData.id}`, {
-        descripcion: ubicacionData.descripcion,
-        disponible: ubicacionData.disponible,
-        activo: ubicacionData.activo
-      });
+      const response = await axios.put(
+        `${apiUrl}/inventario/localidades/${ubicacionData.id}`,
+        {
+          descripcion: ubicacionData.descripcion,
+          disponible: ubicacionData.disponible,
+          activo: ubicacionData.activo,
+        },
+      );
       if (response.data.ok) {
         Swal.fire({
-          title: 'Ubicación actualizada',
-          text: 'Los cambios se guardaron correctamente',
-          icon: 'success',
+          title: "Ubicación actualizada",
+          text: "Los cambios se guardaron correctamente",
+          icon: "success",
           timer: 5000,
           showCloseButton: true,
           allowEscapeKey: true,
           timerProgressBar: true,
-          target: document.getElementById('modal-consultaUbi'),
+          target: document.getElementById("modal-consultaUbi"),
         });
-        setUbicacionData('');
+        setUbicacionData("");
         fetchUbicaciones();
         setOpenModalUbicacionesUpdate(false);
       }
     } catch (error) {
-      setUbicacionData('');
-      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+      setUbicacionData("");
+      const errorMessage =
+        error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
-        title: 'Error',
+        title: "Error",
         text: errorMessage,
-        icon: 'error',
+        icon: "error",
         timer: 5000,
         showCloseButton: true,
         allowEscapeKey: true,
-        target: document.getElementById('modal-consultaUbi'),
+        target: document.getElementById("modal-consultaUbi"),
       });
       setOpenModalUbicacionesUpdate(false);
     }
@@ -414,37 +459,38 @@ const DataGridB = () => {
       const response = await axios.post(`${apiUrl}/inventario/localidades/`, {
         descripcion: newUbicacionData.descripcion,
         disponible: newUbicacionData.disponible,
-        bodega_id: selectedBodega
+        bodega_id: selectedBodega,
       });
       if (response.data.ok) {
         Swal.fire({
-          title: 'Ubicación creada',
-          text: 'La nueva ubicación se ha creado correctamente',
-          icon: 'success',
+          title: "Ubicación creada",
+          text: "La nueva ubicación se ha creado correctamente",
+          icon: "success",
           timer: 5000,
           showCloseButton: true,
           allowEscapeKey: true,
-          target: document.getElementById('modal-consultaUbi'),
+          target: document.getElementById("modal-consultaUbi"),
         });
         fetchUbicaciones();
-        setNewUbicacionData('');
+        setNewUbicacionData("");
         handleCloseModalPostUbicaciones();
       }
     } catch (error) {
-      setNewUbicacionData('');
-      const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+      setNewUbicacionData("");
+      const errorMessage =
+        error.response?.data?.message || "Ha ocurrido un error desconocido";
       Swal.fire({
-        title: 'Error',
+        title: "Error",
         text: errorMessage,
-        icon: 'error',
+        icon: "error",
         timer: 5000,
         showCloseButton: true,
         allowEscapeKey: true,
-        target: document.getElementById('modal-consultaUbi'),
+        target: document.getElementById("modal-consultaUbi"),
       });
       handleCloseModalPostUbicaciones();
     }
-  }
+  };
 
   const handleOpenModalUpdateUbicaciones = (ubicacion) => {
     setSelectedUbicacion(ubicacion);
@@ -460,8 +506,8 @@ const DataGridB = () => {
 
     // Aplica el filtro de búsqueda
     if (searchTerm) {
-      filtered = filtered.filter(ubicacion =>
-        ubicacion.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((ubicacion) =>
+        ubicacion.descripcion.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -469,85 +515,96 @@ const DataGridB = () => {
   }, [searchTerm, rowsUbicaciones]);
 
   const columns = [
-    { field: 'id', headerName: 'Folio', flex: 1 },
-    { field: 'Nombre', headerName: 'Nombre', flex: 1 },
-    { field: 'Tipo', headerName: 'Tipo', flex: 1 },
-    { field: 'Neteable', headerName: 'Estado', flex: 1 },
-    { field: 'activo', headerName: 'Estatus', flex: 1 },
-    { field: 'rol_id', headerName: 'Rol', flex: 1 },
-    { field: 'rol_descripcion', headerName: 'Rol', flex: 1 },
+    { field: "id", headerName: "Folio", flex: 1 },
+    { field: "Nombre", headerName: "Nombre", flex: 1 },
+    { field: "Tipo", headerName: "Tipo", flex: 1 },
+    { field: "Neteable", headerName: "Estado", flex: 1 },
+    { field: "activo", headerName: "Estatus", flex: 1 },
+    { field: "rol_id", headerName: "Rol", flex: 1 },
+    { field: "rol_descripcion", headerName: "Rol", flex: 1 },
     {
-      field: 'actions', headerName: 'Acciones', type: 'actions', flex: 1, getActions: (params) => [
-        <Tooltip title='Ver detalles' >
+      field: "actions",
+      headerName: "Acciones",
+      type: "actions",
+      flex: 1,
+      getActions: (params) => [
+        <Tooltip title="Ver detalles">
           <GridActionsCellItem
             icon={<EditNoteIcon />}
-            sx={{ color: 'green' }}
+            sx={{ color: "green" }}
             onClick={() => handleOpenModal(params.row)}
           />
         </Tooltip>,
-        <Tooltip title='Ver ubicaciones' >
+        <Tooltip title="Ver ubicaciones">
           <GridActionsCellItem
             icon={<LocationOnOutlinedIcon />}
-            sx={{ color: 'blue' }}
+            sx={{ color: "blue" }}
             onClick={() => handleOpenModalUbicaciones(params.row)}
           />
-        </Tooltip>
+        </Tooltip>,
       ],
-
     },
   ];
 
   //Columnas del DataGrid de ubicaciones
   const columnsUbicaciones = [
-    { field: 'id', headerName: 'Folio', flex: 1 },
-    { field: 'descripcion', headerName: 'Descripción', flex: 1 },
+    { field: "id", headerName: "Folio", flex: 1 },
+    { field: "descripcion", headerName: "Descripción", flex: 1 },
     {
-      field: 'disponible', headerName: 'Disponible para venta', flex: 1,
+      field: "disponible",
+      headerName: "Disponible para venta",
+      flex: 1,
       renderCell: (params) => {
-        return params.value === 1 ? 'Sí' : 'No';
-      }
+        return params.value === 1 ? "Sí" : "No";
+      },
     },
-    { field: 'bodega_nombre', headerName: 'Bodega', flex: 1 },
+    { field: "bodega_nombre", headerName: "Bodega", flex: 1 },
     {
-      field: 'activo', headerName: 'Activo', flex: 1,
+      field: "activo",
+      headerName: "Activo",
+      flex: 1,
       renderCell: (params) => {
-        return params.value === 1 ? 'Sí' : 'No';
-      }
+        return params.value === 1 ? "Sí" : "No";
+      },
     },
     {
-      field: 'actions', headerName: 'Acciones', type: 'actions', flex: 1, getActions: (params) => [
-        <Tooltip title='Ver detalles' >
+      field: "actions",
+      headerName: "Acciones",
+      type: "actions",
+      flex: 1,
+      getActions: (params) => [
+        <Tooltip title="Ver detalles">
           <GridActionsCellItem
             icon={<EditNoteIcon />}
-            sx={{ color: 'green' }}
+            sx={{ color: "green" }}
             onClick={() => handleOpenModalUpdateUbicaciones(params.row)}
           />
-        </Tooltip>
+        </Tooltip>,
       ],
-
     },
   ];
 
   return (
-    <div className='contenido'>
-      <div className='encabezado'>
+    <div className="contenido">
+      <div className="encabezado">
         <h1>Bodegas</h1>
       </div>
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '500px',
-          width: 'auto',
-          margin: '30px',
-          marginTop: '-30px'
-        }}>
+          display: "flex",
+          flexDirection: "column",
+          height: "500px",
+          width: "auto",
+          margin: "30px",
+          marginTop: "-30px",
+        }}
+      >
         {/* Contenedor flex para el TextField y el Button */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center', // Para alinear ambos elementos a la misma altura
-            marginBottom: '10px', // Espacio entre el formulario y el DataGrid
+            display: "flex",
+            alignItems: "center", // Para alinear ambos elementos a la misma altura
+            marginBottom: "10px", // Espacio entre el formulario y el DataGrid
           }}
         >
           {/* TextField alineado a la izquierda */}
@@ -556,8 +613,8 @@ const DataGridB = () => {
             label="Buscar bodega"
             variant="outlined"
             style={{
-              maxWidth: '300px', // Ajusta el tamaño del TextField según sea necesario
-              marginRight: 'auto', // Para que el TextField ocupe todo el espacio posible
+              maxWidth: "300px", // Ajusta el tamaño del TextField según sea necesario
+              marginRight: "auto", // Para que el TextField ocupe todo el espacio posible
             }}
           />
           {/* Botón alineado a la derecha */}
@@ -566,7 +623,7 @@ const DataGridB = () => {
             color="primary"
             onClick={handleOpenModalPost}
             style={{
-              marginLeft: 'auto', // Empuja el botón hacia la derecha
+              marginLeft: "auto", // Empuja el botón hacia la derecha
             }}
           >
             Agregar Bodega
@@ -577,6 +634,7 @@ const DataGridB = () => {
           rows={rows}
           columns={columns}
           pageSize={5}
+          loading={loading}
           disableColumnResize={false}
           showCellVerticalBorder
           showColumnVerticalBorder
@@ -586,40 +644,41 @@ const DataGridB = () => {
             id: false,
             rol_id: false,
             Neteable: false,
-            activo: false
+            activo: false,
           }}
         />
       </div>
       {/* Modal para editar bodega */}
-      < Dialog open={openModal} onClose={handleCloseModal} >
+      <Dialog open={openModal} onClose={handleCloseModal}>
         <DialogTitle>Editar Bodega</DialogTitle>
         <DialogContent>
           <TextField
-            label={'Nombre'}
+            label={"Nombre"}
             fullWidth
             margin="normal"
             value={bodegaData.Nombre}
-            onChange={(e) => setBodegaData({ ...bodegaData, Nombre: e.target.value })}
+            onChange={(e) =>
+              setBodegaData({ ...bodegaData, Nombre: e.target.value })
+            }
           />
           <TextField
-            label={'Tipo'}
+            label={"Tipo"}
             fullWidth
             margin="normal"
             value={bodegaData.Tipo}
-            onChange={(e) => setBodegaData({ ...bodegaData, Tipo: e.target.value })}
+            onChange={(e) =>
+              setBodegaData({ ...bodegaData, Tipo: e.target.value })
+            }
           />
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Neteable'}</InputLabel>
-            <Select
-              value={bodegaData.Neteable}
-              onChange={handleChangeNeteable}
-            >
+            <InputLabel>{"Neteable"}</InputLabel>
+            <Select value={bodegaData.Neteable} onChange={handleChangeNeteable}>
               <MenuItem value={1}>Disponible para ventas</MenuItem>
               <MenuItem value={0}>No disponible</MenuItem>
             </Select>
           </FormControl>
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Rol'}</InputLabel>
+            <InputLabel>{"Rol"}</InputLabel>
             <Select
               value={bodegaData.rol_id}
               onChange={(e) => {
@@ -635,7 +694,7 @@ const DataGridB = () => {
               <MenuItem value="">
                 <em>Seleccionar rol</em>
               </MenuItem>
-              {roles.map(role => (
+              {roles.map((role) => (
                 <MenuItem key={role.id} value={role.id}>
                   {role.descripcion}
                 </MenuItem>
@@ -643,11 +702,8 @@ const DataGridB = () => {
             </Select>
           </FormControl>
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Estatus'}</InputLabel>
-            <Select
-              value={bodegaData.activo}
-              onChange={handleChangeActivo}
-            >
+            <InputLabel>{"Estatus"}</InputLabel>
+            <Select value={bodegaData.activo} onChange={handleChangeActivo}>
               <MenuItem value={1}>Activo</MenuItem>
               <MenuItem value={0}>Inactivo</MenuItem>
             </Select>
@@ -661,37 +717,43 @@ const DataGridB = () => {
             Guardar
           </Button>
         </DialogActions>
-      </Dialog >
+      </Dialog>
       {/* Modal para crear bodega */}
-      < Dialog open={openModalPost} onClose={handleCloseModalPost} >
+      <Dialog open={openModalPost} onClose={handleCloseModalPost}>
         <DialogTitle>Crear Bodega</DialogTitle>
         <DialogContent>
           <TextField
-            label={'Nombre'}
+            label={"Nombre"}
             fullWidth
             margin="normal"
             value={newBodegaData.Nombre}
-            onChange={(e) => setNewBodegaData({ ...newBodegaData, Nombre: e.target.value })}
+            onChange={(e) =>
+              setNewBodegaData({ ...newBodegaData, Nombre: e.target.value })
+            }
           />
           <TextField
-            label={'Tipo'}
+            label={"Tipo"}
             fullWidth
             margin="normal"
             value={newBodegaData.Tipo}
-            onChange={(e) => setNewBodegaData({ ...newBodegaData, Tipo: e.target.value })}
+            onChange={(e) =>
+              setNewBodegaData({ ...newBodegaData, Tipo: e.target.value })
+            }
           />
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Disponible para ventas'}</InputLabel>
+            <InputLabel>{"Disponible para ventas"}</InputLabel>
             <Select
               value={newBodegaData.Neteable}
-              onChange={(e) => setNewBodegaData({ ...newBodegaData, Neteable: e.target.value })}
+              onChange={(e) =>
+                setNewBodegaData({ ...newBodegaData, Neteable: e.target.value })
+              }
             >
               <MenuItem value={1}>Disponible para ventas</MenuItem>
               <MenuItem value={0}>No disponible</MenuItem>
             </Select>
           </FormControl>
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Rol'}</InputLabel>
+            <InputLabel>{"Rol"}</InputLabel>
             <Select
               value={newBodegaData.rol_id} // El valor de 'rol_id' debe coincidir con los valores de los roles
               onChange={(e) => {
@@ -708,13 +770,15 @@ const DataGridB = () => {
                 <em>Seleccionar rol</em>
               </MenuItem>
               {roles.length > 0 ? (
-                roles.map(role => (
+                roles.map((role) => (
                   <MenuItem key={role.id} value={role.id}>
                     {role.descripcion}
                   </MenuItem>
                 ))
               ) : (
-                <MenuItem value="" disabled>No hay roles disponibles</MenuItem>
+                <MenuItem value="" disabled>
+                  No hay roles disponibles
+                </MenuItem>
               )}
             </Select>
           </FormControl>
@@ -727,31 +791,36 @@ const DataGridB = () => {
             Guardar
           </Button>
         </DialogActions>
-      </Dialog >
+      </Dialog>
       {/* Ventana Modal Para Consultar Ubicaciones Por bodega*/}
-      <Modal id='modal-consultaUbi' open={openModalUbicaciones} onClose={handleCloseModalUbicaciones}>
+      <Modal
+        id="modal-consultaUbi"
+        open={openModalUbicaciones}
+        onClose={handleCloseModalUbicaciones}
+      >
         <Box sx={modalStyle}>
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '500px',
-              width: 'auto',
-              margin: '30px',
-            }}>
+              display: "flex",
+              flexDirection: "column",
+              height: "500px",
+              width: "auto",
+              margin: "30px",
+            }}
+          >
             {/* Contenedor flex para el TextField y el Button */}
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center', // Para alinear ambos elementos a la misma altura
-                marginBottom: '10px', // Espacio entre el formulario y el DataGrid
+                display: "flex",
+                alignItems: "center", // Para alinear ambos elementos a la misma altura
+                marginBottom: "10px", // Espacio entre el formulario y el DataGrid
               }}
             >
               <TextField
                 label="Buscador..."
-                color='primary'
+                color="primary"
                 focused
-                sx={{ width: '20rem', marginBottom: '10px' }}
+                sx={{ width: "20rem", marginBottom: "10px" }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -761,7 +830,7 @@ const DataGridB = () => {
                 color="primary"
                 onClick={handleOpenModalPostUbicacion}
                 style={{
-                  marginLeft: 'auto', // Empuja el botón hacia la derecha
+                  marginLeft: "auto", // Empuja el botón hacia la derecha
                 }}
               >
                 Agregar Ubicación
@@ -769,7 +838,13 @@ const DataGridB = () => {
             </div>
             {/* DataGrid */}
             <ThemeProvider theme={theme}>
-              <DataGrid style={{ fontFamily: "Montserrat", fontWeight: "bold", width: 1300, height: 500 }}
+              <DataGrid
+                style={{
+                  fontFamily: "Montserrat",
+                  fontWeight: "bold",
+                  width: 1300,
+                  height: 500,
+                }}
                 rows={filteredUbicaciones}
                 columns={columnsUbicaciones}
                 pageSize={5}
@@ -777,37 +852,57 @@ const DataGridB = () => {
                 showColumnVerticalBorder
                 getRowId={(row) => row.id}
                 columnVisibilityModel={columnVisibilityModelProducts}
-                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelProducts(newModel)}
+                onColumnVisibilityModelChange={(newModel) =>
+                  setColumnVisibilityModelProducts(newModel)
+                }
                 experimentalFeatures={{ newEditingApi: true }}
                 density="compact" // Establece el tamaño de las filas en compacto por defecto
                 slots={{ toolbar: CustomToolbar }}
               />
             </ThemeProvider>
-            <Button onClick={handleCloseModalUbicaciones} variant="contained" color="primary"
+            <Button
+              onClick={handleCloseModalUbicaciones}
+              variant="contained"
+              color="primary"
               sx={{
-                marginTop: '10px',
-                marginLeft: '93%'
+                marginTop: "10px",
+                marginLeft: "93%",
               }}
-            >Cerrar</Button>
+            >
+              Cerrar
+            </Button>
           </div>
         </Box>
       </Modal>
       {/* Modal para crear ubicación en una bodega */}
-      < Dialog open={openModalUbicacionesPost} onClose={handleCloseModalPostUbicaciones} >
+      <Dialog
+        open={openModalUbicacionesPost}
+        onClose={handleCloseModalPostUbicaciones}
+      >
         <DialogTitle>Crear Ubicación</DialogTitle>
         <DialogContent>
           <TextField
-            label={'Descripción'}
+            label={"Descripción"}
             fullWidth
             margin="normal"
             value={newUbicacionData.descripcion}
-            onChange={(e) => setNewUbicacionData({ ...newUbicacionData, descripcion: e.target.value })}
+            onChange={(e) =>
+              setNewUbicacionData({
+                ...newUbicacionData,
+                descripcion: e.target.value,
+              })
+            }
           />
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Disponible para ventas'}</InputLabel>
+            <InputLabel>{"Disponible para ventas"}</InputLabel>
             <Select
               value={newUbicacionData.disponible}
-              onChange={(e) => setNewUbicacionData({ ...newUbicacionData, disponible: e.target.value })}
+              onChange={(e) =>
+                setNewUbicacionData({
+                  ...newUbicacionData,
+                  disponible: e.target.value,
+                })
+              }
             >
               <MenuItem value={1}>Disponible para ventas</MenuItem>
               <MenuItem value={0}>No disponible</MenuItem>
@@ -822,33 +917,48 @@ const DataGridB = () => {
             Guardar
           </Button>
         </DialogActions>
-      </Dialog >
+      </Dialog>
       {/* Modal para editar ubicación */}
-      < Dialog open={openModalUbicacionesUpdate} onClose={handleCloseModalUpdateUbicaciones} >
+      <Dialog
+        open={openModalUbicacionesUpdate}
+        onClose={handleCloseModalUpdateUbicaciones}
+      >
         <DialogTitle>Editar Ubicación</DialogTitle>
         <DialogContent>
           <TextField
-            label={'Descripción'}
+            label={"Descripción"}
             fullWidth
             margin="normal"
             value={ubicacionData.descripcion}
-            onChange={(e) => setUbicacionData({ ...ubicacionData, descripcion: e.target.value })}
+            onChange={(e) =>
+              setUbicacionData({
+                ...ubicacionData,
+                descripcion: e.target.value,
+              })
+            }
           />
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Disponible para ventas'}</InputLabel>
+            <InputLabel>{"Disponible para ventas"}</InputLabel>
             <Select
               value={ubicacionData.disponible}
-              onChange={(e) => setUbicacionData({ ...ubicacionData, disponible: e.target.value })}
+              onChange={(e) =>
+                setUbicacionData({
+                  ...ubicacionData,
+                  disponible: e.target.value,
+                })
+              }
             >
               <MenuItem value={1}>Disponible para ventas</MenuItem>
               <MenuItem value={0}>No disponible</MenuItem>
             </Select>
           </FormControl>
           <FormControl fullWidth margin="normal">
-            <InputLabel>{'Estatus'}</InputLabel>
+            <InputLabel>{"Estatus"}</InputLabel>
             <Select
               value={ubicacionData.activo}
-              onChange={(e) => setUbicacionData({ ...ubicacionData, activo: e.target.value })}
+              onChange={(e) =>
+                setUbicacionData({ ...ubicacionData, activo: e.target.value })
+              }
             >
               <MenuItem value={1}>Activo</MenuItem>
               <MenuItem value={0}>Inactivo</MenuItem>
@@ -863,9 +973,9 @@ const DataGridB = () => {
             Guardar
           </Button>
         </DialogActions>
-      </Dialog >
+      </Dialog>
     </div>
-  )
-}
+  );
+};
 
-export default DataGridB
+export default DataGridB;

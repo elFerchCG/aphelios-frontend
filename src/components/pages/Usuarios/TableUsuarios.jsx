@@ -35,6 +35,7 @@ const TableUsuarios = () => {
   const [openModalPost, setOpenModalPost] = useState(false);
   const [openRolModal, setOpenRolModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState({
     // Datos del usuario en los campos
     id_usuario: "",
@@ -54,6 +55,7 @@ const TableUsuarios = () => {
   });
 
   const fetchUsuarios = async () => {
+    setLoading(true);
     try {
       const response = await axios.get(`${apiUrl}/usuarios`);
       if (response.data && Array.isArray(response.data)) {
@@ -77,6 +79,8 @@ const TableUsuarios = () => {
         showCloseButton: true,
         allowEscapeKey: true,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -332,6 +336,7 @@ const TableUsuarios = () => {
         <DataGrid
           rows={filteredRows}
           columns={columns}
+          loading={loading}
           initialState={{
             pagination: {
               paginationModel: {
