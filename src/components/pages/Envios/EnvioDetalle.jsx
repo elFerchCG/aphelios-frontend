@@ -15,7 +15,7 @@ import AutorenewIcon from '@mui/icons-material/Autorenew';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import dayjs from 'dayjs';
-import { Button, TextField, Box, Typography, CircularProgress, Tooltip, Collapse, Paper, Table, TableCell, TableBody, TableRow, TableHead, IconButton } from '@mui/material';
+import { Button, TextField, Box, Typography, CircularProgress, Tooltip, Collapse, Paper, Table, TableCell, TableBody, TableRow, TableHead, IconButton, Grid, Card, CardContent, LinearProgress } from '@mui/material';
 
 
 const EnvioDetalle = () => {
@@ -27,6 +27,7 @@ const EnvioDetalle = () => {
     const { envioId } = useParams(); // 👈 obtenemos el id de la URL
     const location = useLocation();
     const [estatusEnvio, setEstatusEnvio] = useState(location.state?.estatusEnvio || '');
+    const [descripcionEnvio, setDescripcionEnvio] = useState(location.state?.descripcionEnvio || '');
 
     //console.log("Estatus envio:", estatusEnvio);
 
@@ -44,7 +45,9 @@ const EnvioDetalle = () => {
     const navigate = useNavigate();
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
-
+    const [totalPiezas, setTotalPiezas] = useState(0);
+    const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
+    const [loading, setLoading] = useState(true);
 
     const formatFecha = (fechaISO) => {
         if (!fechaISO) return '';
@@ -100,6 +103,31 @@ const EnvioDetalle = () => {
     useEffect(() => {
         fetchTarimas();
     }, [apiUrl]);
+
+    const fetchPiezasYFacturas = async () => {
+        try {
+            setLoading(true);
+            const response = await axios.get(`${apiUrl}/empaque/getPiezasYFacturas/${envioId}`);
+            setTotalPiezas(Number(response.data.total_piezas || []));
+            setTotalPiezasEmpacadas(Number(response.data.total_piezas_empacadas || []));
+            setLoading(false);
+        } catch (error) {
+            setLoading(false);
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
+    };
+
+    useEffect(() => {
+        fetchPiezasYFacturas();
+    }, [envioId]);
 
     const fetchTarimas = async () => {
         setLoadingTarimas(true);
@@ -292,6 +320,7 @@ const EnvioDetalle = () => {
                 }));
             }
         } catch (error) {
+            console.error("Error al traer cajas:", error);
         }
     };
 
@@ -311,6 +340,24 @@ const EnvioDetalle = () => {
             setLoadingCajas(false);
         }, 300);
     };
+
+    useEffect(() => {
+        // Buscamos si existe alguna tarima abierta en la lista actual
+        const tarimaAbierta = tarimas.find(t => t.estatus === 'abierta');
+
+        if (tarimaAbierta) {
+            // 1. Seteamos el loading para esa tarima de forma inmediata
+            setLoadingCajas(true);
+
+            // 2. Traemos sus cajas correspondientes de la API
+            fetchCajas(tarimaAbierta.id).finally(() => {
+                setLoadingCajas(false);
+            });
+
+            // 3. Opcional: Aseguramos que el estado del ID expandido se sincronice
+            setExpandedRowId(tarimaAbierta.id);
+        }
+    }, [tarimas]); // 🔑 Se ejecutará cada vez que la lista de tarimas cambie (por ejemplo, al renderizar por primera vez)
 
     const columns = [
         { field: "id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
@@ -367,7 +414,7 @@ const EnvioDetalle = () => {
                         <GridActionsCellItem
                             icon={
                                 <Box display="flex" flexDirection="column" alignItems="center">
-                                    {expandedRowId === params.row.id ? (
+                                    {expandedRowId === params.row.id || params.row.estatus === 'abierta' ? (
                                         <KeyboardArrowDownIcon sx={{ color: "blue", fontSize: "2rem" }} />
                                     ) : (
                                         <KeyboardArrowRightIcon sx={{ color: "blue", fontSize: "2rem" }} />
@@ -423,34 +470,98 @@ const EnvioDetalle = () => {
     const puedeVerBotonCerrarEnvio = user && (user.rol_descripcion === 'administrador');
 
     return (
-        <div>
-            {/* Título y botón de progreso */}
+        <Box p={3}>
 
-            <Box
-                sx={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    px: 1,
-                    mt: 1,
-                    mb: 3,
-                }}
-            >
-                {puederVerBotonProgeso && (
+            <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                    <Card
+                        sx={{
+                            borderRadius: 2,
+                            boxShadow: 2,
+                            transition: "transform 0.2s",
+                            "&:hover": { transform: "scale(1.02)" },
+                        }}
+                    >
+                        <CardContent>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                Envío
+                            </Typography>
+                            <Typography variant="h6">{descripcionEnvio || `ID: ${envioId}`}</Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                    <Card
+                        sx={{
+                            borderRadius: 2,
+                            boxShadow: 2,
+                            transition: "transform 0.2s",
+                            "&:hover": { transform: "scale(1.02)" },
+                        }}
+                    >
+                        <CardContent>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                Progreso del envío
+                            </Typography>
+                            <Typography variant="h6">
+                                {totalPiezas > 0
+                                    ? Math.round((totalPiezasEmpacadas / totalPiezas) * 100)
+                                    : 0}
+                                %
+                            </Typography>
+                            <LinearProgress
+                                variant="determinate"
+                                value={
+                                    totalPiezas > 0
+                                        ? (totalPiezasEmpacadas / totalPiezas) * 100
+                                        : 0
+                                }
+                            />
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                    <Card
+                        sx={{
+                            borderRadius: 2,
+                            boxShadow: 2,
+                            transition: "transform 0.2s",
+                            "&:hover": { transform: "scale(1.02)" },
+                        }}
+                    >
+                        <CardContent>
+                            <Typography variant="subtitle2" color="text.secondary">
+                                Resumen
+                            </Typography>
+                            <Typography>Total piezas: {totalPiezas}</Typography>
+                            <Typography>Empacadas: {totalPiezasEmpacadas}</Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+
+            {/* 🔑 BOTÓN PROGRESO: Posicionado exactamente aquí con margen inferior */}
+            {puederVerBotonProgeso && (
+                <Box sx={{ mt: 1.5, mb: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
                     <Button
                         variant='contained'
                         color="success"
                         label="Progreso de Empaque"
-                        onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`)}
+                        onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`, {
+                            state: { descripcionEnvio }
+                        })}
                         sx={{ textTransform: "none" }}
                     >
                         Progreso
                     </Button>
-                )}
-            </Box >
+                </Box>
+            )}
 
             {/* Muestra el CircularProgress mientras cargan los datos */}
-            < Box sx={{ px: 4 }}>
-                <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2, mt: -2 }}>
+            <Box>
+                <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
                     {/* DataGrid a la izquierda */}
                     <Box
                         sx={{
@@ -523,7 +634,7 @@ const EnvioDetalle = () => {
                                             gap: 1, // Espacio entre botón y tabla
                                         }}>
                                             <Typography variant="h6" sx={{ mb: 1 }}>
-                                                Cajas de la tarima #{tarima.id}
+                                                Cajas de la tarima #{tarima.visual_id}
                                             </Typography>
                                             <Button
                                                 variant="contained"
@@ -547,60 +658,62 @@ const EnvioDetalle = () => {
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
-                                                {(cajas[tarima.id] || []).map((caja, index) => (
-                                                    <TableRow key={index}>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}>{caja.id}</TableCell>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.visual_id}</TableCell>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.nombre_usuario}</TableCell>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{formatFecha(caja.fecha_recepcion)}</TableCell>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.total_cantidad}</TableCell>
-                                                        <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.estatus}</TableCell>
-                                                        <TableCell>
-                                                            <Box display="flex" flexDirection="row" justifyContent="center" gap={2}>
-                                                                <Box display="flex" flexDirection="column" alignItems="center">
-                                                                    <IconButton
-                                                                        color="primary"
-                                                                        onClick={() => handleEntrarCajaCerrada(envioId, caja.id, caja.visual_id)}
-                                                                        disabled={caja.estatus !== 'cerrada'}
-                                                                    >
-                                                                        <ListAltIcon sx={{ fontSize: "2rem" }} />
-                                                                    </IconButton>
-                                                                    <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                                                        Registros
-                                                                    </Typography>
+                                                {(cajas[tarima.id] || [])
+                                                    .sort((a, b) => Number(b.visual_id) - Number(a.visual_id))
+                                                    .map((caja, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}>{caja.id}</TableCell>
+                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.visual_id}</TableCell>
+                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.nombre_usuario}</TableCell>
+                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{formatFecha(caja.fecha_recepcion)}</TableCell>
+                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.total_cantidad}</TableCell>
+                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.estatus}</TableCell>
+                                                            <TableCell>
+                                                                <Box display="flex" flexDirection="row" justifyContent="center" gap={2}>
+                                                                    <Box display="flex" flexDirection="column" alignItems="center">
+                                                                        <IconButton
+                                                                            color="primary"
+                                                                            onClick={() => handleEntrarCajaCerrada(envioId, caja.id, caja.visual_id)}
+                                                                            disabled={caja.estatus !== 'cerrada'}
+                                                                        >
+                                                                            <ListAltIcon sx={{ fontSize: "2rem" }} />
+                                                                        </IconButton>
+                                                                        <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
+                                                                            Registros
+                                                                        </Typography>
+                                                                    </Box>
+                                                                    <Box display="flex" flexDirection="column" alignItems="center">
+                                                                        <IconButton
+                                                                            onClick={() => revertirCaja(caja.id, tarima.id)}
+                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus !== 'cerrada'}
+                                                                        >
+                                                                            <AutorenewIcon sx={{
+                                                                                color: tarima.estatus === 'cerrada'
+                                                                                    ? 'gray'
+                                                                                    : (caja.estatus === 'cerrada' ? 'orange' : undefined),
+                                                                                fontSize: "2rem"
+                                                                            }}
+                                                                            />
+                                                                        </IconButton>
+                                                                        <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
+                                                                            Reabrir
+                                                                        </Typography>
+                                                                    </Box>
+                                                                    <Box display="flex" flexDirection="column" alignItems="center">
+                                                                        <IconButton
+                                                                            onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
+                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus === 'cerrada'}
+                                                                        >
+                                                                            <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' ? "rebeccapurple" : undefined, fontSize: "2rem" }} />
+                                                                        </IconButton>
+                                                                        <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
+                                                                            Escanear
+                                                                        </Typography>
+                                                                    </Box>
                                                                 </Box>
-                                                                <Box display="flex" flexDirection="column" alignItems="center">
-                                                                    <IconButton
-                                                                        onClick={() => revertirCaja(caja.id, tarima.id)}
-                                                                        disabled={tarima.estatus === 'cerrada' || caja.estatus !== 'cerrada'}
-                                                                    >
-                                                                        <AutorenewIcon sx={{
-                                                                            color: tarima.estatus === 'cerrada'
-                                                                                ? 'gray'
-                                                                                : (caja.estatus === 'cerrada' ? 'orange' : undefined),
-                                                                            fontSize: "2rem"
-                                                                        }}
-                                                                        />
-                                                                    </IconButton>
-                                                                    <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                                                        Reabrir
-                                                                    </Typography>
-                                                                </Box>
-                                                                <Box display="flex" flexDirection="column" alignItems="center">
-                                                                    <IconButton
-                                                                        onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
-                                                                        disabled={tarima.estatus === 'cerrada' || caja.estatus === 'cerrada'}
-                                                                    >
-                                                                        <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' ? "rebeccapurple" : undefined, fontSize: "2rem" }} />
-                                                                    </IconButton>
-                                                                    <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                                                        Escanear
-                                                                    </Typography>
-                                                                </Box>
-                                                            </Box>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
                                             </TableBody>
                                         </Table>
                                     </>
@@ -624,7 +737,7 @@ const EnvioDetalle = () => {
                     )}
                 </Box>
             </Box >
-        </div >
+        </Box>
     )
 }
 

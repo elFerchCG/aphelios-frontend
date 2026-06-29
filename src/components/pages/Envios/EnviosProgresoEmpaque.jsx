@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
 import { DataGrid, GridEditInputCell } from "@mui/x-data-grid";
@@ -25,6 +25,9 @@ import IconButton from '@mui/material/IconButton';
 const EnviosProgresoEmpaque = () => {
 
     const { envioId } = useParams();
+    const location = useLocation();
+
+    const [descripcionEnvio] = useState(location.state?.descripcionEnvio || '');
 
     const [totalPiezas, setTotalPiezas] = useState(0);
     const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
@@ -37,6 +40,8 @@ const EnviosProgresoEmpaque = () => {
     const [ordenSeleccionada, setOrdenSeleccionada] = useState(null);
     const [detalleOrden, setDetalleOrden] = useState([]);
     const [loadingDetalle, setLoadingDetalle] = useState(false);
+    const [cajasProducto, setCajasProducto] = useState([]);
+    const [loadingCajas, setLoadingCajas] = useState(false);
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -114,6 +119,13 @@ const EnviosProgresoEmpaque = () => {
         { field: "componente_id", headerName: "Componente", flex: 1 },
         { field: "sku", headerName: "SKU", flex: 2 },
         { field: "descripcion", headerName: "Descripción", flex: 3 },
+        {
+            field: "cantidad_billete", headerName: "MRP", flex: 2, type: "number",
+            renderCell: (params) => {
+                const value = Number(params.value || 0);
+                return value;
+            }
+        },
         {
             field: "cantidad_facturada", headerName: "Requerida (Factura)", flex: 2, type: "number",
             renderCell: (params) => {
@@ -396,7 +408,7 @@ const EnviosProgresoEmpaque = () => {
             flex: 1,
             renderCell: (params) => {
                 const statusMap = {
-                    recibida: {
+                    recibido: {
                         label: "Recibida",
                         color: "default",   // gris
                     },
@@ -756,6 +768,81 @@ const EnviosProgresoEmpaque = () => {
         });
     };
 
+    useEffect(() => {
+        const fetchCajasDelProducto = async () => {
+            // Asegúrate de tener el id de la orden/producto y el id del envío actual
+            if (!ordenSeleccionada || !envioId) return;
+
+            setLoadingCajas(true);
+            try {
+                // Reemplaza con la URL real de tu backend
+                const response = await axios.get(
+                    `${apiUrl}/empaque/buscarProductoCajas/envio/${envioId}/producto/${ordenSeleccionada.producto_id}`
+                );
+
+                if (response.data && response.data.ok) {
+                    // Mapeamos los datos para asegurar que tengan un ID único para el DataGrid
+                    const dataConId = response.data.data.map((row, index) => ({
+                        ...row,
+                        id: row.caja_id // Usamos caja_id como llave primaria única
+                    }));
+                    setCajasProducto(dataConId);
+                }
+            } catch (error) {
+                console.error("Error al buscar las cajas del producto:", error);
+                setCajasProducto([]);
+            } finally {
+                setLoadingCajas(false);
+            }
+        };
+
+        if (openModal) {
+            fetchCajasDelProducto();
+        }
+    }, [openModal, ordenSeleccionada]);
+
+    const cajasCols = [
+        {
+            field: 'caja_visual_id',
+            headerName: '# Caja',
+            flex: 1,
+            minWidth: 120,
+            renderCell: (params) => (
+                <Chip label={`📦 Caja #${params.value}`} color="primary" variant="outlined" size="small" />
+            )
+        },
+        {
+            field: 'tarima_visual_id',
+            headerName: '# Tarima',
+            flex: 1,
+            minWidth: 120,
+            renderCell: (params) => params.value ? `Tarima #${params.value}` : 'Sin Asignar'
+        },
+        {
+            field: 'caja_estatus',
+            headerName: 'Estatus Caja',
+            flex: 1,
+            minWidth: 120,
+            renderCell: (params) => (
+                <Chip
+                    label={params.value.toUpperCase()}
+                    color={params.value === 'cerrada' ? 'secondary' : 'warning'}
+                    size="small"
+                />
+            )
+        },
+        {
+            field: 'cantidad_total',
+            headerName: 'Cantidad Empacada',
+            flex: 1,
+            minWidth: 150,
+            type: 'number',
+            renderCell: (params) => (
+                <strong>{params.value} pzas</strong>
+            )
+        }
+    ];
+
     return (
         <Box p={3}>
             <Typography variant="h4" fontWeight="bold" mb={2}>
@@ -776,7 +863,7 @@ const EnviosProgresoEmpaque = () => {
                             <Typography variant="subtitle2" color="text.secondary">
                                 Envío
                             </Typography>
-                            <Typography variant="h6">{envioId}</Typography>
+                            <Typography variant="h6">{descripcionEnvio || `ID: ${envioId}`}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -942,7 +1029,12 @@ const EnviosProgresoEmpaque = () => {
                 initialState={{
                     pagination: { paginationModel: { pageSize: 100, page: 0 } }
                 }}
-                sx={{ ...dashboardGridSx, mb: 4 }}
+                sx={{
+                    ...dashboardGridSx, flex: 0.4,
+                    minHeight: '200px', // Altura mínima para que no se colapse por completo
+                    maxHeight: '350px', // Altura máxima para garantizar que no tape a la de abajo
+                    mb: 2
+                }}
                 slots={{ toolbar: GridToolbar }}
                 loading={loading}
                 slotProps={{
@@ -952,7 +1044,21 @@ const EnviosProgresoEmpaque = () => {
                     },
                 }}
             />
-            <Dialog open={openModal} onClose={handleCloseModal} maxWidth="lg" fullWidth>
+            <Dialog
+                open={openModal}
+                onClose={handleCloseModal}
+                maxWidth={false} // 1. Desactivamos el límite máximo predefinido (lg, xl, etc.)
+                fullWidth        // 2. Le decimos que intente ocupar todo el ancho disponible
+                sx={{
+                    '& .MuiDialog-paper': {
+                        width: '95vw',      // 3. Ocupa el 95% del ancho de la pantalla (deja 5% de margen)
+                        maxWidth: '95vw',   // Asegura que no se limite en pantallas gigantes
+                        height: '92vh',     // 4. Ocupa el 92% del alto de la pantalla
+                        maxHeight: '92vh',  // Asegura que mantenga esa altura fija casi completa
+                        margin: 'auto',     // Centra la modal perfectamente
+                    }
+                }}
+            >
                 <DialogTitle>
                     Detalle Orden Producción #{ordenSeleccionada?.id}
                 </DialogTitle>
@@ -973,12 +1079,19 @@ const EnviosProgresoEmpaque = () => {
                         loading={loadingDetalle}
                         disableRowSelectionOnClick
                         hideFooterSelectedRowCount
-                        pageSizeOptions={[10, 25, 50, 100]}
+                        pageSizeOptions={[5, 10, 25]} // Bajamos las opciones visuales para acoplarse al tamaño compacto
                         initialState={{
-                            pagination: { paginationModel: { pageSize: 100, page: 0 } }
+                            pagination: { paginationModel: { pageSize: 5, page: 0 } }
                         }}
-                        sx={{ ...dashboardGridSx, mb: 4 }}
+                        // Forzamos un height máximo de 250px (puedes ajustarlo si necesitas ver más o menos renglones)
+                        sx={{
+                            ...dashboardGridSx,
+                            height: '250px',
+                            maxHeight: '250px',
+                            mb: 2
+                        }}
                         slots={{ toolbar: GridToolbar }}
+                        loading={loading}
                         slotProps={{
                             loadingOverlay: {
                                 variant: 'skeleton',
@@ -986,6 +1099,53 @@ const EnviosProgresoEmpaque = () => {
                             },
                         }}
                     />
+
+                    {/* SEPARADOR VISUAL E INTRODUCCIÓN DEL BUSCADOR DE CAJAS */}
+                    <Box sx={{
+                        pt: 2,
+                        borderTop: '2px dashed #e0e0e0',
+                        flex: 1, // 👉 CAMBIO: Le damos más peso en el flexbox para que use la mayoría de la pantalla
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0
+                    }}>
+                        <Typography variant="h6" mb={1} sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            🔍 Localización de Producto por Caja / Tarima
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" mb={2}>
+                            A continuación se listan las cajas del envío actual donde se ha escaneado este producto. Utiliza los filtros integrados para buscar una caja en específico.
+                        </Typography>
+
+                        {/* TABLA 2: BUSCADOR EN CAJAS */}
+                        <DataGrid
+                            rows={cajasProducto}
+                            columns={cajasCols}
+                            getRowId={(row) => row.id}
+                            showCellVerticalBorder
+                            showColumnVerticalBorder
+                            density="compact"
+                            loading={loadingCajas}
+                            disableRowSelectionOnClick
+                            hideFooterSelectedRowCount
+                            autoHeight={false} // Mantener en false para que el scroll pertenezca a la cuadrícula interna del DataGrid
+                            pageSizeOptions={[10, 25, 50]}
+                            initialState={{
+                                pagination: { paginationModel: { pageSize: 25, page: 0 } }
+                            }}
+                            sx={{
+                                ...dashboardGridSx,
+                                flex: 1 // Le dice al DataGrid que se estire hasta el fondo del Box contenedor
+                            }}
+                            slots={{ toolbar: GridToolbar }}
+                            slotProps={{
+                                loadingOverlay: { variant: 'skeleton', noRowsVariant: 'skeleton' },
+                                toolbar: { showQuickFilter: true, quickFilterProps: { debounceMs: 500 } }
+                            }}
+                            localeText={{
+                                noRowsLabel: 'El producto aún no ha sido escaneado en ninguna caja para este envío.'
+                            }}
+                        />
+                    </Box>
                 </DialogContent>
 
                 <DialogActions>

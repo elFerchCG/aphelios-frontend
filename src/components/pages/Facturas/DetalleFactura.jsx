@@ -117,7 +117,6 @@ const DetalleFactura = () => {
     linea_id: false,
     descripcion: true,
     estatus: true,
-    permitir_full: false,
     envio_id: true,
   });
 
@@ -701,29 +700,6 @@ const DetalleFactura = () => {
       renderCell: ({ value }) => (value ? `${value}` : <em>Sin asignar</em>),
     },
     {
-      field: "logistic_type",
-      headerName: "Logística",
-      type: "text",
-      flex: 0.6,
-      align: "center",
-      headerAlign: "center",
-      renderCell: (params) => {
-        if (params.value !== "fulfillment" && params.row.permitir_full === 0) {
-          return "ME";
-        } else {
-          return "FULL";
-        }
-      },
-    },
-    {
-      field: "permitir_full",
-      headerName: "Permitir FULL",
-      type: "text",
-      flex: 0.8,
-      align: "center",
-      headerAlign: "center",
-    },
-    {
       field: "actions",
       headerName: "Acciones",
       type: "actions",
@@ -733,8 +709,6 @@ const DetalleFactura = () => {
           pedido_linea_id,
           tipo_asignacion,
           factura_detalle_asignacion_id,
-          logistic_type,
-          permitir_full,
           estatus,
           estatus_linea,
           excedente,
@@ -753,24 +727,6 @@ const DetalleFactura = () => {
           Number(excedente || 0) === 1;
 
         const esBackorder = tipo_asignacion === "backorder";
-
-        if (logistic_type !== "fulfillment" && permitir_full === 0) {
-          actions.push(
-            <Tooltip
-              title="Habilitar FULL"
-              key={`me-action-${params.row.producto_id}`}
-            >
-              <GridActionsCellItem
-                icon={<FlashAutoIcon sx={{ color: "green" }} />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleHabilitarFull(params);
-                }}
-                showInMenu
-              />
-            </Tooltip>,
-          );
-        }
 
         if (enlazada) {
           if (esExcedente) {
@@ -3492,12 +3448,6 @@ const DetalleFactura = () => {
               pointerEvents: "auto",
               cursor: "help",
             },
-            "& .fila-no-full": {
-              backgroundColor: "#FDECEA", // rojo claro
-              "&:hover": {
-                backgroundColor: "#F9D6D5",
-              },
-            },
           }}
           rows={rowsFiltradas}
           columns={columns}
@@ -3534,12 +3484,6 @@ const DetalleFactura = () => {
               params.row.estatus === "devolver"
             ) {
               return "row-disabled";
-            }
-            if (
-              params.row.logistic_type !== "fulfillment" &&
-              params.row.permitir_full === 0
-            ) {
-              return "fila-no-full";
             }
             return "";
           }}

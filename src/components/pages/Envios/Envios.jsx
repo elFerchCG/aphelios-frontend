@@ -162,7 +162,10 @@ const Envios = () => {
 
   const handleDetallesEnvio = (envio) => {
     navigate(`/empaque/${envio.id}/detalle`, {
-      state: { estatusEnvio: envio.estatus }
+      state: {
+        estatusEnvio: envio.estatus,
+        descripcionEnvio: envio.descripcion
+      }
     });
   };
 

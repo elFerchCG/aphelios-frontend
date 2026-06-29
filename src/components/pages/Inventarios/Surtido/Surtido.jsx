@@ -1,4 +1,4 @@
-import { Box, Button, FormControl, IconButton, InputAdornment, InputLabel, MenuItem, Modal, OutlinedInput, Select, TextField, Tooltip, Typography } from '@mui/material'
+import { Box, Button, FormControl, IconButton, InputAdornment, InputLabel, LinearProgress, MenuItem, Modal, OutlinedInput, Select, TextField, Tooltip, Typography } from '@mui/material'
 import React, { useEffect, useRef, useState, useMemo } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
@@ -126,10 +126,10 @@ const Surtido = () => {
         left: '50%',
         transform: 'translate(-50%, -50%)',
 
-        width: '90%',
-        maxWidth: '1200px',
+        width: '95%',
+        
         height: '90vh',            // 🔥 altura máxima relativa a pantalla
-        maxHeight: '90vh',
+        maxHeight: '70vh',
 
         bgcolor: 'background.paper',
         borderRadius: 3,
@@ -741,13 +741,74 @@ const Surtido = () => {
     const columnsFULLAsignar = [
         { field: "id", headerName: "Folio detalle orden", flex: 1 },
         { field: "orden_id", headerName: "Folio orden", flex: 1 },
-        { field: "sku", headerName: "SKU Componente", flex: 1 },
+        { field: "sku", headerName: "SKU Componente", flex: 2 },
         { field: "descripcion", headerName: "Descripción", flex: 2 },
+        {
+            field: "cantidad_facturada",
+            headerName: "Factura",
+            flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0))
+        },
         {
             field: "cantidad_contada",
             headerName: "Cantidad contada",
             flex: 1,
             type: "number",
+            renderHeader: (params) => (
+                <div style={{ lineHeight: "normal", whiteSpace: "normal", wordBreak: "break-word", textAlign: "center" }}>
+                    {params.colDef.headerName}
+                </div>
+            )
+        },
+        {
+            field: "cantidad_surtida",
+            headerName: "Etiquetas",
+            flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0))
+        },
+        {
+            field: "avance",
+            headerName: "Avance",
+            type: "number",
+            flex: 2,
+            renderCell: (params) => {
+                const total = Number(params.row.cantidad_facturada) || 0;
+                const surtidas = Number(params.row.cantidad_surtida) || 0;
+
+                const pct = total > 0
+                    ? Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            Math.round((surtidas / total) * 100)
+                        )
+                    )
+                    : 0;
+
+                return (
+                    <Box sx={{ width: "100%" }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                mb: 0.5,
+                            }}
+                        >
+                            <Typography variant="caption">{pct}%</Typography>
+                            <Typography variant="caption">
+                                {Math.round(surtidas)}/{Math.round(total)}
+                            </Typography>
+                        </Box>
+                        <LinearProgress
+                            variant="determinate"
+                            value={Number(pct)}
+                            sx={{ height: 6, borderRadius: 4 }}
+                        />
+                    </Box>
+                );
+            },
         },
         {
             field: "cantidad_a_contar",

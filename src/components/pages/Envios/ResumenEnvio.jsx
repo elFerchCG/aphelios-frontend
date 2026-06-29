@@ -97,7 +97,7 @@ const ResumenEnvio = () => {
         { field: 'variation_desc', headerName: "Variante", type: "text", flex: 0.5, align: "center", headerAlign: "center" },
         { field: 'orden_id', headerName: "# Orden P", type: "text", minWidth: 120, flex: 0.5, align: "center", headerAlign: "center" },
         { field: 'cantidad_a_enviar', headerName: "Enviar", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
-        { field: 'cantidad_a_producir', headerName: "Factura", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
+        { field: 'cantidad_facturada', headerName: "Factura", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'cantidad_surtida', headerName: "Piezas\nProcesadas", type: "text", minWidth: 120, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'cantidad_empacada', headerName: "Cantidad\nEmpacada", type: "text", minWidth: 120, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
         { field: 'nombre_surtidor', headerName: "Surtío", type: "text", minWidth: 80, flex: 0.7, headerClassName: 'header-wrap', headerAlign: 'center' },
