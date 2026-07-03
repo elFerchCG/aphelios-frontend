@@ -28,23 +28,24 @@ const TableUsuarios = () => {
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
 
-    const [rows, setRows] = useState([]);
-    const [roles, setRoles] = useState([]);
-    const [openModal, setOpenModal] = useState(false);
-    const [selectedUser, setSelectedUser] = useState(null);
-    const [openModalPost, setOpenModalPost] = useState(false);
-    const [openRolModal, setOpenRolModal] = useState(false);
-    const [search, setSearch] = useState("");
-    const [userData, setUserData] = useState({
-        // Datos del usuario en los campos
-        id_usuario: "",
-        nombre: "",
-        password: "",
-        estado: "",
-        rol_id: "",
-        rol_descripcion: "",
-        pin: "",
-    });
+  const [rows, setRows] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [openModalPost, setOpenModalPost] = useState(false);
+  const [openRolModal, setOpenRolModal] = useState(false);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState({
+    // Datos del usuario en los campos
+    id_usuario: "",
+    nombre: "",
+    password: "",
+    estado: "",
+    rol_id: "",
+    rol_descripcion: "",
+    pin: "",
+  });
 
     const [newUserData, setNewUserData] = useState({
         nombre: "",
@@ -53,32 +54,35 @@ const TableUsuarios = () => {
         pin: "",
     });
 
-    const fetchUsuarios = async () => {
-        try {
-            const response = await axios.get(`${apiUrl}/usuarios`);
-            if (response.data && Array.isArray(response.data)) {
-                setRows(response.data);
-            } else {
-                Swal.fire({
-                    title: "!Usuarios no encontrados!",
-                    text: "No se encontraron usuarios",
-                    icon: "error",
-                    timer: 5000,
-                    showCloseButton: true,
-                    allowEscapeKey: true,
-                });
-            }
-        } catch (error) {
-            Swal.fire({
-                title: "Error",
-                text: `Error: ${error.message}`,
-                icon: "error",
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true,
-            });
-        }
-    };
+  const fetchUsuarios = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${apiUrl}/usuarios`);
+      if (response.data && Array.isArray(response.data)) {
+        setRows(response.data);
+      } else {
+        Swal.fire({
+          title: "!Usuarios no encontrados!",
+          text: "No se encontraron usuarios",
+          icon: "error",
+          timer: 5000,
+          showCloseButton: true,
+          allowEscapeKey: true,
+        });
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: `Error: ${error.message}`,
+        icon: "error",
+        timer: 5000,
+        showCloseButton: true,
+        allowEscapeKey: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
     const fetchRoles = async () => {
         try {
@@ -332,6 +336,7 @@ const TableUsuarios = () => {
                 <DataGrid
                     rows={filteredRows}
                     columns={columns}
+          loading={loading}
                     initialState={{
                         pagination: {
                             paginationModel: {

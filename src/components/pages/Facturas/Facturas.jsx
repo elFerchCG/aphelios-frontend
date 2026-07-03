@@ -80,6 +80,7 @@ const Facturas = () => {
   }, [apiUrl]);
 
   const fetchFacturas = async () => {
+      setLoading(true);
     try {
       const response = await axios.get(`${apiUrl}/facturas/`);
       if (
@@ -91,6 +92,7 @@ const Facturas = () => {
         //setFilteredEnvios(response.data.data);
       }
     } catch (error) {
+      setData([]);
       const errorMessage =
         error.response?.data?.message || "Error al cargar los datos";
       Swal.fire({
@@ -157,7 +159,7 @@ const Facturas = () => {
 
   const columns = [
     {
-      field: "fecha",
+      field: "fecha_arribo",
       headerName: "Fecha",
       type: "text",
       flex: 1,
@@ -354,6 +356,7 @@ const Facturas = () => {
           }}
           rows={dataFiltrada}
           columns={columns}
+          loading={loading}
           showCellVerticalBorder
           showColumnVerticalBorder
           getRowId={(row) => row.id}

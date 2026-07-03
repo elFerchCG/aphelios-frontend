@@ -54,6 +54,7 @@ import dayjs from "dayjs";
 const DetalleFactura = () => {
   const { facturaId } = useParams(); // Aquí obtienes ambos parámetros
   const location = useLocation();
+  const [loading, setLoading] = useState(true);
   const proveedorNombre = location.state?.proveedorNombre;
   const [data, setData] = useState([]);
   const [dataProveedor, setDataProveedor] = useState([]);
@@ -288,7 +289,7 @@ const DetalleFactura = () => {
     const handleStorageChange = () => {
       setToken(localStorage.getItem("token"));
       setUser(JSON.parse(localStorage.getItem("user")));
-      console.log("Usuario:", user);
+      //console.log("Usuario:", user);
     };
 
     // Añadir un listener para el evento `storage`
@@ -365,10 +366,11 @@ const DetalleFactura = () => {
   };
 
   const fetchDetalleFactura = async (facturaId) => {
+    setLoading(true);
     try {
       const response = await axios.get(`${apiUrl}/facturas/${facturaId}`);
 
-      console.log(response.data.factura);
+      //console.log(response.data.factura);
 
       if (Array.isArray(response.data.factura)) {
         setFacturaHeader(response.data.factura[0] || null);
@@ -392,6 +394,8 @@ const DetalleFactura = () => {
         showCloseButton: true,
         allowEscapeKey: true,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -461,13 +465,13 @@ const DetalleFactura = () => {
     if (!confirm.isConfirmed) return;
 
     try {
-      console.log("[DEVO] PUT devolverProducto", lineaId);
+      //console.log("[DEVO] PUT devolverProducto", lineaId);
 
       const resp = await axios.put(`${apiUrl}/facturas/devolverProducto`, {
         factura_detalle_id: lineaId,
       });
 
-      console.log("[DEVO] resp", resp.data);
+      //console.log("[DEVO] resp", resp.data);
 
       await Swal.fire(
         "Listo",
@@ -1061,7 +1065,7 @@ const DetalleFactura = () => {
 
   const MarcarSkuComoNuevo = async (facturaDetalleId) => {
     try {
-      console.log("[MarcarSkuComoNuevo] facturaDetalleId =", facturaDetalleId);
+      //console.log("[MarcarSkuComoNuevo] facturaDetalleId =", facturaDetalleId);
 
       const confirm = await Swal.fire({
         title: "SKU no existe en componentes",
@@ -1075,7 +1079,7 @@ const DetalleFactura = () => {
 
       if (!confirm.isConfirmed) return;
 
-      console.log("[MarcarSkuComoNuevo] llamando endpoint...");
+      //console.log("[MarcarSkuComoNuevo] llamando endpoint...");
       const resp = await axios.put(`${apiUrl}/facturas/nuevoProducto`, {
         factura_detalle_id: facturaDetalleId,
       });
@@ -1916,15 +1920,6 @@ const DetalleFactura = () => {
               : esUltimaLineaPendiente
                 ? `
       <div style="text-align:left;">
-        <p>
-          El proveedor <strong>${detalleBackorder?.proveedor || ""}</strong>
-          acepta backorder.
-        </p>
-
-        <p>
-          Sin embargo, este SKU ya no tiene otras líneas pendientes ni aparece
-          en más facturas por enlazar.
-        </p>
 
         <hr />
 
@@ -1934,7 +1929,7 @@ const DetalleFactura = () => {
         <hr />
 
         <p>
-          ¿Deseas mantener el backorder abierto o prefieres cerrar la línea
+          ¿Deseas mantener el pedido abierto o prefieres cerrar la línea
           con la cantidad recibida?
         </p>
       </div>
@@ -1964,15 +1959,15 @@ const DetalleFactura = () => {
         <hr />
 
         <p>
-          ¿Deseas mantener el backorder abierto?
+          ¿Deseas mantener el pedido abierto?
         </p>
       </div>
       `,
             icon: "question",
             showCancelButton: true,
             showDenyButton: true,
-            confirmButtonText: "Mantener Backorder",
-            denyButtonText: "Cerrar Línea",
+            confirmButtonText: "Mantener Pedido",
+            denyButtonText: "Cerrar Pedido",
             cancelButtonText: "Cancelar",
             allowOutsideClick: false,
           });
@@ -3459,6 +3454,7 @@ const DetalleFactura = () => {
           showCellVerticalBorder
           showColumnVerticalBorder
           checkboxSelection
+          loading={loading}
           onRowSelectionModelChange={(ids) => {
             setSelectedLineasFacturas(ids);
           }}
