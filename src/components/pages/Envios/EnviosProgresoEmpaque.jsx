@@ -16,11 +16,15 @@ import {
     DialogTitle,
     DialogContent,
     Button,
-    DialogActions
+    DialogActions,
+    Tooltip,
+    Switch
 } from "@mui/material";
 import { GridToolbar } from '@mui/x-data-grid';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import IconButton from '@mui/material/IconButton';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import DashboardFactura from './DashboardFactura';
 
 const EnviosProgresoEmpaque = () => {
 
@@ -42,6 +46,7 @@ const EnviosProgresoEmpaque = () => {
     const [loadingDetalle, setLoadingDetalle] = useState(false);
     const [cajasProducto, setCajasProducto] = useState([]);
     const [loadingCajas, setLoadingCajas] = useState(false);
+    const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -198,7 +203,29 @@ const EnviosProgresoEmpaque = () => {
         }
     ];
 
+    const handleVerDashboardFactura = (row) => {
+        const facturaConEnvio = {
+            ...row,
+            envioId: Number(envioId) // <- Aquí le inyectas el envío directamente
+        };
+
+        setFacturaSeleccionada(facturaConEnvio);
+    };
+
     const facturasCols = [
+        {
+            field: "habilitada",
+            headerName: "Activa",
+            width: 90,
+            sortable: false,
+            renderCell: (params) => (
+                <Switch
+                    checked={Boolean(params.row.habilitada)}
+                    color="primary"
+                //onChange={() => handleHabilitarFactura(params.row)}
+                />
+            )
+        },
         { field: "factura_id", headerName: "#FacturaDB", flex: 1 },
         { field: "razon_social", headerName: "Proveedor", flex: 3 },
         { field: "numero_factura", headerName: "#Factura", flex: 1 },
@@ -273,28 +300,61 @@ const EnviosProgresoEmpaque = () => {
             headerName: "Estatus",
             flex: 1.5,
             renderCell: (params) => {
-                const statusMap = {
-                    asignada: {
-                        label: "Asignada",
-                        color: "success",   // gris
-                    }
-                };
 
-                const status = statusMap[params.value] || {
-                    label: params.value,
-                    color: "default",
-                };
+                const total = Number(params.row.total_piezas);
+                const surtidas = Number(params.row.total_piezas_surtidas);
+
+                let label = "Disponible";
+                let color = "default";
+
+                if (params.row.habilitada) {
+
+                    if (surtidas === 0) {
+
+                        label = "En surtido";
+                        color = "info";
+
+                    } else if (surtidas < total) {
+
+                        label = "Surtiendo";
+                        color = "warning";
+
+                    } else {
+
+                        label = "Completa";
+                        color = "success";
+
+                    }
+
+                }
 
                 return (
                     <Chip
-                        label={status.label}
-                        color={status.color}
+                        label={label}
+                        color={color}
                         size="small"
                         sx={{ fontWeight: 600 }}
                     />
                 );
-            },
+            }
         },
+        {
+            field: "acciones",
+            headerName: "Acciones",
+            flex: 1,
+            sortable: false,
+            renderCell: (params) => (
+                <Tooltip title="Abrir Dashboard de Factura">
+                    <IconButton
+                        color="primary"
+                        size="small"
+                        onClick={() => handleVerDashboardFactura(params.row)}
+                    >
+                        <DashboardIcon />
+                    </IconButton>
+                </Tooltip>
+            )
+        }
     ];
 
     const ordenesCols = [
@@ -843,6 +903,13 @@ const EnviosProgresoEmpaque = () => {
         }
     ];
 
+    // ... dentro de EnviosProgresoEmpaque, antes del return:
+
+    const totalCantidadAEnviar = ordenesProduccionFacturas.reduce(
+        (sum, row) => sum + (Number(row.cantidad_a_enviar) || 0),
+        0
+    );
+
     return (
         <Box p={3}>
             <Typography variant="h4" fontWeight="bold" mb={2}>
@@ -919,72 +986,7 @@ const EnviosProgresoEmpaque = () => {
                 </Grid>
             </Grid>
             <Typography variant="h6" fontWeight="bold" mb={2}>
-                Ordenes de Producción - Facturas
-            </Typography>
-            <DataGrid
-                rows={ordenesProduccionFacturas}
-                columns={ordenesCols}
-                getRowId={(row) => row.id}
-                experimentalFeatures={{ newEditingApi: true }}
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                processRowUpdate={processRowUpdate}
-                onProcessRowUpdateError={handleProcessRowUpdateError}
-                isCellEditable={(params) => {
-                    if (params.row.estatus === "empacada") return false;
-                    if (params.field === "cantidad_a_enviar") return true;
-
-                    return true;
-                }}
-                columnVisibilityModel={columnVisibilityOrdenesFacturas}
-                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesFacturas(newModel)}
-                disableRowSelectionOnClick
-                hideFooterSelectedRowCount
-                density="compact"
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{
-                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
-                }}
-                sx={{ ...dashboardGridSx, mb: 4 }}
-                slots={{ toolbar: GridToolbar }}
-                loading={loading}
-                slotProps={{
-                    loadingOverlay: {
-                        variant: 'skeleton',
-                        noRowsVariant: 'skeleton',
-                    },
-                }}
-            />
-            <Typography variant="h6" fontWeight="bold" mb={2}>
-                Ordenes de Producción - Retiros
-            </Typography>
-            <DataGrid
-                rows={ordenesProduccionRetiros}
-                columns={ordenesProduccionRetirosCols}
-                getRowId={(row) => row.id}
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                columnVisibilityModel={columnVisibilityOrdenesRetiros}
-                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesRetiros(newModel)}
-                disableRowSelectionOnClick
-                hideFooterSelectedRowCount
-                density="compact"
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{
-                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
-                }}
-                sx={{ ...dashboardGridSx, mb: 4 }}
-                slots={{ toolbar: GridToolbar }}
-                loading={loading}
-                slotProps={{
-                    loadingOverlay: {
-                        variant: 'skeleton',
-                        noRowsVariant: 'skeleton',
-                    },
-                }}
-            />
-            <Typography variant="h6" fontWeight="bold" mb={2}>
-                Facturas
+                Facturas del envío
             </Typography>
             <DataGrid
                 rows={facturasEnvio}
@@ -1011,6 +1013,121 @@ const EnviosProgresoEmpaque = () => {
                     },
                 }}
             />
+            {facturaSeleccionada && (
+                <Box mt={4}>
+                    <DashboardFactura
+                        factura={facturaSeleccionada}
+                        onBack={() => setFacturaSeleccionada(null)}
+                    />
+                </Box>
+            )}
+            {/* SECCIÓN CORREGIDA: Alineación exacta y solución al montado de tablas */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '100%',
+                    mb: 1,
+                    mt: 1
+                }}
+            >
+                {/* Título: ocupa el espacio izquierdo hasta llegar al área de las sumas */}
+                <Box sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                        Ordenes de Producción - Facturas
+                    </Typography>
+                </Box>
+
+                {/* Contenedor del Total: Ajustado con un margen derecho preciso (18%) para centrarse sobre "A Enviar" */}
+                <Box sx={{ mr: '34%', display: 'flex', justifyContent: 'center' }}>
+                    <Box
+                        sx={{
+                            backgroundColor: '#e3f2fd',
+                            border: '1px solid #90caf9',
+                            borderRadius: '4px',
+                            px: 3,
+                            py: 0.5,
+                            minWidth: '110px',
+                            textAlign: 'center',
+                            boxShadow: '0px 1px 3px rgba(0,0,0,0.08)'
+                        }}
+                    >
+                        <Typography variant="caption" display="block" color="text.secondary" fontWeight="bold" sx={{ textTransform: 'uppercase', fontSize: 9, tracking: 0.5 }}>
+                            Total A Enviar
+                        </Typography>
+                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" style={{ lineHeight: 1.2 }}>
+                            {Math.round(totalCantidadAEnviar)}
+                        </Typography>
+                    </Box>
+                </Box>
+            </Box>
+
+            {/* Contenedor DataGrid corregido (Eliminado sx redundante para evitar encimado) */}
+            <Box sx={{ height: 400, width: '100%', mb: 10 }}>
+                <DataGrid
+                    rows={ordenesProduccionFacturas}
+                    columns={ordenesCols}
+                    getRowId={(row) => row.id}
+                    experimentalFeatures={{ newEditingApi: true }}
+                    showCellVerticalBorder
+                    showColumnVerticalBorder
+                    processRowUpdate={processRowUpdate}
+                    onProcessRowUpdateError={handleProcessRowUpdateError}
+                    isCellEditable={(params) => {
+                        if (params.row.estatus === "empacada") return false;
+                        if (params.field === "cantidad_a_enviar") return true;
+                        return true;
+                    }}
+                    columnVisibilityModel={columnVisibilityOrdenesFacturas}
+                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesFacturas(newModel)}
+                    disableRowSelectionOnClick
+                    hideFooterSelectedRowCount
+                    density="compact"
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    initialState={{
+                        pagination: { paginationModel: { pageSize: 100, page: 0 } }
+                    }}
+                    sx={dashboardGridSx}
+                    slots={{ toolbar: GridToolbar }}
+                    loading={loading}
+                    slotProps={{
+                        loadingOverlay: {
+                            variant: 'skeleton',
+                            noRowsVariant: 'skeleton',
+                        },
+                    }}
+                />
+            </Box>
+
+            <Typography variant="h6" fontWeight="bold" mb={2} mt={15}>
+                Ordenes de Producción - Retiros
+            </Typography>
+            <DataGrid
+                rows={ordenesProduccionRetiros}
+                columns={ordenesProduccionRetirosCols}
+                getRowId={(row) => row.id}
+                showCellVerticalBorder
+                showColumnVerticalBorder
+                columnVisibilityModel={columnVisibilityOrdenesRetiros}
+                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesRetiros(newModel)}
+                disableRowSelectionOnClick
+                hideFooterSelectedRowCount
+                density="compact"
+                pageSizeOptions={[10, 25, 50, 100]}
+                initialState={{
+                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
+                }}
+                sx={{ ...dashboardGridSx }}
+                slots={{ toolbar: GridToolbar }}
+                loading={loading}
+                slotProps={{
+                    loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                    },
+                }}
+            />
+
             <Typography variant="h6" fontWeight="bold" mb={2}>
                 Retiros
             </Typography>

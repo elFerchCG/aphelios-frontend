@@ -47,6 +47,7 @@ import KaizenSeguimiento from "../components/pages/Kaizen/KaizenSeguimiento";
 import Marketing from "../components/pages/Menu/Marketing";
 import PerformanceComercial from "../components/pages/PerformanceComercial/PerformanceComercial";
 import PublicacionesMejoras from "../components/pages/PublicacionesMejoras/PublicacionesMejoras";
+import Preguntas from "../components/pages/Preguntas/Preguntas";
 
 const Rutas = () => {
   return (
@@ -203,6 +204,22 @@ const Rutas = () => {
               ]}
             >
               <PublicacionesMejoras />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/preguntas"
+          element={
+            <ProtectedRoute
+              allowedRoles={[
+                "administrador",
+                "Marketing",
+                "Lider Marketin",
+                "Líder Marketing"
+              ]}
+            >
+              <Preguntas />
             </ProtectedRoute>
           }
         />

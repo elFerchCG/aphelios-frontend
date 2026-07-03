@@ -12,6 +12,7 @@ import mrp from "../../../images/mrp.png";
 import procesos from "../../../images/Procesos.png";
 import nuevosProductos from "../../../images/nuevo-producto.png";
 import ordenesRetiro from "../../../images/retirada-de-productos.png";
+import preguntas from "../../../images/support-service.png";
 import { NavLink } from 'react-router-dom'
 
 const Navegacion = () => {
@@ -38,6 +39,10 @@ const Navegacion = () => {
                 <img src={cargaFactura} alt='Facturas' className='nav-icon-config' />
                 <span>Facturas</span>
             </NavLink>
+            {/* <NavLink to="/preguntas" className="nav-config">
+                <img src={preguntas} alt="Preguntas" className="nav-icon-config" />
+                <span>Preguntas</span>
+            </NavLink> */}
             <NavLink to="/transacciones" className="nav-config">
                 <img src={movimientosI} alt="Tipos de Movimientos" className="nav-icon-config" />
                 <span>Tipos de Movimientos</span>
