@@ -213,19 +213,6 @@ const EnviosProgresoEmpaque = () => {
     };
 
     const facturasCols = [
-        {
-            field: "habilitada",
-            headerName: "Activa",
-            width: 90,
-            sortable: false,
-            renderCell: (params) => (
-                <Switch
-                    checked={Boolean(params.row.habilitada)}
-                    color="primary"
-                //onChange={() => handleHabilitarFactura(params.row)}
-                />
-            )
-        },
         { field: "factura_id", headerName: "#FacturaDB", flex: 1 },
         { field: "razon_social", headerName: "Proveedor", flex: 3 },
         { field: "numero_factura", headerName: "#Factura", flex: 1 },
@@ -298,45 +285,7 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "estatus",
             headerName: "Estatus",
-            flex: 1.5,
-            renderCell: (params) => {
-
-                const total = Number(params.row.total_piezas);
-                const surtidas = Number(params.row.total_piezas_surtidas);
-
-                let label = "Disponible";
-                let color = "default";
-
-                if (params.row.habilitada) {
-
-                    if (surtidas === 0) {
-
-                        label = "En surtido";
-                        color = "info";
-
-                    } else if (surtidas < total) {
-
-                        label = "Surtiendo";
-                        color = "warning";
-
-                    } else {
-
-                        label = "Completa";
-                        color = "success";
-
-                    }
-
-                }
-
-                return (
-                    <Chip
-                        label={label}
-                        color={color}
-                        size="small"
-                        sx={{ fontWeight: 600 }}
-                    />
-                );
-            }
+            flex: 1.5
         },
         {
             field: "acciones",
