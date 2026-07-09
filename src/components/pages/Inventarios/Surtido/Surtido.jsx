@@ -56,6 +56,7 @@ const Surtido = () => {
     const [yaEnfocado, setYaEnfocado] = useState(false);
     const [openModalPin, setOpenModalPin] = useState(false);
     const [pinSupervisor, setPinSupervisor] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const inputRef = useRef(null);
 
@@ -127,7 +128,7 @@ const Surtido = () => {
         transform: 'translate(-50%, -50%)',
 
         width: '95%',
-        
+
         height: '90vh',            // 🔥 altura máxima relativa a pantalla
         maxHeight: '70vh',
 
@@ -224,6 +225,8 @@ const Surtido = () => {
     }
 
     const fetchOrdenProduccion = async (sku) => {
+        if (loading) return; // Evita ejecuciones paralelas
+        setLoading(true);
         try {
             const response = await axios.get(`${apiUrl}/mrp/${sku}`);
             if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
@@ -239,6 +242,8 @@ const Surtido = () => {
                 showCloseButton: true,
                 allowEscapeKey: true
             });
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -247,6 +252,7 @@ const Surtido = () => {
     };
 
     const handleSearch = () => {
+        if (loading) return;
         if (sku.trim() !== "") {
             fetchOrdenProduccion(sku);
         } else {
@@ -269,10 +275,18 @@ const Surtido = () => {
     };
 
     const handleOpenSurtirNoFull = async (ordenId, detalleId) => {
-        setSelectedOrdenId(ordenId);
-        setSelectedDetalleId(detalleId);
-        await validarPaquete(ordenId);
-        setOpenSurtirNoFull(true);
+        if (loading) return; // Evita abrir o disparar llamadas concurrentes
+        setLoading(true);
+        try {
+            setSelectedOrdenId(ordenId);
+            setSelectedDetalleId(detalleId);
+            await validarPaquete(ordenId);
+            setOpenSurtirNoFull(true);
+        } catch (error) {
+            console.error("Error al abrir surtido No Full:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCloseAsignar = () => {
@@ -284,6 +298,7 @@ const Surtido = () => {
     };
 
     const handleCloseSurtirNoFull = () => {
+        if (loading) return;
         setOpenSurtirNoFull(false);
         setSelectedDetalleId(null);
     };
@@ -364,6 +379,8 @@ const Surtido = () => {
     };
 
     const imprimirEtiquetasNoFULL = async () => {
+        if (loading || !habilitarAsignar) return;
+        setLoading(true);
         try {
             const data = {
                 orden_id: componentes[0]?.orden_id
@@ -389,10 +406,15 @@ const Surtido = () => {
                 allowEscapeKey: true
             });
             handleCloseSurtirNoFull();
+        } finally {
+            setLoading(false);
         }
     }
 
     const asignarLinea = async () => {
+        if (loading || !habilitarAsignar) return;
+        setLoading(true);
+
         try {
             const data = {
                 operador: selectedUsuario.id_usuario,
@@ -424,6 +446,8 @@ const Surtido = () => {
                 allowEscapeKey: true
             });
             handleCloseAsignar();
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -432,7 +456,7 @@ const Surtido = () => {
         (user.rol_descripcion === 'Produccion' && user.permisos === 'supervisor')
     );
 
-    console.log("Usuario actual:", user);
+    // console.log("Usuario actual:", user);
 
     // 1. EL FILTRO / INTERCEPTOR
     const imprimirEtiquetas = () => {
@@ -545,37 +569,51 @@ const Surtido = () => {
     }
 
     const contarComponenteSurtido = async (row) => {
-        const response = await axios.put(`${apiUrl}/mrp/contarComponenteSurtido/${row.id}`, {
-            cantidad_contada: row.cantidad_a_contar
-        });
-        await validarPaquete(row.orden_id);
+        if (loading) return;
+        setLoading(true);
+        try {
+            const response = await axios.put(`${apiUrl}/mrp/contarComponenteSurtido/${row.id}`, {
+                cantidad_contada: row.cantidad_a_contar
+            });
+            await validarPaquete(row.orden_id);
 
-        const message = response.data.message;
-        Swal.fire({
-            icon: 'success',
-            title: 'Cantidad actualizada',
-            text: message,
-            timer: 1000,
-            showConfirmButton: false,
-            target: document.getElementById("modal-asignar"),
-        });
+            Swal.fire({
+                icon: 'success',
+                title: 'Cantidad actualizada',
+                text: response.data.message,
+                timer: 1000,
+                showConfirmButton: false,
+                target: document.getElementById("modal-asignar"),
+            });
+        } finally {
+            setLoading(false);
+        }
     }
 
     const contarComponenteSurtidoNoFull = async (row) => {
-        const response = await axios.put(`${apiUrl}/mrp/surtirME/${row.id}`, {
-            cantidad_contada: row.cantidad_a_contar
-        });
-        await validarPaquete(row.orden_id);
+        if (loading) return;
+        setLoading(true);
+        try {
 
-        const message = response.data.message;
-        Swal.fire({
-            icon: 'success',
-            title: 'Cantidad actualizada',
-            text: message,
-            timer: 1000,
-            showConfirmButton: false,
-            target: document.getElementById("modal-surtirNoFull"),
-        });
+
+            const response = await axios.put(`${apiUrl}/mrp/surtirME/${row.id}`, {
+                cantidad_contada: row.cantidad_a_contar
+            });
+
+            await validarPaquete(row.orden_id);
+
+            const message = response.data.message;
+            Swal.fire({
+                icon: 'success',
+                title: 'Cantidad actualizada',
+                text: message,
+                timer: 1000,
+                showConfirmButton: false,
+                target: document.getElementById("modal-surtirNoFull"),
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const processRowUpdate = async (updatedRow, oldRow) => {
@@ -847,10 +885,71 @@ const Surtido = () => {
         { field: "sku", headerName: "SKU Componente", flex: 1 },
         { field: "descripcion", headerName: "Descripción", flex: 2 },
         {
+            field: "cantidad_facturada",
+            headerName: "Factura",
+            flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0))
+        },
+        {
             field: "cantidad_contada",
             headerName: "Cantidad contada",
             flex: 1,
             type: "number",
+            renderHeader: (params) => (
+                <div style={{ lineHeight: "normal", whiteSpace: "normal", wordBreak: "break-word", textAlign: "center" }}>
+                    {params.colDef.headerName}
+                </div>
+            )
+        },
+        {
+            field: "cantidad_surtida",
+            headerName: "Etiquetas",
+            flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0))
+        },
+        {
+            field: "avance",
+            headerName: "Avance",
+            type: "number",
+            flex: 2,
+            renderCell: (params) => {
+                const total = Number(params.row.cantidad_facturada) || 0;
+                const surtidas = Number(params.row.cantidad_surtida) || 0;
+
+                const pct = total > 0
+                    ? Math.min(
+                        100,
+                        Math.max(
+                            0,
+                            Math.round((surtidas / total) * 100)
+                        )
+                    )
+                    : 0;
+
+                return (
+                    <Box sx={{ width: "100%" }}>
+                        <Box
+                            sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                mb: 0.5,
+                            }}
+                        >
+                            <Typography variant="caption">{pct}%</Typography>
+                            <Typography variant="caption">
+                                {Math.round(surtidas)}/{Math.round(total)}
+                            </Typography>
+                        </Box>
+                        <LinearProgress
+                            variant="determinate"
+                            value={Number(pct)}
+                            sx={{ height: 6, borderRadius: 4 }}
+                        />
+                    </Box>
+                );
+            },
         },
         {
             field: "cantidad_a_contar",
@@ -913,6 +1012,7 @@ const Surtido = () => {
                         label="Ingresar SKU"
                         variant="outlined"
                         size='small'
+                        disabled={loading}
                         sx={{
                             width: "20rem",
                             backgroundColor: "white",
@@ -931,10 +1031,10 @@ const Surtido = () => {
                                 <InputAdornment position="end">
                                     <SearchIcon
                                         style={{
-                                            cursor: "pointer",
-                                            color: "blue",
+                                            cursor: loading ? "not-allowed" : "pointer",
+                                            color: loading ? "gray" : "blue",
                                         }}
-                                        onClick={handleSearch}
+                                        onClick={!loading ? handleSearch : undefined}
                                     />
                                 </InputAdornment>
                             ),
@@ -1112,6 +1212,7 @@ const Surtido = () => {
                         <Button
                             onClick={handleCloseAsignar}
                             variant="contained"
+                            disabled={loading}
                             sx={{ width: 100 }}
                         >
                             Cerrar
@@ -1121,10 +1222,10 @@ const Surtido = () => {
                             onClick={asignarLinea}
                             variant="contained"
                             color="success"
-                            disabled={!habilitarAsignar}
+                            disabled={!habilitarAsignar || loading}
                             sx={{ width: 200 }}
                         >
-                            Asignar e Imprimir
+                            {loading ? "Procesando..." : "Asignar e Imprimir"}
                         </Button>
                     </Box>
 

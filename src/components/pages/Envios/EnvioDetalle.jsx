@@ -101,8 +101,10 @@ const EnvioDetalle = () => {
     );
 
     useEffect(() => {
-        fetchTarimas();
-    }, [apiUrl]);
+        if (envioId && apiUrl) {
+            fetchTarimas();
+        }
+    }, [apiUrl, envioId]);
 
     const fetchPiezasYFacturas = async () => {
         try {
@@ -122,11 +124,15 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Asegura la liberación centralizada del loader
         }
     };
 
     useEffect(() => {
-        fetchPiezasYFacturas();
+        if (envioId) {
+            fetchPiezasYFacturas();
+        }
     }, [envioId]);
 
     const fetchTarimas = async () => {
@@ -143,6 +149,8 @@ const EnvioDetalle = () => {
     }
 
     const abrirTarima = async () => {
+        if (loading) return; // 🛑 Guarda de seguridad: evita ejecuciones simultáneas si dan doble clic veloz
+        setLoading(true);
         try {
             const response = await axios.post(`${apiUrl}/empaque/abrirTarima/${envioId}`,
                 {},
@@ -162,10 +170,14 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Se libera el estado de carga pase lo que pase
         }
     }
 
     const abrirCaja = async (tarimaId, envioIdParam) => {
+        if (loading) return; // 🛑 Evita ejecuciones duplicadas si el usuario presiona rápido
+        setLoading(true);
         try {
             const response = await axios.post(`${apiUrl}/empaque/abrirCaja/${tarimaId}`,
                 {},
@@ -176,6 +188,7 @@ const EnvioDetalle = () => {
                 }
             );
             if (response.data.ok) {
+                await fetchCajas(tarimaId);
                 setCajaId(response.data.id);
                 setCajaIdVisual(response.data.visual_id);
                 handleEntrarCajaAbierta(envioIdParam, response.data.id, response.data.visual_id); // ✅ no se colapsa
@@ -190,10 +203,14 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Se libera el estado pase lo que pase
         }
     }
 
     const revertirCaja = async (cajaIdParam, tarimaId) => {
+        if (loading) return; // 🛑 Evita ejecuciones duplicadas si el usuario presiona rápido
+        setLoading(true);
         try {
             const response = await axios.post(`${apiUrl}/empaque/revertirCaja/caja/${cajaIdParam}`,
                 {},
@@ -211,10 +228,14 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Se libera el estado pase lo que pase
         }
     }
 
     const cerrarTarima = async (envioId, tarimaId) => {
+        if (loading) return; // 🛑 Evita ejecuciones duplicadas si el usuario presiona rápido
+        setLoading(true);
         try {
             const response = await axios.put(`${apiUrl}/empaque/cerrarTarima/tarima/${tarimaId}`,
                 {},
@@ -241,34 +262,39 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Se libera el estado pase lo que pase
         }
     }
 
     const cerrarEnvio = async (envioId) => {
+        if (loading) return; // 🛑 Evita ejecuciones duplicadas si el usuario presiona rápido
+        setLoading(true);
         try {
-            Swal.fire({
-                title: "¿Estas seguro de cerrar el envío? Tambien se cerraran las ordenes asignadas",
+            const result = await Swal.fire({
+                title: "¿Estás seguro de cerrar el envío? También se cerrarán las órdenes asignadas",
                 icon: "warning",
                 showDenyButton: true,
                 confirmButtonColor: "#44be39",
                 confirmButtonText: "Cerrar",
                 denyButtonText: `Cancelar`,
                 reverseButtons: true
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    const response = await axios.put(`${apiUrl}/empaque/cerrarEnvio/envio/${envioId}`,
-                        {},
-                    );
-                    if (response.data.ok) {
-                        navigate('/envios');
-                    }
-                    Swal.fire("Envío cerrado!", "", "success");
-                } else if (result.isDenied) {
-                    Swal.fire("Operación cancelada", "", "info");
-                }
             });
 
+            if (result.isConfirmed) {
+                // El request se ejecuta aquí manteniendo el "loading" activo en la interfaz
+                const response = await axios.put(`${apiUrl}/empaque/cerrarEnvio/envio/${envioId}`, {});
+
+                if (response.data.ok) {
+                    Swal.fire("¡Envío cerrado!", "", "success");
+                    navigate('/envios');
+                }
+            } else if (result.isDenied) {
+                Swal.fire("Operación cancelada", "", "info");
+            }
+
         } catch (error) {
+            console.error("Error al cerrar envío:", error);
             const errorMessage = error.response.data.message;
             Swal.fire({
                 title: 'Error',
@@ -278,10 +304,14 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Se libera el estado pase lo que pase
         }
     }
 
     const reabrirTarima = async (tarimaId) => {
+        if (loading) return; // 🛑 Evita ejecuciones duplicadas si el usuario presiona rápido
+        setLoading(true);
         try {
             const response = await axios.put(`${apiUrl}/empaque/reabrirTarima/tarima/${tarimaId}`,
                 {},
@@ -299,6 +329,8 @@ const EnvioDetalle = () => {
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
+        } finally {
+            setLoading(false); // 🔓 Se libera el estado pase lo que pase
         }
     }
 
@@ -345,7 +377,7 @@ const EnvioDetalle = () => {
         // Buscamos si existe alguna tarima abierta en la lista actual
         const tarimaAbierta = tarimas.find(t => t.estatus === 'abierta');
 
-        if (tarimaAbierta) {
+        if (tarimaAbierta && expandedRowId !== tarimaAbierta.id) {
             // 1. Seteamos el loading para esa tarima de forma inmediata
             setLoadingCajas(true);
 
@@ -357,7 +389,7 @@ const EnvioDetalle = () => {
             // 3. Opcional: Aseguramos que el estado del ID expandido se sincronice
             setExpandedRowId(tarimaAbierta.id);
         }
-    }, [tarimas]); // 🔑 Se ejecutará cada vez que la lista de tarimas cambie (por ejemplo, al renderizar por primera vez)
+    }, [tarimas, expandedRowId]); // 🔑 Se ejecutará cada vez que la lista de tarimas cambie (por ejemplo, al renderizar por primera vez)
 
     const columns = [
         { field: "id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
@@ -375,7 +407,7 @@ const EnvioDetalle = () => {
                         <GridActionsCellItem
                             icon={
                                 <Box display="flex" flexDirection="column" alignItems="center">
-                                    <CheckCircleOutlineIcon sx={{ color: params.row.estatus === 'cerrada' ? undefined : 'green', fontSize: "2rem" }} />
+                                    <CheckCircleOutlineIcon sx={{ color: params.row.estatus === 'cerrada' || loading ? '#ccc' : 'green', fontSize: "2rem" }} />
 
                                     <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
                                         Cerrar
@@ -383,8 +415,8 @@ const EnvioDetalle = () => {
                                 </Box>
                             }
                             label="Cerrar Tarima"
+                            disabled={params.row.estatus === 'cerrada' || loading}
                             onClick={() => cerrarTarima(envioId, params.row.id)}
-                            disabled={params.row.estatus === 'cerrada'}
                         />
                     </>
                 </Tooltip>,
@@ -394,9 +426,10 @@ const EnvioDetalle = () => {
                             icon={
                                 <Box display="flex" flexDirection="column" alignItems="center">
                                     <AutorenewIcon sx={{
-                                        color: estatusEnvio === 'finalizado'
-                                            ? undefined
-                                            : (params.row.estatus === 'cerrada' ? 'orange' : undefined), fontSize: "2rem"
+                                        color: estatusEnvio === 'finalizado' || loading
+                                            ? '#ccc'
+                                            : (params.row.estatus === 'cerrada' ? 'orange' : '#ccc'),
+                                        fontSize: "2rem"
                                     }} />
                                     <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
                                         Reabrir
@@ -404,8 +437,8 @@ const EnvioDetalle = () => {
                                 </Box>
                             }
                             label="Reabrir tarima"
+                            disabled={estatusEnvio === 'finalizado' || params.row.estatus === 'abierta' || loading}
                             onClick={() => reabrirTarima(params.row.id)}
-                            disabled={estatusEnvio === 'finalizado' || params.row.estatus === 'abierta'}
                         />
                     </>
                 </Tooltip>,
@@ -425,6 +458,7 @@ const EnvioDetalle = () => {
                                 </Box>
                             }
                             label='Mostrar Cajas'
+                            disabled={loading}
                             onClick={() => handleMostrarCajas(params.row.id)}
                         />
                     </>
@@ -548,7 +582,7 @@ const EnvioDetalle = () => {
                     <Button
                         variant='contained'
                         color="success"
-                        label="Progreso de Empaque"
+                        disabled={loading}
                         onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`, {
                             state: { descripcionEnvio }
                         })}
@@ -583,16 +617,17 @@ const EnvioDetalle = () => {
                             <Button
                                 variant="contained"
                                 onClick={abrirTarima}
-                                disabled={tarimas.length.estatus === 'abierta' || estatusEnvio === 'finalizado'}
+                                disabled={tarimas.some(t => t.estatus === 'abierta') || estatusEnvio === 'finalizado' || loading}
                                 sx={{ mb: 1 }}
                             >
-                                Abrir Nueva Tarima
+                                {loading ? "Abriendo..." : "Abrir Nueva Tarima"}
                             </Button>
                         </Box>
                         <DataGrid
                             rows={tarimas}
                             rowHeight={55}
                             columns={columns}
+                            loading={loadingTarimas}
                             showCellVerticalBorder
                             showColumnVerticalBorder
                             getRowId={(row) => row.id}
@@ -639,10 +674,10 @@ const EnvioDetalle = () => {
                                             <Button
                                                 variant="contained"
                                                 onClick={() => abrirCaja(tarima.id, envioId)}
-                                                disabled={tarima.estatus === 'cerrada'}
+                                                disabled={tarima.estatus === 'cerrada' || loading}
                                                 sx={{ mb: 1, ml: "auto" }}
                                             >
-                                                Abrir Nueva Caja
+                                                {loading ? "Abriendo..." : "Abrir Nueva Caja"}
                                             </Button>
                                         </Box>
                                         <Table size="small">
@@ -674,7 +709,7 @@ const EnvioDetalle = () => {
                                                                         <IconButton
                                                                             color="primary"
                                                                             onClick={() => handleEntrarCajaCerrada(envioId, caja.id, caja.visual_id)}
-                                                                            disabled={caja.estatus !== 'cerrada'}
+                                                                            disabled={caja.estatus !== 'cerrada' || loading}
                                                                         >
                                                                             <ListAltIcon sx={{ fontSize: "2rem" }} />
                                                                         </IconButton>
@@ -685,10 +720,10 @@ const EnvioDetalle = () => {
                                                                     <Box display="flex" flexDirection="column" alignItems="center">
                                                                         <IconButton
                                                                             onClick={() => revertirCaja(caja.id, tarima.id)}
-                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus !== 'cerrada'}
+                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus !== 'cerrada' || loading}
                                                                         >
                                                                             <AutorenewIcon sx={{
-                                                                                color: tarima.estatus === 'cerrada'
+                                                                                color: tarima.estatus === 'cerrada' || loading
                                                                                     ? 'gray'
                                                                                     : (caja.estatus === 'cerrada' ? 'orange' : undefined),
                                                                                 fontSize: "2rem"
@@ -702,9 +737,9 @@ const EnvioDetalle = () => {
                                                                     <Box display="flex" flexDirection="column" alignItems="center">
                                                                         <IconButton
                                                                             onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
-                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus === 'cerrada'}
+                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus === 'cerrada' || loading}
                                                                         >
-                                                                            <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' ? "rebeccapurple" : undefined, fontSize: "2rem" }} />
+                                                                            <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' && !loading ? "rebeccapurple" : 'gray', fontSize: "2rem" }} />
                                                                         </IconButton>
                                                                         <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
                                                                             Escanear
@@ -729,14 +764,14 @@ const EnvioDetalle = () => {
                         <Button
                             variant="contained"
                             onClick={() => cerrarEnvio(envioId)}
-                            disabled={estatusEnvio === 'finalizado'}
+                            disabled={estatusEnvio === 'finalizado' || loading}
                             sx={{ mt: 2, ml: "auto" }}
                         >
                             Cerrar Envio
                         </Button>
                     )}
                 </Box>
-            </Box >
+            </Box>
         </Box>
     )
 }
