@@ -16,9 +16,27 @@ import { DataGrid } from "@mui/x-data-grid";
 import HistorialKaizenModal from "./HistorialKaizenModal";
 
 const KaizenVentasPerdidas = () => {
+  const obtenerSemanaActualISO = () => {
+    const fecha = new Date();
+    const target = new Date(fecha.valueOf());
+
+    const dia = (fecha.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dia + 3);
+
+    const primerJueves = new Date(target.getFullYear(), 0, 4);
+    const primerDia = (primerJueves.getDay() + 6) % 7;
+
+    primerJueves.setDate(primerJueves.getDate() - primerDia + 3);
+
+    const semana =
+      1 + Math.round((target - primerJueves) / (7 * 24 * 60 * 60 * 1000));
+
+    return semana;
+  };
+
   const [top, setTop] = useState(10);
-  const [anio, setAnio] = useState(2026);
-  const [semana, setSemana] = useState(21);
+  const [anio, setAnio] = useState(new Date().getFullYear());
+  const [semana, setSemana] = useState(obtenerSemanaActualISO());
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [proveedorId, setProveedorId] = useState("");
@@ -135,11 +153,11 @@ const KaizenVentasPerdidas = () => {
         setSemanasDisponibles(semanas);
 
         if (anios.length && !anios.includes(Number(anio))) {
-          setAnio(anios[0]);
+          setAnio(Number(anios[0]));
         }
 
         if (semanas.length && !semanas.includes(Number(semana))) {
-          setSemana(semanas[0]);
+          setSemana(Number(semanas[0]));
         }
       }
     } catch (error) {
@@ -165,8 +183,7 @@ const KaizenVentasPerdidas = () => {
 
   useEffect(() => {
     obtenerProveedores();
-    obtenerFiltrosKaizen();
-    obtenerKaizen();
+    obtenerFiltrosKaizen(new Date().getFullYear());
   }, []);
 
   useEffect(() => {

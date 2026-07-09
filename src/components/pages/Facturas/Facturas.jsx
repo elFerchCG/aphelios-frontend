@@ -80,7 +80,7 @@ const Facturas = () => {
   }, [apiUrl]);
 
   const fetchFacturas = async () => {
-      setLoading(true);
+    setLoading(true);
     try {
       const response = await axios.get(`${apiUrl}/facturas/`);
       if (
@@ -186,6 +186,14 @@ const Facturas = () => {
       field: "total",
       headerName: "Total",
       flex: 1,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
+      field: "proforma",
+      headerName: "Proforma",
+      type: "text",
+      flex: 0.6,
       align: "center",
       headerAlign: "center",
     },
@@ -297,7 +305,7 @@ const Facturas = () => {
             }}
             disabled={selectedFacturas.length === 0}
             onClick={() => {
-              console.log("Facturas seleccionadas:", selectedFacturas);
+              //console.log("Facturas seleccionadas:", selectedFacturas);
               setOpenEnvioModal(true);
               fetchEnviosAbiertos();
             }}
