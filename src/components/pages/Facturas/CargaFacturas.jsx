@@ -7,10 +7,13 @@ import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import DownloadIcon from "@mui/icons-material/Download";
 import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
+import ProformaFacturasModal from "./ProformaFacturasModal";
 
 const CargaFacturas = () => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
+  const [modalProformasOpen, setModalProformasOpen] = useState(false);
+  const [facturasSubidas, setFacturasSubidas] = useState([]);
 
   const [lastUploadSummary, setLastUploadSummary] = useState({
     xml: 0,
@@ -41,7 +44,7 @@ const CargaFacturas = () => {
     window.open(`${apiUrl}/template/remisionProvisional`, "_blank");
   };
 
-  // ✅ FRONT: subir XML (facturas reales)
+  // subir XML (facturas reales)
   const handleXmlUpload = async (xmlFiles) => {
     const formData = new FormData();
     xmlFiles.forEach((file) => formData.append("archivo_xml", file));
@@ -53,32 +56,42 @@ const CargaFacturas = () => {
         {
           headers: {
             "Content-Type": "multipart/form-data",
-            // si usas auth por token:
             // Authorization: `Bearer ${token}`,
           },
         },
       );
 
       const resultados = response.data.resultados || [];
-      resultados.forEach((result) => {
-        if (!result.error) {
-          Swal.fire({
-            title: "¡Éxito!",
-            text: `${result.archivo} - ${result.mensaje}`,
-            icon: "success",
-            timer: 5000,
-            showCloseButton: true,
-          });
-        } else {
-          Swal.fire({
-            title: "Aviso",
-            text: `${result.archivo} - ${result.error}`,
-            icon: "warning",
-            timer: 6000,
-            showCloseButton: true,
-          });
-        }
-      });
+
+      const exitosos = resultados.filter((r) => !r.error && r.factura_id);
+      const facturaIds = exitosos.map((r) => r.factura_id);
+
+      const errores = resultados.filter((r) => r.error);
+
+      if (errores.length > 0) {
+        Swal.fire({
+          title:
+            exitosos.length > 0
+              ? "Carga parcial"
+              : "No se pudieron cargar las facturas",
+          html: errores
+            .map(
+              (r) => `
+          <b>${r.archivo}</b><br/>
+          ${r.error}
+        `,
+            )
+            .join("<br/><br/>"),
+          icon: "warning",
+          width: 700,
+          showCloseButton: true,
+        });
+      }
+
+      if (facturaIds.length > 0) {
+        setFacturasSubidas(facturaIds);
+        setModalProformasOpen(true);
+      }
     } catch (error) {
       Swal.fire({
         title: "Error",
@@ -88,7 +101,7 @@ const CargaFacturas = () => {
     }
   };
 
-  // FRONT: subir Excel (remisiones provisionales)
+  // subir Excel (remisiones provisionales)
   const handleExcelUpload = async (xlsxFiles) => {
     const formData = new FormData();
     xlsxFiles.forEach((file) => formData.append("archivo_excel", file));
@@ -319,6 +332,13 @@ const CargaFacturas = () => {
           </Paper>
         </Box>
       </Box>
+
+      <ProformaFacturasModal
+        open={modalProformasOpen}
+        onClose={() => setModalProformasOpen(false)}
+        facturaIds={facturasSubidas}
+        apiUrl={apiUrl}
+      />
     </div>
   );
 };
