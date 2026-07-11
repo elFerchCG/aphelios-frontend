@@ -69,43 +69,43 @@ const Preguntas = () => {
             : process.env.REACT_APP_API_URL_LOCAL;
 
     // 1. Cargar preguntas desde el Backend
-    // const cargarPreguntas = async (paginaActual) => {
-    //     setLoading(true);
-    //     setError(null);
-    //     try {
-    //         // Ajusta la URL según la ruta de tu servidor
-    //         const res = await axios.get(`${apiUrl}/preguntas/obtenerPreguntas?page=${paginaActual}`);
-    //         const data = res.data;
+    const cargarPreguntas = async (paginaActual) => {
+        setLoading(true);
+        setError(null);
+        try {
+            // Ajusta la URL según la ruta de tu servidor
+            const res = await axios.get(`${apiUrl}/preguntas/obtenerPreguntas?page=${paginaActual}`);
+            const data = res.data;
 
-    //         setPreguntas(data.preguntas || []);
-    //         // Calcular el total de páginas basándonos en el límite de 100
-    //         const totalRegistros = data.meta?.total_registros || 0;
-    //         setTotalPages(Math.ceil(totalRegistros / 100) || 1);
-    //     } catch (err) {
-    //         // 1. Capturar errores con respuesta del servidor (ej: 400, 403, 500)
-    //         if (err.response) {
-    //             // Guardamos el error específico que configuraste en tu backend (data.error)
-    //             setError(err.response.data?.error || 'Error al obtener las preguntas desde el servidor');
-    //         }
-    //         // 2. Capturar errores de red (cuando el servidor está apagado o no responde)
-    //         else if (err.request) {
-    //             setError('No se recibió respuesta del servidor local. Revisa tu conexión.');
-    //         }
-    //         // 3. Cualquier otro error inesperado
-    //         else {
-    //             setError('Ocurrió un error inesperado al procesar la solicitud.');
-    //         }
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
+            setPreguntas(data.preguntas || []);
+            // Calcular el total de páginas basándonos en el límite de 100
+            const totalRegistros = data.meta?.total_registros || 0;
+            setTotalPages(Math.ceil(totalRegistros / 100) || 1);
+        } catch (err) {
+            // 1. Capturar errores con respuesta del servidor (ej: 400, 403, 500)
+            if (err.response) {
+                // Guardamos el error específico que configuraste en tu backend (data.error)
+                setError(err.response.data?.error || 'Error al obtener las preguntas desde el servidor');
+            }
+            // 2. Capturar errores de red (cuando el servidor está apagado o no responde)
+            else if (err.request) {
+                setError('No se recibió respuesta del servidor local. Revisa tu conexión.');
+            }
+            // 3. Cualquier otro error inesperado
+            else {
+                setError('Ocurrió un error inesperado al procesar la solicitud.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Escuchar cambios de página
-    // useEffect(() => {
-    //     cargarPreguntas(page);
-    //     setPreguntaSeleccionada(null); // Limpiar selección al cambiar de página
-    //     setRespuestaTexto('');
-    // }, [page]);
+    useEffect(() => {
+        cargarPreguntas(page);
+        setPreguntaSeleccionada(null); // Limpiar selección al cambiar de página
+        setRespuestaTexto('');
+    }, [page]);
 
     const handlePageChange = (event, value) => {
         setPage(value);

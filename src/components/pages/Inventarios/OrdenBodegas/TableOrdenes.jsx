@@ -17,7 +17,7 @@ import SendIcon from '@mui/icons-material/Send';
 import cancelOrder from '../../../../images/cancel.png';
 import UpdateIcon from '@mui/icons-material/Update';
 import SearchIcon from '@mui/icons-material/Search';
-import { read, utils } from 'xlsx';
+import { read, utils, write } from 'xlsx';
 import { useRef } from 'react';
 import apiUrl from '../../../../config';
 import '../../Inventarios/estilosPrueba.css'
@@ -543,6 +543,256 @@ const TableOrdenes = () => {
         return isNaN(parsedValue) ? null : parsedValue;
     };
 
+    const showHelpManual = () => {
+        Swal.fire({
+            title: '<strong>Seleccione el Tipo de Transacción</strong>',
+            icon: 'question',
+            text: '¿Qué tipo de movimiento o plantilla necesitas consultar?',
+            showCancelButton: true,
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#1B365D',
+            input: 'select',
+            inputOptions: {
+                'entrada': '🟢 Orden de Entrada',
+                'salida': '🔴 Orden de Salida',
+                'transferencia': '🔵 Transferencia / Traspaso'
+            },
+            inputPlaceholder: 'Seleccione una opción',
+            inputValidator: (value) => {
+                if (!value) {
+                    return 'Debe seleccionar un tipo de transacción para continuar';
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const tipo = result.value;
+                mostrarManualEspecifico(tipo);
+            }
+        });
+    };
+
+    const mostrarManualEspecifico = (tipo) => {
+        let titulo = '';
+        let colorTexto = '';
+        let cuerpoHtml = '';
+
+        if (tipo === 'entrada') {
+            titulo = '🟢 Manual de Importación: ENTRADAS';
+            colorTexto = '#1E4620';
+            cuerpoHtml = `
+            <div style="text-align: left; font-size: 14px; max-height: 400px; overflow-y: auto; padding: 5px;">
+                <p>Usa este flujo para ingresar inventario al sistema (Compras, Ajustes positivos, etc.).</p>
+                <hr/>
+                <h4 style="color: ${colorTexto}; margin-bottom: 5px;">1. Nueva Orden de Entrada</h4>
+                <p style="margin-top: 0;">Deje <b>orden_id</b> vacío. Campos obligatorios de cabecera a repetir por fila:</p>
+                <ul>
+                    <li><b>tipo_transaccion_id:</b> ID cuyo tipo_transaccion.categoria sea 'entrada'.</li>
+                    <li><b>bodega_entrada_id:</b> ID de la bodega destino.</li>
+                    <li><b>descripcion:</b> Motivo de la entrada.</li>
+                </ul>
+                <h4 style="color: #6c757d; margin-bottom: 5px;">2. Añadir a Entrada Existente</h4>
+                <ul>
+                    <li>Escriba el ID de la orden en <b>orden_id</b> y llene solo los datos del producto.</li>
+                </ul>
+                <hr/>
+                <p><b>Campos obligatorios por línea:</b> producto_id, cantidad, localidad_entrada_id.</p>
+            </div>
+        `;
+        } else if (tipo === 'salida') {
+            titulo = '🔴 Manual de Importación: SALIDAS';
+            colorTexto = '#7A1C1C';
+            cuerpoHtml = `
+            <div style="text-align: left; font-size: 14px; max-height: 400px; overflow-y: auto; padding: 5px;">
+                <p>Usa este flujo para retirar inventario por mermas, ajustes negativos o bajas.</p>
+                <hr/>
+                <h4 style="color: ${colorTexto}; margin-bottom: 5px;">1. Nueva Orden de Salida</h4>
+                <p style="margin-top: 0;">Deje <b>orden_id</b> vacío. Campos obligatorios de cabecera a repetir por fila:</p>
+                <ul>
+                    <li><b>tipo_transaccion_id:</b> ID cuyo tipo_transaccion.categoria sea 'salida'.</li>
+                    <li><b>bodega_salida_id:</b> ID de la bodega de origen.</li>
+                    <li><b>descripcion:</b> Motivo de la salida.</li>
+                </ul>
+                <h4 style="color: #6c757d; margin-bottom: 5px;">2. Añadir a Salida Existente</h4>
+                <ul>
+                    <li>Escriba el ID de la orden en <b>orden_id</b> y llene solo los datos del producto.</li>
+                </ul>
+                <hr/>
+                <p><b>Campos obligatorios por línea:</b> producto_id, cantidad, localidad_salida_id.</p>
+            </div>
+        `;
+        } else if (tipo === 'transferencia') {
+            titulo = '🔵 Manual de Importación: TRANSFERENCIAS';
+            colorTexto = '#1B365D';
+            cuerpoHtml = `
+            <div style="text-align: left; font-size: 14px; max-height: 400px; overflow-y: auto; padding: 5px;">
+                <p>Usa este flujo para mover mercancía entre tus bodegas registradas (Traspasos).</p>
+                <hr/>
+                <h4 style="color: ${colorTexto}; margin-bottom: 5px;">1. Nueva Transferencia</h4>
+                <p style="margin-top: 0;">Deje <b>orden_id</b> vacío. Campos obligatorios de cabecera a repetir por fila:</p>
+                <ul>
+                    <li><b>bodega_salida_id:</b> Bodega origen del stock.</li>
+                    <li><b>bodega_entrada_id:</b> Bodega destino del stock.</li>
+                    <li><b>descripcion:</b> Motivo del traspaso inter-bodega.</li>
+                </ul>
+                <h4 style="color: #6c757d; margin-bottom: 5px;">2. Añadir a Transferencia Existente</h4>
+                <ul>
+                    <li>Escriba el ID de la orden en <b>orden_id</b>.</li>
+                </ul>
+                <hr/>
+                <p><b>Campos obligatorios por línea:</b> producto_id, cantidad, localidad_salida_id, localidad_entrada_id.</p>
+            </div>
+        `;
+        }
+
+        Swal.fire({
+            title: `<strong style="color: ${colorTexto};">${titulo}</strong>`,
+            icon: 'info',
+            html: cuerpoHtml,
+            showCloseButton: true,
+            showCancelButton: true,
+            focusConfirm: false,
+            confirmButtonText: '<i class="fa fa-download"></i> Descargar Plantilla',
+            confirmButtonColor: colorTexto,
+            cancelButtonText: 'Regresar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                handleDownloadTemplate(tipo);
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                showHelpManual(); // Reabre el selector inicial si presiona regresar
+            }
+        });
+    };
+
+    const handleDownloadTemplate = (tipo) => {
+        const workbook = utils.book_new();
+        let templateData = [];
+        let nameSheet = "";
+
+        if (tipo === 'entrada') {
+            nameSheet = "Plantilla Entrada";
+            templateData = [
+                {
+                    orden_id: "",
+                    tipo_transaccion_id: 1,
+                    bodega_entrada_id: 3,
+                    descripcion: "Entrada masiva por inventario inicial",
+                    producto_id: 101,
+                    cantidad: 50,
+                    localidad_entrada_id: 12,
+                    comentario: "Fila ejemplo nueva orden"
+                },
+                {
+                    orden_id: "",
+                    tipo_transaccion_id: 1,
+                    bodega_entrada_id: 3,
+                    descripcion: "Entrada masiva por inventario inicial",
+                    producto_id: 102,
+                    cantidad: 25,
+                    localidad_entrada_id: 13,
+                    comentario: "Fila ejemplo nueva orden"
+                },
+                {
+                    orden_id: 452,
+                    tipo_transaccion_id: "",
+                    bodega_entrada_id: "",
+                    descripcion: "",
+                    producto_id: 204,
+                    cantidad: 5,
+                    localidad_entrada_id: 14,
+                    comentario: "Fila ejemplo agregar a orden existente"
+                }
+            ];
+        } else if (tipo === 'salida') {
+            nameSheet = "Plantilla Salida";
+            templateData = [
+                {
+                    orden_id: "",
+                    tipo_transaccion_id: 2,
+                    bodega_salida_id: 4,
+                    descripcion: "Salida masiva por merma u obsolescencia",
+                    producto_id: 301,
+                    cantidad: 10,
+                    localidad_salida_id: 45,
+                    comentario: "Fila ejemplo nueva orden"
+                },
+                {
+                    orden_id: "",
+                    tipo_transaccion_id: 2,
+                    bodega_salida_id: 4,
+                    descripcion: "Salida masiva por merma u obsolescencia",
+                    producto_id: 302,
+                    cantidad: 12,
+                    localidad_salida_id: 46,
+                    comentario: "Fila ejemplo nueva orden"
+                },
+                {
+                    orden_id: 453,
+                    tipo_transaccion_id: "",
+                    bodega_salida_id: "",
+                    descripcion: "",
+                    producto_id: 501,
+                    cantidad: 2,
+                    localidad_salida_id: 47,
+                    comentario: "Fila ejemplo agregar a orden existente"
+                }
+            ];
+        } else if (tipo === 'transferencia') {
+            nameSheet = "Plantilla Transferencia";
+            templateData = [
+                {
+                    orden_id: "",
+                    tipo_transaccion_id: 3,
+                    bodega_salida_id: 3,
+                    bodega_entrada_id: 5,
+                    descripcion: "Reabastecimiento sucursal norte",
+                    producto_id: 601,
+                    cantidad: 100,
+                    localidad_salida_id: 12,
+                    localidad_entrada_id: 88,
+                    comentario: "Ejemplo nueva transferencia"
+                },
+                {
+                    orden_id: "",
+                    tipo_transaccion_id: 3,
+                    bodega_salida_id: 3,
+                    bodega_entrada_id: 5,
+                    descripcion: "Reabastecimiento sucursal norte",
+                    producto_id: 602,
+                    cantidad: 150,
+                    localidad_salida_id: 12,
+                    localidad_entrada_id: 89,
+                    comentario: "Ejemplo nueva transferencia"
+                },
+                {
+                    orden_id: 454,
+                    tipo_transaccion_id: "",
+                    bodega_salida_id: "",
+                    bodega_entrada_id: "",
+                    descripcion: "",
+                    producto_id: 705,
+                    cantidad: 30,
+                    localidad_salida_id: 15,
+                    localidad_entrada_id: 90,
+                    comentario: "Ejemplo agregar a transferencia existente"
+                }
+            ];
+        }
+
+        const worksheet = utils.json_to_sheet(templateData);
+        utils.book_append_sheet(workbook, worksheet, nameSheet);
+
+        // Forzar descarga del archivo estructurado de forma limpia
+        const excelBuffer = write(workbook, { bookType: 'xlsx', type: 'array' });
+        const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Plantilla_Masiva_${tipo.toUpperCase()}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleGenerarOrder = () => {
         if (selectedUbicacionSalida && parseInt(inputValue) > parseInt(existenciaProducto)) {
             Swal.fire({
@@ -948,6 +1198,11 @@ const TableOrdenes = () => {
                 // Mapear los datos al formato requerido por el backend
                 const lineasData = {
                     lineas: jsonData.map(row => ({
+                        orden_id: row.orden_id ? parseInt(row.orden_id, 10) : null,
+                        tipo_transaccion_id: row.tipo_transaccion_id ? parseInt(row.tipo_transaccion_id, 10) : null,
+                        bodega_salida_id: row.bodega_salida_id ? parseInt(row.bodega_salida_id, 10) : null,
+                        bodega_entrada_id: row.bodega_entrada_id ? parseInt(row.bodega_entrada_id, 10) : null,
+                        descripcion: row.descripcion || '',
                         producto_id: row.producto_id,
                         cantidad: parseInt(row.cantidad, 10),
                         comentario: row.comentario || '',
@@ -959,7 +1214,7 @@ const TableOrdenes = () => {
                 try {
                     //console.log("Datos enviados al backend:", JSON.stringify(lineasData, null, 2));
                     const response = await axios.post(
-                        `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idOrder}/lineas/excel`,
+                        `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/excel-masivo`,
                         lineasData,
                         {
                             headers: {
@@ -983,16 +1238,32 @@ const TableOrdenes = () => {
                             allowEscapeKey: true,
                         });
                         fetchOrderSelected(idOrder);
-                    } else {
-                        Swal.fire({
-                            title: 'Éxito',
-                            text: message,
-                            icon: 'success',
-                            timer: 5000,
-                        });
-                        fetchOrderSelected(idOrder);
                     }
-                    fetchOrderSelected(idOrder);
+                    // 3. Extraer el ID de la nueva orden devuelto por el backend
+                    const idNuevaOrden = response.data.idOrdenNueva;
+
+                    if (idNuevaOrden) {
+                        // 🔥 Si el Excel creó una orden nueva, la seleccionamos y cargamos en pantalla automáticamente
+                        fetchOrderSelected(idNuevaOrden);
+
+                        Swal.fire({
+                            title: '¡Importación Exitosa!',
+                            text: `Se ha creado y cargado automáticamente la nueva Orden de Bodega #${idNuevaOrden}`,
+                            icon: 'success'
+                        });
+                    } else {
+                        // Si no hay idNuevaOrden significa que agregaron líneas a órdenes que ya existían
+                        // Aquí puedes recargar la orden actual si ya tenías una seleccionada
+                        if (idOrder) {
+                            fetchOrderSelected(idOrder);
+                        }
+
+                        Swal.fire({
+                            title: '¡Líneas Agregadas!',
+                            text: 'Se han añadido las líneas a las órdenes correspondientes con éxito.',
+                            icon: 'success'
+                        });
+                    }
                 } catch (error) {
                     const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
                     Swal.fire({
@@ -1901,16 +2172,25 @@ const TableOrdenes = () => {
                         <img src={searchOrden} alt="Buscar Orden" className="action-icon" />
                         <span>Buscar Orden</span>
                     </div>
-                    <div className="action-item" style={{ cursor: 'pointer' }} onClick={handleButtonClick}>
-                        <img src={importExcel} alt="Importar Excel" className="action-icon" />
-                        <span>Importar Excel</span>
-                        <input
-                            id="file-input"
-                            type="file"
-                            accept=".xlsx, .xls"
-                            style={{ display: 'none' }}
-                            onChange={handleImportExcel}
-                        />
+                    <div style={{ display: 'flex', gap: '15px' }}>
+                        {/* Botón de Ayuda */}
+                        <div className="action-item" style={{ cursor: 'pointer' }} onClick={showHelpManual}>
+                            <span style={{ fontSize: '18px', marginRight: '5px' }}>❓</span>
+                            <span>Manual y Plantilla</span>
+                        </div>
+
+                        {/* Tu botón original de Importar */}
+                        <div className="action-item" style={{ cursor: 'pointer' }} onClick={handleButtonClick}>
+                            <img src={importExcel} alt="Importar Excel" className="action-icon" />
+                            <span>Importar Excel</span>
+                            <input
+                                id="file-input"
+                                type="file"
+                                accept=".xlsx, .xls"
+                                style={{ display: 'none' }}
+                                onChange={handleImportExcel}
+                            />
+                        </div>
                     </div>
                 </div>
                 <div className="right-actions">

@@ -24,7 +24,9 @@ import { GridToolbar } from '@mui/x-data-grid';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import IconButton from '@mui/material/IconButton';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import DashboardFactura from './DashboardFactura';
+import FacturaDrawer from './FacturaDrawer';
+import ProformaAccordion from "./ProformaAccordion";
+import ConsolidadoDrawer from './ConsolidadoDrawer';
 
 const EnviosProgresoEmpaque = () => {
 
@@ -35,7 +37,6 @@ const EnviosProgresoEmpaque = () => {
 
     const [totalPiezas, setTotalPiezas] = useState(0);
     const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
-    const [facturasEnvio, setFacturasEnvio] = useState([]);
     const [totalOrdenRetiro, setTotalOrdenRetiro] = useState([]);
     const [ordenesProduccionFacturas, setOrdenesProduccionFacturas] = useState([]);
     const [ordenesProduccionRetiros, setOrdenesProduccionRetiros] = useState([]);
@@ -46,7 +47,13 @@ const EnviosProgresoEmpaque = () => {
     const [loadingDetalle, setLoadingDetalle] = useState(false);
     const [cajasProducto, setCajasProducto] = useState([]);
     const [loadingCajas, setLoadingCajas] = useState(false);
+
+    const [proformas, setProformas] = useState([]);
     const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+
+    const [openConsolidado, setOpenConsolidado] = useState(false);
+    const [proformaSeleccionada, setProformaSeleccionada] = useState(null);
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -80,7 +87,6 @@ const EnviosProgresoEmpaque = () => {
             const response = await axios.get(`${apiUrl}/empaque/getPiezasYFacturas/${envioId}`);
             setTotalPiezas(Number(response.data.total_piezas || []));
             setTotalPiezasEmpacadas(Number(response.data.total_piezas_empacadas || []));
-            setFacturasEnvio(response.data.facturas);
             setTotalOrdenRetiro(response.data.totalOrdenRetiro);
             setOrdenesProduccionFacturas(response.data.ordenesProduccionFacturas);
             setOrdenesProduccionRetiros(response.data.ordenesProduccionRetiros);
@@ -101,7 +107,49 @@ const EnviosProgresoEmpaque = () => {
 
     useEffect(() => {
         fetchPiezasYFacturas();
+        fetchAgrupaciones();
     }, [envioId]);
+
+    const abrirFactura = (factura) => {
+
+        setFacturaSeleccionada(factura);
+
+        setDrawerOpen(true);
+
+    }
+
+    const cerrarFactura = () => {
+
+        setDrawerOpen(false);
+
+        setFacturaSeleccionada(null);
+
+    }
+
+    const fetchAgrupaciones = async () => {
+
+        try {
+
+            const response = await axios.get(
+                `${apiUrl}/empaque/envio/${envioId}/agrupaciones`
+            );
+
+            setProformas(response.data.data || []);
+            console.log("proformas:", proformas);
+
+        } catch (error) {
+
+            console.error(error);
+
+            Swal.fire({
+                icon: "warning",
+                title: "Error",
+                text: "No se pudieron cargar las agrupaciones."
+            });
+
+        }
+
+    };
 
     const handleOpenModal = async (row) => {
         try {
@@ -200,109 +248,6 @@ const EnviosProgresoEmpaque = () => {
 
                 return <Chip label={label} color={color} size="small" />;
             }
-        }
-    ];
-
-    const handleVerDashboardFactura = (row) => {
-        const facturaConEnvio = {
-            ...row,
-            envioId: Number(envioId) // <- Aquí le inyectas el envío directamente
-        };
-
-        setFacturaSeleccionada(facturaConEnvio);
-    };
-
-    const facturasCols = [
-        { field: "factura_id", headerName: "#FacturaDB", flex: 1 },
-        { field: "razon_social", headerName: "Proveedor", flex: 3 },
-        { field: "numero_factura", headerName: "#Factura", flex: 1 },
-        { field: "serie", headerName: "Serie", flex: 1 },
-        { field: "folio", headerName: "Folio", flex: 1 },
-        {
-            field: "fecha_factura", headerName: "Fecha Factura", flex: 1.5, valueFormatter: (params) =>
-                dayjs(params.value).format("DD/MM/YYYY"),
-        },
-        {
-            field: "fecha_arribo", headerName: "Fecha Arribo", flex: 1.5, valueFormatter: (params) =>
-                dayjs(params.value).format("DD/MM/YYYY"),
-        },
-        {
-            field: "total_piezas",
-            headerName: "Piezas",
-            flex: 1,
-            type: "number",
-            valueFormatter: (value) => Math.round(Number(value ?? 0)),
-        },
-        {
-            field: "total_piezas_surtidas",
-            headerName: "Piezas Surtidas",
-            flex: 1.5,
-            type: "number",
-            valueFormatter: (value) => Math.round(Number(value ?? 0)),
-        },
-        {
-            field: "avance",
-            headerName: "Avance",
-            type: "number",
-            flex: 2,
-            renderCell: (params) => {
-                const total = Number(params.row.total_piezas) || 0;
-                const surtidas = Number(params.row.total_piezas_surtidas) || 0;
-
-                const pct = total > 0
-                    ? Math.min(
-                        100,
-                        Math.max(
-                            0,
-                            Math.round((surtidas / total) * 100)
-                        )
-                    )
-                    : 0;
-
-                return (
-                    <Box sx={{ width: "100%" }}>
-                        <Box
-                            sx={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                mb: 0.5,
-                            }}
-                        >
-                            <Typography variant="caption">{pct}%</Typography>
-                            <Typography variant="caption">
-                                {Math.round(surtidas)}/{Math.round(total)}
-                            </Typography>
-                        </Box>
-                        <LinearProgress
-                            variant="determinate"
-                            value={Number(pct)}
-                            sx={{ height: 6, borderRadius: 4 }}
-                        />
-                    </Box>
-                );
-            },
-        },
-        {
-            field: "estatus",
-            headerName: "Estatus",
-            flex: 1.5
-        },
-        {
-            field: "acciones",
-            headerName: "Acciones",
-            flex: 1,
-            sortable: false,
-            renderCell: (params) => (
-                <Tooltip title="Abrir Dashboard de Factura">
-                    <IconButton
-                        color="primary"
-                        size="small"
-                        onClick={() => handleVerDashboardFactura(params.row)}
-                    >
-                        <DashboardIcon />
-                    </IconButton>
-                </Tooltip>
-            )
         }
     ];
 
@@ -698,10 +643,6 @@ const EnviosProgresoEmpaque = () => {
         permitir_full: false,
     });
 
-    const [columnVisibilityFacturas, setColumnVisibilityModelFacturas] = useState({
-        factura_id: false,
-    });
-
     const [columnVisibilityRetiros, setColumnVisibilityModelRetiros] = useState({
         orden_bodega_id: true,
     });
@@ -859,6 +800,25 @@ const EnviosProgresoEmpaque = () => {
         0
     );
 
+    const handleVerConsolidado = (proforma) => {
+
+        console.log("Proforma seleccionada:", proforma);
+
+        setProformaSeleccionada(proforma);
+        setOpenConsolidado(true);
+
+    };
+
+    const abrirConsolidado = (proforma) => {
+        setProformaSeleccionada(proforma);
+        setOpenConsolidado(true);
+    };
+
+    const cerrarConsolidado = () => {
+        setOpenConsolidado(false);
+        setProformaSeleccionada(null);
+    };
+
     return (
         <Box p={3}>
             <Typography variant="h4" fontWeight="bold" mb={2}>
@@ -934,42 +894,56 @@ const EnviosProgresoEmpaque = () => {
                     </Card>
                 </Grid>
             </Grid>
-            <Typography variant="h6" fontWeight="bold" mb={2}>
-                Facturas del envío
+
+            <Typography
+                variant="h5"
+                fontWeight="bold"
+                mb={3}
+            >
+
+                Agrupaciones del envío
+
             </Typography>
-            <DataGrid
-                rows={facturasEnvio}
-                columns={facturasCols}
-                getRowId={(row) => row.factura_id}
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                columnVisibilityModel={columnVisibilityFacturas}
-                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelFacturas(newModel)}
-                disableRowSelectionOnClick
-                hideFooterSelectedRowCount
-                density="compact"
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{
-                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
-                }}
-                sx={{ ...dashboardGridSx, mb: 4 }}
-                slots={{ toolbar: GridToolbar }}
-                loading={loading}
-                slotProps={{
-                    loadingOverlay: {
-                        variant: 'skeleton',
-                        noRowsVariant: 'skeleton',
-                    },
-                }}
-            />
-            {facturaSeleccionada && (
-                <Box mt={4}>
-                    <DashboardFactura
-                        factura={facturaSeleccionada}
-                        onBack={() => setFacturaSeleccionada(null)}
+
+            {
+
+                proformas.map((grupo) => (
+
+                    <ProformaAccordion
+
+                        key={grupo.proforma_id}
+
+                        grupo={grupo}
+
+                        onVerFactura={abrirFactura}
+
+                        onVerConsolidado={handleVerConsolidado}
+
                     />
-                </Box>
-            )}
+
+                ))
+
+            }
+
+            <FacturaDrawer
+
+                open={drawerOpen}
+
+                factura={facturaSeleccionada}
+
+                envioId={envioId}
+
+                onClose={cerrarFactura}
+
+            />
+
+            <ConsolidadoDrawer
+                open={openConsolidado}
+                envioId={envioId}
+                proforma={proformaSeleccionada}
+                onClose={cerrarConsolidado}
+            />
+
             {/* SECCIÓN CORREGIDA: Alineación exacta y solución al montado de tablas */}
             <Box
                 sx={{
@@ -1036,7 +1010,7 @@ const EnviosProgresoEmpaque = () => {
                     initialState={{
                         pagination: { paginationModel: { pageSize: 100, page: 0 } }
                     }}
-                    sx={dashboardGridSx}
+                    sx={{ ...dashboardGridSx }}
                     slots={{ toolbar: GridToolbar }}
                     loading={loading}
                     slotProps={{

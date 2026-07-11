@@ -39,10 +39,10 @@ const Navegacion = () => {
                 <img src={cargaFactura} alt='Facturas' className='nav-icon-config' />
                 <span>Facturas</span>
             </NavLink>
-            {/* <NavLink to="/preguntas" className="nav-config">
+            <NavLink to="/preguntas" className="nav-config">
                 <img src={preguntas} alt="Preguntas" className="nav-icon-config" />
                 <span>Preguntas</span>
-            </NavLink> */}
+            </NavLink>
             <NavLink to="/transacciones" className="nav-config">
                 <img src={movimientosI} alt="Tipos de Movimientos" className="nav-icon-config" />
                 <span>Tipos de Movimientos</span>
