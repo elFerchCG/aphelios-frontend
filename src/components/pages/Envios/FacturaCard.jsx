@@ -46,28 +46,28 @@ export default function FacturaCard({
 
                     {/* Factura */}
 
-                    <Grid item xs={6} md={5}>
+                    <Grid item xs={6} md={4}>
 
-                            <Typography
-                                fontWeight="bold"
-                            >
+                        <Typography
+                            fontWeight="bold"
+                        >
 
-                                <DescriptionIcon
-                                    sx={{
-                                        mr: 1,
-                                        verticalAlign: "middle"
-                                    }}
-                                />
+                            <DescriptionIcon
+                                sx={{
+                                    mr: 1,
+                                    verticalAlign: "middle"
+                                }}
+                            />
 
-                                {factura.serie}-{factura.folio} | {factura.razon_social}
+                            {factura.serie}-{factura.folio} | {factura.razon_social}
 
-                            </Typography>
+                        </Typography>
 
                     </Grid>
 
                     {/* Líneas */}
 
-                    <Grid item xs={6} md={2}>
+                    <Grid item xs={6} md={1}>
 
                         <Typography
                             variant="body2"
@@ -82,7 +82,7 @@ export default function FacturaCard({
 
                     {/* Piezas */}
 
-                    <Grid item xs={6} md={2}>
+                    <Grid item xs={6} md={1}>
 
                         <Typography
                             variant="body2"
@@ -95,10 +95,23 @@ export default function FacturaCard({
 
                     </Grid>
 
+                    <Grid item xs={6} md={1}>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                        >
+
+                            Enviar: {factura.cantidad_a_enviar}
+
+                        </Typography>
+
+                    </Grid>
+
                     <Grid
                         item
                         xs={12}
-                        md={3}
+                        md={5}
                         textAlign="right"
                         mt="-5px"
                     >
@@ -106,7 +119,7 @@ export default function FacturaCard({
                         <Button
 
                             variant="contained"
-                            
+
 
                             onClick={() => {
                                 onVerDetalle(factura)

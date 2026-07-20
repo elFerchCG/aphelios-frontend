@@ -335,7 +335,7 @@ export default function ProductoRow({ producto }) {
                                         fontWeight={600}
                                     >
 
-                                        INVENTORY
+                                        ML
 
                                     </Typography>
 
@@ -387,7 +387,7 @@ export default function ProductoRow({ producto }) {
 
                                         {
                                             label: "Envíar",
-                                            value: producto.cantidad_a_producir,
+                                            value: producto.cantidad_a_enviar,
                                             color: "#eef4ff",
                                             text: "#1565c0"
                                         },

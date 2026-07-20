@@ -18,7 +18,10 @@ import {
     Button,
     DialogActions,
     Tooltip,
-    Switch
+    Switch,
+    Modal,
+    TextField,
+    Stack
 } from "@mui/material";
 import { GridToolbar } from '@mui/x-data-grid';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -27,6 +30,8 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import FacturaDrawer from './FacturaDrawer';
 import ProformaAccordion from "./ProformaAccordion";
 import ConsolidadoDrawer from './ConsolidadoDrawer';
+import EditNoteIcon from "@mui/icons-material/EditNote";
+import NoteAddIcon from "@mui/icons-material/NoteAdd";
 
 const EnviosProgresoEmpaque = () => {
 
@@ -54,6 +59,11 @@ const EnviosProgresoEmpaque = () => {
 
     const [openConsolidado, setOpenConsolidado] = useState(false);
     const [proformaSeleccionada, setProformaSeleccionada] = useState(null);
+
+    const [openNota, setOpenNota] = useState(false);
+    const [notaActual, setNotaActual] = useState("");
+    const [detalleSeleccionado, setDetalleSeleccionado] = useState(null);
+    const [guardandoNota, setGuardandoNota] = useState(false);
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -166,6 +176,92 @@ const EnviosProgresoEmpaque = () => {
         }
     };
 
+    const obtenerDetalleOrden = async (ordenId) => {
+        try {
+            setLoadingDetalle(true);
+            const response = await axios.get(`${apiUrl}/empaque/getDetalleOrden/${ordenId}`);
+            setDetalleOrden(response.data.data);
+            setLoadingDetalle(false);
+        } catch (error) {
+            setLoadingDetalle(false);
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+        }
+    };
+
+    const handleOpenNota = (row) => {
+
+        setDetalleSeleccionado(row.id);
+        setOrdenSeleccionada(row.orden_id);
+
+        setNotaActual(row.notas || "");
+
+        setOpenNota(true);
+
+    };
+
+    const handleCloseNota = () => {
+
+        setOpenNota(false);
+
+        setDetalleSeleccionado(null);
+
+        setNotaActual("");
+
+    };
+
+    const guardarNota = async () => {
+
+        try {
+
+            setGuardandoNota(true);
+
+            await axios.put(
+                `${apiUrl}/empaque/orden-produccion-detalle/${detalleSeleccionado}/notas`,
+                {
+                    notas: notaActual
+                }
+            );
+
+            Swal.fire({
+                icon: "success",
+                title: "Nota guardada",
+                timer: 1200,
+                showConfirmButton: false,
+                target: document.getElementById("modal-notas")
+            });
+
+            // refresca el detalle de la orden
+            await obtenerDetalleOrden(ordenSeleccionada);
+
+            handleCloseNota();
+
+        } catch (error) {
+
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text:
+                    error.response?.data?.message ??
+                    "No se pudo guardar la nota.",
+                target: document.getElementById("modal-notas")
+            });
+
+        } finally {
+
+            setGuardandoNota(false);
+
+        }
+
+    };
+
     const detalleCols = [
         { field: "id", headerName: "ID Detalle", flex: 1 },
         { field: "orden_id", headerName: "ID Orden", flex: 1 },
@@ -248,6 +344,48 @@ const EnviosProgresoEmpaque = () => {
 
                 return <Chip label={label} color={color} size="small" />;
             }
+        },
+        {
+            field: "nota",
+            headerName: "Notas",
+            width: 120,
+
+            renderCell: (params) => (
+
+                <Chip
+
+                    clickable
+
+                    icon={
+                        params.row.notas
+                            ? <EditNoteIcon />
+                            : <NoteAddIcon />
+                    }
+
+                    label={
+                        params.row.notas
+                            ? "Editar"
+                            : "Agregar"
+                    }
+
+                    color={
+                        params.row.notas
+                            ? "warning"
+                            : "primary"
+                    }
+
+                    variant={
+                        params.row.notas
+                            ? "filled"
+                            : "outlined"
+                    }
+
+                    onClick={() => handleOpenNota(params.row)}
+
+                />
+
+            )
+
         }
     ];
 
@@ -289,7 +427,7 @@ const EnviosProgresoEmpaque = () => {
             valueFormatter: (value) => Math.round(value ?? 0)
         },
         {
-            field: "cantidad_a_producir", headerName: "Factura", flex: 1, type: "number",
+            field: "cantidad_parcial", headerName: "Factura", flex: 1, type: "number",
             valueFormatter: (value) => Math.round(value ?? 0)
         },
         {
@@ -668,14 +806,14 @@ const EnviosProgresoEmpaque = () => {
             return oldRow;
         }
 
-        if (newRow.cantidad_a_enviar > oldRow.cantidad_a_producir) {
-            Swal.fire(
-                "Valor inválido",
-                "No puede ser mayor a la cantidad a producir",
-                "warning"
-            );
-            return oldRow;
-        }
+        // if (newRow.cantidad_a_enviar > oldRow.cantidad_parcial) {
+        //     Swal.fire(
+        //         "Valor inválido",
+        //         "No puede ser mayor a la cantidad facturada",
+        //         "warning"
+        //     );
+        //     return oldRow;
+        // }
 
         if (newRow.cantidad_a_enviar === oldRow.cantidad_a_enviar) {
             return oldRow;
@@ -701,20 +839,59 @@ const EnviosProgresoEmpaque = () => {
 
             return newRow;
         } catch (error) {
-            Swal.fire(
-                "Error",
-                "No se pudo actualizar la orden",
-                "error"
-            );
+            // 1. Extraer el mensaje principal del servidor
+            const mensajeServidor = error.response?.data?.message || "No se pudo actualizar la orden";
+
+            // 2. Extraer detalles adicionales (pueden venir como array, string u objeto)
+            const detallesServidor = error.response?.data?.details || error.response?.data?.errors;
+
+            // Creamos un objeto de error personalizado para transportar ambos datos
+            const customError = new Error(mensajeServidor);
+            customError.details = detallesServidor; // Le inyectamos los detalles al error
+
+            mostrarAlertaError(customError);
+
             return oldRow;
         }
     };
 
-    const handleProcessRowUpdateError = (error) => {
+    const mostrarAlertaError = (error) => {
+        let contenidoHtml = "";
+
+        if (error.details) {
+            if (Array.isArray(error.details)) {
+                contenidoHtml = `
+                <p style="margin-bottom: 10px;">${error.message}</p>
+                <ul style="text-align: left; font-size: 0.9em; background: #f8f9fa; padding: 10px 25px; border-radius: 5px;">
+                    ${error.details.map(detail => `<li>${detail}</li>`).join("")}
+                </ul>
+            `;
+            } else if (typeof error.details === "object") {
+                const listaErrores = Object.entries(error.details)
+                    .map(([campo, desc]) => `<li><strong>${campo}:</strong> ${desc}</li>`)
+                    .join("");
+
+                contenidoHtml = `
+                <p style="margin-bottom: 10px;">${error.message}</p>
+                <ul style="text-align: left; font-size: 0.9em; background: #f8f9fa; padding: 10px 25px; border-radius: 5px;">
+                    ${listaErrores}
+                </ul>
+            `;
+            } else {
+                contenidoHtml = `
+                <p>${error.message}</p>
+                <div style="text-align: left; font-size: 0.85em; font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 5px; max-height: 150px; overflow-y: auto;">
+                    ${error.details}
+                </div>
+            `;
+            }
+        }
+
         Swal.fire({
             icon: "warning",
-            title: "Error",
-            text: error.message,
+            title: "No se pudo actualizar",
+            html: contenidoHtml || error.message,
+            confirmButtonColor: "#3085d6"
         });
     };
 
@@ -995,7 +1172,6 @@ const EnviosProgresoEmpaque = () => {
                     showCellVerticalBorder
                     showColumnVerticalBorder
                     processRowUpdate={processRowUpdate}
-                    onProcessRowUpdateError={handleProcessRowUpdateError}
                     isCellEditable={(params) => {
                         if (params.row.estatus === "empacada") return false;
                         if (params.field === "cantidad_a_enviar") return true;
@@ -1096,6 +1272,7 @@ const EnviosProgresoEmpaque = () => {
                         height: '92vh',     // 4. Ocupa el 92% del alto de la pantalla
                         maxHeight: '92vh',  // Asegura que mantenga esa altura fija casi completa
                         margin: 'auto',     // Centra la modal perfectamente
+                        borderRadius: 4
                     }
                 }}
             >
@@ -1194,6 +1371,84 @@ const EnviosProgresoEmpaque = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+            <Modal
+                open={openNota}
+                onClose={handleCloseNota}
+            >
+
+                <Box
+                    id="modal-notas"
+                    sx={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%,-50%)",
+                        width: 550,
+                        bgcolor: "background.paper",
+                        borderRadius: 2,
+                        boxShadow: 24,
+                        p: 3
+                    }}
+                >
+
+                    <Typography
+                        variant="h6"
+                        fontWeight="bold"
+                        mb={2}
+                    >
+
+                        Agregar nota
+
+                    </Typography>
+
+                    <TextField
+
+                        fullWidth
+
+                        multiline
+
+                        minRows={6}
+
+                        maxRows={10}
+
+                        value={notaActual}
+
+                        onChange={(e) =>
+                            setNotaActual(e.target.value)
+                        }
+
+                        placeholder="Escribe aquí la nota para este componente..."
+
+                    />
+
+                    <Stack
+                        direction="row"
+                        justifyContent="flex-end"
+                        spacing={2}
+                        mt={3}
+                    >
+
+                        <Button
+                            onClick={handleCloseNota}
+                        >
+                            Cancelar
+                        </Button>
+
+                        <Button
+                            variant="contained"
+                            onClick={guardarNota}
+                            disabled={guardandoNota}
+                        >
+
+                            Guardar
+
+                        </Button>
+
+                    </Stack>
+
+                </Box>
+
+            </Modal>
         </Box>
     );
 }

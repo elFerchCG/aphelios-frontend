@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { DataGrid, GridActionsCellItem, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport } from "@mui/x-data-grid";
@@ -373,23 +373,26 @@ const EnvioDetalle = () => {
         }, 300);
     };
 
+    // 1. Añadimos un ref para controlar si ya auto-expandimos la tarima abierta al cargar
+    const hasInitialAutoExpand = useRef(false);
+
     useEffect(() => {
         // Buscamos si existe alguna tarima abierta en la lista actual
         const tarimaAbierta = tarimas.find(t => t.estatus === 'abierta');
 
-        if (tarimaAbierta && expandedRowId !== tarimaAbierta.id) {
-            // 1. Seteamos el loading para esa tarima de forma inmediata
+        // Solo auto-expandimos si hay una tarima abierta Y aún no hemos inicializado 
+        // O si actualmente no hay ninguna tarima expandida (expandedRowId === null)
+        if (tarimaAbierta && (!hasInitialAutoExpand.current || !expandedRowId)) {
             setLoadingCajas(true);
 
-            // 2. Traemos sus cajas correspondientes de la API
             fetchCajas(tarimaAbierta.id).finally(() => {
                 setLoadingCajas(false);
             });
 
-            // 3. Opcional: Aseguramos que el estado del ID expandido se sincronice
             setExpandedRowId(tarimaAbierta.id);
+            hasInitialAutoExpand.current = true; // Marcamos que la auto-apertura inicial ya se hizo
         }
-    }, [tarimas, expandedRowId]); // 🔑 Se ejecutará cada vez que la lista de tarimas cambie (por ejemplo, al renderizar por primera vez)
+    }, [tarimas, expandedRowId]);
 
     const columns = [
         { field: "id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },

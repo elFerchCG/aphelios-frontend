@@ -12,8 +12,12 @@ import {
     Typography
 } from "@mui/material";
 
+import { Link as RouterLink } from "react-router-dom";
+
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
+
+import { useNavigate } from "react-router-dom";
 
 import FacturaCard from "./FacturaCard";
 
@@ -24,6 +28,8 @@ export default function ProformaAccordion({
     onVerConsolidado
 
 }) {
+
+    const navigate = useNavigate();
 
     return (
 
@@ -46,7 +52,7 @@ export default function ProformaAccordion({
                     alignItems="center"
                 >
 
-                    <Grid item md={3}>
+                    <Grid item md={4}>
 
                         <Stack>
 
@@ -79,7 +85,7 @@ export default function ProformaAccordion({
 
                     </Grid>
 
-                    <Grid item md={2}>
+                    <Grid item md={1}>
 
                         <Typography
                             variant="body2"
@@ -92,7 +98,7 @@ export default function ProformaAccordion({
 
                     </Grid>
 
-                    <Grid item md={2}>
+                    <Grid item md={1}>
 
                         <Typography
                             variant="body2"
@@ -107,6 +113,19 @@ export default function ProformaAccordion({
 
                     <Grid item md={2}>
 
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                        >
+
+                            Enviar: {grupo.cantidad_producto_a_enviar}
+
+                        </Typography>
+
+                    </Grid>
+
+                    {/* <Grid item md={2}>
+
                         <Chip
 
                             label={grupo.estatus}
@@ -119,7 +138,7 @@ export default function ProformaAccordion({
 
                         />
 
-                    </Grid>
+                    </Grid> */}
 
                     <Grid item md={2}>
 
@@ -131,9 +150,29 @@ export default function ProformaAccordion({
                                     mb: 0.5,
                                 }}
                             >
-                                <Typography variant="caption">{grupo.avance}%</Typography>
+                                <Typography variant="caption">Escaneo: {grupo.avance}%</Typography>
                                 <Typography variant="caption">
-                                    {/* {Math.round(grupo.surtidas)}/{Math.round(grupo.requeridas)} */}
+                                    {grupo.cantidad_producto_empacada} / {grupo.cantidad_producto_a_enviar}
+                                </Typography>
+                            </Box>
+                            <LinearProgress
+                                variant="determinate"
+                                value={Number(grupo.avance)}
+                                sx={{ height: 6, borderRadius: 4, mb: 1 }}
+                            />
+                        </Box>
+
+                        <Box sx={{ width: "80%" }}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    mb: 0.5,
+                                }}
+                            >
+                                <Typography variant="caption">Surtido: {grupo.avance_surtido}%</Typography>
+                                <Typography variant="caption">
+                                    {grupo.cantidad_surtida} / {grupo.cantidad_facturada}
                                 </Typography>
                             </Box>
                             <LinearProgress
@@ -145,21 +184,48 @@ export default function ProformaAccordion({
 
                     </Grid>
 
-                    <Grid item md={1}>
+                    <Grid
+                        item
+                        md={2}
+                    >
 
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                console.log("Click consolidado", grupo);
-                                onVerConsolidado(grupo);
-                            }}
+                        <Stack
+                            direction="row"
+                            spacing={1}
                         >
 
-                            Consolidado
+                            <Button
+                                component={RouterLink}
+                                to={`/surtido/${grupo.proforma_id}`}
+                                variant="contained"
+                                color="primary"
+                                size="small"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                }}
+                            >
 
-                        </Button>
+                                Surtir
+
+                            </Button>
+
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={(e) => {
+
+                                    e.stopPropagation();
+
+                                    onVerConsolidado(grupo);
+
+                                }}
+                            >
+
+                                Consolidado
+
+                            </Button>
+
+                        </Stack>
 
                     </Grid>
 

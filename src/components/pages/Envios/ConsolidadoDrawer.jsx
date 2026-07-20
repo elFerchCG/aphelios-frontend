@@ -2,8 +2,10 @@ import {
     Drawer,
     Box,
     Typography,
-    CircularProgress
+    CircularProgress,
+    IconButton
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -96,12 +98,30 @@ export default function ConsolidadoDrawer({
                     }}
                 >
 
-                    <Typography
-                        variant="h6"
-                        fontWeight={700}
+                    <Box
+                        sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center"
+                        }}
                     >
-                        Consolidado de Producción
-                    </Typography>
+                        <Typography
+                            variant="h6"
+                            fontWeight={700}
+                        >
+                            Consolidado de Producción
+                        </Typography>
+
+                        <IconButton
+
+                            onClick={onClose}
+
+                        >
+
+                            <CloseIcon />
+
+                        </IconButton>
+                    </Box>
 
                     <Typography
                         variant="body2"

@@ -108,6 +108,18 @@ export default function FacturaDrawer({
 
         {
 
+            field: "cantidad_a_enviar",
+
+            headerName: "Enviar",
+
+            width: 130,
+
+            type: "number"
+
+        },
+
+        {
+
             field: "cantidad_surtida",
 
             headerName: "Surtida",
