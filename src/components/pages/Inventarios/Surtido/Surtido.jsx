@@ -1,4 +1,4 @@
-import { Box, Button, FormControl, IconButton, InputAdornment, InputLabel, LinearProgress, MenuItem, Modal, OutlinedInput, Select, TextField, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, FormControl, IconButton, InputAdornment, InputLabel, LinearProgress, MenuItem, Modal, OutlinedInput, Paper, Select, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import React, { useEffect, useRef, useState, useMemo } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
@@ -7,7 +7,8 @@ import Swal from 'sweetalert2';
 import axios from 'axios';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-
+import { useParams, useLocation } from "react-router-dom";
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -57,8 +58,16 @@ const Surtido = () => {
     const [openModalPin, setOpenModalPin] = useState(false);
     const [pinSupervisor, setPinSupervisor] = useState('');
     const [loading, setLoading] = useState(false);
+    const [modoSoloLectura, setModoSoloLectura] = useState(false);
+    const [resumenOrden, setResumenOrden] = useState(null);
 
     const inputRef = useRef(null);
+
+    const { proformaId } = useParams();
+    const { state } = useLocation();
+
+
+    const [infoProforma, setInfoProforma] = useState(null);
 
     useEffect(() => {
         console.log('🟢 Montado Surtido');
@@ -101,7 +110,11 @@ const Surtido = () => {
 
     // Efecto para activar la edición de la primera fila al abrir cualquiera de las modales
     useEffect(() => {
-        if ((openAsignar || openSurtirNoFull) && componentes.length > 0 && !yaEnfocado) {
+        if ((openAsignar || openSurtirNoFull)
+            && componentes.length > 0 &&
+            !yaEnfocado &&
+            !modoSoloLectura
+        ) {
             const primerId = componentes[0].id; // Toma el ID de la primera fila
 
             // Seteamos el modelo para indicarle que esa celda específica debe estar editándose
@@ -119,7 +132,7 @@ const Surtido = () => {
             setYaEnfocado(false); // 🔴 Reseteamos el flag para la próxima vez
         }
         // 💡 Quitamos 'componentes' de las dependencias para que no se dispare al editar los valores
-    }, [openAsignar, openSurtirNoFull, yaEnfocado]);
+    }, [openAsignar, openSurtirNoFull, yaEnfocado, modoSoloLectura]);
 
     const styleModalAsignar = {
         position: 'absolute',
@@ -130,7 +143,6 @@ const Surtido = () => {
         width: '95%',
 
         height: '90vh',            // 🔥 altura máxima relativa a pantalla
-        maxHeight: '70vh',
 
         bgcolor: 'background.paper',
         borderRadius: 3,
@@ -228,19 +240,27 @@ const Surtido = () => {
         if (loading) return; // Evita ejecuciones paralelas
         setLoading(true);
         try {
-            const response = await axios.get(`${apiUrl}/mrp/${sku}`);
+            const response = await axios.get(`${apiUrl}/mrp/${proformaId}/${sku}`);
             if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
                 setData(response.data.data);
             }
         } catch (error) {
-            const errorMessage = error.response.data.message;
+            const errorMessage = error.response?.data?.message || "Ocurrió un error al consultar las órdenes.";
+
             Swal.fire({
-                title: 'Error',
+
+                title: "Error",
+
                 text: errorMessage,
-                icon: 'error',
+
+                icon: "error",
+
                 timer: 5000,
+
                 showCloseButton: true,
+
                 allowEscapeKey: true
+
             });
         } finally {
             setLoading(false);
@@ -267,25 +287,53 @@ const Surtido = () => {
         }
     };
 
-    const handleOpenAsignar = async (ordenId, detalleId) => {
+    const handleOpenAsignar = async (
+        ordenId,
+        detalleId,
+        cantidadEnviar,
+        cantidadSurtida
+    ) => {
+
         setSelectedOrdenId(ordenId);
         setSelectedDetalleId(detalleId);
+
+        setModoSoloLectura(
+            Number(cantidadSurtida) >= Number(cantidadEnviar)
+        );
+
         await validarPaquete(ordenId);
+
         setOpenAsignar(true);
     };
 
-    const handleOpenSurtirNoFull = async (ordenId, detalleId) => {
-        if (loading) return; // Evita abrir o disparar llamadas concurrentes
+    const handleOpenSurtirNoFull = async (
+        ordenId,
+        detalleId,
+        cantidadEnviar,
+        cantidadSurtida
+    ) => {
+
+        if (loading) return;
+
         setLoading(true);
+
         try {
+
             setSelectedOrdenId(ordenId);
             setSelectedDetalleId(detalleId);
+
+            setModoSoloLectura(
+                Number(cantidadSurtida) >= Number(cantidadEnviar)
+            );
+
             await validarPaquete(ordenId);
+
             setOpenSurtirNoFull(true);
-        } catch (error) {
-            console.error("Error al abrir surtido No Full:", error);
+
         } finally {
+
             setLoading(false);
+
         }
     };
 
@@ -295,12 +343,14 @@ const Surtido = () => {
         setSelectedDetalleId(null); // Resetear id_detalle_orden también
         setCantidadRecibida("");
         setSelectedUsuario("");
+        setResumenOrden(null);
     };
 
     const handleCloseSurtirNoFull = () => {
         if (loading) return;
         setOpenSurtirNoFull(false);
         setSelectedDetalleId(null);
+        setResumenOrden(null);
     };
 
     const handleOpenImprimir = () => {
@@ -561,7 +611,7 @@ const Surtido = () => {
             const response = await axios.get(`${apiUrl}/mrp/validarPaquete/${id}`);
             if (response.data.ok) {
                 setComponentes(response.data.paqueteCheck);
-                console.log("Este es el response:", response.data);
+                setResumenOrden(response.data.resumen);
             }
         } catch (error) {
             console.log("Ocurrio un error en validarPaquete:", error);
@@ -617,45 +667,99 @@ const Surtido = () => {
     };
 
     const processRowUpdate = async (updatedRow, oldRow) => {
+
+        const cantidad = Number(updatedRow.cantidad_a_contar);
+
+        // No hacer nada si no se capturó un valor válido
+        if (
+            updatedRow.cantidad_a_contar === "" ||
+            updatedRow.cantidad_a_contar === null ||
+            updatedRow.cantidad_a_contar === undefined ||
+            Number.isNaN(cantidad) ||
+            cantidad <= 0
+        ) {
+            return oldRow;
+        }
+
+        // No llamar al backend si el valor no cambió
+        if (
+            Number(updatedRow.cantidad_a_contar) ===
+            Number(oldRow.cantidad_a_contar)
+        ) {
+            return oldRow;
+        }
+
         try {
-            // Llamar a handleUpdateLinea para realizar la actualización en la base de datos
+
             await contarComponenteSurtido(updatedRow);
 
-            // Si todo sale bien, devolver la fila actualizada
             return updatedRow;
+
         } catch (error) {
-            const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+
+            const errorMessage =
+                error.response?.data?.message ||
+                "Ha ocurrido un error desconocido";
+
             Swal.fire({
-                title: '¡No se pudo actualizar la linea!',
+                title: "¡No se pudo actualizar la línea!",
                 text: errorMessage,
-                icon: 'error',
+                icon: "error",
                 timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true,
                 target: document.getElementById("modal-asignar"),
             });
+
             return oldRow;
         }
     };
 
     const processRowUpdateNoFull = async (updatedRow, oldRow) => {
+
+        const cantidad = Number(updatedRow.cantidad_a_contar);
+
+        // No hacer nada si no se capturó un valor válido
+        if (
+            updatedRow.cantidad_a_contar === "" ||
+            updatedRow.cantidad_a_contar === null ||
+            updatedRow.cantidad_a_contar === undefined ||
+            Number.isNaN(cantidad) ||
+            cantidad <= 0
+        ) {
+            return oldRow;
+        }
+
+        // No llamar al backend si el valor no cambió
+        if (
+            Number(updatedRow.cantidad_a_contar) ===
+            Number(oldRow.cantidad_a_contar)
+        ) {
+            return oldRow;
+        }
+
         try {
-            // Llamar a handleUpdateLinea para realizar la actualización en la base de datos
+
             await contarComponenteSurtidoNoFull(updatedRow);
 
-            // Si todo sale bien, devolver la fila actualizada
             return updatedRow;
+
         } catch (error) {
-            const errorMessage = error.response?.data?.message || "Ha ocurrido un error desconocido";
+
+            const errorMessage =
+                error.response?.data?.message ||
+                "Ha ocurrido un error desconocido";
+
             Swal.fire({
-                title: '¡No se pudo actualizar la linea!',
+                title: "¡No se pudo actualizar la línea!",
                 text: errorMessage,
-                icon: 'error',
+                icon: "error",
                 timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true,
                 target: document.getElementById("modal-surtirNoFull"),
             });
+
             return oldRow;
         }
     };
@@ -673,11 +777,17 @@ const Surtido = () => {
     };
 
     const isCellEditable = (params) => {
+
+        if (modoSoloLectura) {
+            return false;
+        }
+
         return (
-            params.field === 'cantidad_a_contar' &&
-            typeof params.row.sku === 'string' &&
-            params.row.sku.trim() !== ''
+            params.field === "cantidad_a_contar" &&
+            typeof params.row.sku === "string" &&
+            params.row.sku.trim() !== ""
         );
+
     };
 
     const columns = [
@@ -712,9 +822,18 @@ const Surtido = () => {
         },
         { field: "componente_sku", headerName: "SKU Componente", type: "text", flex: 2 },
         {
-            field: "descripcion", headerName: "Descripcion", type: "text", flex: 3, renderCell: (params) => (
+            field: "descripcion", headerName: "Descripcion", type: "text", flex: 2, renderCell: (params) => (
                 params.value ?? "Sin descripción"
             )
+        },
+        {
+            field: "cantidad_facturada", headerName: "Procesar", type: "number", flex: 1,
+            renderCell: (params) => {
+                return Math.round(Number(params.value ?? 0));
+            }
+        },
+        {
+            field: "cantidad_surtida", headerName: "Procesadas", type: "number", flex: 1
         },
         {
             field: "cantidad_recibida", headerName: "Cantidad Recibida", type: "number", flex: 1
@@ -754,9 +873,19 @@ const Surtido = () => {
                             sx={{ color: esFull ? "orange" : "red" }}
                             onClick={() => {
                                 if (esFull) {
-                                    handleOpenAsignar(params.row.id_orden, params.row.id_detalle_orden);
+                                    handleOpenAsignar(
+                                        params.row.id_orden,
+                                        params.row.id_detalle_orden,
+                                        params.row.cantidad_a_enviar,
+                                        params.row.cantidad_surtida
+                                    );
                                 } else {
-                                    handleOpenSurtirNoFull(params.row.id_orden, params.row.id_detalle_orden);
+                                    handleOpenSurtirNoFull(
+                                        params.row.id_orden,
+                                        params.row.id_detalle_orden,
+                                        params.row.cantidad_a_enviar,
+                                        params.row.cantidad_surtida
+                                    );
                                 }
                             }}
                             label={esFull ? "Surtir" : "Surtir y empacar"}
@@ -780,10 +909,17 @@ const Surtido = () => {
         { field: "id", headerName: "Folio detalle orden", flex: 1 },
         { field: "orden_id", headerName: "Folio orden", flex: 1 },
         { field: "sku", headerName: "SKU Componente", flex: 2 },
-        { field: "descripcion", headerName: "Descripción", flex: 2 },
+        { field: "descripcion", headerName: "Descripción", flex: 1 },
         {
             field: "cantidad_facturada",
             headerName: "Factura",
+            flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0))
+        },
+        {
+            field: "cantidad_a_enviar",
+            headerName: "Enviar",
             flex: 1,
             type: "number",
             valueFormatter: (value) => Math.round(Number(value ?? 0))
@@ -855,6 +991,11 @@ const Surtido = () => {
             flex: 1,
             editable: true,
             cellClassName: 'celdaEditable',
+            renderHeader: (params) => (
+                <div style={{ lineHeight: "normal", whiteSpace: "normal", wordBreak: "break-word", textAlign: "center" }}>
+                    {params.colDef.headerName}
+                </div>
+            ),
             renderEditCell: (params) => (
                 <GridEditInputCell
                     {...params}
@@ -868,13 +1009,58 @@ const Surtido = () => {
                 const { props } = params;
 
                 const value = Math.max(0, props.value);
-                const isValid = /^[0-9]+$/.test(value);
+                const isValid =
+                    props.value !== "" &&
+                    props.value !== null &&
+                    props.value !== undefined &&
+                    /^[0-9]+$/.test(props.value);
 
                 return {
                     ...props,
                     value,
                     error: !isValid,
                 };
+            }
+        },
+        {
+            field: "cantidad_excedente",
+            headerName: "Excedente",
+            flex: 1,
+            type: "number",
+            renderCell: (params) => {
+
+                const excedente = Number(params.value);
+
+                if (excedente <= 0) {
+
+                    return (
+                        <Chip
+
+                            size="small"
+
+                            color="success"
+
+                            label="Sin excedente"
+
+                        />
+                    );
+
+                }
+
+                return (
+
+                    <Chip
+
+                        size="small"
+
+                        color="warning"
+
+                        label={`+${excedente}`}
+
+                    />
+
+                );
+
             }
         },
     ];
@@ -892,6 +1078,13 @@ const Surtido = () => {
             valueFormatter: (value) => Math.round(Number(value ?? 0))
         },
         {
+            field: "cantidad_a_enviar",
+            headerName: "Enviar",
+            flex: 1,
+            type: "number",
+            valueFormatter: (value) => Math.round(Number(value ?? 0))
+        },
+        {
             field: "cantidad_contada",
             headerName: "Cantidad contada",
             flex: 1,
@@ -958,6 +1151,11 @@ const Surtido = () => {
             flex: 1,
             editable: true,
             cellClassName: 'celdaEditable',
+            renderHeader: (params) => (
+                <div style={{ lineHeight: "normal", whiteSpace: "normal", wordBreak: "break-word", textAlign: "center" }}>
+                    {params.colDef.headerName}
+                </div>
+            ),
             renderEditCell: (params) => (
                 <GridEditInputCell
                     {...params}
@@ -971,7 +1169,11 @@ const Surtido = () => {
                 const { props } = params;
 
                 const value = Math.max(0, props.value);
-                const isValid = /^[0-9]+$/.test(value);
+                const isValid =
+                    props.value !== "" &&
+                    props.value !== null &&
+                    props.value !== undefined &&
+                    /^[0-9]+$/.test(props.value);
 
                 return {
                     ...props,
@@ -982,8 +1184,31 @@ const Surtido = () => {
         },
     ];
 
+    const obtenerInfoProforma = async () => {
+
+        try {
+
+            const { data } = await axios.get(
+                `${apiUrl}/empaque/proforma/${proformaId}`
+            );
+
+            if (data.ok) {
+                setInfoProforma(data.proforma);
+            }
+
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    useEffect(() => {
+
+        obtenerInfoProforma();
+
+    }, [proformaId]);
+
     return (
-        <div
+        <Box
             style={{
                 maxWidth: "90%",
                 margin: "0 auto",
@@ -996,92 +1221,168 @@ const Surtido = () => {
                 textAlign: "center",
                 margin: 0
             }}>Surtido</h1>
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr auto 1fr",
-                    alignItems: "center",
-                    marginTop: "10px",
-                    marginBottom: "10px"
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "stretch",
+                    gap: 2,
+                    mb: 2,
+                    mt: 2
                 }}
             >
-                <div style={{ justifySelf: "start" }}>
+                <Paper
+                    elevation={3}
+                    sx={{
+                        flex: 1,
+                        p: 2,
+                        borderRadius: 3,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        bgcolor: "#fafafa",
+                        borderLeft: "6px solid",
+                        borderColor: "primary.main"
+                    }}
+                >
+
+                    <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                            letterSpacing: 2,
+                            textTransform: "uppercase"
+                        }}
+                    >
+                        Proforma
+                    </Typography>
+
+                    <Typography
+                        variant="h4"
+                        fontWeight="bold"
+                    >
+                        {infoProforma?.titulo}
+                    </Typography>
+
+                    <Stack
+                        direction="row"
+                        spacing={3}
+                        mt={0.5}
+                    >
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                        >
+                            Pedido #{infoProforma?.pedido_id}
+                        </Typography>
+
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                        >
+                            {infoProforma?.razon_social}
+                        </Typography>
+
+                    </Stack>
+
+                </Paper>
+
+                <Box
+                    sx={{
+                        width: 420,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between"
+                    }}
+                >
+
+                    {/* BUSCADOR */}
+
                     <TextField
                         inputRef={inputRef}
                         id="outlined-basic"
                         label="Ingresar SKU"
                         variant="outlined"
-                        size='small'
+                        size="small"
                         disabled={loading}
-                        sx={{
-                            width: "20rem",
-                            backgroundColor: "white",
-                        }}
                         value={sku}
                         onChange={handleInputChange}
-                        //onBlur={handleSearch}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
                                 e.preventDefault();
-                                handleSearch(); // 👈 llama al presionar Enter
+                                handleSearch();
                             }
                         }}
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">
                                     <SearchIcon
-                                        style={{
+                                        sx={{
                                             cursor: loading ? "not-allowed" : "pointer",
-                                            color: loading ? "gray" : "blue",
+                                            color: loading ? "gray" : "primary.main"
                                         }}
                                         onClick={!loading ? handleSearch : undefined}
                                     />
                                 </InputAdornment>
                             ),
                             sx: {
-                                height: 40 // 🔹 altura real controlada aquí
+                                height: 44
                             }
                         }}
                     />
-                </div>
-                <div style={{ justifySelf: "center" }}>
-                    <FormControl sx={{ minWidth: 200 }} size="small">
-                        <InputLabel id="envio-label">Envio</InputLabel>
-                        <Select
-                            labelId="envio-label"
-                            label="Envio"
-                            value={envioSeleccionado || ""}
-                            onChange={(e) => setEnvioSeleccionado(e.target.value)}
+
+                    <Stack
+                        direction="row"
+                        spacing={2}
+                        sx={{
+                            mt: 2
+                        }}
+                    >
+
+                        <FormControl
+                            fullWidth
+                            size="small"
+                        >
+
+                            <InputLabel>Envío</InputLabel>
+
+                            <Select
+                                value={envioSeleccionado || ""}
+                                label="Envío"
+                                onChange={(e) => setEnvioSeleccionado(e.target.value)}
+                            >
+
+                                {envios.map((envio) => (
+
+                                    <MenuItem
+                                        key={envio.id}
+                                        value={envio.id}
+                                    >
+
+                                        ID: {envio.id} - {envio.descripcion} - {envio.estatus}
+
+                                    </MenuItem>
+
+                                ))}
+
+                            </Select>
+
+                        </FormControl>
+
+                        <Button
+                            variant="contained"
+                            onClick={handleOpenImprimir}
                             sx={{
-                                height: 40,
-                                '& .MuiSelect-select': {
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    padding: '8.5px 14px'
-                                }
+                                minWidth: 180,
+                                whiteSpace: "nowrap"
                             }}
                         >
-                            {envios.map((envio) => (
-                                <MenuItem
-                                    key={envio.id}
-                                    value={envio.id}
-                                >
-                                    ID: {envio.id} Descripción: {envio.descripcion} Estatus: {envio.estatus}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </div>
-                <div style={{ justifySelf: "end" }}>
-                    <Button
-                        variant="contained"
-                        onClick={handleOpenImprimir}
-                    >
-                        Imprimir Etiqueta
-                    </Button>
-                </div>
+                            Imprimir Etiqueta
+                        </Button>
 
-            </div>
+                    </Stack>
+                </Box>
+            </Box>
             <DataGrid
                 sx={{
                     fontFamily: "Montserrat",
@@ -1141,6 +1442,237 @@ const Surtido = () => {
                         Asignar orden
                     </Typography>
 
+                    {
+                        resumenOrden && (
+
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mb: 2,
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: "#fafafa"
+                                }}
+                            >
+
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: "560px 1fr",
+                                        gap: 3,
+                                        alignItems: "start"
+                                    }}
+                                >
+
+                                    {/* ===================== KPIs ===================== */}
+
+                                    <Stack
+                                        direction="row"
+                                        spacing={5}
+                                        alignItems="flex-start"
+                                    >
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Tipo
+                                            </Typography>
+
+                                            <Typography fontWeight="bold">
+
+                                                {
+                                                    resumenOrden.esKit
+                                                        ? "KIT"
+                                                        : "SIMPLE"
+                                                }
+
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Componentes
+                                            </Typography>
+
+                                            <Typography fontWeight="bold">
+
+                                                {resumenOrden.cantidad_componentes}
+
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Productos a enviar
+                                            </Typography>
+
+                                            <Typography
+                                                fontWeight="bold"
+                                                color="primary"
+                                            >
+
+                                                {
+                                                    resumenOrden.esKit
+                                                        ? `${resumenOrden.cantidad_producto_a_enviar} Kits`
+                                                        : `${resumenOrden.cantidad_producto_a_enviar} Productos`
+                                                }
+
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Productos a producir
+                                            </Typography>
+
+                                            <Typography
+                                                fontWeight="bold"
+                                                color="success.main"
+                                            >
+
+                                                {
+                                                    resumenOrden.esKit
+                                                        ? `${resumenOrden.cantidad_producto_a_producir} Kits`
+                                                        : `${resumenOrden.cantidad_producto_a_producir} Productos`
+                                                }
+
+                                            </Typography>
+
+                                        </Box>
+
+                                    </Stack>
+
+                                    {/* ===================== NOTAS ===================== */}
+
+                                    {
+                                        resumenOrden.notas?.length > 0 && (
+
+                                            <Box
+                                                sx={{
+                                                    border: "1px solid",
+                                                    borderColor: "divider",
+                                                    borderRadius: 2,
+                                                    p: 2,
+                                                    minHeight: 110,
+                                                    bgcolor: "#fff"
+                                                }}
+                                            >
+
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    fontWeight="bold"
+                                                    gutterBottom
+                                                >
+                                                    📝 Notas
+                                                </Typography>
+
+                                                <Box
+                                                    sx={{
+                                                        display: "grid",
+                                                        gridTemplateColumns:
+                                                            "repeat(auto-fit, minmax(280px, 1fr))",
+                                                        gap: 2
+                                                    }}
+                                                >
+
+                                                    {
+                                                        componentes
+                                                            .filter(c => c.notas)
+                                                            .map((c) => (
+
+                                                                <Paper
+                                                                    key={c.id}
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        p: 1.5,
+                                                                        borderColor: "info.main",
+                                                                        bgcolor: "#F8FCFF",
+                                                                        height: "100%"
+                                                                    }}
+                                                                >
+
+                                                                    <Stack
+                                                                        direction="row"
+                                                                        spacing={1}
+                                                                        alignItems="flex-start"
+                                                                    >
+
+                                                                        <InfoOutlinedIcon
+                                                                            color="info"
+                                                                            fontSize="small"
+                                                                            sx={{ mt: .3 }}
+                                                                        />
+
+                                                                        <Box>
+
+                                                                            <Typography
+                                                                                fontWeight="bold"
+                                                                                color="primary.dark"
+                                                                            >
+                                                                                {c.sku}
+                                                                            </Typography>
+
+                                                                            <Typography
+                                                                                variant="body2"
+                                                                            >
+                                                                                {c.notas}
+                                                                            </Typography>
+
+                                                                        </Box>
+
+                                                                    </Stack>
+
+                                                                </Paper>
+
+                                                            ))
+                                                    }
+
+                                                </Box>
+
+                                            </Box>
+
+                                        )
+                                    }
+
+                                </Box>
+
+                            </Paper>
+
+                        )
+                    }
+
+                    {
+                        modoSoloLectura && (
+
+                            <Alert
+                                severity="info"
+                                sx={{ mb: 2 }}
+                            >
+                                Esta orden ya fue surtida completamente.
+                                Se muestra únicamente para consulta.
+                            </Alert>
+
+                        )
+                    }
+
                     {/* CONTENIDO SCROLLEABLE */}
                     <Box
                         sx={{
@@ -1185,7 +1717,7 @@ const Surtido = () => {
                                     value={selectedUsuario ? selectedUsuario.id_usuario : ''}
                                     label="Operador"
                                     onChange={handleSelectedUsuario}
-                                    disabled={!habilitarAsignar}
+                                    disabled={!habilitarAsignar || modoSoloLectura}
                                 >
                                     {usuarios.map((usuario) => (
                                         <MenuItem
@@ -1222,10 +1754,19 @@ const Surtido = () => {
                             onClick={asignarLinea}
                             variant="contained"
                             color="success"
-                            disabled={!habilitarAsignar || loading}
+                            disabled={
+                                !habilitarAsignar ||
+                                loading ||
+                                modoSoloLectura
+                            }
                             sx={{ width: 200 }}
                         >
-                            {loading ? "Procesando..." : "Asignar e Imprimir"}
+                            {modoSoloLectura
+                                ? "Orden surtida"
+                                : loading
+                                    ? "Procesando..."
+                                    : "Asignar e Imprimir"
+                            }
                         </Button>
                     </Box>
 
@@ -1251,6 +1792,237 @@ const Surtido = () => {
                     >
                         Surtir y empacar Mercado Envíos
                     </Typography>
+
+                    {
+                        resumenOrden && (
+
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mb: 2,
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: "#fafafa"
+                                }}
+                            >
+
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: "560px 1fr",
+                                        gap: 3,
+                                        alignItems: "start"
+                                    }}
+                                >
+
+                                    {/* ===================== KPIs ===================== */}
+
+                                    <Stack
+                                        direction="row"
+                                        spacing={5}
+                                        alignItems="flex-start"
+                                    >
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Tipo
+                                            </Typography>
+
+                                            <Typography fontWeight="bold">
+
+                                                {
+                                                    resumenOrden.esKit
+                                                        ? "KIT"
+                                                        : "SIMPLE"
+                                                }
+
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Componentes
+                                            </Typography>
+
+                                            <Typography fontWeight="bold">
+
+                                                {resumenOrden.cantidad_componentes}
+
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Productos a enviar
+                                            </Typography>
+
+                                            <Typography
+                                                fontWeight="bold"
+                                                color="primary"
+                                            >
+
+                                                {
+                                                    resumenOrden.esKit
+                                                        ? `${resumenOrden.cantidad_producto_a_enviar} Kits`
+                                                        : `${resumenOrden.cantidad_producto_a_enviar} Productos`
+                                                }
+
+                                            </Typography>
+
+                                        </Box>
+
+                                        <Box>
+
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                Productos a producir
+                                            </Typography>
+
+                                            <Typography
+                                                fontWeight="bold"
+                                                color="success.main"
+                                            >
+
+                                                {
+                                                    resumenOrden.esKit
+                                                        ? `${resumenOrden.cantidad_producto_a_producir} Kits`
+                                                        : `${resumenOrden.cantidad_producto_a_producir} Productos`
+                                                }
+
+                                            </Typography>
+
+                                        </Box>
+
+                                    </Stack>
+
+                                    {/* ===================== NOTAS ===================== */}
+
+                                    {
+                                        resumenOrden.notas?.length > 0 && (
+
+                                            <Box
+                                                sx={{
+                                                    border: "1px solid",
+                                                    borderColor: "divider",
+                                                    borderRadius: 2,
+                                                    p: 2,
+                                                    minHeight: 110,
+                                                    bgcolor: "#fff"
+                                                }}
+                                            >
+
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    fontWeight="bold"
+                                                    gutterBottom
+                                                >
+                                                    📝 Notas
+                                                </Typography>
+
+                                                <Box
+                                                    sx={{
+                                                        display: "grid",
+                                                        gridTemplateColumns:
+                                                            "repeat(auto-fit, minmax(280px, 1fr))",
+                                                        gap: 2
+                                                    }}
+                                                >
+
+                                                    {
+                                                        componentes
+                                                            .filter(c => c.notas)
+                                                            .map((c) => (
+
+                                                                <Paper
+                                                                    key={c.id}
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        p: 1.5,
+                                                                        borderColor: "info.main",
+                                                                        bgcolor: "#F8FCFF",
+                                                                        height: "100%"
+                                                                    }}
+                                                                >
+
+                                                                    <Stack
+                                                                        direction="row"
+                                                                        spacing={1}
+                                                                        alignItems="flex-start"
+                                                                    >
+
+                                                                        <InfoOutlinedIcon
+                                                                            color="info"
+                                                                            fontSize="small"
+                                                                            sx={{ mt: .3 }}
+                                                                        />
+
+                                                                        <Box>
+
+                                                                            <Typography
+                                                                                fontWeight="bold"
+                                                                                color="primary.dark"
+                                                                            >
+                                                                                {c.sku}
+                                                                            </Typography>
+
+                                                                            <Typography
+                                                                                variant="body2"
+                                                                            >
+                                                                                {c.notas}
+                                                                            </Typography>
+
+                                                                        </Box>
+
+                                                                    </Stack>
+
+                                                                </Paper>
+
+                                                            ))
+                                                    }
+
+                                                </Box>
+
+                                            </Box>
+
+                                        )
+                                    }
+
+                                </Box>
+
+                            </Paper>
+
+                        )
+                    }
+
+                    {
+                        modoSoloLectura && (
+
+                            <Alert
+                                severity="info"
+                                sx={{ mb: 2 }}
+                            >
+                                Esta orden ya fue surtida completamente.
+                                Se muestra únicamente para consulta.
+                            </Alert>
+
+                        )
+                    }
 
                     {/* CONTENIDO SCROLLEABLE */}
                     <Box
@@ -1305,10 +2077,13 @@ const Surtido = () => {
                             onClick={imprimirEtiquetasNoFULL}
                             variant="contained"
                             color="success"
-                            disabled={!habilitarAsignar}
+                            disabled={!habilitarAsignar || modoSoloLectura}
                             sx={{ width: 200 }}
                         >
-                            Imprimir etiqueta
+                            {modoSoloLectura
+                                ? "Orden surtida"
+                                : "Imprimir etiqueta"
+                            }
                         </Button>
                     </Box>
 
@@ -1406,7 +2181,7 @@ const Surtido = () => {
                     </Box>
                 </Box>
             </Modal>
-        </div>
+        </Box>
     )
 }
 

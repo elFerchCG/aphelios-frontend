@@ -90,7 +90,7 @@ const Rutas = () => {
         <Route path="/chartpronostico" element={<ChartPronostico />} />
         <Route path="/billetes" element={<Billetes />} />
         <Route path="/componentes" element={<Componentes />} />
-        <Route path="/surtido" element={<Surtido />} />
+        <Route path="/surtido/:proformaId" element={<Surtido />} />
         <Route path="/publicaciones" element={<Publicaciones />} />
         <Route path="/cargaFacturas" element={<CargaFacturas />} />
         <Route path="/facturas" element={<Facturas />} />
