@@ -98,6 +98,7 @@ const ProformaFacturasModal = ({ open, onClose, facturaIds, apiUrl }) => {
       await enlazarFacturas(proformaId);
 
       Swal.fire({
+        ...swalConfig,
         title: "¡Proceso completado!",
         html: `
     <div style="text-align:center;">
@@ -169,7 +170,9 @@ const ProformaFacturasModal = ({ open, onClose, facturaIds, apiUrl }) => {
                 }}
                 getOptionLabel={(option) =>
                   option
-                    ? `${option.titulo} (${option.total_facturas || 0} facturas)`
+                    ? `${option.titulo} · Pedido #${option.pedido_id || "N/A"} · ${
+                        option.proveedor_nombre || "Sin proveedor"
+                      }`
                     : ""
                 }
                 isOptionEqualToValue={(option, value) =>
@@ -177,14 +180,28 @@ const ProformaFacturasModal = ({ open, onClose, facturaIds, apiUrl }) => {
                 }
                 renderOption={(props, option) => (
                   <li {...props} key={option.id}>
-                    {option.titulo} ({option.total_facturas || 0} facturas)
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {option.titulo}
+                      </Typography>
+
+                      <Typography variant="caption" color="text.secondary">
+                        Pedido #{option.pedido_id || "N/A"}
+                        {" · "}
+                        {option.proveedor_nombre || "Sin proveedor"}
+                        {" · "}
+                        {option.pedido_fecha || "Sin fecha"}
+                        {" · "}
+                        {option.total_facturas || 0} factura(s)
+                      </Typography>
+                    </Box>
                   </li>
                 )}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Buscar proforma"
-                    placeholder="Escribe el nombre de la proforma..."
+                    placeholder="Título, pedido o proveedor..."
                     sx={{ mb: 2 }}
                   />
                 )}
