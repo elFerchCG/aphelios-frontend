@@ -268,18 +268,14 @@ const MrpSimple = () => {
 
   const generarPedidos = async () => {
     if (!proveedorId) {
-      await Swal.fire(
-        "Atención",
-        "Selecciona un proveedor primero.",
-        "warning",
-      );
+      await Swal.fire("Atención", "Selecciona un proveedor primero.", "warning");
       return;
     }
 
     const confirm = await Swal.fire({
       title: "¿Generar pedidos?",
-      text: `Proveedor: ${proveedorSel?.razon_social || proveedorId
-        } · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"}`,
+      text: `Proveedor: ${proveedorSel?.razon_social || proveedorId} · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"
+        }`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Sí, generar",
@@ -291,20 +287,16 @@ const MrpSimple = () => {
     setSubmitting(true);
 
     try {
-      openLoader("Preparando generación de pedidos…", 5);
+      openLoader("Preparando generación de pedidos…", 0);
 
       if (!proveedorSel?.backorder) {
         setLoaderText("Cerrando pendientes sin backorder…");
-        setLoaderPct(15);
-
         await axios.post(`${apiUrl}/mrp/cerrarPorProveedorSinBackorder`, {
           proveedor_id: Number(proveedorId),
         });
       }
 
-      setLoaderText("Ejecutando MRP…");
-      setLoaderPct(15);
-
+      setLoaderText("Iniciando MRP…");
       const { data } = await axios.post(`${apiUrl}/mrp/iniciar`, {
         proveedor_id: Number(proveedorId),
         back_order: !!proveedorSel?.backorder,
@@ -312,44 +304,59 @@ const MrpSimple = () => {
 
       const mrpId = data.mrpEjecucionId;
 
-      const timer = setInterval(async () => {
+      // 🟢 POLLING ROBUSTO (espera sincrónica dentro del flujo asíncrono)
+      let enProceso = true;
+      let erroresConsecutivos = 0;
+
+      while (enProceso) {
+        // Pausa de 1.5 segundos entre cada consulta
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
         try {
           const res = await axios.get(`${apiUrl}/mrp/estado/${mrpId}`);
-          if (!res.data) return;
 
-          setLoaderPct(res.data.progreso);
-          setLoaderText(`Estado: ${res.data.estado}`);
+          if (!res.data) continue;
 
-          if (res.data.estado === "COMPLETADO") {
-            clearInterval(timer);
+          const { estado, progreso, mensaje_error } = res.data;
+          erroresConsecutivos = 0; // Reiniciar contador de errores de red
+
+          // Actualizamos estado visual
+          setLoaderPct(progreso || 0);
+          setLoaderText(`Procesando... (${progreso || 0}%)`);
+
+          if (estado === "COMPLETADO") {
+            enProceso = false;
             closeLoader();
-            Swal.fire("Listo", "MRP finalizado correctamente", "success");
+            await Swal.fire("Listo", "MRP finalizado correctamente", "success");
             await cargarMrpDelProveedor();
-          }
-
-          if (res.data.estado === "SIN_PEDIDO") {
-            clearInterval(timer);
+          } else if (estado === "SIN_PEDIDO") {
+            enProceso = false;
             closeLoader();
-            Swal.fire(
+            await Swal.fire(
               "Sin demanda",
               "No se generó ninguna orden porque no hay productos con pedido mayor a 0.",
-              "info",
+              "info"
             );
             await cargarMrpDelProveedor();
-          }
-
-          if (res.data.estado === "ERROR") {
-            clearInterval(timer);
+          } else if (estado === "ERROR") {
+            enProceso = false;
             closeLoader();
-            Swal.fire("Error", res.data.mensaje_error, "error");
+            await Swal.fire("Error", mensaje_error || "Ocurrió un error en el MRP", "error");
           }
         } catch (pollError) {
           console.error("Error polling MRP:", pollError);
+          erroresConsecutivos++;
+
+          // Si la red falla más de 5 veces seguidas, cancelamos el polling
+          if (erroresConsecutivos >= 5) {
+            enProceso = false;
+            throw new Error("Se perdió la conexión con el servidor durante el seguimiento del MRP.");
+          }
         }
-      }, 2000);
+      }
+
     } catch (err) {
       closeLoader();
-
       const msg =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
@@ -358,6 +365,7 @@ const MrpSimple = () => {
 
       await Swal.fire("Error", msg, "error");
     } finally {
+      // 🟢 Ahora sí se ejecuta ÚNICAMENTE cuando el MRP terminó o falló
       setSubmitting(false);
     }
   };
