@@ -333,26 +333,6 @@ const EnviosProgresoEmpaque = () => {
         },
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, type: "number",
-            // ✅ Editable SOLO si el usuario tiene el rol permitido Y la fila NO está empacada
-            editable: (params) => puedeEditarColumna && params.row.estatus !== "empacada",
-
-            valueFormatter: (value) => Math.round(Number(value ?? 0)),
-
-            // ✅ Estilo visual condicionado al rol y al estatus de la fila
-            cellClassName: (params) =>
-                (puedeEditarColumna && params.row.estatus !== "empacada")
-                    ? "celdaEditable"
-                    : "celdaBloqueada",
-
-            renderEditCell: (params) => (
-                <GridEditInputCell
-                    {...params}
-                    value={parseInt(params.value, 10 || 0)}
-                    type="number"
-                    inputProps={{ min: 0, step: 1 }}
-                    onWheel={(e) => e.target.blur()}
-                />
-            ),
         },
         { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
         {
@@ -361,15 +341,19 @@ const EnviosProgresoEmpaque = () => {
             type: "number",
             flex: 2,
             renderCell: (params) => {
-                const requeridas = Number(params.row.cantidad_a_enviar) || 0;
+                const facturada = Number(params.row.cantidad_facturada) || 0;
+                const aEnviar = Number(params.row.cantidad_a_enviar) || 0;
                 const surtidas = Number(params.row.cantidad_surtida) || 0;
 
-                const pct = requeridas > 0
+                // Si la cantidad facturada es mayor a 0 usa facturada, de lo contrario usa aEnviar
+                const total = facturada > 0 ? facturada : aEnviar;
+
+                const pct = total > 0
                     ? Math.min(
                         100,
                         Math.max(
                             0,
-                            Math.round((surtidas / requeridas) * 100)
+                            Math.round((surtidas / total) * 100)
                         )
                     )
                     : 0;
@@ -385,7 +369,7 @@ const EnviosProgresoEmpaque = () => {
                         >
                             <Typography variant="caption">{pct}%</Typography>
                             <Typography variant="caption">
-                                {Math.round(surtidas)}/{Math.round(requeridas)}
+                                {Math.round(surtidas)}/{Math.round(total)}
                             </Typography>
                         </Box>
                         <LinearProgress
@@ -421,43 +405,42 @@ const EnviosProgresoEmpaque = () => {
             field: "nota",
             headerName: "Notas",
             flex: 2,
+            renderCell: (params) => {
+                const tieneNota = Boolean(params.row.notas);
 
-            renderCell: (params) => (
+                // Determinamos el texto según permisos e historial
+                let labelText = "Agregar";
+                if (tieneNota) {
+                    labelText = puedeEditarColumna ? "Editar" : "Ver Nota";
+                }
 
-                <Chip
+                // Si no hay nota y no tiene permiso, deshabilitamos la acción
+                const disabled = !puedeEditarColumna && !tieneNota;
 
-                    clickable
-
-                    icon={
-                        params.row.notas
-                            ? <EditNoteIcon />
-                            : <NoteAddIcon />
-                    }
-
-                    label={
-                        params.row.notas
-                            ? "Editar"
-                            : "Agregar"
-                    }
-
-                    color={
-                        params.row.notas
-                            ? "warning"
-                            : "primary"
-                    }
-
-                    variant={
-                        params.row.notas
-                            ? "filled"
-                            : "outlined"
-                    }
-
-                    onClick={() => handleOpenNota(params.row)}
-
-                />
-
-            )
-
+                return (
+                    <Chip
+                        clickable={!disabled}
+                        disabled={disabled}
+                        icon={
+                            tieneNota
+                                ? (puedeEditarColumna ? <EditNoteIcon /> : <VisibilityIcon />)
+                                : <NoteAddIcon />
+                        }
+                        label={labelText}
+                        color={
+                            tieneNota
+                                ? (puedeEditarColumna ? "warning" : "info")
+                                : "primary"
+                        }
+                        variant={tieneNota ? "filled" : "outlined"}
+                        onClick={() => {
+                            if (!disabled) {
+                                handleOpenNota(params.row);
+                            }
+                        }}
+                    />
+                );
+            }
         }
     ];
 
@@ -512,13 +495,13 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number",
             // ✅ SOLO editable si NO está empacada
-            editable: (params) => params.row.estatus !== "empacada",
+            editable: (params) => puedeEditarColumna && params.row.estatus !== "empacada",
 
             valueFormatter: (value) => Math.round(Number(value ?? 0)),
 
             // ✅ SOLO aplicar estilo editable si NO está empacada
             cellClassName: (params) =>
-                esFilaEditable(params.row) ? "celdaEditable" : "celdaBloqueada",
+                puedeEditarColumna && esFilaEditable(params.row) ? "celdaEditable" : "celdaBloqueada",
 
             renderEditCell: (params) => (
                 <GridEditInputCell
@@ -1049,8 +1032,6 @@ const EnviosProgresoEmpaque = () => {
         }
     ];
 
-    // ... dentro de EnviosProgresoEmpaque, antes del return:
-
     const totalCantidadAEnviar = ordenesProduccionFacturas.reduce(
         (sum, row) => sum + (Number(row.cantidad_a_enviar) || 0),
         0
@@ -1076,6 +1057,12 @@ const EnviosProgresoEmpaque = () => {
     };
 
     const procesarCambioEstatus = async (grupo, nuevoEstatus, tituloConfirmacion, textoConfirmacion) => {
+        // Definimos texto del botón de acuerdo al nuevo estatus
+        let textoBotonConfirmar = 'Sí, continuar';
+        if (nuevoEstatus === 'activa' && grupo.estatus === 'pendiente') textoBotonConfirmar = 'Sí, habilitar';
+        else if (nuevoEstatus === 'activa' && grupo.estatus === 'finalizada') textoBotonConfirmar = 'Sí, revertir';
+        else if (nuevoEstatus === 'finalizada') textoBotonConfirmar = 'Sí, finalizar';
+
         // 1. Pedir confirmación al usuario
         const result = await Swal.fire({
             title: tituloConfirmacion,
@@ -1175,6 +1162,15 @@ const EnviosProgresoEmpaque = () => {
         );
     };
 
+    const handleRevertirProforma = (grupo) => {
+        procesarCambioEstatus(
+            grupo,
+            'activa',
+            `¿Revertir la proforma #${grupo.proforma_id}?`,
+            'La proforma cambiará nuevamente a estatus "activa" para permitir modificar o continuar su proceso de surtido.'
+        );
+    };
+
     return (
         <Box p={3}>
             <Typography variant="h4" fontWeight="bold" mb={2}>
@@ -1268,11 +1264,12 @@ const EnviosProgresoEmpaque = () => {
                     <ProformaAccordion
                         key={grupo.proforma_id}
                         grupo={grupo}
+                        puedeEditarColumna={puedeEditarColumna}
                         onVerFactura={abrirFactura}
                         onVerConsolidado={handleVerConsolidado}
                         onHabilitarProforma={handleHabilitarProforma}
                         onFinalizarProforma={handleFinalizarProforma}
-
+                        onRevertirProforma={handleRevertirProforma}
                     />
 
                 ))
@@ -1372,7 +1369,9 @@ const EnviosProgresoEmpaque = () => {
                     processRowUpdate={processRowUpdate}
                     isCellEditable={(params) => {
                         if (params.row.estatus === "empacada") return false;
-                        if (params.field === "cantidad_a_enviar") return true;
+                        if (params.field === "cantidad_a_enviar") {
+                            return puedeEditarColumna;
+                        }
                         return true;
                     }}
                     columnVisibilityModel={columnVisibilityOrdenesFacturas}

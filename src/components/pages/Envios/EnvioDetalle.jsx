@@ -501,7 +501,8 @@ const EnvioDetalle = () => {
     // Validamos primero que 'user' exista para evitar errores si está cargando
     const puederVerBotonProgeso = user && (
         user.rol_descripcion === 'administrador' ||
-        (user.rol_descripcion === 'Produccion' && user.permisos === 'supervisor')
+        (user.rol_descripcion === 'Produccion' && user.permisos === 'supervisor') ||
+        user.rol_descripcion === 'Produccion'
     );
 
     const puedeVerBotonCerrarEnvio = user && (user.rol_descripcion === 'administrador');

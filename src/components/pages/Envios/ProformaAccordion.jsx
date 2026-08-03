@@ -24,14 +24,31 @@ import FacturaCard from "./FacturaCard";
 export default function ProformaAccordion({
 
     grupo,
+    puedeEditarColumna,
     onVerFactura,
     onVerConsolidado,
     onHabilitarProforma,
-    onFinalizarProforma
+    onFinalizarProforma,
+    onRevertirProforma
 
 }) {
 
     const navigate = useNavigate();
+
+    // 1. Deshabilitar botón si el usuario no tiene permisos
+    const disabled = !puedeEditarColumna;
+
+    // 2. Determinar texto del botón según estatus
+    let textoBoton = "Habilitar";
+    let colorBoton = "success";
+
+    if (grupo.estatus === "activa") {
+        textoBoton = "Finalizar";
+        colorBoton = "secondary";
+    } else if (grupo.estatus === "finalizada") {
+        textoBoton = "Revertir";
+        colorBoton = "warning";
+    }
 
     return (
 
@@ -139,23 +156,47 @@ export default function ProformaAccordion({
                         </Box>
 
                         <Box sx={{ width: "90%" }}>
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    mb: 0.5,
-                                }}
-                            >
-                                <Typography variant="caption">Surtido: {grupo.avance_surtido}%</Typography>
-                                <Typography variant="caption">
-                                    {grupo.cantidad_surtida} / {grupo.cantidad_facturada}
-                                </Typography>
-                            </Box>
-                            <LinearProgress
-                                variant="determinate"
-                                value={Number(grupo.avance_surtido)}
-                                sx={{ height: 6, borderRadius: 4 }}
-                            />
+                            {(() => {
+                                const facturada = Number(grupo.cantidad_facturada) || 0;
+                                const aEnviar = Number(grupo.cantidad_a_enviar) || 0;
+                                const surtida = Number(grupo.cantidad_surtida) || 0;
+
+                                // 1. Determinar el total según la regla de negocio
+                                const total = facturada > 0 ? facturada : aEnviar;
+
+                                // 2. Calcular el porcentaje dinámico
+                                const pct = total > 0
+                                    ? Math.min(
+                                        100,
+                                        Math.max(
+                                            0,
+                                            Math.round((surtida / total) * 100)
+                                        )
+                                    )
+                                    : 0;
+
+                                return (
+                                    <>
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                mb: 0.5,
+                                            }}
+                                        >
+                                            <Typography variant="caption">Surtido: {pct}%</Typography>
+                                            <Typography variant="caption">
+                                                {Math.round(surtida)} / {Math.round(total)}
+                                            </Typography>
+                                        </Box>
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={Number(pct)}
+                                            sx={{ height: 6, borderRadius: 4 }}
+                                        />
+                                    </>
+                                );
+                            })()}
                         </Box>
                     </Grid>
 
@@ -169,21 +210,26 @@ export default function ProformaAccordion({
                             spacing={1}
                             justifyContent="flex-end"
                         >
-                            {/* Botón dinámico Habilitar / Finalizar */}
+                            {/* Botón dinámico Habilitar / Finalizar / Revertir */}
                             <Button
                                 variant="contained"
-                                color={grupo.estatus === "pendiente" ? "success" : "secondary"}
+                                color={colorBoton}
                                 size="small"
+                                disabled={disabled}
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    if (disabled) return;
+
                                     if (grupo.estatus === "pendiente") {
                                         onHabilitarProforma?.(grupo);
-                                    } else {
+                                    } else if (grupo.estatus === "activa") {
                                         onFinalizarProforma?.(grupo);
+                                    } else if (grupo.estatus === "finalizada") {
+                                        onRevertirProforma?.(grupo);
                                     }
                                 }}
                             >
-                                {grupo.estatus === "pendiente" ? "Habilitar" : "Finalizar"}
+                                {textoBoton}
                             </Button>
 
                             {/* Botón Surtir - Habilitado únicamente cuando el estatus es 'activa' */}

@@ -33,9 +33,10 @@ const Facturas = () => {
   const [proveedorFiltro, setProveedorFiltro] = useState("");
   const navigate = useNavigate();
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-    id: true,
+    id: false,
     descripcion: true,
     estatus: true,
+    serie: false
   });
 
   const apiUrl =
@@ -159,10 +160,18 @@ const Facturas = () => {
 
   const columns = [
     {
+      field: "id",
+      headerName: "Folio interno",
+      type: "text",
+      flex: 1,
+      align: "center",
+      headerAlign: "center",
+    },
+    {
       field: "fecha_arribo",
       headerName: "Fecha",
       type: "text",
-      flex: 1,
+      flex: 2,
       align: "center",
       headerAlign: "center",
     },
@@ -174,9 +183,17 @@ const Facturas = () => {
       align: "center",
       headerAlign: "center",
     },
+        {
+      field: "serie",
+      headerName: "Serie",
+      type: "text",
+      flex: 1,
+      align: "center",
+      headerAlign: "center",
+    },
     {
       field: "folio",
-      headerName: "Numero de Factura",
+      headerName: "Folio",
       type: "text",
       flex: 1,
       align: "center",
@@ -193,7 +210,7 @@ const Facturas = () => {
       field: "proforma",
       headerName: "Proforma",
       type: "text",
-      flex: 0.6,
+      flex: 1.5,
       align: "center",
       headerAlign: "center",
     },
@@ -214,7 +231,7 @@ const Facturas = () => {
     {
       field: "estatus",
       headerName: "Estatus",
-      flex: 0.7,
+      flex: 1,
       align: "center",
       headerAlign: "center",
       renderCell: (params) => {

@@ -67,7 +67,7 @@ const Navegacion = () => {
                 <img src={ordenesRetiro} alt="Ordenes retiro" className="nav-icon-config" />
                 <span>Ordenes retiro</span>
             </NavLink>
-            <NavLink to="/nuevosProductos" className="nav-config">
+            <NavLink to="/nuevos-productos" className="nav-config">
                 <img src={nuevosProductos} alt="Productos nuevos" className="nav-icon-config" />
                 <span>Productos nuevos</span>
             </NavLink>
