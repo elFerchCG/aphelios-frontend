@@ -158,22 +158,8 @@ export default function NuevosSKUsManager() {
 
     // PROCESAR Y ENVIAR AL BACKEND
     const handleProcesarBilletes = async () => {
-        const asignadosIncompletos = items.filter(
-            (i) => (i.producto_id_asignado)
-        );
-
-        if (asignadosIncompletos.length > 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Asignación incompleta',
-                text: 'Asegúrate de seleccionar la Publicación para cada fila que deseas procesar.',
-                confirmButtonColor: '#f59e0b'
-            });
-            return;
-        }
-
         const listosParaProcesar = items
-            .filter((i) => i.producto_id_asignado !== null && i.proveedor_id_asignado !== null)
+            .filter((i) => i.producto_id_asignado !== null)
             .map((i) => ({
                 factura_detalle_id: i.factura_detalle_id,
                 sku: i.sku,
@@ -186,7 +172,7 @@ export default function NuevosSKUsManager() {
             Swal.fire({
                 icon: 'info',
                 title: 'Sin elementos listos',
-                text: 'Asigna una publicación y un proveedor a al menos un SKU antes de continuar.',
+                text: 'Asigna una publicación a al menos un SKU antes de continuar.',
                 confirmButtonColor: '#3085d6'
             });
             return;
@@ -281,7 +267,7 @@ export default function NuevosSKUsManager() {
                         Monitoreo y Alta de SKUs Nuevos
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5 }}>
-                        Asigne Publicación y Proveedor para generar automáticamente Componente, Billete y Cadena de Pedidos.
+                        Asigne Publicación para generar automáticamente Componente, Billete y Cadena de Pedidos.
                     </Typography>
                 </Box>
 

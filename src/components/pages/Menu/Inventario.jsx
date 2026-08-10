@@ -7,6 +7,7 @@ import existencias from '../../../images/existencias.png'
 import publicaciones from '../../../images/publicaciones.png'
 import { NavLink } from 'react-router-dom'
 import conteoCiclico from '../../../images/conteoCiclico.png'
+import excedentes from '../../../images/inventario-disponible.png'
 
 const Inventario = () => {
     return (
@@ -15,10 +16,6 @@ const Inventario = () => {
                 <img src={order} alt="Usuarios" className="nav-icon-config" />
                 <span>Ordenes</span>
             </NavLink>
-            {/* <NavLink to="/ordenescompra" className="nav-config">
-                <img src={orderBuy} alt="Ordenes Compra" className="nav-icon-config" />
-                <span>Ordenes Compra</span>
-            </NavLink> */}
             <NavLink to="/publicaciones" className="nav-config">
                 <img src={publicaciones} alt="Publicaciones" className='nav-icon-config' />
                 <span>Publicaciones</span>
@@ -34,6 +31,10 @@ const Inventario = () => {
             <NavLink to="/existencias" className="nav-config">
                 <img src={existencias} alt="Existencias" className="nav-icon-config" />
                 <span>Existencias</span>
+            </NavLink>
+            <NavLink to="/nuevos-excedentes" className="nav-config">
+                <img src={excedentes} alt="Excedentes" className="nav-icon-config" />
+                <span>Excedentes</span>
             </NavLink>
         </div>
     )

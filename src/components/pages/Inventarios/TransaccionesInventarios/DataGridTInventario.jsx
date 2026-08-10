@@ -53,7 +53,7 @@ const DataGridTInventario = ({ filter }) => {
     inventario_final: true,
     fecha_transaccion: true,
     usuario_autorizacion: true,
-    usuario_transaccion: true,
+    usuario_transaccion: false,
     agregado_por: true,
   });
 
@@ -127,6 +127,14 @@ const DataGridTInventario = ({ filter }) => {
       headerAlign: "center",
       flex: 1,
       renderCell: (params) => formatFecha(params.value),
+    },
+    {
+      field: "usuario_transaccion",
+      headerName: "Usuario transacción",
+      type: "string",
+      flex: 1,
+      headerAlign: "center",
+      valueFormatter: fmtNA,
     },
     {
       field: "agregado_por",

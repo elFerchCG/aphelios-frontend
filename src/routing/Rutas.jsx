@@ -48,6 +48,7 @@ import Marketing from "../components/pages/Menu/Marketing";
 import PerformanceComercial from "../components/pages/PerformanceComercial/PerformanceComercial";
 import PublicacionesMejoras from "../components/pages/PublicacionesMejoras/PublicacionesMejoras";
 import Preguntas from "../components/pages/Preguntas/Preguntas";
+import Excedentes from "../components/pages/Inventarios/Excedentes/Excedentes";
 
 const Rutas = () => {
   return (
@@ -220,6 +221,20 @@ const Rutas = () => {
               ]}
             >
               <Preguntas />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/nuevos-excedentes"
+          element={
+            <ProtectedRoute
+              allowedRoles={[
+                "administrador",
+                "Almacenista"
+              ]}
+            >
+              <Excedentes />
             </ProtectedRoute>
           }
         />

@@ -256,23 +256,31 @@ const Surtido = () => {
                 setData(response.data.data);
             }
         } catch (error) {
+            const responseData = error.response?.data;
             const errorMessage = error.response?.data?.message || "Ocurrió un error al consultar las órdenes.";
 
-            Swal.fire({
-
-                title: "Error",
-
-                text: errorMessage,
-
-                icon: "error",
-
-                timer: 5000,
-
-                showCloseButton: true,
-
-                allowEscapeKey: true
-
-            });
+            // Evaluamos si el backend notificó que es un SKU nuevo
+            if (responseData?.nuevoSKU) {
+                Swal.fire({
+                    title: "¡SKU Nuevo Detectado!",
+                    text: errorMessage,
+                    icon: "warning",
+                    confirmButtonText: "Entendido",
+                    confirmButtonColor: "#f39c12", // Color de advertencia / acción especial
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            } else {
+                // Manejo estándar para errores de servidor o sin resultados normales
+                Swal.fire({
+                    title: "Error",
+                    text: errorMessage,
+                    icon: "error",
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
         } finally {
             setLoading(false);
         }

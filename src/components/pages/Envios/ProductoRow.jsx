@@ -20,6 +20,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Stack from "@mui/material/Stack";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 
 import ComponenteRow from "./ComponenteRow";
 
@@ -30,8 +31,49 @@ export default function ProductoRow({ producto }) {
     const obtenerEstadoProducto = (item) => {
         const { cantidad_a_enviar, cantidad_empacada, componentes = [] } = item;
 
-        // 1. Empaque completado
-        const estaEmpacado = Number(cantidad_empacada) >= Number(cantidad_a_enviar);
+        const cantEnviar = Number(cantidad_a_enviar || 0);
+        const cantEmpacada = Number(cantidad_empacada || 0);
+
+        // Evaluamos si falta surtir algún componente
+        const tieneComponentesPendientes = componentes.some((comp) => {
+            const cantFacturada = Number(comp.componente_cantidad_facturada || 0);
+            const cantSurtida = Number(comp.cantidad_surtida || 0);
+            const pendiente = Number(comp.pendiente || 0);
+
+            return pendiente > 0 || cantSurtida < cantFacturada;
+        });
+
+        // 1. Si faltan piezas por surtirse
+        if (tieneComponentesPendientes) {
+            if (cantEnviar === 0) {
+                return {
+                    status: 'SIN_ENVIO_PENDIENTE_SURTIR',
+                    resaltar: true,
+                    label: 'Sin Envío | Pendiente por Surtir',
+                    color: 'warning'
+                };
+            }
+            return {
+                status: 'PENDIENTE_SURTIR',
+                resaltar: true,
+                label: 'Pendiente por Surtir',
+                color: 'warning'
+            };
+        }
+
+        // 2. Si ya está 100% surtido pero NO requiere empaque/envío
+        if (cantEnviar === 0) {
+            return {
+                status: 'SIN_ENVIO_COMPLETO',
+                resaltar: false,
+                label: 'Sin Envío | Surtido Completo',
+                color: 'success'
+            };
+        }
+
+        // 3. Si requiere envío y está 100% surtido, evaluamos empaque
+        const estaEmpacado = cantEmpacada >= cantEnviar;
+
         if (estaEmpacado) {
             return {
                 status: 'EMPACADO',
@@ -41,21 +83,6 @@ export default function ProductoRow({ producto }) {
             };
         }
 
-        // 2. Componentes pendientes de surtir
-        const tieneComponentesPendientes = componentes.some(
-            (comp) => Number(comp.cantidad_surtida || 0) < Number(comp.componente_cantidad_a_enviar)
-        );
-
-        if (tieneComponentesPendientes) {
-            return {
-                status: 'PENDIENTE_SURTIR',
-                resaltar: true,
-                label: 'Pendiente por Surtir',
-                color: 'warning'
-            };
-        }
-
-        // 3. Surtido completo pero falta empacar
         return {
             status: 'PENDIENTE_EMPACAR',
             resaltar: true,
@@ -126,11 +153,17 @@ export default function ProductoRow({ producto }) {
                                         label={estado.label}
                                         color={estado.color}
                                         icon={
-                                            estado.status === 'EMPACADO'
-                                                ? <CheckCircleIcon fontSize="small" />
-                                                : <WarningAmberIcon fontSize="small" />
+                                            estado.status === 'EMPACADO' || estado.status === 'SIN_ENVIO_COMPLETO' ? (
+                                                <CheckCircleIcon fontSize="small" />
+                                            ) : (
+                                                <WarningAmberIcon fontSize="small" />
+                                            )
                                         }
-                                        variant={estado.status === 'EMPACADO' ? 'outlined' : 'filled'}
+                                        variant={
+                                            estado.status === 'EMPACADO' || estado.status === 'SIN_ENVIO_COMPLETO'
+                                                ? 'outlined'
+                                                : 'filled'
+                                        }
                                     />
                                 </Box>
 

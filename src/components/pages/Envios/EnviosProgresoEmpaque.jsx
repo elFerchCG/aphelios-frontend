@@ -901,17 +901,15 @@ const EnviosProgresoEmpaque = () => {
 
             return newRow;
         } catch (error) {
-            // 1. Extraer el mensaje principal del servidor
-            const mensajeServidor = error.response?.data?.message || "No se pudo actualizar la orden";
-
-            // 2. Extraer detalles adicionales (pueden venir como array, string u objeto)
-            const detallesServidor = error.response?.data?.details || error.response?.data?.errors;
-
-            // Creamos un objeto de error personalizado para transportar ambos datos
-            const customError = new Error(mensajeServidor);
-            customError.details = detallesServidor; // Le inyectamos los detalles al error
-
-            mostrarAlertaError(customError);
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
 
             return oldRow;
         }
@@ -922,10 +920,20 @@ const EnviosProgresoEmpaque = () => {
 
         if (error.details) {
             if (Array.isArray(error.details)) {
+                // Se mapea cada elemento verificando si es objeto o texto
+                const listaItems = error.details
+                    .map(detail => {
+                        const texto = typeof detail === 'object' && detail !== null
+                            ? (detail.mensaje || JSON.stringify(detail))
+                            : detail;
+                        return `<li>${texto}</li>`;
+                    })
+                    .join("");
+
                 contenidoHtml = `
                 <p style="margin-bottom: 10px;">${error.message}</p>
                 <ul style="text-align: left; font-size: 0.9em; background: #f8f9fa; padding: 10px 25px; border-radius: 5px;">
-                    ${error.details.map(detail => `<li>${detail}</li>`).join("")}
+                    ${listaItems}
                 </ul>
             `;
             } else if (typeof error.details === "object") {
@@ -941,7 +949,7 @@ const EnviosProgresoEmpaque = () => {
             `;
             } else {
                 contenidoHtml = `
-                <p>${error.message}</p>
+                <p style="margin-bottom: 10px;">${error.message}</p>
                 <div style="text-align: left; font-size: 0.85em; font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 5px; max-height: 150px; overflow-y: auto;">
                     ${error.details}
                 </div>
@@ -1094,7 +1102,8 @@ const EnviosProgresoEmpaque = () => {
             const respuesta = await axios.put(`${apiUrl}/produccion/actualizarProforma`, {
                 proforma_id: grupo.proforma_id,
                 estatus: nuevoEstatus,
-                envio_id: envioId
+                envio_id: envioId,
+                usuario: user?.nombre || 'SISTEMA'
             });
 
             if (!respuesta.data.success) {
@@ -1133,14 +1142,18 @@ const EnviosProgresoEmpaque = () => {
             }
 
         } catch (error) {
-            console.error("❌ Error al actualizar el estatus:", error);
+            // 1. Extraer el mensaje principal del servidor
+            const mensajeServidor = error.response?.data?.message || "No se pudo actualizar la orden";
 
-            // 7. Alerta de error
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.response?.data?.message || error.message || 'Ocurrió un error inesperado al procesar la solicitud.'
-            });
+            // 2. Extraer detalles adicionales (pueden venir como array, string u objeto)
+            const detallesServidor = error.response?.data?.details || error.response?.data?.errors;
+
+            // Creamos un objeto de error personalizado para transportar ambos datos
+            const customError = new Error(mensajeServidor);
+            customError.details = detallesServidor; // Le inyectamos los detalles al error
+
+            mostrarAlertaError(customError);
+
         }
     };
 
