@@ -1,55 +1,191 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
+  MenuItem,
   Stack,
   TextField,
   Typography,
-  Chip,
-  MenuItem,
-  Alert,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import HistorialKaizenModal from "./HistorialKaizenModal";
 
-const KaizenVentasPerdidas = () => {
-  const obtenerSemanaActualISO = () => {
-    const fecha = new Date();
-    const target = new Date(fecha.valueOf());
+const obtenerAnioSemanaActualISO = () => {
+  const fecha = new Date();
+  const fechaUTC = new Date(
+    Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()),
+  );
 
-    const dia = (fecha.getDay() + 6) % 7;
-    target.setDate(target.getDate() - dia + 3);
+  const dia = fechaUTC.getUTCDay() || 7;
 
-    const primerJueves = new Date(target.getFullYear(), 0, 4);
-    const primerDia = (primerJueves.getDay() + 6) % 7;
+  fechaUTC.setUTCDate(fechaUTC.getUTCDate() + 4 - dia);
 
-    primerJueves.setDate(primerJueves.getDate() - primerDia + 3);
+  const anioISO = fechaUTC.getUTCFullYear();
 
-    const semana =
-      1 + Math.round((target - primerJueves) / (7 * 24 * 60 * 60 * 1000));
+  const inicioAnio = new Date(Date.UTC(anioISO, 0, 1));
 
-    return semana;
+  const semanaISO = Math.ceil(((fechaUTC - inicioAnio) / 86400000 + 1) / 7);
+
+  return {
+    anio: anioISO,
+    semana: semanaISO,
   };
+};
+
+const obtenerInicioSemanaISO = (anio, semana) => {
+  const enero4 = new Date(Date.UTC(Number(anio), 0, 4));
+
+  const diaSemana = enero4.getUTCDay() || 7;
+
+  const lunesSemana1 = new Date(enero4);
+
+  lunesSemana1.setUTCDate(
+    enero4.getUTCDate() - diaSemana + 1,
+  );
+
+  const fecha = new Date(lunesSemana1);
+
+  fecha.setUTCDate(
+    lunesSemana1.getUTCDate() +
+      (Number(semana) - 1) * 7,
+  );
+
+  fecha.setUTCHours(0, 0, 0, 0);
+
+  return fecha;
+};
+
+const formatearFecha = (fecha) =>
+  fecha.toLocaleDateString("es-MX", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+const formatearOpcionSemana = (anio, semana) => {
+  const inicio = obtenerInicioSemanaISO(anio, semana);
+
+  return `Semana ${semana} — lunes ${formatearFecha(inicio)}`;
+};
+
+const formatearFechaBackend = (valor) => {
+  if (!valor) {
+    return "";
+  }
+
+  const fecha = new Date(valor);
+
+  if (Number.isNaN(fecha.getTime())) {
+    return "";
+  }
+
+  return fecha.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+};
+
+const KaizenVentasPerdidas = () => {
+  const periodoActual = obtenerAnioSemanaActualISO();
 
   const [top, setTop] = useState(10);
-  const [anio, setAnio] = useState(new Date().getFullYear());
-  const [semana, setSemana] = useState(obtenerSemanaActualISO());
+
+  const [anioInicio, setAnioInicio] = useState(periodoActual.anio);
+
+  const [semanaInicio, setSemanaInicio] = useState(periodoActual.semana);
+
+  const [anioFin, setAnioFin] = useState(periodoActual.anio);
+
+  const [semanaFin, setSemanaFin] = useState(periodoActual.semana);
+
+  const [aniosDisponibles, setAniosDisponibles] = useState([]);
+
+  const [semanasInicioDisponibles, setSemanasInicioDisponibles] = useState([]);
+
+  const [semanasFinDisponibles, setSemanasFinDisponibles] = useState([]);
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+
   const [proveedorId, setProveedorId] = useState("");
+
   const [proveedores, setProveedores] = useState([]);
-  const [ordenCosto, setOrdenCosto] = useState("");
-  const [totalResultados, setTotalResultados] = useState(0);
-  const [limiteResultados, setLimiteResultados] = useState(10);
-  const [aniosDisponibles, setAniosDisponibles] = useState([]);
-  const [semanasDisponibles, setSemanasDisponibles] = useState([]);
+
   const [busqueda, setBusqueda] = useState("");
 
+  const [totalResultados, setTotalResultados] = useState(0);
+
+  const [mensajeError, setMensajeError] = useState("");
+
   const [openModal, setOpenModal] = useState(false);
+
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+
+  const apiUrl =
+    process.env.NODE_ENV === "production"
+      ? process.env.REACT_APP_API_URL
+      : process.env.REACT_APP_API_URL_LOCAL;
+
+  const token = localStorage.getItem("token");
+
+  const formatearMoneda = (valor) =>
+    Number(valor || 0).toLocaleString("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const llaveInicio = Number(anioInicio) * 100 + Number(semanaInicio);
+
+  const llaveFin = Number(anioFin) * 100 + Number(semanaFin);
+
+  const llaveActual = periodoActual.anio * 100 + periodoActual.semana;
+
+  const rangoValido = llaveInicio <= llaveFin && llaveFin <= llaveActual;
+
+  const semanasInicioPermitidas = useMemo(() => {
+    return semanasInicioDisponibles
+      .map(Number)
+      .filter((semanaItem) => {
+        const llave = Number(anioInicio) * 100 + semanaItem;
+
+        return llave <= llaveActual;
+      })
+      .sort((a, b) => b - a);
+  }, [semanasInicioDisponibles, anioInicio, llaveActual]);
+
+  const semanasFinPermitidas = useMemo(() => {
+    return semanasFinDisponibles
+      .map(Number)
+      .filter((semanaItem) => {
+        const llave = Number(anioFin) * 100 + semanaItem;
+
+        return llave >= llaveInicio && llave <= llaveActual;
+      })
+      .sort((a, b) => b - a);
+  }, [semanasFinDisponibles, anioFin, llaveInicio, llaveActual]);
+
+  const rangoVisual = useMemo(() => {
+    const inicio = obtenerInicioSemanaISO(anioInicio, semanaInicio);
+
+    const fin = obtenerInicioSemanaISO(anioFin, semanaFin);
+
+    fin.setUTCDate(fin.getUTCDate() + 6);
+
+    return {
+      inicio: formatearFecha(inicio),
+      fin: formatearFecha(fin),
+    };
+  }, [anioInicio, semanaInicio, anioFin, semanaFin]);
 
   const abrirKaizen = (producto) => {
     setProductoSeleccionado(producto);
@@ -61,107 +197,87 @@ const KaizenVentasPerdidas = () => {
     setProductoSeleccionado(null);
   };
 
-  const apiUrl =
-    process.env.NODE_ENV === "production"
-      ? process.env.REACT_APP_API_URL
-      : process.env.REACT_APP_API_URL_LOCAL;
+  const consultarFiltrosKaizen = async (anioSeleccionado) => {
+    const resp = await axios.get(`${apiUrl}/kaizen/filtros`, {
+      params: {
+        anio: anioSeleccionado,
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  const usuarioLocal = JSON.parse(localStorage.getItem("user"));
-
-  const token = localStorage.getItem("token");
-
-  const obtenerRangoSemana = (anioSeleccionado, semanaSeleccionada) => {
-    const fecha = new Date(Number(anioSeleccionado), 0, 1);
-    const dias = (Number(semanaSeleccionada) - 1) * 7;
-
-    fecha.setDate(fecha.getDate() + dias);
-
-    const diaSemana = fecha.getDay();
-    const ajusteLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
-
-    const inicio = new Date(fecha);
-    inicio.setDate(fecha.getDate() + ajusteLunes);
-
-    const fin = new Date(inicio);
-    fin.setDate(inicio.getDate() + 6);
-
-    const formato = (date) =>
-      date.toLocaleDateString("es-MX", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
+    if (!resp.data.ok) {
+      return {
+        anios: [],
+        semanas: [],
+      };
+    }
 
     return {
-      inicio: formato(inicio),
-      fin: formato(fin),
+      anios: resp.data.data?.anios || [],
+      semanas: resp.data.data?.semanas || [],
     };
   };
 
-  const rangoSemana = obtenerRangoSemana(anio, semana);
-
-  const obtenerKaizen = async () => {
+  const cargarSemanasInicio = async () => {
     try {
-      setLoading(true);
+      const resultado = await consultarFiltrosKaizen(anioInicio);
 
-      const resp = await axios.get(`${apiUrl}/kaizen`, {
-        params: {
-          top,
-          anio,
-          semana,
-          proveedorId: proveedorId || undefined,
-          ordenCosto: ordenCosto || undefined,
-          busqueda: busqueda || undefined,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (resultado.anios.length) {
+        setAniosDisponibles(resultado.anios);
+      }
 
-      if (resp.data.ok) {
-        const dataConId = resp.data.data.map((item) => ({
-          ...item,
-          id: item.producto_id,
-        }));
+      const semanas = resultado.semanas
+        .map(Number)
+        .filter((item) => {
+          const llave = Number(anioInicio) * 100 + item;
 
-        setRows(dataConId);
-        setTotalResultados(Number(resp.data.total || 0));
-        setLimiteResultados(Number(resp.data.limit || top));
+          return llave <= llaveActual;
+        })
+        .sort((a, b) => b - a);
+
+      setSemanasInicioDisponibles(semanas);
+
+      if (semanas.length && !semanas.includes(Number(semanaInicio))) {
+        setSemanaInicio(semanas[0]);
       }
     } catch (error) {
-      console.error("Error al obtener kaizen:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error al obtener semanas iniciales:", error);
     }
   };
 
-  const obtenerFiltrosKaizen = async (anioSeleccionado = anio) => {
+  const cargarSemanasFin = async () => {
     try {
-      const resp = await axios.get(`${apiUrl}/kaizen/filtros`, {
-        params: {
-          anio: anioSeleccionado,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const resultado = await consultarFiltrosKaizen(anioFin);
 
-      if (resp.data.ok) {
-        const { anios = [], semanas = [] } = resp.data.data;
+      if (resultado.anios.length) {
+        setAniosDisponibles(resultado.anios);
+      }
 
-        setAniosDisponibles(anios);
-        setSemanasDisponibles(semanas);
+      const semanas = resultado.semanas
+        .map(Number)
+        .filter((item) => {
+          const llave = Number(anioFin) * 100 + item;
 
-        if (anios.length && !anios.includes(Number(anio))) {
-          setAnio(Number(anios[0]));
-        }
+          return llave <= llaveActual;
+        })
+        .sort((a, b) => b - a);
 
-        if (semanas.length && !semanas.includes(Number(semana))) {
-          setSemana(Number(semanas[0]));
-        }
+      setSemanasFinDisponibles(semanas);
+
+      const semanasValidas = semanas.filter(
+        (item) => Number(anioFin) * 100 + item >= llaveInicio,
+      );
+
+      if (
+        semanasValidas.length &&
+        !semanasValidas.includes(Number(semanaFin))
+      ) {
+        setSemanaFin(semanasValidas[0]);
       }
     } catch (error) {
-      console.error("Error al obtener filtros Kaizen:", error);
+      console.error("Error al obtener semanas finales:", error);
     }
   };
 
@@ -181,10 +297,77 @@ const KaizenVentasPerdidas = () => {
     }
   };
 
+  const obtenerKaizen = async () => {
+    if (!rangoValido) {
+      setRows([]);
+      setTotalResultados(0);
+
+      setMensajeError(
+        "La semana inicial debe ser anterior o igual a la semana final y la semana final no puede ser futura.",
+      );
+
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setMensajeError("");
+
+      const resp = await axios.get(`${apiUrl}/kaizen`, {
+        params: {
+          top: Number(top) || 10,
+
+          anioInicio,
+          semanaInicio,
+
+          anioFin,
+          semanaFin,
+
+          proveedorId: proveedorId || undefined,
+
+          busqueda: busqueda || undefined,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (resp.data.ok) {
+        const dataConId = (resp.data.data || []).map((item) => ({
+          ...item,
+          id: item.producto_id,
+        }));
+
+        setRows(dataConId);
+
+        setTotalResultados(Number(resp.data.total || 0));
+      }
+    } catch (error) {
+      console.error("Error al obtener Kaizen:", error);
+
+      setRows([]);
+      setTotalResultados(0);
+
+      setMensajeError(
+        error.response?.data?.message ||
+          "No fue posible obtener la información del periodo seleccionado.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     obtenerProveedores();
-    obtenerFiltrosKaizen(new Date().getFullYear());
   }, []);
+
+  useEffect(() => {
+    cargarSemanasInicio();
+  }, [anioInicio]);
+
+  useEffect(() => {
+    cargarSemanasFin();
+  }, [anioFin, llaveInicio]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -192,7 +375,15 @@ const KaizenVentasPerdidas = () => {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [busqueda, top, anio, semana, proveedorId, ordenCosto]);
+  }, [
+    busqueda,
+    top,
+    anioInicio,
+    semanaInicio,
+    anioFin,
+    semanaFin,
+    proveedorId,
+  ]);
 
   const columns = [
     {
@@ -230,42 +421,36 @@ const KaizenVentasPerdidas = () => {
       minWidth: 160,
     },
     {
-      field: "ventas_reales",
-      headerName: "Ventas",
-      width: 110,
-      align: "center",
-      headerAlign: "center",
+      field: "ventas_dinero",
+      headerName: "Ventas $",
+      width: 150,
+      align: "right",
+      headerAlign: "right",
+      type: "number",
+      valueFormatter: (value) => formatearMoneda(value),
     },
     {
-      field: "costo_producto",
-      headerName: "Costo",
-      width: 130,
-      align: "center",
-      headerAlign: "center",
-      renderCell: (params) =>
-        Number(params.value || 0).toLocaleString("es-MX", {
-          style: "currency",
-          currency: "MXN",
-        }),
+      field: "pronostico_dinero",
+      headerName: "Pronóstico $",
+      width: 160,
+      align: "right",
+      headerAlign: "right",
+      type: "number",
+      valueFormatter: (value) => formatearMoneda(value),
     },
     {
-      field: "pronostico",
-      headerName: "Pronóstico",
-      width: 130,
+      field: "diferencia_dinero",
+      headerName: "Diferencia $",
+      width: 180,
       align: "center",
       headerAlign: "center",
-    },
-    {
-      field: "diferencia",
-      headerName: "Diferencia",
-      width: 130,
-      align: "center",
-      headerAlign: "center",
+      type: "number",
       renderCell: (params) => (
         <Chip
-          label={params.value}
-          color={params.value < 0 ? "error" : "success"}
+          label={formatearMoneda(params.value)}
+          color={Number(params.value || 0) < 0 ? "error" : "success"}
           size="small"
+          variant="outlined"
         />
       ),
     },
@@ -278,17 +463,9 @@ const KaizenVentasPerdidas = () => {
     },
     {
       field: "fecha_seguimiento_kaizen",
-      headerName: "Fecha Seguimiento",
+      headerName: "Fecha seguimiento",
       width: 170,
-      renderCell: (params) => {
-        if (!params.value) return "";
-
-        return new Date(params.value).toLocaleDateString("es-MX", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        });
-      },
+      renderCell: (params) => formatearFechaBackend(params.value),
     },
     {
       field: "accion",
@@ -317,17 +494,21 @@ const KaizenVentasPerdidas = () => {
         Kaizen Ventas no cumplidas
       </Typography>
 
-      <Card sx={{ mb: 3, backgroundColor: "#f8f9fa" }}>
+      <Card
+        sx={{
+          mb: 3,
+          backgroundColor: "#f8f9fa",
+        }}
+      >
         <CardContent>
           <Typography variant="h6" fontWeight="bold" gutterBottom>
             ¿Qué es Kaizen Ventas no Cumplidas?
           </Typography>
 
           <Typography variant="body2" color="text.secondary">
-            Este módulo ayuda a identificar los productos que no alcanzaron su
-            pronóstico de ventas. El objetivo es registrar acciones de mejora,
-            dar seguimiento a los resultados y tomar decisiones oportunas para
-            incrementar las ventas o reducir el inventario.
+            Este módulo identifica los productos que no alcanzaron su pronóstico
+            de ventas dentro del rango seleccionado y los prioriza por el
+            importe económico dejado de vender.
           </Typography>
         </CardContent>
       </Card>
@@ -349,35 +530,32 @@ const KaizenVentasPerdidas = () => {
             flex: 1,
           }}
         >
-          <Stack direction="row" spacing={2} flexWrap="wrap">
+          <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
             <TextField
               label="Top"
               type="number"
               size="small"
               value={top}
-              inputProps={{ min: 1, step: 1 }}
-              onChange={(e) => {
-                setTop(e.target.value);
+              inputProps={{
+                min: 1,
+                step: 1,
               }}
+              onChange={(e) => setTop(e.target.value)}
               onBlur={() => {
                 if (!top || Number(top) < 1) {
-                  setTop("1");
+                  setTop(1);
                 }
               }}
-              sx={{ width: 140 }}
+              sx={{ width: 110 }}
             />
 
             <TextField
               select
-              label="Año"
+              label="Año inicial"
               size="small"
-              value={anio}
-              onChange={(e) => {
-                const nuevoAnio = Number(e.target.value);
-                setAnio(nuevoAnio);
-                obtenerFiltrosKaizen(nuevoAnio);
-              }}
-              sx={{ width: 140 }}
+              value={anioInicio}
+              onChange={(e) => setAnioInicio(Number(e.target.value))}
+              sx={{ width: 135 }}
             >
               {aniosDisponibles.map((anioItem) => (
                 <MenuItem key={anioItem} value={anioItem}>
@@ -388,15 +566,45 @@ const KaizenVentasPerdidas = () => {
 
             <TextField
               select
-              label="Semana"
+              label="Semana inicial"
               size="small"
-              value={semana}
-              onChange={(e) => setSemana(Number(e.target.value))}
-              sx={{ width: 160 }}
+              value={semanaInicio}
+              onChange={(e) => setSemanaInicio(Number(e.target.value))}
+              sx={{ minWidth: 285 }}
             >
-              {semanasDisponibles.map((semanaItem) => (
+              {semanasInicioPermitidas.map((semanaItem) => (
                 <MenuItem key={semanaItem} value={semanaItem}>
-                  Semana {semanaItem}
+                  {formatearOpcionSemana(anioInicio, semanaItem)}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              label="Año final"
+              size="small"
+              value={anioFin}
+              onChange={(e) => setAnioFin(Number(e.target.value))}
+              sx={{ width: 135 }}
+            >
+              {aniosDisponibles.map((anioItem) => (
+                <MenuItem key={anioItem} value={anioItem}>
+                  {anioItem}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              label="Semana final"
+              size="small"
+              value={semanaFin}
+              onChange={(e) => setSemanaFin(Number(e.target.value))}
+              sx={{ minWidth: 285 }}
+            >
+              {semanasFinPermitidas.map((semanaItem) => (
+                <MenuItem key={semanaItem} value={semanaItem}>
+                  {formatearOpcionSemana(anioFin, semanaItem)}
                 </MenuItem>
               ))}
             </TextField>
@@ -407,7 +615,7 @@ const KaizenVentasPerdidas = () => {
               size="small"
               value={proveedorId}
               onChange={(e) => setProveedorId(e.target.value)}
-              sx={{ minWidth: 260 }}
+              sx={{ minWidth: 250 }}
             >
               <MenuItem value="">Todos</MenuItem>
 
@@ -419,19 +627,6 @@ const KaizenVentasPerdidas = () => {
                   {proveedor.razon_social}
                 </MenuItem>
               ))}
-            </TextField>
-
-            <TextField
-              select
-              label="Orden costo"
-              size="small"
-              value={ordenCosto}
-              onChange={(e) => setOrdenCosto(e.target.value)}
-              sx={{ minWidth: 190 }}
-            >
-              <MenuItem value="">Diferencia</MenuItem>
-              <MenuItem value="asc">Costo menor a mayor</MenuItem>
-              <MenuItem value="desc">Costo mayor a menor</MenuItem>
             </TextField>
           </Stack>
 
@@ -445,28 +640,54 @@ const KaizenVentasPerdidas = () => {
           />
         </Box>
 
-        <Button variant="outlined" onClick={obtenerKaizen}>
+        <Button
+          variant="outlined"
+          onClick={obtenerKaizen}
+          disabled={loading || !rangoValido}
+        >
           Actualizar pendientes
         </Button>
       </Box>
 
-      <Alert severity="info" sx={{ mb: 2 }}>
-        <strong>Periodo analizado:</strong> Semana {semana} del {anio} del{" "}
-        {rangoSemana.inicio} al {rangoSemana.fin}. Los productos mostrados no
-        alcanzaron su pronóstico de ventas durante este periodo.
-      </Alert>
+      {!rangoValido && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          La semana inicial no puede ser posterior a la semana final y la semana
+          final no puede ser futura.
+        </Alert>
+      )}
+
+      {mensajeError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {mensajeError}
+        </Alert>
+      )}
+
+      {rangoValido && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <strong>Periodo analizado:</strong> desde la semana {semanaInicio} de{" "}
+          {anioInicio}, iniciando el {rangoVisual.inicio}, hasta la semana{" "}
+          {semanaFin} de {anioFin}, terminando el {rangoVisual.fin}. Los
+          resultados acumulan las ventas y el pronóstico de todas las semanas
+          incluidas.
+        </Alert>
+      )}
 
       {totalResultados > rows.length && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Mostrando {rows.length} de {totalResultados} productos encontrados.
-          Aumenta el Top si deseas ver más resultados.
+          Aumenta el Top para mostrar más resultados.
         </Alert>
       )}
 
-      <Box sx={{ width: "100%", overflowX: "auto" }}>
+      <Box
+        sx={{
+          width: "100%",
+          overflowX: "auto",
+        }}
+      >
         <Box
           sx={{
-            minWidth: 1450,
+            minWidth: 1400,
             height: 600,
           }}
         >
@@ -507,7 +728,10 @@ const KaizenVentasPerdidas = () => {
           setRows((prevRows) =>
             prevRows.map((row) =>
               row.producto_id === productoId
-                ? { ...row, tieneAccionKaizen: true }
+                ? {
+                    ...row,
+                    tieneAccionKaizen: true,
+                  }
                 : row,
             ),
           );
