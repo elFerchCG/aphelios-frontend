@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
@@ -21,7 +21,11 @@ import {
     Switch,
     Modal,
     TextField,
-    Stack
+    Stack,
+    MenuItem,
+    Select,
+    InputLabel,
+    FormControl
 } from "@mui/material";
 import { GridToolbar } from '@mui/x-data-grid';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -65,10 +69,35 @@ const EnviosProgresoEmpaque = () => {
     const [detalleSeleccionado, setDetalleSeleccionado] = useState(null);
     const [guardandoNota, setGuardandoNota] = useState(false);
 
+    const [token, setToken] = useState(localStorage.getItem('token'));
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+
+    const [selectedProforma, setSelectedProforma] = useState('todas');
+
     const apiUrl =
         process.env.NODE_ENV === 'production'
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            setToken(localStorage.getItem('token'));
+            setUser(JSON.parse(localStorage.getItem('user')));
+        };
+
+        // Añadir un listener para el evento `storage`
+        window.addEventListener('storage', handleStorageChange);
+
+        // Limpieza al desmontar el componente
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [apiUrl]);
+
+    const puedeEditarColumna = user && (
+        user.rol_descripcion === 'administrador' ||
+        user.rol_descripcion === 'gerencia'
+    );
 
     const dashboardGridSx = {
         border: "none",
@@ -119,6 +148,26 @@ const EnviosProgresoEmpaque = () => {
         fetchPiezasYFacturas();
         fetchAgrupaciones();
     }, [envioId]);
+
+    // Obtenemos la lista de proformas únicas presentes en los datos para llenar el Select
+    const proformasDisponibles = useMemo(() => {
+        const mapaMap = new Map();
+        ordenesProduccionFacturas.forEach((row) => {
+            if (row.proforma_id && !mapaMap.has(row.proforma_id)) {
+                mapaMap.set(row.proforma_id, {
+                    id: row.proforma_id,
+                    estatus: row.proforma_estatus
+                });
+            }
+        });
+        return Array.from(mapaMap.values());
+    }, [ordenesProduccionFacturas]);
+
+    // Filas filtradas para el DataGrid
+    const ordenesFiltradas = useMemo(() => {
+        if (selectedProforma === 'todas') return ordenesProduccionFacturas;
+        return ordenesProduccionFacturas.filter((row) => row.proforma_id === Number(selectedProforma));
+    }, [ordenesProduccionFacturas, selectedProforma]);
 
     const abrirFactura = (factura) => {
 
@@ -267,9 +316,9 @@ const EnviosProgresoEmpaque = () => {
         { field: "orden_id", headerName: "ID Orden", flex: 1 },
         { field: "componente_id", headerName: "Componente", flex: 1 },
         { field: "sku", headerName: "SKU", flex: 2 },
-        { field: "descripcion", headerName: "Descripción", flex: 3 },
+        { field: "descripcion", headerName: "Descripción", flex: 2 },
         {
-            field: "cantidad_billete", headerName: "MRP", flex: 2, type: "number",
+            field: "cantidad_billete", headerName: "MRP", flex: 1, type: "number",
             renderCell: (params) => {
                 const value = Number(params.value || 0);
                 return value;
@@ -282,22 +331,29 @@ const EnviosProgresoEmpaque = () => {
                 return value;
             }
         },
+        {
+            field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, type: "number",
+        },
         { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
         {
             field: "avance",
             headerName: "Avance",
             type: "number",
-            flex: 1.5,
+            flex: 2,
             renderCell: (params) => {
-                const requeridas = Number(params.row.cantidad_facturada) || 0;
+                const facturada = Number(params.row.cantidad_facturada) || 0;
+                const aEnviar = Number(params.row.cantidad_a_enviar) || 0;
                 const surtidas = Number(params.row.cantidad_surtida) || 0;
 
-                const pct = requeridas > 0
+                // Si la cantidad facturada es mayor a 0 usa facturada, de lo contrario usa aEnviar
+                const total = facturada > 0 ? facturada : aEnviar;
+
+                const pct = total > 0
                     ? Math.min(
                         100,
                         Math.max(
                             0,
-                            Math.round((surtidas / requeridas) * 100)
+                            Math.round((surtidas / total) * 100)
                         )
                     )
                     : 0;
@@ -313,7 +369,7 @@ const EnviosProgresoEmpaque = () => {
                         >
                             <Typography variant="caption">{pct}%</Typography>
                             <Typography variant="caption">
-                                {Math.round(surtidas)}/{Math.round(requeridas)}
+                                {Math.round(surtidas)}/{Math.round(total)}
                             </Typography>
                         </Box>
                         <LinearProgress
@@ -328,7 +384,7 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "estatus",
             headerName: "Estatus",
-            flex: 1,
+            flex: 2,
             renderCell: (params) => {
                 const faltante =
                     (params.row.cantidad_facturada || 0) -
@@ -348,46 +404,52 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "nota",
             headerName: "Notas",
-            width: 120,
+            flex: 2,
+            renderCell: (params) => {
+                const tieneNota = Boolean(params.row.notas);
 
-            renderCell: (params) => (
+                // Determinamos el texto según permisos e historial
+                let labelText = "Agregar";
+                if (tieneNota) {
+                    labelText = puedeEditarColumna ? "Editar" : "Ver Nota";
+                }
 
-                <Chip
+                // Si no hay nota y no tiene permiso, deshabilitamos la acción
+                const disabled = !puedeEditarColumna && !tieneNota;
 
-                    clickable
-
-                    icon={
-                        params.row.notas
-                            ? <EditNoteIcon />
-                            : <NoteAddIcon />
-                    }
-
-                    label={
-                        params.row.notas
-                            ? "Editar"
-                            : "Agregar"
-                    }
-
-                    color={
-                        params.row.notas
-                            ? "warning"
-                            : "primary"
-                    }
-
-                    variant={
-                        params.row.notas
-                            ? "filled"
-                            : "outlined"
-                    }
-
-                    onClick={() => handleOpenNota(params.row)}
-
-                />
-
-            )
-
+                return (
+                    <Chip
+                        clickable={!disabled}
+                        disabled={disabled}
+                        icon={
+                            tieneNota
+                                ? (puedeEditarColumna ? <EditNoteIcon /> : <VisibilityIcon />)
+                                : <NoteAddIcon />
+                        }
+                        label={labelText}
+                        color={
+                            tieneNota
+                                ? (puedeEditarColumna ? "warning" : "info")
+                                : "primary"
+                        }
+                        variant={tieneNota ? "filled" : "outlined"}
+                        onClick={() => {
+                            if (!disabled) {
+                                handleOpenNota(params.row);
+                            }
+                        }}
+                    />
+                );
+            }
         }
     ];
+
+    const esFilaEditable = (row) => {
+        if (row.estatus === "empacada") return false;
+        const estatusBloqueados = ['activa', 'finalizada'];
+        if (estatusBloqueados.includes(row.proforma_estatus)) return false;
+        return true;
+    };
 
     const ordenesCols = [
         { field: "id", headerName: "#Orden Producción", flex: 1 },
@@ -433,13 +495,13 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number",
             // ✅ SOLO editable si NO está empacada
-            editable: (params) => params.row.estatus !== "empacada",
+            editable: (params) => puedeEditarColumna && params.row.estatus !== "empacada",
 
             valueFormatter: (value) => Math.round(Number(value ?? 0)),
 
             // ✅ SOLO aplicar estilo editable si NO está empacada
             cellClassName: (params) =>
-                params.row.estatus !== "empacada" ? "celdaEditable" : "celdaBloqueada",
+                puedeEditarColumna && esFilaEditable(params.row) ? "celdaEditable" : "celdaBloqueada",
 
             renderEditCell: (params) => (
                 <GridEditInputCell
@@ -839,17 +901,15 @@ const EnviosProgresoEmpaque = () => {
 
             return newRow;
         } catch (error) {
-            // 1. Extraer el mensaje principal del servidor
-            const mensajeServidor = error.response?.data?.message || "No se pudo actualizar la orden";
-
-            // 2. Extraer detalles adicionales (pueden venir como array, string u objeto)
-            const detallesServidor = error.response?.data?.details || error.response?.data?.errors;
-
-            // Creamos un objeto de error personalizado para transportar ambos datos
-            const customError = new Error(mensajeServidor);
-            customError.details = detallesServidor; // Le inyectamos los detalles al error
-
-            mostrarAlertaError(customError);
+            const errorMessage = error.response?.data?.message || 'Error al cargar los datos';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
 
             return oldRow;
         }
@@ -860,10 +920,20 @@ const EnviosProgresoEmpaque = () => {
 
         if (error.details) {
             if (Array.isArray(error.details)) {
+                // Se mapea cada elemento verificando si es objeto o texto
+                const listaItems = error.details
+                    .map(detail => {
+                        const texto = typeof detail === 'object' && detail !== null
+                            ? (detail.mensaje || JSON.stringify(detail))
+                            : detail;
+                        return `<li>${texto}</li>`;
+                    })
+                    .join("");
+
                 contenidoHtml = `
                 <p style="margin-bottom: 10px;">${error.message}</p>
                 <ul style="text-align: left; font-size: 0.9em; background: #f8f9fa; padding: 10px 25px; border-radius: 5px;">
-                    ${error.details.map(detail => `<li>${detail}</li>`).join("")}
+                    ${listaItems}
                 </ul>
             `;
             } else if (typeof error.details === "object") {
@@ -879,7 +949,7 @@ const EnviosProgresoEmpaque = () => {
             `;
             } else {
                 contenidoHtml = `
-                <p>${error.message}</p>
+                <p style="margin-bottom: 10px;">${error.message}</p>
                 <div style="text-align: left; font-size: 0.85em; font-family: monospace; background: #f8f9fa; padding: 10px; border-radius: 5px; max-height: 150px; overflow-y: auto;">
                     ${error.details}
                 </div>
@@ -970,8 +1040,6 @@ const EnviosProgresoEmpaque = () => {
         }
     ];
 
-    // ... dentro de EnviosProgresoEmpaque, antes del return:
-
     const totalCantidadAEnviar = ordenesProduccionFacturas.reduce(
         (sum, row) => sum + (Number(row.cantidad_a_enviar) || 0),
         0
@@ -994,6 +1062,126 @@ const EnviosProgresoEmpaque = () => {
     const cerrarConsolidado = () => {
         setOpenConsolidado(false);
         setProformaSeleccionada(null);
+    };
+
+    const procesarCambioEstatus = async (grupo, nuevoEstatus, tituloConfirmacion, textoConfirmacion) => {
+        // Definimos texto del botón de acuerdo al nuevo estatus
+        let textoBotonConfirmar = 'Sí, continuar';
+        if (nuevoEstatus === 'activa' && grupo.estatus === 'pendiente') textoBotonConfirmar = 'Sí, habilitar';
+        else if (nuevoEstatus === 'activa' && grupo.estatus === 'finalizada') textoBotonConfirmar = 'Sí, revertir';
+        else if (nuevoEstatus === 'finalizada') textoBotonConfirmar = 'Sí, finalizar';
+
+        // 1. Pedir confirmación al usuario
+        const result = await Swal.fire({
+            title: tituloConfirmacion,
+            text: textoConfirmacion,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: nuevoEstatus === 'activa' ? '#2e7d32' : '#d32f2f',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: nuevoEstatus === 'activa' ? 'Sí, habilitar' : 'Sí, finalizar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        // Si el usuario cancela, no hacemos nada
+        if (!result.isConfirmed) return;
+
+        // 2. Mostrar alerta de carga bloqueante (evita dobles clics y bloquea la interfaz)
+        Swal.fire({
+            title: 'Procesando...',
+            text: 'Por favor espera un momento',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            // 3. Consumir el endpoint
+            const respuesta = await axios.put(`${apiUrl}/produccion/actualizarProforma`, {
+                proforma_id: grupo.proforma_id,
+                estatus: nuevoEstatus,
+                envio_id: envioId,
+                usuario: user?.nombre || 'SISTEMA'
+            });
+
+            if (!respuesta.data.success) {
+                throw new Error(respuesta.data.message || 'No se pudo actualizar el estatus');
+            }
+
+            // 4. Actualizar el estado local en React
+            setProformas((prevProformas) =>
+                prevProformas.map((item) =>
+                    item.proforma_id === grupo.proforma_id
+                        ? { ...item, estatus: nuevoEstatus }
+                        : item
+                )
+            );
+
+            // 5. Alerta de éxito
+            Swal.fire({
+                icon: 'success',
+                title: '¡Logrado!',
+                text: respuesta.data.message || `La proforma ahora está ${nuevoEstatus}.`,
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            await fetchPiezasYFacturas();
+
+            // 6. Si se generó reporte de excedentes, descargarlo (sin abrir pestaña nueva,
+            //    para que no lo bloquee el navegador como pop-up)
+            if (respuesta.data.reporte_excedentes?.url_descarga) {
+                const link = document.createElement('a');
+                link.href = `${apiUrl}${respuesta.data.reporte_excedentes.url_descarga}`;
+                link.setAttribute('download', respuesta.data.reporte_excedentes.nombre_archivo || '');
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }
+
+        } catch (error) {
+            // 1. Extraer el mensaje principal del servidor
+            const mensajeServidor = error.response?.data?.message || "No se pudo actualizar la orden";
+
+            // 2. Extraer detalles adicionales (pueden venir como array, string u objeto)
+            const detallesServidor = error.response?.data?.details || error.response?.data?.errors;
+
+            // Creamos un objeto de error personalizado para transportar ambos datos
+            const customError = new Error(mensajeServidor);
+            customError.details = detallesServidor; // Le inyectamos los detalles al error
+
+            mostrarAlertaError(customError);
+
+        }
+    };
+
+    const handleHabilitarProforma = (grupo) => {
+        procesarCambioEstatus(
+            grupo,
+            'activa',
+            `¿Habilitar la proforma #${grupo.proforma_id}?`,
+            'Al habilitarla, cambiará a estatus "activa" y se permitirá iniciar el proceso de surtido, tambien se generaran excedentes y no se permitara cambiar ninguna cantidad a enviar.'
+        );
+    };
+
+    const handleFinalizarProforma = (grupo) => {
+        procesarCambioEstatus(
+            grupo,
+            'finalizada',
+            `¿Finalizar la proforma #${grupo.proforma_id}?`,
+            'Esta acción marcará la proforma como completada y no se podra surtir nuevamente.'
+        );
+    };
+
+    const handleRevertirProforma = (grupo) => {
+        procesarCambioEstatus(
+            grupo,
+            'activa',
+            `¿Revertir la proforma #${grupo.proforma_id}?`,
+            'La proforma cambiará nuevamente a estatus "activa" para permitir modificar o continuar su proceso de surtido.'
+        );
     };
 
     return (
@@ -1087,15 +1275,14 @@ const EnviosProgresoEmpaque = () => {
                 proformas.map((grupo) => (
 
                     <ProformaAccordion
-
                         key={grupo.proforma_id}
-
                         grupo={grupo}
-
+                        puedeEditarColumna={puedeEditarColumna}
                         onVerFactura={abrirFactura}
-
                         onVerConsolidado={handleVerConsolidado}
-
+                        onHabilitarProforma={handleHabilitarProforma}
+                        onFinalizarProforma={handleFinalizarProforma}
+                        onRevertirProforma={handleRevertirProforma}
                     />
 
                 ))
@@ -1162,10 +1349,31 @@ const EnviosProgresoEmpaque = () => {
                 </Box>
             </Box>
 
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <InputLabel id="proforma-filter-label">Filtrar por Proforma</InputLabel>
+
+                    <Select
+                        labelId="proforma-filter-label"
+                        value={selectedProforma}
+                        label="Filtrar por Proforma"
+                        onChange={(e) => setSelectedProforma(e.target.value)}
+                    >
+                        <MenuItem value="todas">Todas las Proformas</MenuItem>
+
+                        {proformasDisponibles.map((prof) => (
+                            <MenuItem key={prof.id} value={prof.id}>
+                                Proforma #{prof.id} ({prof.estatus})
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            </Box>
+
             {/* Contenedor DataGrid corregido (Eliminado sx redundante para evitar encimado) */}
             <Box sx={{ height: 400, width: '100%', mb: 10 }}>
                 <DataGrid
-                    rows={ordenesProduccionFacturas}
+                    rows={ordenesFiltradas}
                     columns={ordenesCols}
                     getRowId={(row) => row.id}
                     experimentalFeatures={{ newEditingApi: true }}
@@ -1174,7 +1382,9 @@ const EnviosProgresoEmpaque = () => {
                     processRowUpdate={processRowUpdate}
                     isCellEditable={(params) => {
                         if (params.row.estatus === "empacada") return false;
-                        if (params.field === "cantidad_a_enviar") return true;
+                        if (params.field === "cantidad_a_enviar") {
+                            return puedeEditarColumna;
+                        }
                         return true;
                     }}
                     columnVisibilityModel={columnVisibilityOrdenesFacturas}

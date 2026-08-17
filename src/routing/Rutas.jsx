@@ -33,7 +33,7 @@ import EmpaqueCajaAbierta from "../components/pages/Envios/EmpaqueCajaAbierta";
 import DetalleFactura from "../components/pages/Facturas/DetalleFactura";
 import BarraLateral from "../components/layout/BarraLateral";
 import ResumenEnvio from "../components/pages/Envios/ResumenEnvio";
-import Mercadotecnia from "../components/pages/Inventarios/Publicaciones/Mercadotecnia";
+import NuevosSKUsManager from "../components/pages/Inventarios/Publicaciones/NuevosSKUsManager";
 import VistaPedidos from "../components/pages/Pedidos/Pedidos";
 import Mrp from "../components/pages/Mrp/Mrp";
 import Graficas from "../components/pages/Graficas/DashboardAphelios";
@@ -48,6 +48,7 @@ import Marketing from "../components/pages/Menu/Marketing";
 import PerformanceComercial from "../components/pages/PerformanceComercial/PerformanceComercial";
 import PublicacionesMejoras from "../components/pages/PublicacionesMejoras/PublicacionesMejoras";
 import Preguntas from "../components/pages/Preguntas/Preguntas";
+import Excedentes from "../components/pages/Inventarios/Excedentes/Excedentes";
 
 const Rutas = () => {
   return (
@@ -110,7 +111,7 @@ const Rutas = () => {
         />
         <Route path="/resumenEnvio/envio/:envioId" element={<ResumenEnvio />} />
         <Route path="/barraLateral" element={<BarraLateral />} />
-        <Route path="/nuevosProductos" element={<Mercadotecnia />} />
+        <Route path="/nuevos-productos" element={<NuevosSKUsManager />} />
         <Route path="/pedidos" element={<VistaPedidos />} />
         <Route path="/Mrp" element={<Mrp />} />
         <Route path="/graficas" element={<Graficas />} />
@@ -220,6 +221,20 @@ const Rutas = () => {
               ]}
             >
               <Preguntas />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/nuevos-excedentes"
+          element={
+            <ProtectedRoute
+              allowedRoles={[
+                "administrador",
+                "Almacenista"
+              ]}
+            >
+              <Excedentes />
             </ProtectedRoute>
           }
         />

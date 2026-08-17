@@ -134,6 +134,17 @@ const Surtido = () => {
         // 💡 Quitamos 'componentes' de las dependencias para que no se dispare al editar los valores
     }, [openAsignar, openSurtirNoFull, yaEnfocado, modoSoloLectura]);
 
+    useEffect(() => {
+        // Si terminó de cargar y no hay modales abiertos, enfocar el input
+        if (!loading && !openAsignar && !openImprimir && !openModalPin) {
+            // Un ligero timeout asegura que el DOM ya habilitó el input (disabled={loading})
+            const timer = setTimeout(() => {
+                inputRef.current?.focus();
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, openAsignar, openImprimir, openModalPin]);
+
     const styleModalAsignar = {
         position: 'absolute',
         top: '50%',
@@ -245,23 +256,31 @@ const Surtido = () => {
                 setData(response.data.data);
             }
         } catch (error) {
+            const responseData = error.response?.data;
             const errorMessage = error.response?.data?.message || "Ocurrió un error al consultar las órdenes.";
 
-            Swal.fire({
-
-                title: "Error",
-
-                text: errorMessage,
-
-                icon: "error",
-
-                timer: 5000,
-
-                showCloseButton: true,
-
-                allowEscapeKey: true
-
-            });
+            // Evaluamos si el backend notificó que es un SKU nuevo
+            if (responseData?.nuevoSKU) {
+                Swal.fire({
+                    title: "¡SKU Nuevo Detectado!",
+                    text: errorMessage,
+                    icon: "warning",
+                    confirmButtonText: "Entendido",
+                    confirmButtonColor: "#f39c12", // Color de advertencia / acción especial
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            } else {
+                // Manejo estándar para errores de servidor o sin resultados normales
+                Swal.fire({
+                    title: "Error",
+                    text: errorMessage,
+                    icon: "error",
+                    timer: 5000,
+                    showCloseButton: true,
+                    allowEscapeKey: true
+                });
+            }
         } finally {
             setLoading(false);
         }
@@ -283,6 +302,9 @@ const Surtido = () => {
                 timer: 3000,
                 showCloseButton: true,
                 allowEscapeKey: true
+            }).then(() => {
+                // Regresa el foco tras cerrar SweetAlert
+                inputRef.current?.focus();
             });
         }
     };
@@ -291,15 +313,22 @@ const Surtido = () => {
         ordenId,
         detalleId,
         cantidadEnviar,
-        cantidadSurtida
+        cantidadSurtida,
+        cantidadFacturada
     ) => {
 
         setSelectedOrdenId(ordenId);
         setSelectedDetalleId(detalleId);
 
-        setModoSoloLectura(
-            Number(cantidadSurtida) >= Number(cantidadEnviar)
-        );
+        // 2. Determinamos el tope dinámico
+        const facturada = Number(cantidadFacturada) || 0;
+        const aEnviar = Number(cantidadEnviar) || 0;
+        const surtida = Number(cantidadSurtida) || 0;
+
+        const topePermitido = facturada > 0 ? facturada : aEnviar;
+
+        // 3. Queda en modo solo lectura solo si ya se alcanzó o superó el tope
+        setModoSoloLectura(surtida >= topePermitido);
 
         await validarPaquete(ordenId);
 
@@ -310,7 +339,8 @@ const Surtido = () => {
         ordenId,
         detalleId,
         cantidadEnviar,
-        cantidadSurtida
+        cantidadSurtida,
+        cantidadFacturada
     ) => {
 
         if (loading) return;
@@ -322,9 +352,15 @@ const Surtido = () => {
             setSelectedOrdenId(ordenId);
             setSelectedDetalleId(detalleId);
 
-            setModoSoloLectura(
-                Number(cantidadSurtida) >= Number(cantidadEnviar)
-            );
+            // 2. Determinamos el tope dinámico
+            const facturada = Number(cantidadFacturada) || 0;
+            const aEnviar = Number(cantidadEnviar) || 0;
+            const surtida = Number(cantidadSurtida) || 0;
+
+            const topePermitido = facturada > 0 ? facturada : aEnviar;
+
+            // 3. Queda en modo solo lectura solo si ya se alcanzó o superó el tope
+            setModoSoloLectura(surtida >= topePermitido);
 
             await validarPaquete(ordenId);
 
@@ -339,6 +375,7 @@ const Surtido = () => {
 
     const handleCloseAsignar = () => {
         setOpenAsignar(false);
+        setTimeout(() => inputRef.current?.focus(), 100);
         setSelectedOrdenId(null); // Resetear el ID cuando se cierre
         setSelectedDetalleId(null); // Resetear id_detalle_orden también
         setCantidadRecibida("");
@@ -349,6 +386,7 @@ const Surtido = () => {
     const handleCloseSurtirNoFull = () => {
         if (loading) return;
         setOpenSurtirNoFull(false);
+        setTimeout(() => inputRef.current?.focus(), 100);
         setSelectedDetalleId(null);
         setResumenOrden(null);
     };
@@ -359,6 +397,7 @@ const Surtido = () => {
 
     const handleCloseImprimir = () => {
         setOpenImprimir(false);
+        setTimeout(() => inputRef.current?.focus(), 100);
         setMl("");
         setCantidadEtiquetasModal("");
     };
@@ -877,14 +916,16 @@ const Surtido = () => {
                                         params.row.id_orden,
                                         params.row.id_detalle_orden,
                                         params.row.cantidad_a_enviar,
-                                        params.row.cantidad_surtida
+                                        params.row.cantidad_surtida,
+                                        params.row.cantidad_facturada
                                     );
                                 } else {
                                     handleOpenSurtirNoFull(
                                         params.row.id_orden,
                                         params.row.id_detalle_orden,
                                         params.row.cantidad_a_enviar,
-                                        params.row.cantidad_surtida
+                                        params.row.cantidad_surtida,
+                                        params.row.cantidad_facturada
                                     );
                                 }
                             }}
@@ -948,8 +989,12 @@ const Surtido = () => {
             type: "number",
             flex: 2,
             renderCell: (params) => {
-                const total = Number(params.row.cantidad_facturada) || 0;
+                const facturada = Number(params.row.cantidad_facturada) || 0;
+                const aEnviar = Number(params.row.cantidad_a_enviar) || 0;
                 const surtidas = Number(params.row.cantidad_surtida) || 0;
+
+                // Si la cantidad facturada es mayor a 0 usa facturada, si es 0 usa aEnviar
+                const total = facturada > 0 ? facturada : aEnviar;
 
                 const pct = total > 0
                     ? Math.min(
@@ -1300,6 +1345,7 @@ const Surtido = () => {
 
                     <TextField
                         inputRef={inputRef}
+                        autoFocus
                         id="outlined-basic"
                         label="Ingresar SKU"
                         variant="outlined"

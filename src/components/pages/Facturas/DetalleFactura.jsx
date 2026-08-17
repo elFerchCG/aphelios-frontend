@@ -1301,18 +1301,18 @@ const DetalleFactura = () => {
 
     return Number(
       row.op_detalle_id ||
-        row.opd_activa_id ||
-        row.orden_produccion_detalle_id ||
-        0,
+      row.opd_activa_id ||
+      row.orden_produccion_detalle_id ||
+      0,
     );
   };
 
   const obtenerOrdenCompraDetalleIdDeFila = (row) => {
     return Number(
       row.detalle_orden_compra_id ||
-        row.orden_compra_detalle_id ||
-        row.oc_detalle_id ||
-        0,
+      row.orden_compra_detalle_id ||
+      row.oc_detalle_id ||
+      0,
     );
   };
 
@@ -1331,10 +1331,10 @@ const DetalleFactura = () => {
   const getCantidadFila = (row) =>
     Number(
       row?.cantidad ??
-        row?.cantidad_pendiente ??
-        row?.cantidad_restante ??
-        row?.pendiente ??
-        0,
+      row?.cantidad_pendiente ??
+      row?.cantidad_restante ??
+      row?.pendiente ??
+      0,
     );
 
   const buildAsignacionDesdeFila = (
@@ -1946,9 +1946,8 @@ const DetalleFactura = () => {
         </p>
 
         <ul>
-          <li>Otras facturas pendientes/parciales: <strong>${
-            hayOtrasFacturas ? "Sí" : "No"
-          }</strong></li>
+          <li>Otras facturas pendientes/parciales: <strong>${hayOtrasFacturas ? "Sí" : "No"
+                }</strong></li>
         </ul>
 
         <hr />
@@ -2484,7 +2483,7 @@ const DetalleFactura = () => {
               await Swal.fire(
                 "No pertenece al producto",
                 resp.data?.message ||
-                  "El SKU no pertenece al producto seleccionado (no está en su billete).",
+                "El SKU no pertenece al producto seleccionado (no está en su billete).",
                 "warning",
               );
               return;
@@ -3236,7 +3235,7 @@ const DetalleFactura = () => {
         }}
       >
         <BreadcrumbsNav />
-        <h2>Detalle Factura {facturaId}</h2>
+        <h2>Factura {facturaId}</h2>
         {Number(facturaHeader?.es_provisional) == 1 && (
           <Box
             sx={{ display: "flex", gap: 2, mb: 2, justifyContent: "center" }}
@@ -3255,7 +3254,7 @@ const DetalleFactura = () => {
         <Box
           display="flex"
           justifyContent="center"
-          sx={{ height: 120, borderRadius: 4, boxShadow: 4, borderWidth: 3 }}
+          sx={{ borderRadius: 4, boxShadow: 4, borderWidth: 3 }}
         >
           <Box
             sx={{
@@ -3265,8 +3264,14 @@ const DetalleFactura = () => {
             }}
           >
             <Box>
+              <Typography variant="body1">
+                <strong>Serie: </strong> {facturaHeader?.serie}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Folio: </strong> {facturaHeader?.folio}
+              </Typography>
               <Typography variant="h6" component="h2">
-                Informacion de la empresa emisora
+                <strong>Informacion de la empresa emisora</strong>
               </Typography>
               <Typography variant="body1">
                 <strong>Proveedor:</strong>{" "}
@@ -3685,7 +3690,7 @@ const DetalleFactura = () => {
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => {}} // evitamos que se cierre automáticamente
+        onClose={() => { }} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -3846,7 +3851,7 @@ const DetalleFactura = () => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                  params.row.componente_id ? (
+                    params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",
