@@ -25,7 +25,8 @@ import {
     MenuItem,
     Select,
     InputLabel,
-    FormControl
+    FormControl,
+    Alert
 } from "@mui/material";
 import { GridToolbar } from '@mui/x-data-grid';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -36,6 +37,8 @@ import ProformaAccordion from "./ProformaAccordion";
 import ConsolidadoDrawer from './ConsolidadoDrawer';
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import Badge from "@mui/material/Badge";
 
 const EnviosProgresoEmpaque = () => {
 
@@ -43,6 +46,7 @@ const EnviosProgresoEmpaque = () => {
     const location = useLocation();
 
     const [descripcionEnvio] = useState(location.state?.descripcionEnvio || '');
+    const [folioInternoEnvio] = useState(location.state?.folioInternoEnvio || '');
 
     const [totalPiezas, setTotalPiezas] = useState(0);
     const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
@@ -56,6 +60,11 @@ const EnviosProgresoEmpaque = () => {
     const [loadingDetalle, setLoadingDetalle] = useState(false);
     const [cajasProducto, setCajasProducto] = useState([]);
     const [loadingCajas, setLoadingCajas] = useState(false);
+
+    const [maximoArmable, setMaximoArmable] = useState(null);
+    const [loadingMaximoArmable, setLoadingMaximoArmable] = useState(false);
+    const [kitsAConfirmar, setKitsAConfirmar] = useState('');
+    const [confirmandoArmado, setConfirmandoArmado] = useState(false);
 
     const [proformas, setProformas] = useState([]);
     const [facturaSeleccionada, setFacturaSeleccionada] = useState(null);
@@ -118,6 +127,8 @@ const EnviosProgresoEmpaque = () => {
     const handleCloseModal = () => {
         setOpenModal(false);
         setOrdenSeleccionada(null);
+        setMaximoArmable(null);
+        setKitsAConfirmar('');
     };
 
     const fetchPiezasYFacturas = async () => {
@@ -153,11 +164,18 @@ const EnviosProgresoEmpaque = () => {
     const proformasDisponibles = useMemo(() => {
         const mapaMap = new Map();
         ordenesProduccionFacturas.forEach((row) => {
-            if (row.proforma_id && !mapaMap.has(row.proforma_id)) {
+            if (!row.proforma_id) return;
+
+            const tieneCobertura = Number(row.cantidad_cubierta_excedente_total || 0) > 0;
+
+            if (!mapaMap.has(row.proforma_id)) {
                 mapaMap.set(row.proforma_id, {
                     id: row.proforma_id,
-                    estatus: row.proforma_estatus
+                    estatus: row.proforma_estatus,
+                    tieneCobertura
                 });
+            } else if (tieneCobertura) {
+                mapaMap.get(row.proforma_id).tieneCobertura = true;
             }
         });
         return Array.from(mapaMap.values());
@@ -215,13 +233,106 @@ const EnviosProgresoEmpaque = () => {
             setLoadingDetalle(true);
             setOpenModal(true);
             setOrdenSeleccionada(row);
+            setMaximoArmable(null);
+            setKitsAConfirmar('');
 
             const response = await axios.get(`${apiUrl}/empaque/getDetalleOrden/${row.id}`);
             setDetalleOrden(response.data.data);
             setLoadingDetalle(false);
+
+            obtenerMaximoArmable(row.id);
         } catch (error) {
             setLoadingDetalle(false);
             Swal.fire("Error", "No se pudo cargar el detalle", "error");
+        }
+    };
+
+    const obtenerMaximoArmable = async (ordenId) => {
+        try {
+            setLoadingMaximoArmable(true);
+            const response = await axios.get(`${apiUrl}/produccion/ordenes/${ordenId}/maximo-armable`);
+            const data = response.data?.data || null;
+            setMaximoArmable(data);
+            setKitsAConfirmar(data ? String(data.maximo_armable) : '');
+            setLoadingMaximoArmable(false);
+        } catch (error) {
+            setLoadingMaximoArmable(false);
+            setMaximoArmable(null);
+            console.error("Error al obtener el máximo armable:", error);
+        }
+    };
+
+    const confirmarArmado = async () => {
+        if (!ordenSeleccionada || !maximoArmable) return;
+
+        if (maximoArmable.armado_confirmado_en) {
+            Swal.fire("Ya confirmado", `El armado de esta orden ya fue confirmado: ${maximoArmable.armado_confirmado_kits} kit(s). No se puede volver a confirmar.`, "info");
+            return;
+        }
+
+        const kitsNum = parseInt(kitsAConfirmar, 10);
+
+        if (isNaN(kitsNum) || kitsNum < 0) {
+            Swal.fire("Valor inválido", "La cantidad de kits debe ser un número entero mayor o igual a 0", "warning");
+            return;
+        }
+
+        if (kitsNum > maximoArmable.maximo_armable) {
+            Swal.fire("Valor inválido", `No puedes armar más de ${maximoArmable.maximo_armable} kits con el stock/factura disponible`, "warning");
+            return;
+        }
+
+        const result = await Swal.fire({
+            title: `¿Confirmar armado de ${kitsNum} kit(s)?`,
+            text: "Esto restará de existencias_componentes lo que realmente se necesite usar del stock reservado, y cancelará lo que no se use.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#2e7d32',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, confirmar armado',
+            cancelButtonText: 'Cancelar',
+            target: document.getElementById("modal-detalle-orden")
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            setConfirmandoArmado(true);
+
+            const response = await axios.post(
+                `${apiUrl}/produccion/ordenes/${ordenSeleccionada.id}/confirmar-armado`,
+                {
+                    kits_confirmados: kitsNum,
+                    usuario: user?.nombre || 'SISTEMA'
+                }
+            );
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Armado confirmado',
+                text: response.data?.message || 'Se confirmó el armado correctamente.',
+                timer: 2000,
+                showConfirmButton: false,
+                target: document.getElementById("modal-detalle-orden")
+            });
+
+            await obtenerDetalleOrden(ordenSeleccionada.id);
+            await obtenerMaximoArmable(ordenSeleccionada.id);
+            await fetchPiezasYFacturas();
+
+            setConfirmandoArmado(false);
+        } catch (error) {
+            setConfirmandoArmado(false);
+            const errorMessage = error.response?.data?.message || 'No se pudo confirmar el armado';
+            Swal.fire({
+                title: 'Error',
+                text: errorMessage,
+                icon: 'warning',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+                target: document.getElementById("modal-detalle-orden")
+            });
         }
     };
 
@@ -325,7 +436,7 @@ const EnviosProgresoEmpaque = () => {
             }
         },
         {
-            field: "cantidad_facturada", headerName: "Requerida (Factura)", flex: 2, type: "number",
+            field: "cantidad_facturada", headerName: "Factura", flex: 2, type: "number",
             renderCell: (params) => {
                 const value = Number(params.value || 0);
                 return value;
@@ -334,7 +445,34 @@ const EnviosProgresoEmpaque = () => {
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, type: "number",
         },
+        { field: "cantidad_contada", headerName: "Contada", flex: 1, type: "number" },
         { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
+        {
+            field: "cantidad_cubierta_excedente",
+            headerName: "Cubierto Stock",
+            flex: 1.5,
+            headerAlign: "center",
+            align: "center",
+            type: "number",
+            renderCell: (params) => {
+                const cobertura = Number(params.value || 0);
+
+                if (cobertura <= 0) {
+                    return <Chip size="small" variant="outlined" label="—" />;
+                }
+
+                return (
+                    <Tooltip title="Esta cantidad de este componente se está cubriendo con stock interno (existencias_componentes) en vez de esperar la factura del proveedor. Hay que recolectarla físicamente antes de armar/enviar el producto.">
+                        <Chip
+                            size="small"
+                            color="warning"
+                            icon={<Inventory2Icon fontSize="small" />}
+                            label={cobertura}
+                        />
+                    </Tooltip>
+                );
+            }
+        },
         {
             field: "avance",
             headerName: "Avance",
@@ -342,11 +480,14 @@ const EnviosProgresoEmpaque = () => {
             flex: 2,
             renderCell: (params) => {
                 const facturada = Number(params.row.cantidad_facturada) || 0;
+                const cubierta = Number(params.row.cantidad_cubierta_excedente) || 0;
                 const aEnviar = Number(params.row.cantidad_a_enviar) || 0;
-                const surtidas = Number(params.row.cantidad_surtida) || 0;
+                const surtidas = Number(params.row.cantidad_contada) || 0;
 
-                // Si la cantidad facturada es mayor a 0 usa facturada, de lo contrario usa aEnviar
-                const total = facturada > 0 ? facturada : aEnviar;
+                // Disponible = lo facturado + lo cubierto con stock interno de
+                // componentes. Si no hay ninguno de los dos, usa aEnviar.
+                const disponible = facturada + cubierta;
+                const total = disponible > 0 ? disponible : aEnviar;
 
                 const pct = total > 0
                     ? Math.min(
@@ -388,7 +529,7 @@ const EnviosProgresoEmpaque = () => {
             renderCell: (params) => {
                 const faltante =
                     (params.row.cantidad_facturada || 0) -
-                    (params.row.cantidad_surtida || 0);
+                    (params.row.cantidad_contada || 0);
 
                 let color = "success";
                 let label = "Completo";
@@ -600,14 +741,28 @@ const EnviosProgresoEmpaque = () => {
             headerName: "Acciones",
             width: 100,
             sortable: false,
-            renderCell: (params) => (
-                <IconButton
-                    color="primary"
-                    onClick={() => handleOpenModal(params.row)}
-                >
-                    <VisibilityIcon />
-                </IconButton>
-            )
+            renderCell: (params) => {
+                const tieneCobertura = Number(params.row.cantidad_cubierta_excedente_total || 0) > 0;
+
+                return (
+                    <Tooltip
+                        title={
+                            tieneCobertura
+                                ? "Esta orden tiene componentes cubiertos con stock interno — ábrela para ver el detalle"
+                                : "Ver detalle de la orden"
+                        }
+                    >
+                        <Badge color="warning" variant="dot" invisible={!tieneCobertura} overlap="circular">
+                            <IconButton
+                                color="primary"
+                                onClick={() => handleOpenModal(params.row)}
+                            >
+                                <VisibilityIcon />
+                            </IconButton>
+                        </Badge>
+                    </Tooltip>
+                );
+            }
         }
     ];
 
@@ -1047,8 +1202,6 @@ const EnviosProgresoEmpaque = () => {
 
     const handleVerConsolidado = (proforma) => {
 
-        console.log("Proforma seleccionada:", proforma);
-
         setProformaSeleccionada(proforma);
         setOpenConsolidado(true);
 
@@ -1068,7 +1221,6 @@ const EnviosProgresoEmpaque = () => {
         // Definimos texto del botón de acuerdo al nuevo estatus
         let textoBotonConfirmar = 'Sí, continuar';
         if (nuevoEstatus === 'activa' && grupo.estatus === 'pendiente') textoBotonConfirmar = 'Sí, habilitar';
-        else if (nuevoEstatus === 'activa' && grupo.estatus === 'finalizada') textoBotonConfirmar = 'Sí, revertir';
         else if (nuevoEstatus === 'finalizada') textoBotonConfirmar = 'Sí, finalizar';
 
         // 1. Pedir confirmación al usuario
@@ -1175,15 +1327,6 @@ const EnviosProgresoEmpaque = () => {
         );
     };
 
-    const handleRevertirProforma = (grupo) => {
-        procesarCambioEstatus(
-            grupo,
-            'activa',
-            `¿Revertir la proforma #${grupo.proforma_id}?`,
-            'La proforma cambiará nuevamente a estatus "activa" para permitir modificar o continuar su proceso de surtido.'
-        );
-    };
-
     return (
         <Box p={3}>
             <Typography variant="h4" fontWeight="bold" mb={2}>
@@ -1204,7 +1347,7 @@ const EnviosProgresoEmpaque = () => {
                             <Typography variant="subtitle2" color="text.secondary">
                                 Envío
                             </Typography>
-                            <Typography variant="h6">{descripcionEnvio || `ID: ${envioId}`}</Typography>
+                            <Typography variant="h6">{folioInternoEnvio || `ID: ${envioId}`}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -1276,13 +1419,14 @@ const EnviosProgresoEmpaque = () => {
 
                     <ProformaAccordion
                         key={grupo.proforma_id}
+                        envioId={envioId}
+                        folioInternoEnvio={folioInternoEnvio}
                         grupo={grupo}
                         puedeEditarColumna={puedeEditarColumna}
                         onVerFactura={abrirFactura}
                         onVerConsolidado={handleVerConsolidado}
                         onHabilitarProforma={handleHabilitarProforma}
                         onFinalizarProforma={handleFinalizarProforma}
-                        onRevertirProforma={handleRevertirProforma}
                     />
 
                 ))
@@ -1326,7 +1470,7 @@ const EnviosProgresoEmpaque = () => {
                 </Box>
 
                 {/* Contenedor del Total: Ajustado con un margen derecho preciso (18%) para centrarse sobre "A Enviar" */}
-                <Box sx={{ mr: '34%', display: 'flex', justifyContent: 'center' }}>
+                {/* <Box sx={{ mr: '34%', display: 'flex', justifyContent: 'center' }}>
                     <Box
                         sx={{
                             backgroundColor: '#e3f2fd',
@@ -1346,7 +1490,7 @@ const EnviosProgresoEmpaque = () => {
                             {Math.round(totalCantidadAEnviar)}
                         </Typography>
                     </Box>
-                </Box>
+                </Box> */}
             </Box>
 
             <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1363,7 +1507,14 @@ const EnviosProgresoEmpaque = () => {
 
                         {proformasDisponibles.map((prof) => (
                             <MenuItem key={prof.id} value={prof.id}>
-                                Proforma #{prof.id} ({prof.estatus})
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
+                                    <span>Proforma #{prof.id} ({prof.estatus})</span>
+                                    {prof.tieneCobertura && (
+                                        <Tooltip title="Esta proforma tiene productos con componentes cubiertos con stock interno (existencias_componentes)">
+                                            <Inventory2Icon fontSize="small" sx={{ color: '#f57c00', ml: 'auto' }} />
+                                        </Tooltip>
+                                    )}
+                                </Box>
                             </MenuItem>
                         ))}
                     </Select>
@@ -1471,6 +1622,7 @@ const EnviosProgresoEmpaque = () => {
                 }}
             />
             <Dialog
+                id="modal-detalle-orden"
                 open={openModal}
                 onClose={handleCloseModal}
                 maxWidth={false} // 1. Desactivamos el límite máximo predefinido (lg, xl, etc.)
@@ -1518,7 +1670,6 @@ const EnviosProgresoEmpaque = () => {
                             mb: 2
                         }}
                         slots={{ toolbar: GridToolbar }}
-                        loading={loading}
                         slotProps={{
                             loadingOverlay: {
                                 variant: 'skeleton',
@@ -1526,6 +1677,116 @@ const EnviosProgresoEmpaque = () => {
                             },
                         }}
                     />
+
+                    {loadingMaximoArmable && !maximoArmable && (
+                        <Typography variant="body2" color="text.secondary" mb={2}>
+                            Calculando máximo armable...
+                        </Typography>
+                    )}
+
+                    {maximoArmable && (maximoArmable.armado_confirmado_en || maximoArmable.componentes.some((c) => c.cantidad_cubierta_excedente > 0)) && (
+                        <Card
+                            variant="outlined"
+                            sx={{
+                                mb: 2,
+                                borderColor: maximoArmable.armado_confirmado_en ? '#2e7d32' : '#0288d1',
+                                backgroundColor: '#f5f5f5'
+                            }}
+                        >
+                            <CardContent>
+                                <Typography variant="h6" mb={1} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Inventory2Icon color={maximoArmable.armado_confirmado_en ? 'success' : 'warning'} />
+                                    Armar kit(s)
+                                </Typography>
+
+                                {maximoArmable.armado_confirmado_en ? (
+                                    // Bandera de armado ya confirmado: no se vuelve a mostrar el
+                                    // formulario, solo el aviso de lo que ya se confirmó.
+                                    <Alert severity="success">
+                                        Ya se confirmó el armado de esta orden: <strong>{maximoArmable.armado_confirmado_kits} kit(s)</strong> el{' '}
+                                        <strong>{new Date(maximoArmable.armado_confirmado_en).toLocaleString('es-MX')}</strong>
+                                        {maximoArmable.armado_confirmado_por ? <> por <strong>{maximoArmable.armado_confirmado_por}</strong></> : null}.
+                                        No se puede volver a confirmar.
+                                    </Alert>
+                                ) : (
+                                    <>
+                                        {maximoArmable.componentes.some((c) => c.cantidad_cubierta_excedente > 0) && (
+                                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                                Esta orden tiene componentes cubiertos con stock interno (existencias_componentes). Al confirmar el armado se descontará del almacén únicamente lo que realmente se use para los kits confirmados; el resto de la reserva se cancelará automáticamente.
+                                            </Alert>
+                                        )}
+
+                                        <Typography variant="body2" color="text.secondary" mb={2}>
+                                            Máximo de kits (producto_id) que se pueden armar y enviar con lo facturado + lo cubierto con stock interno, por componente:
+                                        </Typography>
+
+                                        <Box sx={{ mb: 2, overflowX: 'auto' }}>
+                                            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: '#f5f7fa' }}>
+                                                        <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Componente</th>
+                                                        <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Factura</th>
+                                                        <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Cubierto Stock</th>
+                                                        <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Disponible</th>
+                                                        <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Máx. kits</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {maximoArmable.componentes.map((c) => (
+                                                        <tr key={c.opd_id}>
+                                                            <td style={{ padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>{c.sku} - {c.descripcion}</td>
+                                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>{Math.round(c.cantidad_facturada)}</td>
+                                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>
+                                                                {c.cantidad_cubierta_excedente > 0 ? (
+                                                                    <Chip size="small" color="warning" label={Math.round(c.cantidad_cubierta_excedente)} />
+                                                                ) : '—'}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>{Math.round(c.disponible)}</td>
+                                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5', fontWeight: c.maximo_armable_componente === maximoArmable.maximo_armable ? 700 : 400 }}>
+                                                                {c.maximo_armable_componente}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </Box>
+
+                                        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                            <Typography variant="body1">
+                                                Máximo armable: <strong>{maximoArmable.maximo_armable}</strong> kit(s)
+                                            </Typography>
+
+                                            <TextField
+                                                label="Kits a confirmar"
+                                                type="number"
+                                                size="small"
+                                                value={kitsAConfirmar}
+                                                InputProps={{ readOnly: true }}
+                                                inputProps={{ min: 0, max: maximoArmable.maximo_armable, step: 1 }}
+                                                sx={{ width: 160 }}
+                                                disabled={!puedeEditarColumna || confirmandoArmado}
+                                            />
+
+                                            <Button
+                                                variant="contained"
+                                                color="success"
+                                                onClick={confirmarArmado}
+                                                disabled={!puedeEditarColumna || confirmandoArmado || maximoArmable.maximo_armable === 0}
+                                            >
+                                                {confirmandoArmado ? "Confirmando..." : "Confirmar armado"}
+                                            </Button>
+                                        </Stack>
+
+                                        {!puedeEditarColumna && (
+                                            <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                                                Solo administración/gerencia puede confirmar el armado.
+                                            </Typography>
+                                        )}
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* SEPARADOR VISUAL E INTRODUCCIÓN DEL BUSCADOR DE CAJAS */}
                     <Box sx={{
