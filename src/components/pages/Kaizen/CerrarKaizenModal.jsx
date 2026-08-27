@@ -91,9 +91,11 @@ const CerrarKaizenModal = ({ open, onClose, producto, onSaved }) => {
       );
 
       if (resp.data.ok) {
-        const activas = resp.data.data.filter(
-          (item) => item.estatus === "activo",
-        );
+        const kaizens = Array.isArray(resp.data.data?.kaizens)
+          ? resp.data.data.kaizens
+          : [];
+
+        const activas = kaizens.filter((item) => item.estatus === "activo");
 
         setAccionesActivas(activas);
         setSeleccionados([]);
@@ -101,6 +103,10 @@ const CerrarKaizenModal = ({ open, onClose, producto, onSaved }) => {
       }
     } catch (error) {
       console.error("Error al obtener acciones activas:", error);
+
+      setAccionesActivas([]);
+      setSeleccionados([]);
+
       swalError("Error", "No se pudieron cargar las acciones Kaizen");
     } finally {
       setLoading(false);
@@ -225,10 +231,16 @@ const CerrarKaizenModal = ({ open, onClose, producto, onSaved }) => {
   };
 
   useEffect(() => {
-    if (open && producto) {
+    if (open && producto?.producto_id) {
       obtenerAccionesActivas();
     }
-  }, [open, producto]);
+
+    if (!open) {
+      setAccionesActivas([]);
+      setSeleccionados([]);
+      setMotivoCierre("");
+    }
+  }, [open, producto?.producto_id]);
 
   if (!producto) return null;
 
