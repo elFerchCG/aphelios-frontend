@@ -2350,6 +2350,9 @@ const TableOrdenes = () => {
     // español, la misma condición que ya decide isButtonDisabled / enableXxx
     // más abajo, para que el usuario entienda qué falta.
     const getAddRowDisabledReason = () => {
+        if (categoriaTemp === 'entrada' && ubicacionEntradaFija && cantidadFija) {
+            return 'Ubicación y cantidad fijas: cada producto escaneado se agrega solo, no hace falta el botón.';
+        }
         if (!categoriaTemp) return 'Selecciona primero un tipo de movimiento.';
         if (categoriaTemp === 'transferencia' && (!selectedBodegaSalida || !selectedBodegaEntrada)) {
             return 'Selecciona la bodega de salida y la bodega de entrada.';
@@ -2406,6 +2409,12 @@ const TableOrdenes = () => {
     };
 
     const addRowDisabledReason = getAddRowDisabledReason();
+    // Con ubicación y cantidad fijas en un movimiento de entrada, cada
+    // producto escaneado se agrega solo (ver el efecto de alta automática
+    // más arriba); dejar "Agregar Fila" clicable en ese momento es justo lo
+    // que permitía que un clic manual duplicara el movimiento que el alta
+    // automática ya había disparado.
+    const autoAddActivo = categoriaTemp === 'entrada' && ubicacionEntradaFija && cantidadFija;
 
     // Resalta visualmente el siguiente campo que el usuario puede llenar,
     // para que sea evidente dónde continuar el flujo sin tener que adivinar
@@ -3081,7 +3090,11 @@ const TableOrdenes = () => {
                         )}
 
                         <Tooltip
-                            title={isButtonDisabled ? addRowDisabledReason : 'Agregar la línea a la orden'}
+                            title={
+                                isButtonDisabled || autoAddActivo
+                                    ? addRowDisabledReason
+                                    : 'Agregar la línea a la orden'
+                            }
                             arrow
                         >
                             <span>
@@ -3089,7 +3102,7 @@ const TableOrdenes = () => {
                                     variant="contained"
                                     endIcon={<SendIcon />}
                                     onClick={handleGenerarOrder}
-                                    disabled={isButtonDisabled}
+                                    disabled={isButtonDisabled || autoAddActivo}
                                     sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                                 >
                                     Agregar Fila
