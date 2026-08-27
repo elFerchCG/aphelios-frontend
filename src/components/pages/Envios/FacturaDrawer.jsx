@@ -8,11 +8,14 @@ import {
     Box,
     Typography,
     IconButton,
-    Divider
+    Divider,
+    Chip,
+    Tooltip
 
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
 
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 
@@ -112,17 +115,67 @@ export default function FacturaDrawer({
 
             headerName: "Enviar",
 
-            width: 130,
+            width: 190,
 
-            type: "number"
+            type: "number",
+
+            renderCell: (params) => {
+
+                const facturada = Number(params.row.cantidad_facturada) || 0;
+                const aEnviar = Number(params.row.cantidad_a_enviar) || 0;
+                const cubiertaExcedente = Number(params.row.cantidad_cubierta_excedente) || 0;
+
+                const cubierto = (aEnviar > facturada && cubiertaExcedente > 0)
+                    ? Math.min(aEnviar - facturada, cubiertaExcedente)
+                    : 0;
+
+                return (
+
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            height: "100%"
+                        }}
+                    >
+
+                        <Typography variant="body2">
+                            {aEnviar}
+                        </Typography>
+
+                        {cubierto > 0 && (
+
+                            <Tooltip
+                                title={`De esta línea llegaron ${facturada}. Se completan ${cubierto} más con stock interno de componentes (excedente). Total a enviar: ${aEnviar}.`}
+                            >
+
+                                <Chip
+                                    icon={<Inventory2Icon sx={{ fontSize: 14 }} />}
+                                    label={`+${cubierto}`}
+                                    size="small"
+                                    color="info"
+                                    variant="outlined"
+                                    sx={{ height: 20, fontSize: 11 }}
+                                />
+
+                            </Tooltip>
+
+                        )}
+
+                    </Box>
+
+                );
+
+            }
 
         },
 
         {
 
-            field: "cantidad_surtida",
+            field: "cantidad_contada",
 
-            headerName: "Surtida",
+            headerName: "Procesado",
 
             width: 130,
 

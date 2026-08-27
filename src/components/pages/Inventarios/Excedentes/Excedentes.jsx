@@ -87,6 +87,15 @@ const fmtDateTime = (d) => {
     }
 };
 
+// NUEVO: lo realmente disponible para reubicar (contado físicamente),
+// con fallback a existencia_actual para registros viejos sin el cálculo.
+const getDisponible = (row) => {
+    if (!row) return 0;
+    const disponible = Number(row.excedente_disponible);
+    if (Number.isFinite(disponible)) return disponible;
+    return Number(row.existencia_actual) || 0;
+};
+
 const apiUrl =
     process.env.NODE_ENV === 'production'
         ? process.env.REACT_APP_API_URL
@@ -113,10 +122,24 @@ async function fetchBodegas() {
     return res.json();
 }
 
-async function fetchLocalidadesPorBodega(bodegaId) {
-    const res = await fetch(`${apiUrl}/inventario/localidades/${bodegaId}`);
-    if (!res.ok) throw new Error('Error al obtener las localidades de la bodega');
-    return res.json();
+// Mismo endpoint que usa "Órdenes de bodega" para el select de "Ubicación de
+// entrada": trae, por ubicación de la bodega destino, la existencia actual
+// del producto (cantidad) y lo que tiene pendiente de ingreso
+// (pendiente_ingreso, de órdenes de bodega abiertas/confirmadas tipo
+// entrada/transferencia hacia esa ubicación) — para poder priorizar esas
+// ubicaciones en vez de mostrarlas en orden alfabético plano.
+async function fetchLocalidadesEntradaPorProducto(productoId, bodegaId) {
+    const res = await fetch(
+        `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/producto/${productoId}/bodega/${bodegaId}/tipo/entrada/localidades`
+    );
+    if (res.status === 404) {
+        // La bodega destino no tiene ubicaciones activas: no es un error real,
+        // simplemente no hay nada que priorizar.
+        return [];
+    }
+    if (!res.ok) throw new Error('Error al obtener las ubicaciones del producto en la bodega destino');
+    const json = await res.json();
+    return Array.isArray(json?.data?.existencias) ? json.data.existencias : [];
 }
 
 async function postMovimiento(payload) {
@@ -298,9 +321,11 @@ export default function ExcedentesMonitor() {
         }
     }, [activeTab, cargarMovimientos]);
 
-    // Localidades en modal de movimiento
+    // Localidades en modal de movimiento — con existencia/pendiente de
+    // ingreso del producto seleccionado, igual que el select "Ubicación de
+    // entrada" de Órdenes de bodega.
     useEffect(() => {
-        if (!selectedBodega) {
+        if (!selectedBodega || !moveTarget) {
             setLocalidades([]);
             setSelectedLocalidad('');
             return;
@@ -308,7 +333,7 @@ export default function ExcedentesMonitor() {
         async function getLocalidades() {
             setLoadingLocalidades(true);
             try {
-                const data = await fetchLocalidadesPorBodega(selectedBodega);
+                const data = await fetchLocalidadesEntradaPorProducto(moveTarget.producto_id, selectedBodega);
                 setLocalidades(Array.isArray(data) ? data : []);
             } catch (e) {
                 setSnack({ open: true, severity: 'error', message: e.message });
@@ -317,13 +342,14 @@ export default function ExcedentesMonitor() {
             }
         }
         getLocalidades();
-    }, [selectedBodega]);
+    }, [selectedBodega, moveTarget]);
 
     // Métricas
     const kpis = useMemo(() => {
         const totalSkus = rows.length;
         const totalUnidades = rows.reduce((acc, r) => acc + (Number(r.existencia_actual) || 0), 0);
-        return { totalSkus, totalUnidades };
+        const totalDisponible = rows.reduce((acc, r) => acc + getDisponible(r), 0);
+        return { totalSkus, totalUnidades, totalDisponible };
     }, [rows]);
 
     const handleSearchChange = (e) => {
@@ -376,7 +402,8 @@ export default function ExcedentesMonitor() {
 
     const abrirMovimiento = (row) => {
         setMoveTarget(row);
-        setMoveCantidad(String(row.existencia_actual));
+        // NUEVO: se sugiere por default lo realmente disponible, no el total pendiente
+        setMoveCantidad(String(getDisponible(row)));
         setSelectedBodega('');
         setSelectedLocalidad('');
         setMoveErrors({});
@@ -390,10 +417,12 @@ export default function ExcedentesMonitor() {
     const validarMovimiento = () => {
         const errs = {};
         const cantidadNum = Number(moveCantidad);
+        const disponible = getDisponible(moveTarget);
+
         if (!moveCantidad || Number.isNaN(cantidadNum) || cantidadNum <= 0) {
             errs.cantidad = 'Ingresa una cantidad entera positiva mayor a 0';
-        } else if (moveTarget && cantidadNum > Number(moveTarget.existencia_actual)) {
-            errs.cantidad = `No puede exceder la existencia actual (${moveTarget.existencia_actual})`;
+        } else if (moveTarget && cantidadNum > disponible) {
+            errs.cantidad = `No puede exceder lo realmente disponible (${fmtNum(disponible)})`;
         }
         if (!selectedBodega) errs.bodega = 'Selecciona una bodega destino';
         if (!selectedLocalidad) errs.localidad = 'Selecciona una localidad destino';
@@ -433,11 +462,36 @@ export default function ExcedentesMonitor() {
         stringify: (option) => option.descripcion || '',
     });
 
+    // Mismo criterio de orden que el select "Ubicación de entrada" en
+    // Órdenes de bodega: primero las ubicaciones con existencia del
+    // producto (de mayor a menor cantidad), luego por lo pendiente de
+    // ingreso, y al final alfabético.
     const localidadesOrdenadas = useMemo(() => {
         if (!localidades) return [];
-        return [...localidades].sort((a, b) =>
-            (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' })
-        );
+        return [...localidades].sort((a, b) => {
+            const aCantidad = a.cantidad || 0;
+            const bCantidad = b.cantidad || 0;
+
+            const aPendiente = a.pendiente_ingreso || 0;
+            const bPendiente = b.pendiente_ingreso || 0;
+
+            // 1. Prioriza ubicaciones con cantidad > 0
+            if (bCantidad > 0 && aCantidad === 0) return 1;
+            if (aCantidad > 0 && bCantidad === 0) return -1;
+
+            // 2. Si ambos tienen cantidad > 0, ordenar por cantidad descendente
+            if (aCantidad > 0 && bCantidad > 0 && bCantidad !== aCantidad) {
+                return bCantidad - aCantidad;
+            }
+
+            // 3. Priorizar por pendiente de ingreso
+            if (bPendiente !== aPendiente) {
+                return bPendiente - aPendiente;
+            }
+
+            // 4. Finalmente alfabético
+            return (a.descripcion || '').localeCompare(b.descripcion || '', 'es', { sensitivity: 'base' });
+        });
     }, [localidades]);
 
     const columnas = [
@@ -445,7 +499,7 @@ export default function ExcedentesMonitor() {
         { id: 'sku', label: 'SKU / ML', sortable: true },
         { id: 'logistic_type', label: 'Logística', sortable: true },
         { id: 'usuario', label: 'Usuario', sortable: true, align: 'center' },
-        { id: 'fecha_excedente', label: 'Fecha', sortable: true, align: 'center' },
+        { id: 'fecha_excedente', label: 'Fecha / Envío', sortable: true, align: 'center' },
         { id: 'existencia_actual', label: 'Excedente', sortable: true, align: 'right' },
         { id: 'acciones', label: 'Acción', sortable: false, align: 'right' },
     ];
@@ -603,6 +657,14 @@ export default function ExcedentesMonitor() {
                             tone={kpis.totalUnidades > 0 ? 'amber' : 'default'}
                         />
                     </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <KpiCard
+                            icon={<PlaylistAddCheckIcon />}
+                            label="Confirmadas, Listas para Reubicar"
+                            value={loading ? <Skeleton width={60} /> : fmtNum(kpis.totalDisponible)}
+                            tone={kpis.totalDisponible > 0 ? 'success' : 'default'}
+                        />
+                    </Grid>
                 </Grid>
             </Box>
 
@@ -685,6 +747,8 @@ export default function ExcedentesMonitor() {
                                 {!loading &&
                                     filasPaginadas.map((row) => {
                                         const thumbSrc = getThumbnailUrl(row.thumbnail || row.thumbnail_url || row.pictures?.[0]?.url);
+                                        const disponible = getDisponible(row);
+                                        const sinConfirmar = disponible <= 0;
                                         return (
                                             <TableRow key={row.movimiento_id} hover sx={{ '& td': { borderColor: tokens.line } }}>
                                                 <TableCell>
@@ -745,26 +809,74 @@ export default function ExcedentesMonitor() {
                                                     <Typography variant="body2" sx={{ color: tokens.slate }}>
                                                         {fmtDateTime(row.fecha_excedente)}
                                                     </Typography>
+
+                                                    {(row.folio_interno || row.envio_id) && (
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: tokens.slateLight,
+                                                                display: 'block',
+                                                                fontWeight: 600
+                                                            }}
+                                                        >
+                                                            Envío: {row.folio_interno || row.envio_id}
+                                                        </Typography>
+                                                    )}
+                                                    {row.proforma_titulo && (
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: tokens.slateLight,
+                                                                display: 'block',
+                                                            }}
+                                                        >
+                                                            Proforma: {row.proforma_titulo}
+                                                        </Typography>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.amber }}>
-                                                        {fmtNum(row.existencia_actual)}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ color: tokens.slateLight }}>
-                                                        {row.localidad_descripcion}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Button
-                                                        size="small"
-                                                        variant="contained"
-                                                        disableElevation
-                                                        startIcon={<SwapHorizIcon />}
-                                                        onClick={() => abrirMovimiento(row)}
-                                                        sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.amber, '&:hover': { bgcolor: '#2E7D5B' } }}
+                                                    <Tooltip
+                                                        title={
+                                                            sinConfirmar
+                                                                ? 'Todavía no se confirma físicamente ningún excedente de esta orden'
+                                                                : `${fmtNum(disponible)} confirmadas de ${fmtNum(row.existencia_actual)} pendientes`
+                                                        }
                                                     >
-                                                        Mover
-                                                    </Button>
+                                                        <Box sx={{ display: 'inline-block' }}>
+                                                            <Typography
+                                                                variant="subtitle2"
+                                                                sx={{ fontWeight: 700, color: sinConfirmar ? tokens.slateLight : tokens.success }}
+                                                            >
+                                                                {fmtNum(disponible)}
+                                                                <Typography component="span" variant="body2" sx={{ color: tokens.slateLight, fontWeight: 600 }}>
+                                                                    {' / '}{fmtNum(row.existencia_actual)}
+                                                                </Typography>
+                                                            </Typography>
+                                                            <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                                                {row.localidad_descripcion}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Tooltip>
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Tooltip
+                                                        title={sinConfirmar ? 'Aún no hay excedente confirmado físicamente para reubicar' : ''}
+                                                        disableHoverListener={!sinConfirmar}
+                                                    >
+                                                        <span>
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                disableElevation
+                                                                disabled={sinConfirmar}
+                                                                startIcon={<SwapHorizIcon />}
+                                                                onClick={() => abrirMovimiento(row)}
+                                                                sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.amber, '&:hover': { bgcolor: '#2E7D5B' } }}
+                                                            >
+                                                                Mover
+                                                            </Button>
+                                                        </span>
+                                                    </Tooltip>
                                                 </TableCell>
                                             </TableRow>
                                         );
@@ -1011,6 +1123,30 @@ export default function ExcedentesMonitor() {
                                                     <Typography variant="body2" sx={{ color: tokens.slate }}>
                                                         {fmtDateTime(mov.fecha_movimiento)}
                                                     </Typography>
+
+                                                    {(mov.folio_interno || mov.envio_id) && (
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: tokens.slateLight,
+                                                                display: 'block',
+                                                                fontWeight: 600
+                                                            }}
+                                                        >
+                                                            Envío: {mov.folio_interno || mov.envio_id}
+                                                        </Typography>
+                                                    )}
+                                                    {mov.proforma_titulo && (
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                color: tokens.slateLight,
+                                                                display: 'block',
+                                                            }}
+                                                        >
+                                                            Proforma: {mov.proforma_titulo}
+                                                        </Typography>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip
@@ -1072,7 +1208,8 @@ export default function ExcedentesMonitor() {
                                             {moveTarget.title}
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: tokens.slate, display: 'block' }}>
-                                            SKU: {moveTarget.sku} | Disponibles: <strong>{moveTarget.existencia_actual}</strong>
+                                            SKU: {moveTarget.sku} | Disponibles: <strong>{fmtNum(getDisponible(moveTarget))}</strong>
+                                            {' '}de <strong>{fmtNum(moveTarget.existencia_actual)}</strong> pendientes
                                         </Typography>
                                     </Box>
                                 </Stack>
@@ -1096,10 +1233,25 @@ export default function ExcedentesMonitor() {
                                 disabled={!selectedBodega || loadingLocalidades || saving}
                                 loading={loadingLocalidades}
                                 filterOptions={filterOptions}
-                                getOptionLabel={(option) => option.descripcion || ''}
+                                getOptionLabel={(option) =>
+                                    `${option.descripcion || ''} : ${option.cantidad ?? 0} (${option.pendiente_ingreso ?? 0} Por ingresar)`
+                                }
                                 isOptionEqualToValue={(option, value) => option.id === (value?.id || value)}
                                 value={localidadesOrdenadas.find((loc) => loc.id === selectedLocalidad) || null}
                                 onChange={(event, newValue) => setSelectedLocalidad(newValue ? newValue.id : '')}
+                                renderOption={(props, option) => (
+                                    <li
+                                        {...props}
+                                        style={{
+                                            backgroundColor: option.cantidad > 0 ? '#FFF59D' : 'white',
+                                            fontWeight: option.cantidad > 0 ? 'bold' : 'normal',
+                                            borderBottom: '1px solid #eee',
+                                            padding: '4px 8px',
+                                        }}
+                                    >
+                                        {`${option.descripcion} : ${option.cantidad ?? 0} (${option.pendiente_ingreso ?? 0} Por ingresar)`}
+                                    </li>
+                                )}
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
@@ -1127,9 +1279,9 @@ export default function ExcedentesMonitor() {
                                 value={moveCantidad}
                                 onChange={(e) => setMoveCantidad(e.target.value)}
                                 error={Boolean(moveErrors.cantidad)}
-                                helperText={moveErrors.cantidad}
+                                helperText={moveErrors.cantidad || `Máximo: ${fmtNum(getDisponible(moveTarget))} (lo ya confirmado físicamente)`}
                                 disabled={saving}
-                                inputProps={{ min: 1, max: moveTarget.existencia_actual }}
+                                inputProps={{ min: 1, max: getDisponible(moveTarget) }}
                             />
                         </Stack>
                     )}

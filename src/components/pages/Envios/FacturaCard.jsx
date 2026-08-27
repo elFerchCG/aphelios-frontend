@@ -29,7 +29,7 @@ export default function FacturaCard({
                 borderRadius: 4,
                 transition: ".2s",
                 "&:hover": {
-                    boxShadow: 6,
+                    boxShadow: 4,
                     transform: "translateY(-2px)"
                 }
             }}
@@ -46,7 +46,7 @@ export default function FacturaCard({
 
                     {/* Factura */}
 
-                    <Grid item xs={6} md={4}>
+                    <Grid item xs={6} md={5}>
 
                         <Typography
                             fontWeight="bold"
@@ -111,7 +111,7 @@ export default function FacturaCard({
                     <Grid
                         item
                         xs={12}
-                        md={5}
+                        md={4}
                         textAlign="right"
                         mt="-5px"
                     >

@@ -28,6 +28,7 @@ const EnvioDetalle = () => {
     const location = useLocation();
     const [estatusEnvio, setEstatusEnvio] = useState(location.state?.estatusEnvio || '');
     const [descripcionEnvio, setDescripcionEnvio] = useState(location.state?.descripcionEnvio || '');
+    const [folioInternoEnvio, setFolioInternoEnvio] = useState(location.state?.folioInternoEnvio || '');
 
     //console.log("Estatus envio:", estatusEnvio);
 
@@ -498,13 +499,6 @@ const EnvioDetalle = () => {
         setFilteredTarimas(filtered);
     }, [searchTerm, tarimas]);
 
-    // Validamos primero que 'user' exista para evitar errores si está cargando
-    const puederVerBotonProgeso = user && (
-        user.rol_descripcion === 'administrador' ||
-        (user.rol_descripcion === 'Produccion' && user.permisos === 'supervisor') ||
-        user.rol_descripcion === 'Produccion'
-    );
-
     const puedeVerBotonCerrarEnvio = user && (user.rol_descripcion === 'administrador');
 
     return (
@@ -524,7 +518,7 @@ const EnvioDetalle = () => {
                             <Typography variant="subtitle2" color="text.secondary">
                                 Envío
                             </Typography>
-                            <Typography variant="h6">{descripcionEnvio || `ID: ${envioId}`}</Typography>
+                            <Typography variant="h6">{folioInternoEnvio || `ID: ${envioId}`}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -580,23 +574,6 @@ const EnvioDetalle = () => {
                 </Grid>
             </Grid>
 
-            {/* 🔑 BOTÓN PROGRESO: Posicionado exactamente aquí con margen inferior */}
-            {puederVerBotonProgeso && (
-                <Box sx={{ mt: 1.5, mb: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                        variant='contained'
-                        color="success"
-                        disabled={loading}
-                        onClick={() => navigate(`/envios/detalle/${envioId}/progresoEmpaque`, {
-                            state: { descripcionEnvio }
-                        })}
-                        sx={{ textTransform: "none" }}
-                    >
-                        Progreso
-                    </Button>
-                </Box>
-            )}
-
             {/* Muestra el CircularProgress mientras cargan los datos */}
             <Box>
                 <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
@@ -604,7 +581,7 @@ const EnvioDetalle = () => {
                     <Box
                         sx={{
                             width: "40%",
-                            height: 350,              // <-- altura fija
+                            height: 350,
                             boxShadow: 4,
                             borderRadius: 4,
                             p: 2,

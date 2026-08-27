@@ -6,9 +6,24 @@ import { DataGrid, GridActionsCellItem, GridEditInputCell, GridToolbarColumnsBut
 import Swal from 'sweetalert2';
 import axios from 'axios';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+
+// El Swal de "No se puede contar todavía" se dispara mientras el Modal de
+// asignar (FULL o No-FULL) sigue abierto; el Modal de MUI usa z-index 1300
+// y el contenedor de SweetAlert2 usa 1060 por default, así que sin esto el
+// aviso queda tapado por detrás. Mismo patrón que ya se usa en
+// ProformaFacturasModal.jsx / CrearProformaModal.jsx / DetalleFactura.jsx.
+const swalConfig = {
+    didOpen: () => {
+        const swalContainer = document.querySelector('.swal2-container');
+        if (swalContainer) {
+            swalContainer.style.zIndex = '1500';
+        }
+    },
+};
 
 const getCurrentDateTime = () => {
     const now = new Date();
@@ -25,6 +40,7 @@ const getCurrentDateTime = () => {
 const Surtido = () => {
     const [data, setData] = useState([]);
     const [componentes, setComponentes] = useState([]);
+    const [solicitandoStock, setSolicitandoStock] = useState({});
     const [sku, setSku] = useState('');
     const [usuarios, setUsuarios] = useState([]);
     const [habilitarAsignar, setHabilitarAsignar] = useState(false);
@@ -58,14 +74,16 @@ const Surtido = () => {
     const [openModalPin, setOpenModalPin] = useState(false);
     const [pinSupervisor, setPinSupervisor] = useState('');
     const [loading, setLoading] = useState(false);
-    const [modoSoloLectura, setModoSoloLectura] = useState(false);
     const [resumenOrden, setResumenOrden] = useState(null);
+    const [folioInternoEnvio, setFolioInternoEnvio] = useState("");
 
     const inputRef = useRef(null);
 
     const { proformaId } = useParams();
-    const { state } = useLocation();
 
+    const [searchParams] = useSearchParams();
+
+    const envioId = searchParams.get("envioId");
 
     const [infoProforma, setInfoProforma] = useState(null);
 
@@ -90,34 +108,77 @@ const Surtido = () => {
         id_detalle_orden: false,
         cantidad_recibida: false,
         permitir_full: false,
-
+        cantidad_facturada: false,
+        cantidad_surtida: false
     });
 
     const CustomToolbar = () => (
         <GridToolbarContainer>
-            {/* Mantener solo los botones necesarios */}
-            <GridToolbarColumnsButton />  {/* Botón de Columnas */}
-            <GridToolbarFilterButton />   {/* Botón de Filtros */}
-            <GridToolbarDensitySelector />{/* Botón de Densidad */}
+            <GridToolbarColumnsButton />
+            <GridToolbarFilterButton />
+            <GridToolbarDensitySelector />
             <GridToolbarExport
                 csvOptions={{
                     fileName: "exported_data",
-                    utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
+                    utf8WithBom: true,
                 }}
             />
         </GridToolbarContainer>
     );
 
-    // Efecto para activar la edición de la primera fila al abrir cualquiera de las modales
+    // 1. Evalúa UN componente: ¿ya no requiere más acción?
+    const cumpleComponente = (c, resumen) => {
+        const facturada = Number(c.cantidad_facturada) || 0;
+        const aEnviar = Number(c.cantidad_a_enviar) || 0;
+        const surtida = Number(c.cantidad_surtida) || 0;
+        const contada = Number(c.cantidad_contada) || 0;
+
+        const topeConteo = facturada > 0 ? facturada : aEnviar;
+
+        if (topeConteo <= 0) return false;
+
+        // En un KIT, el tope real de etiquetas es el cuello de botella
+        // del kit completo (cantidad_producto_a_producir), no la factura
+        // individual del componente. En SIMPLE, coincide con topeConteo.
+        const topeEtiquetas = resumen?.esKit
+            ? (Number(resumen.cantidad_producto_a_producir) || topeConteo)
+            : topeConteo;
+
+        const etiquetasCompletas = surtida >= topeEtiquetas;
+        const conteoCompleto = contada >= topeConteo;
+
+        return etiquetasCompletas && conteoCompleto;
+    };
+
+    // 2. Evalúa TODOS los componentes de la orden
+    const calcularModoSoloLectura = (lista, resumen) => {
+        if (!lista || lista.length === 0) return false;
+        return lista.every((c) => cumpleComponente(c, resumen));
+    };
+
+    // 3. Valor derivado — debe declararse ANTES de cualquier hook que lo use
+    const modoSoloLectura = useMemo(
+        () => calcularModoSoloLectura(componentes, resumenOrden),
+        [componentes, resumenOrden]
+    );
+
+    // 4. Seguro: si en algún punto se vuelve solo lectura con el modal
+    // abierto, saca cualquier celda de modo edición
+    useEffect(() => {
+        if ((openAsignar || openSurtirNoFull) && modoSoloLectura) {
+            setCellModesModel({});
+        }
+    }, [modoSoloLectura, openAsignar, openSurtirNoFull]);
+
+    // 5. Efecto para activar la edición de la primera fila al abrir cualquiera de las modales
     useEffect(() => {
         if ((openAsignar || openSurtirNoFull)
             && componentes.length > 0 &&
             !yaEnfocado &&
             !modoSoloLectura
         ) {
-            const primerId = componentes[0].id; // Toma el ID de la primera fila
+            const primerId = componentes[0].id;
 
-            // Seteamos el modelo para indicarle que esa celda específica debe estar editándose
             setCellModesModel({
                 [primerId]: {
                     cantidad_a_contar: { mode: 'edit' },
@@ -126,24 +187,12 @@ const Surtido = () => {
 
             setYaEnfocado(true);
         }
-        // Cuando las dos modales estén cerradas, limpiamos todo para la siguiente apertura
+
         if (!openAsignar && !openSurtirNoFull) {
             setCellModesModel({});
-            setYaEnfocado(false); // 🔴 Reseteamos el flag para la próxima vez
+            setYaEnfocado(false);
         }
-        // 💡 Quitamos 'componentes' de las dependencias para que no se dispare al editar los valores
     }, [openAsignar, openSurtirNoFull, yaEnfocado, modoSoloLectura]);
-
-    useEffect(() => {
-        // Si terminó de cargar y no hay modales abiertos, enfocar el input
-        if (!loading && !openAsignar && !openImprimir && !openModalPin) {
-            // Un ligero timeout asegura que el DOM ya habilitó el input (disabled={loading})
-            const timer = setTimeout(() => {
-                inputRef.current?.focus();
-            }, 50);
-            return () => clearTimeout(timer);
-        }
-    }, [loading, openAsignar, openImprimir, openModalPin]);
 
     const styleModalAsignar = {
         position: 'absolute',
@@ -309,6 +358,9 @@ const Surtido = () => {
         }
     };
 
+    const getCantidadPorUnidad = (c) =>
+        Number(c.cantidad_por_unidad) || 1;
+
     const handleOpenAsignar = async (
         ordenId,
         detalleId,
@@ -319,16 +371,6 @@ const Surtido = () => {
 
         setSelectedOrdenId(ordenId);
         setSelectedDetalleId(detalleId);
-
-        // 2. Determinamos el tope dinámico
-        const facturada = Number(cantidadFacturada) || 0;
-        const aEnviar = Number(cantidadEnviar) || 0;
-        const surtida = Number(cantidadSurtida) || 0;
-
-        const topePermitido = facturada > 0 ? facturada : aEnviar;
-
-        // 3. Queda en modo solo lectura solo si ya se alcanzó o superó el tope
-        setModoSoloLectura(surtida >= topePermitido);
 
         await validarPaquete(ordenId);
 
@@ -352,16 +394,6 @@ const Surtido = () => {
             setSelectedOrdenId(ordenId);
             setSelectedDetalleId(detalleId);
 
-            // 2. Determinamos el tope dinámico
-            const facturada = Number(cantidadFacturada) || 0;
-            const aEnviar = Number(cantidadEnviar) || 0;
-            const surtida = Number(cantidadSurtida) || 0;
-
-            const topePermitido = facturada > 0 ? facturada : aEnviar;
-
-            // 3. Queda en modo solo lectura solo si ya se alcanzó o superó el tope
-            setModoSoloLectura(surtida >= topePermitido);
-
             await validarPaquete(ordenId);
 
             setOpenSurtirNoFull(true);
@@ -376,8 +408,8 @@ const Surtido = () => {
     const handleCloseAsignar = () => {
         setOpenAsignar(false);
         setTimeout(() => inputRef.current?.focus(), 100);
-        setSelectedOrdenId(null); // Resetear el ID cuando se cierre
-        setSelectedDetalleId(null); // Resetear id_detalle_orden también
+        setSelectedOrdenId(null);
+        setSelectedDetalleId(null);
         setCantidadRecibida("");
         setSelectedUsuario("");
         setResumenOrden(null);
@@ -425,12 +457,36 @@ const Surtido = () => {
         fetchEnvioActual();
     }, [apiUrl]);
 
+    useEffect(() => {
+
+        if (!envioId || !envios.length) {
+            return;
+        }
+
+        const envioActual = envios.find(
+            (envio) => String(envio.id) === String(envioId)
+        );
+
+        if (envioActual) {
+
+            setEnvioSeleccionado(envioActual.id);
+
+            setEnvioDescripcion(
+                envioActual.descripcion || ""
+            );
+
+            setFolioInternoEnvio(
+                String(envioActual.folio_interno ?? "").trim()
+            );
+
+        }
+
+    }, [envioId, envios]);
+
     const generarYDescargarTXT = async (data) => {
         const { sku, title, inventory_id, cantidadEtiquetas } = data;
 
-        const envioDescripcion = envios.find(
-            envio => envio.id === envioSeleccionado
-        )?.descripcion || "";
+        const folio_interno = folioInternoEnvio || "";
 
         // Bloque condicional para inventory_id
         const bloqueInventory = inventory_id
@@ -449,7 +505,7 @@ const Surtido = () => {
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FH^FD${user.nombre}:/${envioDescripcion}^FS
+            ^FT385,105^A0B,22,22^FH^FD${user.nombre}:/${folio_interno}^FS
 
             ${bloqueInventory}
 
@@ -657,6 +713,42 @@ const Surtido = () => {
         }
     }
 
+    // Le pide a almacén que recolecte el stock interno de componentes ya
+    // reservado/procesado para esta OPD (cantidad_cubierta_excedente).
+    // No mueve existencias_componentes ni cantidad_cubierta_excedente —
+    // eso ya pasó al confirmar el armado en Envíos. Aquí solo se marca
+    // que el surtidor está esperando la entrega física.
+    const solicitarStockComponente = async (opdId) => {
+        try {
+            setSolicitandoStock((prev) => ({ ...prev, [opdId]: true }));
+
+            await axios.put(
+                `${apiUrl}/inventario/existencias/orden-produccion-detalle/${opdId}/solicitar-stock-componente`,
+                { usuario: user?.nombre || 'SISTEMA' }
+            );
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Solicitud enviada',
+                text: 'Se notificó a almacén para que recolecte este componente.',
+                timer: 1500,
+                showConfirmButton: false
+            });
+
+            if (selectedOrdenId) {
+                await validarPaquete(selectedOrdenId);
+            }
+        } catch (error) {
+            const errorMessage =
+                error.response?.data?.message?.messageText ||
+                error.response?.data?.message ||
+                'No se pudo enviar la solicitud';
+            Swal.fire('Error', errorMessage, 'error');
+        } finally {
+            setSolicitandoStock((prev) => ({ ...prev, [opdId]: false }));
+        }
+    }
+
     const contarComponenteSurtido = async (row) => {
         if (loading) return;
         setLoading(true);
@@ -815,6 +907,21 @@ const Surtido = () => {
         });
     };
 
+    // Disponible para contar en Surtido: SOLO lo facturado + lo que
+    // almacén YA entregó físicamente del stock interno reservado
+    // (cantidad_cubierta_excedente). Si el componente depende de stock
+    // interno y todavía no se marcó como entregada en "Solicitudes de
+    // surtido" (Stock de Componentes), esa parte NO cuenta. Coincide 1:1
+    // con la regla del backend (mrpController.js: contarComponenteSurtido
+    // / surtirYEmpacarNoFull).
+    const getDisponibleParaContar = (row) => {
+        const facturada = Number(row?.cantidad_facturada || 0);
+        const stockEntregado = Number(row?.stock_entregado || 0);
+        const contadaActual = Number(row?.cantidad_contada || 0);
+        const topePermitido = facturada + stockEntregado;
+        return Math.max(0, topePermitido - contadaActual);
+    };
+
     const isCellEditable = (params) => {
 
         if (modoSoloLectura) {
@@ -824,94 +931,262 @@ const Surtido = () => {
         return (
             params.field === "cantidad_a_contar" &&
             typeof params.row.sku === "string" &&
-            params.row.sku.trim() !== ""
+            params.row.sku.trim() !== "" &&
+            getDisponibleParaContar(params.row) > 0
         );
 
     };
 
+    // Feedback al surtidor cuando intenta contar una celda bloqueada: sin
+    // esto, isCellEditable simplemente ignora el click y no explica nada.
+    const handleCantidadAContarClick = (params) => {
+        if (params.field !== "cantidad_a_contar") return;
+        if (modoSoloLectura) return;
+        if (getDisponibleParaContar(params.row) > 0) return;
+
+        const facturada = Number(params.row.cantidad_facturada || 0);
+        const cubierta = Number(params.row.cantidad_cubierta_excedente || 0);
+
+        Swal.fire({
+            ...swalConfig,
+            icon: 'info',
+            title: 'No se puede contar todavía',
+            text: cubierta > 0
+                ? `Este componente (${params.row.sku}) depende de stock interno que aún no ha sido marcado como entregado en "Solicitudes de surtido". Solo se puede contar lo facturado (${facturada}).`
+                : `No hay cantidad facturada ni entregada disponible para contar en ${params.row.sku}.`,
+            timer: 3500,
+            showConfirmButton: false
+        });
+    };
+
     const columns = [
-        { field: "unique_id", headerName: "Folio linea", type: "text", flex: 1 },
-        { field: 'id_orden', headerName: "# Orden", type: "number", flex: 1 },
-        { field: 'id_detalle_orden', headerName: "# Detalle orden", type: "number", flex: 1 },
         {
-            field: "thumbnail", headerName: "Producto", flex: 1,
+            field: "unique_id",
+            headerName: "Folio línea",
+            type: "text",
+            flex: 1
+        },
+
+        {
+            field: "id_orden",
+            headerName: "# Orden",
+            type: "number",
+            flex: 1
+        },
+
+        {
+            field: "id_detalle_orden",
+            headerName: "# Detalle orden",
+            type: "number",
+            flex: 1
+        },
+
+        {
+            field: "thumbnail",
+            headerName: "Producto",
+            flex: 1,
+            minWidth: 100,
+            sortable: false,
+
             renderCell: (params) => {
+
+                const thumbnail = params.row.thumbnail;
+                const permalink = params.row.permalink;
+
                 return (
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        width: '100%',
-                        height: '100%'
-                    }}>
-                        <img
-                            src={params.row.thumbnail}
-                            alt={params.row.id_detalle_orden || 'Producto'}
-                            style={{
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                borderRadius: '8px',       // Bordes redondeados profesionales
-                                objectFit: 'contain',      // Mantiene la proporción sin deformar
-                                boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' // Una sombra sutil elegante
+                    <Tooltip
+                        title={
+                            permalink
+                                ? "Abrir publicación"
+                                : "Publicación no disponible"
+                        }
+                        arrow
+                    >
+                        <div
+                            onClick={() => {
+                                if (permalink) {
+                                    window.open(
+                                        permalink,
+                                        "_blank",
+                                        "noopener,noreferrer"
+                                    );
+                                }
                             }}
-                        />
-                    </div>
-                )
+                            style={{
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                width: "100%",
+                                height: "100%",
+                                cursor: permalink
+                                    ? "pointer"
+                                    : "default",
+                            }}
+                        >
+                            {thumbnail ? (
+                                <img
+                                    src={thumbnail}
+                                    alt={
+                                        params.row.id_detalle_orden ||
+                                        "Producto"
+                                    }
+                                    style={{
+                                        width: 120,
+                                        height: 120,
+                                        borderRadius: 8,
+                                        objectFit: "contain",
+                                        boxShadow:
+                                            "0px 2px 5px rgba(0,0,0,0.15)",
+                                        transition:
+                                            "transform 0.15s ease, box-shadow 0.15s ease",
+                                    }}
+                                />
+                            ) : (
+                                <div
+                                    style={{
+                                        width: 58,
+                                        height: 58,
+                                        borderRadius: 8,
+                                        backgroundColor: "#f5f5f5",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        color: "#9e9e9e",
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    Sin imagen
+                                </div>
+                            )}
+                        </div>
+                    </Tooltip>
+                );
             }
         },
-        { field: "componente_sku", headerName: "SKU Componente", type: "text", flex: 2 },
+
         {
-            field: "descripcion", headerName: "Descripcion", type: "text", flex: 2, renderCell: (params) => (
+            field: "componente_sku",
+            headerName: "SKU Componente",
+            type: "text",
+            flex: 2
+        },
+
+        {
+            field: "descripcion",
+            headerName: "Descripción",
+            type: "text",
+            flex: 2,
+
+            renderCell: (params) => (
                 params.value ?? "Sin descripción"
             )
         },
+
         {
-            field: "cantidad_facturada", headerName: "Procesar", type: "number", flex: 1,
+            field: "cantidad_facturada",
+            headerName: "Procesar",
+            type: "number",
+            flex: 1,
+
             renderCell: (params) => {
-                return Math.round(Number(params.value ?? 0));
+                return Math.round(
+                    Number(params.value ?? 0)
+                );
             }
         },
+
         {
-            field: "cantidad_surtida", headerName: "Procesadas", type: "number", flex: 1
+            field: "cantidad_surtida",
+            headerName: "Procesadas",
+            type: "number",
+            flex: 1
         },
+
         {
-            field: "cantidad_recibida", headerName: "Cantidad Recibida", type: "number", flex: 1
+            field: "cantidad_recibida",
+            headerName: "Cantidad Recibida",
+            type: "number",
+            flex: 1
         },
+
         {
-            field: "logistic_type", headerName: "Logística", type: "text", flex: 1,
+            field: "logistic_type",
+            headerName: "Logística",
+            type: "text",
+            flex: 1,
+
             renderCell: (params) => {
-                if (params.value === 'fulfillment' || params.row.permitir_full === 1) {
-                    return 'Full';
-                } else {
-                    return 'Mercado Envíos';
+                if (
+                    params.value === "fulfillment" ||
+                    params.row.permitir_full === 1
+                ) {
+                    return "Full";
                 }
+
+                return "Mercado Envíos";
             }
         },
-        { field: "permitir_full", headerName: "Permitir Full", type: "text", flex: 1 },
-        { field: "tipo", headerName: "Tipo", type: "text", flex: 1 },
+
+        {
+            field: "permitir_full",
+            headerName: "Permitir Full",
+            type: "text",
+            flex: 1
+        },
+
+        {
+            field: "tipo",
+            headerName: "Tipo",
+            type: "text",
+            flex: 1
+        },
+
         {
             field: "actions",
-            headerName: "Acciones",
+            headerName: "Procesar",
             type: "actions",
+            minWidth: 190,
+            flex: 1.3,
+
             getActions: (params) => {
-                // Solo mostrar si esta es la PRIMERA fila con este id_orden
-                const isFirstInstance = !data.some((row, index) =>
-                    row.id_orden === params.row.id_orden && row.unique_id < params.row.unique_id
+
+                // Solo mostrar la acción en la PRIMERA fila
+                // correspondiente a cada id_orden
+                const isFirstInstance = !data.some(
+                    (row) =>
+                        row.id_orden === params.row.id_orden &&
+                        row.unique_id < params.row.unique_id
                 );
 
-                if (!isFirstInstance) return [];
+                if (!isFirstInstance) {
+                    return [];
+                }
 
-                const esFull = params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1;
+                const esFull =
+                    params.row.logistic_type === "fulfillment" ||
+                    params.row.permitir_full === 1;
 
                 return [
                     <Tooltip
-                        title={esFull ? "Surtir componente Full" : "Surtir y empacar Mercado Envíos"}
-                        key={`surtir-${params.row.id_detalle_orden}`}>
-                        <GridActionsCellItem
-                            icon={<AssignmentIndIcon />}
-                            sx={{ color: esFull ? "orange" : "red" }}
+                        key={`surtir-${params.row.id_detalle_orden}`}
+                        title={
+                            esFull
+                                ? "Surtir componente Full"
+                                : "Surtir Mercado Envíos"
+                        }
+                        arrow
+                    >
+                        <Button
+                            variant="contained"
+                            color={esFull ? "warning" : "error"}
+                            startIcon={
+                                <AssignmentIndIcon
+                                />
+                            }
                             onClick={() => {
+
                                 if (esFull) {
+
                                     handleOpenAsignar(
                                         params.row.id_orden,
                                         params.row.id_detalle_orden,
@@ -919,7 +1194,9 @@ const Surtido = () => {
                                         params.row.cantidad_surtida,
                                         params.row.cantidad_facturada
                                     );
+
                                 } else {
+
                                     handleOpenSurtirNoFull(
                                         params.row.id_orden,
                                         params.row.id_detalle_orden,
@@ -927,19 +1204,28 @@ const Surtido = () => {
                                         params.row.cantidad_surtida,
                                         params.row.cantidad_facturada
                                     );
+
                                 }
                             }}
-                            label={esFull ? "Surtir" : "Surtir y empacar"}
-                        />
-                    </Tooltip>,
-                    <Tooltip title="Ver publicación" key={`link-${params.row.permalink}`}>
-                        <GridActionsCellItem
-                            icon={<OpenInNewIcon />}
-                            sx={{ color: "green" }}
-                            onClick={() => window.open(params.row.permalink, "_blank")}
-                            label="Ver publicación"
-                            disabled={!params.row.permalink} // por si el campo viene nulo
-                        />
+                            sx={{
+                                height: 120,
+                                minWidth: 160,
+                                borderRadius: 4,
+                                textTransform: "none",
+                                fontWeight: 700,
+                                fontSize: 30,
+                                boxShadow: "none",
+
+                                "&:hover": {
+                                    boxShadow:
+                                        "0px 3px 8px rgba(0,0,0,0.18)",
+                                }
+                            }}
+                        >
+                            {esFull
+                                ? "Surtir"
+                                : "Surtir"}
+                        </Button>
                     </Tooltip>
                 ];
             }
@@ -984,17 +1270,66 @@ const Surtido = () => {
             valueFormatter: (value) => Math.round(Number(value ?? 0))
         },
         {
+            field: "cantidad_cubierta_excedente",
+            headerName: "Cubierto Stock",
+            flex: 1.5,
+            type: "number",
+            headerAlign: "center",
+            align: "center",
+            renderCell: (params) => {
+
+                const cobertura = Number(params.value || 0);
+
+                if (cobertura <= 0) {
+                    return <Chip size="small" variant="outlined" label="—" />;
+                }
+
+                const ubicacion = params.row.ubicacion_stock_componente;
+                const sinSolicitar = Number(params.row.stock_sin_solicitar || 0) > 0;
+                const esperandoEntrega = !sinSolicitar && Number(params.row.stock_esperando_entrega || 0) > 0;
+
+                const tooltipTitle = ubicacion
+                    ? `Recolectar de stock interno de componentes en: ${ubicacion}`
+                    : "Recolectar de stock interno de componentes (existencias_componentes)";
+
+                let color = "success";
+                let label = `${cobertura} entregado`;
+
+                if (sinSolicitar) {
+                    color = "warning";
+                    label = `${cobertura} sin solicitar`;
+                } else if (esperandoEntrega) {
+                    color = "warning";
+                    label = `${cobertura} esperando`;
+                }
+
+                return (
+                    <Tooltip title={tooltipTitle}>
+                        <Chip
+                            size="small"
+                            color={color}
+                            icon={<Inventory2Icon fontSize="small" />}
+                            label={label}
+                        />
+                    </Tooltip>
+                );
+            }
+        },
+        {
             field: "avance",
             headerName: "Avance",
             type: "number",
             flex: 2,
             renderCell: (params) => {
                 const facturada = Number(params.row.cantidad_facturada) || 0;
+                const cubierta = Number(params.row.cantidad_cubierta_excedente) || 0;
                 const aEnviar = Number(params.row.cantidad_a_enviar) || 0;
-                const surtidas = Number(params.row.cantidad_surtida) || 0;
+                const surtidas = Number(params.row.cantidad_contada) || 0;
 
-                // Si la cantidad facturada es mayor a 0 usa facturada, si es 0 usa aEnviar
-                const total = facturada > 0 ? facturada : aEnviar;
+                // Disponible = lo facturado + lo cubierto con stock interno de
+                // componentes. Si no hay ninguno de los dos, usa aEnviar.
+                const disponible = facturada + cubierta;
+                const total = disponible > 0 ? disponible : aEnviar;
 
                 const pct = total > 0
                     ? Math.min(
@@ -1051,14 +1386,16 @@ const Surtido = () => {
                 />
             ),
             preProcessEditCellProps: (params) => {
-                const { props } = params;
+                const { props, row } = params;
 
                 const value = Math.max(0, props.value);
+                const disponible = getDisponibleParaContar(row);
                 const isValid =
                     props.value !== "" &&
                     props.value !== null &&
                     props.value !== undefined &&
-                    /^[0-9]+$/.test(props.value);
+                    /^[0-9]+$/.test(props.value) &&
+                    Number(props.value) <= disponible;
 
                 return {
                     ...props,
@@ -1148,12 +1485,60 @@ const Surtido = () => {
             valueFormatter: (value) => Math.round(Number(value ?? 0))
         },
         {
+            field: "cantidad_cubierta_excedente",
+            headerName: "Cubierto Stock",
+            flex: 1.5,
+            type: "number",
+            headerAlign: "center",
+            align: "center",
+            renderCell: (params) => {
+
+                const cobertura = Number(params.value || 0);
+
+                if (cobertura <= 0) {
+                    return <Chip size="small" variant="outlined" label="—" />;
+                }
+
+                const ubicacion = params.row.ubicacion_stock_componente;
+                const sinSolicitar = Number(params.row.stock_sin_solicitar || 0) > 0;
+                const esperandoEntrega = !sinSolicitar && Number(params.row.stock_esperando_entrega || 0) > 0;
+
+                const tooltipTitle = ubicacion
+                    ? `Recolectar de stock interno de componentes en: ${ubicacion}`
+                    : "Recolectar de stock interno de componentes (existencias_componentes)";
+
+                let color = "success";
+                let label = `${cobertura} entregado`;
+
+                if (sinSolicitar) {
+                    color = "warning";
+                    label = `${cobertura} sin solicitar`;
+                } else if (esperandoEntrega) {
+                    color = "warning";
+                    label = `${cobertura} esperando`;
+                }
+
+                return (
+                    <Tooltip title={tooltipTitle}>
+                        <Chip
+                            size="small"
+                            color={color}
+                            icon={<Inventory2Icon fontSize="small" />}
+                            label={label}
+                        />
+                    </Tooltip>
+                );
+            }
+        },
+        {
             field: "avance",
             headerName: "Avance",
             type: "number",
             flex: 2,
             renderCell: (params) => {
-                const total = Number(params.row.cantidad_facturada) || 0;
+                const facturada = Number(params.row.cantidad_facturada) || 0;
+                const cubierta = Number(params.row.cantidad_cubierta_excedente) || 0;
+                const total = facturada + cubierta;
                 const surtidas = Number(params.row.cantidad_surtida) || 0;
 
                 const pct = total > 0
@@ -1211,14 +1596,16 @@ const Surtido = () => {
                 />
             ),
             preProcessEditCellProps: (params) => {
-                const { props } = params;
+                const { props, row } = params;
 
                 const value = Math.max(0, props.value);
+                const disponible = getDisponibleParaContar(row);
                 const isValid =
                     props.value !== "" &&
                     props.value !== null &&
                     props.value !== undefined &&
-                    /^[0-9]+$/.test(props.value);
+                    /^[0-9]+$/.test(props.value) &&
+                    Number(props.value) <= disponible;
 
                 return {
                     ...props,
@@ -1341,41 +1728,16 @@ const Surtido = () => {
                     }}
                 >
 
-                    {/* BUSCADOR */}
-
-                    <TextField
-                        inputRef={inputRef}
-                        autoFocus
-                        id="outlined-basic"
-                        label="Ingresar SKU"
-                        variant="outlined"
-                        size="small"
-                        disabled={loading}
-                        value={sku}
-                        onChange={handleInputChange}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleSearch();
-                            }
+                    <Button
+                        variant="contained"
+                        onClick={handleOpenImprimir}
+                        sx={{
+                            minWidth: 180,
+                            whiteSpace: "nowrap"
                         }}
-                        InputProps={{
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <SearchIcon
-                                        sx={{
-                                            cursor: loading ? "not-allowed" : "pointer",
-                                            color: loading ? "gray" : "primary.main"
-                                        }}
-                                        onClick={!loading ? handleSearch : undefined}
-                                    />
-                                </InputAdornment>
-                            ),
-                            sx: {
-                                height: 44
-                            }
-                        }}
-                    />
+                    >
+                        Imprimir Etiqueta
+                    </Button>
 
                     <Stack
                         direction="row"
@@ -1385,46 +1747,39 @@ const Surtido = () => {
                         }}
                     >
 
-                        <FormControl
-                            fullWidth
+                        <TextField
+                            inputRef={inputRef}
+                            autoFocus
+                            id="outlined-basic"
+                            label="Ingresar SKU"
+                            variant="outlined"
                             size="small"
-                        >
-
-                            <InputLabel>Envío</InputLabel>
-
-                            <Select
-                                value={envioSeleccionado || ""}
-                                label="Envío"
-                                onChange={(e) => setEnvioSeleccionado(e.target.value)}
-                            >
-
-                                {envios.map((envio) => (
-
-                                    <MenuItem
-                                        key={envio.id}
-                                        value={envio.id}
-                                    >
-
-                                        ID: {envio.id} - {envio.descripcion} - {envio.estatus}
-
-                                    </MenuItem>
-
-                                ))}
-
-                            </Select>
-
-                        </FormControl>
-
-                        <Button
-                            variant="contained"
-                            onClick={handleOpenImprimir}
-                            sx={{
-                                minWidth: 180,
-                                whiteSpace: "nowrap"
+                            disabled={loading}
+                            value={sku}
+                            onChange={handleInputChange}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleSearch();
+                                }
                             }}
-                        >
-                            Imprimir Etiqueta
-                        </Button>
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <SearchIcon
+                                            sx={{
+                                                cursor: loading ? "not-allowed" : "pointer",
+                                                color: loading ? "gray" : "primary.main"
+                                            }}
+                                            onClick={!loading ? handleSearch : undefined}
+                                        />
+                                    </InputAdornment>
+                                ),
+                                sx: {
+                                    width: 420
+                                }
+                            }}
+                        />
 
                     </Stack>
                 </Box>
@@ -1476,17 +1831,34 @@ const Surtido = () => {
                 <Box sx={styleModalAsignar}>
 
                     {/* HEADER */}
-                    <Typography
-                        sx={{
-                            fontFamily: 'Montserrat',
-                            fontWeight: 'bold',
-                            textAlign: 'center',
-                            mb: 2,
-                            fontSize: 18
-                        }}
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="center"
+                        alignItems="center"
+                        sx={{ mb: 2 }}
                     >
-                        Asignar orden
-                    </Typography>
+                        <Typography
+                            sx={{
+                                fontFamily: 'Montserrat',
+                                fontWeight: 'bold',
+                                fontSize: 18
+                            }}
+                        >
+                            Asignar orden
+                        </Typography>
+
+                        {
+                            resumenOrden && (
+                                <Chip
+                                    size="small"
+                                    label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
+                                    color={resumenOrden.esKit ? "secondary" : "primary"}
+                                    sx={{ fontWeight: "bold" }}
+                                />
+                            )
+                        }
+                    </Stack>
 
                     {
                         resumenOrden && (
@@ -1527,15 +1899,14 @@ const Surtido = () => {
                                                 Tipo
                                             </Typography>
 
-                                            <Typography fontWeight="bold">
-
-                                                {
-                                                    resumenOrden.esKit
-                                                        ? "KIT"
-                                                        : "SIMPLE"
-                                                }
-
-                                            </Typography>
+                                            <Box sx={{ mt: 0.5 }}>
+                                                <Chip
+                                                    size="small"
+                                                    label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
+                                                    color={resumenOrden.esKit ? "secondary" : "primary"}
+                                                    sx={{ fontWeight: "bold" }}
+                                                />
+                                            </Box>
 
                                         </Box>
 
@@ -1705,6 +2076,76 @@ const Surtido = () => {
                         )
                     }
 
+                    {/* ===================== GUÍA DE ARMADO ===================== */}
+                    {
+                        resumenOrden && componentes.length > 0 && (
+
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mb: 2,
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: "#FFFDF5",
+                                    borderColor: "warning.light"
+                                }}
+                            >
+
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+                                    <BuildOutlinedIcon color="warning" fontSize="small" />
+                                    <Typography variant="subtitle2" fontWeight="bold">
+                                        Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                    </Typography>
+                                </Stack>
+
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                        gap: 1.5
+                                    }}
+                                >
+                                    {
+                                        componentes.map((c) => {
+                                            const porUnidad = getCantidadPorUnidad(c);
+
+                                            return (
+                                                <Paper
+                                                    key={c.id}
+                                                    variant="outlined"
+                                                    sx={{
+                                                        p: 1,
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        bgcolor: "#fff"
+                                                    }}
+                                                >
+                                                    <Box>
+                                                        <Typography variant="body2" fontWeight="bold">
+                                                            {c.sku}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {c.descripcion ?? "Sin descripción"}
+                                                        </Typography>
+                                                    </Box>
+
+                                                    <Chip
+                                                        size="small"
+                                                        color={porUnidad > 1 ? "secondary" : "default"}
+                                                        label={`x${porUnidad}`}
+                                                    />
+                                                </Paper>
+                                            );
+                                        })
+                                    }
+                                </Box>
+
+                            </Paper>
+
+                        )
+                    }
+
                     {
                         modoSoloLectura && (
 
@@ -1714,6 +2155,78 @@ const Surtido = () => {
                             >
                                 Esta orden ya fue surtida completamente.
                                 Se muestra únicamente para consulta.
+                            </Alert>
+
+                        )
+                    }
+
+                    {
+                        componentes.filter((c) => Number(c.cantidad_cubierta_excedente) > 0).length > 0 && (
+
+                            <Alert
+                                severity="warning"
+                                icon={<Inventory2Icon />}
+                                sx={{ mb: 2 }}
+                            >
+                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                                    Esta orden tiene componentes cubiertos con stock interno — hay que recolectarlos en almacén antes de poder surtirlos.
+                                </Typography>
+
+                                <Stack spacing={1}>
+                                    {
+                                        componentes
+                                            .filter((c) => Number(c.cantidad_cubierta_excedente) > 0)
+                                            .map((c) => {
+                                                const sinSolicitar = Number(c.stock_sin_solicitar || 0) > 0;
+                                                const esperandoEntrega = !sinSolicitar && Number(c.stock_esperando_entrega || 0) > 0;
+                                                const entregado = !sinSolicitar && !esperandoEntrega && Number(c.stock_entregado || 0) > 0;
+
+                                                return (
+                                                    <Box
+                                                        key={c.id}
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            bgcolor: '#fff',
+                                                            p: 1,
+                                                            borderRadius: 1
+                                                        }}
+                                                    >
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {c.sku} - {c.descripcion}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {Math.round(Number(c.cantidad_cubierta_excedente))} pza(s)
+                                                                {c.ubicacion_stock_componente ? ` — ${c.ubicacion_stock_componente}` : ''}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        {sinSolicitar && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                color="warning"
+                                                                disabled={!!solicitandoStock[c.id]}
+                                                                onClick={() => solicitarStockComponente(c.id)}
+                                                            >
+                                                                {solicitandoStock[c.id] ? "Enviando..." : "Solicitar a almacén"}
+                                                            </Button>
+                                                        )}
+
+                                                        {esperandoEntrega && (
+                                                            <Chip size="small" color="warning" label="Esperando entrega de almacén" />
+                                                        )}
+
+                                                        {entregado && (
+                                                            <Chip size="small" color="success" label="Entregado ✓" />
+                                                        )}
+                                                    </Box>
+                                                );
+                                            })
+                                    }
+                                </Stack>
                             </Alert>
 
                         )
@@ -1743,6 +2256,7 @@ const Surtido = () => {
                             processRowUpdate={processRowUpdate}
                             onProcessRowUpdateError={handleProcessRowUpdateError}
                             isCellEditable={isCellEditable}
+                            onCellClick={handleCantidadAContarClick}
                             experimentalFeatures={{ newEditingApi: true }}
                             columnVisibilityModel={{
                                 id: false,
@@ -1751,11 +2265,31 @@ const Surtido = () => {
                             sx={{
                                 fontFamily: "Montserrat",
                                 fontWeight: "bold",
+                                minHeight: 300,
                             }}
                         />
 
-                        {/* SELECT OPERADOR */}
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    </Box>
+
+                    {/* FOOTER FIJO */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mt: 2
+                        }}
+                    >
+                        <Button
+                            onClick={handleCloseAsignar}
+                            variant="contained"
+                            disabled={loading}
+                            sx={{ width: 100 }}
+                        >
+                            Cerrar
+                        </Button>
+
+                        <Stack direction="row" spacing={2} alignItems="center">
                             <FormControl sx={{ width: 250 }}>
                                 <InputLabel id="operador-label">Operador</InputLabel>
                                 <Select
@@ -1775,45 +2309,26 @@ const Surtido = () => {
                                     ))}
                                 </Select>
                             </FormControl>
-                        </Box>
 
-                    </Box>
-
-                    {/* FOOTER FIJO */}
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            mt: 2
-                        }}
-                    >
-                        <Button
-                            onClick={handleCloseAsignar}
-                            variant="contained"
-                            disabled={loading}
-                            sx={{ width: 100 }}
-                        >
-                            Cerrar
-                        </Button>
-
-                        <Button
-                            onClick={asignarLinea}
-                            variant="contained"
-                            color="success"
-                            disabled={
-                                !habilitarAsignar ||
-                                loading ||
-                                modoSoloLectura
-                            }
-                            sx={{ width: 200 }}
-                        >
-                            {modoSoloLectura
-                                ? "Orden surtida"
-                                : loading
-                                    ? "Procesando..."
-                                    : "Asignar e Imprimir"
-                            }
-                        </Button>
+                            <Button
+                                onClick={asignarLinea}
+                                variant="contained"
+                                color="success"
+                                disabled={
+                                    !habilitarAsignar ||
+                                    loading ||
+                                    modoSoloLectura
+                                }
+                                sx={{ width: 200 }}
+                            >
+                                {modoSoloLectura
+                                    ? "Orden surtida"
+                                    : loading
+                                        ? "Procesando..."
+                                        : "Asignar e Imprimir"
+                                }
+                            </Button>
+                        </Stack>
                     </Box>
 
                 </Box>
@@ -1827,17 +2342,34 @@ const Surtido = () => {
                 <Box sx={styleModalAsignar}>
 
                     {/* HEADER */}
-                    <Typography
-                        sx={{
-                            fontFamily: 'Montserrat',
-                            fontWeight: 'bold',
-                            textAlign: 'center',
-                            mb: 2,
-                            fontSize: 18
-                        }}
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        justifyContent="center"
+                        alignItems="center"
+                        sx={{ mb: 2 }}
                     >
-                        Surtir y empacar Mercado Envíos
-                    </Typography>
+                        <Typography
+                            sx={{
+                                fontFamily: 'Montserrat',
+                                fontWeight: 'bold',
+                                fontSize: 18
+                            }}
+                        >
+                            Surtir y empacar Mercado Envíos
+                        </Typography>
+
+                        {
+                            resumenOrden && (
+                                <Chip
+                                    size="small"
+                                    label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
+                                    color={resumenOrden.esKit ? "secondary" : "primary"}
+                                    sx={{ fontWeight: "bold" }}
+                                />
+                            )
+                        }
+                    </Stack>
 
                     {
                         resumenOrden && (
@@ -1878,15 +2410,14 @@ const Surtido = () => {
                                                 Tipo
                                             </Typography>
 
-                                            <Typography fontWeight="bold">
-
-                                                {
-                                                    resumenOrden.esKit
-                                                        ? "KIT"
-                                                        : "SIMPLE"
-                                                }
-
-                                            </Typography>
+                                            <Box sx={{ mt: 0.5 }}>
+                                                <Chip
+                                                    size="small"
+                                                    label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
+                                                    color={resumenOrden.esKit ? "secondary" : "primary"}
+                                                    sx={{ fontWeight: "bold" }}
+                                                />
+                                            </Box>
 
                                         </Box>
 
@@ -2056,6 +2587,76 @@ const Surtido = () => {
                         )
                     }
 
+                    {/* ===================== GUÍA DE ARMADO ===================== */}
+                    {
+                        resumenOrden && componentes.length > 0 && (
+
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mb: 2,
+                                    p: 2,
+                                    borderRadius: 2,
+                                    bgcolor: "#FFFDF5",
+                                    borderColor: "warning.light"
+                                }}
+                            >
+
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+                                    <BuildOutlinedIcon color="warning" fontSize="small" />
+                                    <Typography variant="subtitle2" fontWeight="bold">
+                                        Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                    </Typography>
+                                </Stack>
+
+                                <Box
+                                    sx={{
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                        gap: 1.5
+                                    }}
+                                >
+                                    {
+                                        componentes.map((c) => {
+                                            const porUnidad = getCantidadPorUnidad(c);
+
+                                            return (
+                                                <Paper
+                                                    key={c.id}
+                                                    variant="outlined"
+                                                    sx={{
+                                                        p: 1,
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        bgcolor: "#fff"
+                                                    }}
+                                                >
+                                                    <Box>
+                                                        <Typography variant="body2" fontWeight="bold">
+                                                            {c.sku}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {c.descripcion ?? "Sin descripción"}
+                                                        </Typography>
+                                                    </Box>
+
+                                                    <Chip
+                                                        size="small"
+                                                        color={porUnidad > 1 ? "secondary" : "default"}
+                                                        label={`x${porUnidad}`}
+                                                    />
+                                                </Paper>
+                                            );
+                                        })
+                                    }
+                                </Box>
+
+                            </Paper>
+
+                        )
+                    }
+
                     {
                         modoSoloLectura && (
 
@@ -2065,6 +2666,78 @@ const Surtido = () => {
                             >
                                 Esta orden ya fue surtida completamente.
                                 Se muestra únicamente para consulta.
+                            </Alert>
+
+                        )
+                    }
+
+                    {
+                        componentes.filter((c) => Number(c.cantidad_cubierta_excedente) > 0).length > 0 && (
+
+                            <Alert
+                                severity="warning"
+                                icon={<Inventory2Icon />}
+                                sx={{ mb: 2 }}
+                            >
+                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                                    Esta orden tiene componentes cubiertos con stock interno — hay que recolectarlos en almacén antes de poder surtirlos.
+                                </Typography>
+
+                                <Stack spacing={1}>
+                                    {
+                                        componentes
+                                            .filter((c) => Number(c.cantidad_cubierta_excedente) > 0)
+                                            .map((c) => {
+                                                const sinSolicitar = Number(c.stock_sin_solicitar || 0) > 0;
+                                                const esperandoEntrega = !sinSolicitar && Number(c.stock_esperando_entrega || 0) > 0;
+                                                const entregado = !sinSolicitar && !esperandoEntrega && Number(c.stock_entregado || 0) > 0;
+
+                                                return (
+                                                    <Box
+                                                        key={c.id}
+                                                        sx={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            bgcolor: '#fff',
+                                                            p: 1,
+                                                            borderRadius: 1
+                                                        }}
+                                                    >
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {c.sku} - {c.descripcion}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {Math.round(Number(c.cantidad_cubierta_excedente))} pza(s)
+                                                                {c.ubicacion_stock_componente ? ` — ${c.ubicacion_stock_componente}` : ''}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        {sinSolicitar && (
+                                                            <Button
+                                                                size="small"
+                                                                variant="contained"
+                                                                color="warning"
+                                                                disabled={!!solicitandoStock[c.id]}
+                                                                onClick={() => solicitarStockComponente(c.id)}
+                                                            >
+                                                                {solicitandoStock[c.id] ? "Enviando..." : "Solicitar a almacén"}
+                                                            </Button>
+                                                        )}
+
+                                                        {esperandoEntrega && (
+                                                            <Chip size="small" color="warning" label="Esperando entrega de almacén" />
+                                                        )}
+
+                                                        {entregado && (
+                                                            <Chip size="small" color="success" label="Entregado ✓" />
+                                                        )}
+                                                    </Box>
+                                                );
+                                            })
+                                    }
+                                </Stack>
                             </Alert>
 
                         )
@@ -2091,6 +2764,7 @@ const Surtido = () => {
                             processRowUpdate={processRowUpdateNoFull}
                             onProcessRowUpdateError={handleProcessRowUpdateError}
                             isCellEditable={isCellEditable}
+                            onCellClick={handleCantidadAContarClick}
                             experimentalFeatures={{ newEditingApi: true }}
                             columnVisibilityModel={{
                                 id: false,
@@ -2099,6 +2773,7 @@ const Surtido = () => {
                             sx={{
                                 fontFamily: "Montserrat",
                                 fontWeight: "bold",
+                                minHeight: 300,
                             }}
                         />
                     </Box>

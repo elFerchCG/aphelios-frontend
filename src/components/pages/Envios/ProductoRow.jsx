@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import {
     Box,
+    Chip,
     Collapse,
     IconButton,
     Paper,
@@ -10,19 +11,82 @@ import {
     TableCell,
     TableHead,
     TableRow,
-    Typography,
-    Chip
+    Typography
 } from "@mui/material";
 
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import Tooltip from "@mui/material/Tooltip";
-import Stack from "@mui/material/Stack";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import ComponenteRow from "./ComponenteRow";
+import { palette, tono } from "./consolidadoPalette";
+
+// Tile de métrica (Producir / Enviar / Empacado / Pendiente). Ancho
+// flexible con un mínimo razonable en vez de un width fijo — así, en el
+// grupo con flexWrap más abajo, se van acomodando en varias líneas en
+// lugar de encimarse o desaparecer cuando el navegador está con zoom alto.
+const StatTile = ({ label, value, tone: toneName }) => {
+
+    const c = tono(toneName);
+
+    return (
+
+        <Box
+            sx={{
+                minWidth: 84,
+                flex: "0 0 auto",
+                px: 1.5,
+                py: 0.75,
+                textAlign: "center",
+                bgcolor: c.bg,
+                border: `1px solid ${c.border}`,
+                borderRadius: 2
+            }}
+        >
+
+            <Typography
+                sx={{
+                    color: c.text,
+                    fontWeight: 700,
+                    fontSize: 20,
+                    lineHeight: 1.15
+                }}
+            >
+
+                {value}
+
+            </Typography>
+
+            <Typography
+                variant="caption"
+                sx={{
+                    color: palette.textSecondary,
+                    fontWeight: 600,
+                    letterSpacing: 0.3,
+                    display: "block"
+                }}
+            >
+
+                {label}
+
+            </Typography>
+
+        </Box>
+
+    );
+
+};
+
+const ESTADO_ICONO = {
+
+    success: <CheckCircleIcon sx={{ fontSize: 15 }} />,
+    warning: <WarningAmberIcon sx={{ fontSize: 15 }} />,
+    info: <InfoOutlinedIcon sx={{ fontSize: 15 }} />
+
+};
 
 export default function ProductoRow({ producto }) {
 
@@ -37,10 +101,10 @@ export default function ProductoRow({ producto }) {
         // Evaluamos si falta surtir algún componente
         const tieneComponentesPendientes = componentes.some((comp) => {
             const cantFacturada = Number(comp.componente_cantidad_facturada || 0);
-            const cantSurtida = Number(comp.cantidad_surtida || 0);
+            const cantContada = Number(comp.cantidad_contada || 0);
             const pendiente = Number(comp.pendiente || 0);
 
-            return pendiente > 0 || cantSurtida < cantFacturada;
+            return pendiente > 0 || cantContada < cantFacturada;
         });
 
         // 1. Si faltan piezas por surtirse
@@ -50,14 +114,14 @@ export default function ProductoRow({ producto }) {
                     status: 'SIN_ENVIO_PENDIENTE_SURTIR',
                     resaltar: true,
                     label: 'Sin Envío | Pendiente por Surtir',
-                    color: 'warning'
+                    tone: 'warning'
                 };
             }
             return {
                 status: 'PENDIENTE_SURTIR',
                 resaltar: true,
                 label: 'Pendiente por Surtir',
-                color: 'warning'
+                tone: 'warning'
             };
         }
 
@@ -67,7 +131,7 @@ export default function ProductoRow({ producto }) {
                 status: 'SIN_ENVIO_COMPLETO',
                 resaltar: false,
                 label: 'Sin Envío | Surtido Completo',
-                color: 'success'
+                tone: 'success'
             };
         }
 
@@ -79,7 +143,7 @@ export default function ProductoRow({ producto }) {
                 status: 'EMPACADO',
                 resaltar: false,
                 label: 'Empacado',
-                color: 'success'
+                tone: 'success'
             };
         }
 
@@ -87,13 +151,13 @@ export default function ProductoRow({ producto }) {
             status: 'PENDIENTE_EMPACAR',
             resaltar: true,
             label: 'Pendiente por Empacar',
-            color: 'info'
+            tone: 'info'
         };
     };
 
-    // --- AJUSTE 1: Obtener el estado dinámico ---
     const estado = obtenerEstadoProducto(producto);
-    const esPendiente = estado.resaltar; // Resuelve el error de variable no definida
+
+    const pendienteProducto = Number(producto.cantidad_pendiente || 0);
 
     return (
 
@@ -102,355 +166,276 @@ export default function ProductoRow({ producto }) {
                 mb: 1.5,
                 overflow: "hidden",
                 borderRadius: 3,
-                transition: "all .2s ease-in-out",
-                border: esPendiente ? "1.5px solid #ffa726" : "1px solid #e5e7eb",
+                transition: "all .15s ease-in-out",
+                // El estado "pendiente" ya no tiñe toda la tarjeta de
+                // naranja — se distingue únicamente con el color del chip
+                // de estatus. Aquí solo se resalta si está expandida.
+                border: open
+                    ? `1px solid ${palette.primary.border}`
+                    : `1px solid ${palette.border}`,
                 bgcolor: open
-                    ? "#b7cceb"
-                    : esPendiente
-                        ? "#fffde7"
-                        : "#f9fafb",
+                    ? palette.primary.bg
+                    : palette.surface,
                 "&:hover": {
-                    boxShadow: 4,
-                    borderColor: esPendiente ? "#f57c00" : "#90caf9"
+                    boxShadow: "0 2px 10px rgba(28,35,51,0.08)",
+                    borderColor: palette.borderStrong
                 }
             }}
         >
 
-            <Table
-                size="small"
+            <Box
                 sx={{
-                    tableLayout: "fixed",
-                    width: "100%"
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1,
+                    p: 1.5
                 }}
             >
 
-                <TableBody>
+                {/* ===================== FILA 1: IDENTIFICACIÓN ===================== */}
 
-                    <TableRow hover sx={{ "& td": { py: 1, px: 1.5, borderBottom: 0, verticalAlign: "middle" } }}>
+                <Box
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        rowGap: 1,
+                        columnGap: 2
+                    }}
+                >
 
-                        {/* ===================== INFORMACIÓN ===================== */}
+                    <IconButton
+                        size="small"
+                        onClick={() => setOpen(prev => !prev)}
+                        sx={{ flexShrink: 0 }}
+                    >
+                        {open ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+                    </IconButton>
 
-                        <TableCell colSpan={2} sx={{ borderBottom: 0, width: "100%", p: 1 }}>
+                    <Chip
+                        icon={ESTADO_ICONO[estado.tone]}
+                        label={estado.label}
+                        size="small"
+                        sx={{
+                            bgcolor: tono(estado.tone).bg,
+                            color: tono(estado.tone).text,
+                            border: `1px solid ${tono(estado.tone).border}`,
+                            fontWeight: 700,
+                            "& .MuiChip-icon": { color: tono(estado.tone).text }
+                        }}
+                    />
 
-                            {/* Contenedor Flex para alinear horizontalmente todo el contenido */}
-                            <Stack direction="row" alignItems="center" spacing={2} sx={{ width: "100%" }}>
+                    <Box sx={{ minWidth: 56 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            OP ID
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600} noWrap>
+                            {producto.orden_id}
+                        </Typography>
+                    </Box>
 
-                                {/* Expandir */}
+                    <Box sx={{ minWidth: 72 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            Producto ID
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600} noWrap>
+                            {producto.producto_id}
+                        </Typography>
+                    </Box>
 
-                                <Box sx={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                    <Box sx={{ minWidth: 110 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            PUBLICACIÓN
+                        </Typography>
+                        <Tooltip title={producto.publicacion_id || producto.publicacion}>
+                            <Typography variant="body2" fontWeight={600} noWrap>
+                                {producto.publicacion_id || producto.publicacion}
+                            </Typography>
+                        </Tooltip>
+                    </Box>
 
-                                    <IconButton size="small" onClick={() => setOpen(prev => !prev)}>
-                                        {open ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
-                                    </IconButton>
+                    <Box sx={{ flex: "1 1 220px", minWidth: 160 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            TÍTULO
+                        </Typography>
+                        <Tooltip title={producto.title}>
+                            <Typography variant="body2" fontWeight={600} noWrap sx={{ textOverflow: "ellipsis" }}>
+                                {producto.title}
+                            </Typography>
+                        </Tooltip>
+                    </Box>
 
-                                </Box>
+                    <Box sx={{ minWidth: 100 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            SKU
+                        </Typography>
+                        <Tooltip title={producto.sku}>
+                            <Typography variant="body2" fontWeight={600} noWrap sx={{ textOverflow: "ellipsis" }}>
+                                {producto.sku}
+                            </Typography>
+                        </Tooltip>
+                    </Box>
 
-                                {/* Estado */}
+                    <Box sx={{ minWidth: 110 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            ML
+                        </Typography>
+                        <Tooltip title={producto.inventory_id}>
+                            <Typography variant="body2" fontWeight={600} noWrap>
+                                {producto.inventory_id}
+                            </Typography>
+                        </Tooltip>
+                    </Box>
 
-                                <Box sx={{ flexShrink: 0 }}>
-                                    <Chip
-                                        size="small"
-                                        label={estado.label}
-                                        color={estado.color}
-                                        icon={
-                                            estado.status === 'EMPACADO' || estado.status === 'SIN_ENVIO_COMPLETO' ? (
-                                                <CheckCircleIcon fontSize="small" />
-                                            ) : (
-                                                <WarningAmberIcon fontSize="small" />
-                                            )
-                                        }
-                                        variant={
-                                            estado.status === 'EMPACADO' || estado.status === 'SIN_ENVIO_COMPLETO'
-                                                ? 'outlined'
-                                                : 'filled'
-                                        }
-                                    />
-                                </Box>
+                    <Box sx={{ minWidth: 90 }}>
+                        <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
+                            LOGÍSTICA
+                        </Typography>
+                        <Tooltip title={producto.logistic_type}>
+                            <Typography variant="body2" fontWeight={600} noWrap>
+                                {producto.logistic_type || "—"}
+                            </Typography>
+                        </Tooltip>
+                    </Box>
 
-                                {/* Orden Produccion: ID */}
-                                <Box sx={{ width: 45, flexShrink: 0 }}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">
-                                        OP ID
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight={600} noWrap>
-                                        {producto.orden_id}
-                                    </Typography>
-                                </Box>
+                </Box>
 
-                                {/* Producto: ID */}
-                                <Box sx={{ width: 75, flexShrink: 0 }}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">
-                                        Producto ID
-                                    </Typography>
-                                    <Typography variant="body2" fontWeight={600} noWrap>
-                                        {producto.producto_id}
-                                    </Typography>
-                                </Box>
+                {/* ===================== FILA 2: MÉTRICAS ===================== */}
+                {/* Fila propia (no comparte espacio con el título) y con
+                    flexWrap, así que a cualquier nivel de zoom las 4
+                    métricas se van acomodando en líneas nuevas en vez de
+                    salirse del contenedor o taparse con el título. */}
 
-                                {/* Publicación */}
+                <Box
+                    sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 1,
+                        justifyContent: "flex-end"
+                    }}
+                >
 
-                                <Box sx={{ width: 125, flexShrink: 0 }}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">
-                                        PUBLICACIÓN
-                                    </Typography>
-                                    <Tooltip title={producto.publicacion_id || producto.publicacion}>
-                                        <Typography variant="body2" fontWeight={600} noWrap>
-                                            {producto.publicacion_id || producto.publicacion}
-                                        </Typography>
-                                    </Tooltip>
-                                </Box>
+                    <StatTile label="Producir" value={producto.cantidad_a_producir} tone="primary" />
+                    <StatTile label="Enviar" value={producto.cantidad_a_enviar} tone="primary" />
+                    <StatTile label="Empacado" value={producto.cantidad_empacada} tone="success" />
+                    <StatTile
+                        label="Pendiente"
+                        value={producto.cantidad_pendiente}
+                        tone={pendienteProducto > 0 ? "warning" : "success"}
+                    />
 
+                </Box>
 
-                                {/* Título */}
+            </Box>
 
-                                <Box sx={{ flex: 1, minWidth: 100, overflow: "hidden" }}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">
-                                        TÍTULO
-                                    </Typography>
-                                    <Tooltip title={producto.title}>
-                                        <Typography variant="body2" fontWeight={600} noWrap sx={{ textOverflow: "ellipsis" }}>
-                                            {producto.title}
-                                        </Typography>
-                                    </Tooltip>
-                                </Box>
+            <Collapse
+                in={open}
+                timeout={200}
+                unmountOnExit
+            >
 
-                                {/* SKU */}
+                <Box
+                    sx={{
+                        p: 2,
+                        bgcolor: palette.surfaceMuted,
+                        borderTop: `1px solid ${palette.border}`
+                    }}
+                >
 
-                                <Box sx={{ width: 110, flexShrink: 0 }}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">
-                                        SKU
-                                    </Typography>
-                                    <Tooltip title={producto.sku}>
-                                        <Typography variant="body2" fontWeight={600} noWrap sx={{ textOverflow: "ellipsis" }}>
-                                            {producto.sku}
-                                        </Typography>
-                                    </Tooltip>
-                                </Box>
+                    <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        mb={1.5}
+                        sx={{ color: palette.textPrimary }}
+                    >
 
-                                {/* Inventory */}
+                        Componentes ({producto.componentes.length})
 
-                                <Box
-                                    sx={{
-                                        width: 150,
-                                        flexShrink: 0
-                                    }}
-                                >
+                    </Typography>
 
-                                    <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                        fontWeight={600}
-                                    >
+                    {/* Contenedor con scroll horizontal propio: a zoom
+                        alto la tabla no se comprime ni oculta columnas,
+                        simplemente se desplaza dentro de su propia caja. */}
 
-                                        ML
+                    <Box
+                        sx={{
+                            overflowX: "auto",
+                            border: `1px solid ${palette.border}`,
+                            borderRadius: 2,
+                            bgcolor: palette.surface
+                        }}
+                    >
 
-                                    </Typography>
-
-                                    <Tooltip title={producto.inventory_id}>
-
-                                        <Typography
-                                            noWrap
-                                            fontWeight={600}
-                                        >
-
-                                            {producto.inventory_id}
-
-                                        </Typography>
-
-                                    </Tooltip>
-
-                                </Box>
-
-                                <Box sx={{ display: "flex", gap: 1, flexShrink: 0, ml: "auto" }}>
-                                    {
-
-                                        [
-                                            {
-                                                label: "MRP",
-                                                value: producto.producto_cantidad_mrp,
-                                                color: "#fffec8",
-                                                text: "#e96161"
-                                            },
-
-                                            {
-                                                label: "Envíar",
-                                                value: producto.cantidad_a_enviar,
-                                                color: "#eef4ff",
-                                                text: "#1565c0"
-                                            },
-
-                                            {
-                                                label: "Empacado",
-                                                value: producto.cantidad_empacada,
-                                                color: "#edf7ed",
-                                                text: "#2e7d32"
-                                            },
-
-                                            {
-                                                label: "Pendiente",
-                                                value: producto.cantidad_pendiente,
-                                                color:
-                                                    producto.cantidad_pendiente > 0
-                                                        ? "#fff8e1"
-                                                        : "#edf7ed",
-                                                text:
-                                                    producto.cantidad_pendiente > 0
-                                                        ? "#ed6c02"
-                                                        : "#2e7d32"
-                                            }
-
-                                        ].map(item => (
-
-                                            <Paper
-                                                key={item.label}
-                                                elevation={0}
-                                                sx={{
-                                                    width: 95,
-                                                    py: .7,
-                                                    textAlign: "center",
-                                                    bgcolor: item.color,
-                                                    borderRadius: 2,
-                                                    border: "1px solid rgba(0,0,0,.05)"
-                                                }}
-                                            >
-
-                                                <Typography
-                                                    sx={{
-                                                        color: item.text,
-                                                        fontWeight: 600,
-                                                        fontSize: 22,
-                                                        lineHeight: 1.1
-                                                    }}
-                                                >
-
-                                                    {item.value}
-
-                                                </Typography>
-
-                                                <Typography
-                                                    variant="caption"
-                                                    color="text.secondary"
-                                                >
-
-                                                    {item.label}
-
-                                                </Typography>
-
-                                            </Paper>
-
-                                        ))
-
-                                    }
-                                </Box>
-
-                            </Stack>
-
-                        </TableCell>
-
-                    </TableRow>
-
-                    <TableRow>
-
-                        <TableCell
-                            colSpan={8}
-                            sx={{
-                                p: 0,
-                                borderBottom: 0
-                            }}
+                        <Table
+                            size="small"
+                            sx={{ minWidth: 780 }}
                         >
 
-                            <Collapse
-                                in={open}
-                                timeout={250}
-                                unmountOnExit
-                            >
+                            <TableHead>
 
-                                <Box
+                                <TableRow
                                     sx={{
-                                        p: 2,
-                                        bgcolor: "#edf1fa"
+                                        "& th": {
+                                            fontWeight: 700,
+                                            whiteSpace: "nowrap",
+                                            color: palette.textSecondary,
+                                            fontSize: 11,
+                                            letterSpacing: 0.4,
+                                            textTransform: "uppercase",
+                                            bgcolor: palette.surfaceSunken,
+                                            borderBottom: `1px solid ${palette.border}`
+                                        }
                                     }}
                                 >
 
-                                    <Typography
-                                        variant="subtitle2"
-                                        fontWeight={700}
-                                        mb={2}
-                                    >
+                                    <TableCell />
 
-                                        Componentes ({producto.componentes.length})
+                                    <TableCell align="center">OPD ID</TableCell>
 
-                                    </Typography>
+                                    <TableCell align="center">COMP ID</TableCell>
 
-                                    <Table
-                                        size="small"
-                                    >
+                                    <TableCell>SKU</TableCell>
 
-                                        <TableHead sx={{ backgroundColor: "#b7cceb" }}>
+                                    <TableCell>Descripción</TableCell>
 
-                                            <TableRow
-                                                sx={{
-                                                    "& th": {
-                                                        fontWeight: 700,
-                                                        whiteSpace: "nowrap"
-                                                    }
-                                                }}
-                                            >
+                                    <TableCell align="center">Facturado</TableCell>
 
-                                                <TableCell />
+                                    <TableCell align="center">Enviar</TableCell>
 
-                                                <TableCell align="center">OPD ID</TableCell>
+                                    <TableCell align="center">Procesado</TableCell>
 
-                                                <TableCell align="center">COMP ID</TableCell>
+                                    <TableCell align="center">Pendiente</TableCell>
 
-                                                <TableCell>SKU</TableCell>
+                                    <TableCell align="center">Cubierto Stock</TableCell>
 
-                                                <TableCell>Descripción</TableCell>
+                                </TableRow>
 
-                                                <TableCell align="center">MRP</TableCell>
+                            </TableHead>
 
-                                                <TableCell align="center">Facturado</TableCell>
+                            <TableBody>
 
-                                                <TableCell align="center">Enviar</TableCell>
+                                {
 
-                                                <TableCell align="center">Surtido</TableCell>
+                                    producto.componentes.map((componente) => (
 
-                                                <TableCell align="center">Pendiente</TableCell>
+                                        <ComponenteRow
+                                            key={componente.op_detalle_id}
+                                            componente={componente}
+                                        />
 
-                                            </TableRow>
+                                    ))
 
-                                        </TableHead>
+                                }
 
-                                        <TableBody>
+                            </TableBody>
 
-                                            {
+                        </Table>
 
-                                                producto.componentes.map((componente) => (
+                    </Box>
 
-                                                    <ComponenteRow
-                                                        key={componente.op_detalle_id}
-                                                        componente={componente}
-                                                    />
+                </Box>
 
-                                                ))
-
-                                            }
-
-                                        </TableBody>
-
-                                    </Table>
-
-                                </Box>
-
-                            </Collapse>
-
-                        </TableCell>
-
-                    </TableRow>
-
-                </TableBody>
-
-            </Table>
+            </Collapse>
 
         </Paper>
 

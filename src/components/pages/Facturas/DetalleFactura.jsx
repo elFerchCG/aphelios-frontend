@@ -3157,6 +3157,7 @@ const DetalleFactura = () => {
 
   const columnsEnvios = [
     { field: "id", headerName: "ID", flex: 1 },
+    { field: "folio_interno", headerName: "Folio Interno", flex: 2 },
     { field: "descripcion", headerName: "Descripción", flex: 2 },
     {
       field: "fecha_creacion",

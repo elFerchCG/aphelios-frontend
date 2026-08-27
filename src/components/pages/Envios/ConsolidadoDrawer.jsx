@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 import ProductoRow from "./ProductoRow";
+import { palette } from "./consolidadoPalette";
 
 export default function ConsolidadoDrawer({
 
@@ -72,7 +73,7 @@ export default function ConsolidadoDrawer({
                     width: "95%",
                     display: "flex",
                     flexDirection: "column",
-                    bgcolor: "#f5f7fa"
+                    bgcolor: palette.surfaceMuted
                 }
             }}
         >
@@ -92,8 +93,8 @@ export default function ConsolidadoDrawer({
                     sx={{
                         px: 3,
                         py: 1.5,
-                        borderBottom: "1px solid #e0e0e0",
-                        bgcolor: "white",
+                        borderBottom: `1px solid ${palette.border}`,
+                        bgcolor: palette.surface,
                         flexShrink: 0
                     }}
                 >

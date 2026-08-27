@@ -1,41 +1,73 @@
 import {
-    Paper,
+    Box,
     Table,
     TableBody,
     TableCell,
-    TableContainer,
     TableHead,
     TableRow,
-    Chip
+    Typography
 } from "@mui/material";
+
+import SoftChip from "./SoftChip";
+import { palette } from "./consolidadoPalette";
+import { formatFecha } from "./formatters";
 
 export default function TableFacturas({ facturas }) {
 
     if (!facturas || facturas.length === 0) {
-        return null;
+        return (
+
+            <Box
+                sx={{
+                    px: 2,
+                    py: 1.5,
+                    border: `1px dashed ${palette.border}`,
+                    borderRadius: 2,
+                    bgcolor: palette.surfaceMuted
+                }}
+            >
+
+                <Typography variant="body2" sx={{ color: palette.textDisabled }}>
+
+                    Este componente no tiene líneas de factura propias (se cubrió con stock de excedentes — ver abajo).
+
+                </Typography>
+
+            </Box>
+
+        );
     }
 
     return (
 
-        <TableContainer
-            component={Paper}
-            elevation={0}
+        <Box
             sx={{
-                mt: 1,
-                border: "2px solid #e0e0e0",
-                borderRadius: 2
+                overflowX: "auto",
+                border: `1px solid ${palette.border}`,
+                borderRadius: 2,
+                bgcolor: palette.surface
             }}
         >
 
             <Table
                 size="small"
+                sx={{ minWidth: 620 }}
             >
 
                 <TableHead>
 
                     <TableRow
                         sx={{
-                            backgroundColor: "#b7cceb"
+                            "& th": {
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                                color: palette.textSecondary,
+                                fontSize: 11,
+                                letterSpacing: 0.4,
+                                textTransform: "uppercase",
+                                bgcolor: palette.surfaceSunken,
+                                borderBottom: `1px solid ${palette.border}`
+                            }
                         }}
                     >
                         <TableCell>
@@ -79,76 +111,67 @@ export default function TableFacturas({ facturas }) {
                             <TableRow
                                 key={factura.factura_detalle_id}
                                 hover
+                                sx={{ "& td": { borderBottom: `1px solid ${palette.border}` } }}
                             >
 
                                 <TableCell>
 
-                                    <Chip
-                                        size="small"
+                                    <SoftChip
                                         label={factura.factura_id}
-                                        color="primary"
-                                        variant="outlined"
+                                        tone="neutral"
                                     />
 
                                 </TableCell>
 
                                 <TableCell>
 
-                                    <Chip
-                                        size="small"
+                                    <SoftChip
                                         label={factura.factura}
-                                        color="primary"
-                                        variant="outlined"
+                                        tone="neutral"
                                     />
 
                                 </TableCell>
 
                                 <TableCell>
 
-                                    <Chip
-                                        size="small"
+                                    <SoftChip
                                         label={factura.factura_detalle_id}
-                                        color="primary"
-                                        variant="outlined"
+                                        tone="neutral"
                                     />
 
                                 </TableCell>
 
                                 <TableCell>
 
-                                    <Chip
-                                        size="small"
-                                        label={factura.fecha_factura}
-                                        color="primary"
-                                        variant="outlined"
-                                    />
+                                    <Typography variant="body2" sx={{ color: palette.textSecondary }}>
+                                        {formatFecha(factura.fecha_factura) || "—"}
+                                    </Typography>
 
                                 </TableCell>
 
                                 <TableCell>
 
-                                    <Chip
-                                        size="small"
-                                        label={factura.fecha_arribo}
-                                        color="primary"
-                                        variant="outlined"
-                                    />
+                                    <Typography variant="body2" sx={{ color: palette.textSecondary }}>
+                                        {formatFecha(factura.fecha_arribo) || "—"}
+                                    </Typography>
 
                                 </TableCell>
 
                                 <TableCell>
 
-                                    {factura.sku}
+                                    <Typography variant="body2" sx={{ color: palette.textPrimary }}>
+                                        {factura.sku}
+                                    </Typography>
 
                                 </TableCell>
-
-
 
                                 <TableCell
                                     align="right"
                                 >
 
-                                    {Number(factura.cantidad).toLocaleString()}
+                                    <Typography variant="body2" fontWeight={700} sx={{ color: palette.textPrimary }}>
+                                        {Number(factura.cantidad).toLocaleString()}
+                                    </Typography>
 
                                 </TableCell>
 
@@ -162,7 +185,7 @@ export default function TableFacturas({ facturas }) {
 
             </Table>
 
-        </TableContainer>
+        </Box>
 
     );
 

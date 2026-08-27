@@ -183,7 +183,7 @@ const Facturas = () => {
       align: "center",
       headerAlign: "center",
     },
-        {
+    {
       field: "serie",
       headerName: "Serie",
       type: "text",
@@ -270,17 +270,18 @@ const Facturas = () => {
 
   const columnsEnvios = [
     { field: "id", headerName: "ID", flex: 1 },
+    { field: "folio_interno", headerName: "Folio Interno", flex: 1 },
     { field: "descripcion", headerName: "Descripción", flex: 2 },
     {
       field: "fecha_creacion",
       headerName: "Fecha de Creación",
-      flex: 1,
+      flex: 1.5,
       valueFormatter: (params) => dayjs(params.value).format("DD/MM/YYYY"),
     },
     {
       field: "fecha_programada",
       headerName: "Fecha Programada",
-      flex: 1,
+      flex: 1.5,
       valueFormatter: (params) => dayjs(params.value).format("DD/MM/YYYY"),
     },
     { field: "estatus", headerName: "Estatus", flex: 1 },
@@ -406,15 +407,36 @@ const Facturas = () => {
           open={openEnvioModal}
           onClose={handleCloseEnvioModal}
           fullWidth
-          maxWidth="md"
+          maxWidth="lg"
+          PaperProps={{
+            sx: {
+              width: '95%',
+              maxWidth: 1200,
+              borderRadius: 3,
+            },
+          }}
         >
-          <DialogTitle>
+          <DialogTitle
+            sx={{
+              fontWeight: 700,
+              pb: 1,
+            }}
+          >
             Selecciona un envío para asignar las facturas seleccionadas
           </DialogTitle>
 
-          <DialogContent sx={{ height: 400 }}>
+          <DialogContent
+            sx={{
+              height: 550,
+              pt: 2,
+              px: 3,
+            }}
+          >
             <DataGrid
-              sx={{ height: 350 }}
+              sx={{
+                height: '100%',
+                width: '100%',
+              }}
               rows={envios}
               columns={columnsEnvios}
               getRowId={(row) => row.id}
@@ -423,17 +445,37 @@ const Facturas = () => {
               onRowSelectionModelChange={(selection) => {
                 setSelectedEnvio(selection[0] || null);
               }}
-              rowSelectionModel={selectedEnvio ? [selectedEnvio] : []}
+              rowSelectionModel={
+                selectedEnvio
+                  ? [selectedEnvio]
+                  : []
+              }
             />
           </DialogContent>
 
-          <DialogActions>
-            <Button onClick={handleCloseEnvioModal}>Cancelar</Button>
+          <DialogActions
+            sx={{
+              px: 3,
+              py: 2,
+              borderTop: '1px solid #e0e0e0',
+            }}
+          >
+            <Button
+              onClick={handleCloseEnvioModal}
+              sx={{
+                textTransform: 'none',
+              }}
+            >
+              Cancelar
+            </Button>
+
             <Button
               variant="contained"
               disabled={!selectedEnvio}
-              onClick={() => {
-                asignarFacturas();
+              onClick={asignarFacturas}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
               }}
             >
               Confirmar asignación

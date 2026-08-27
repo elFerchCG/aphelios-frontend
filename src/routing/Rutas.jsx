@@ -49,6 +49,7 @@ import PerformanceComercial from "../components/pages/PerformanceComercial/Perfo
 import PublicacionesMejoras from "../components/pages/PublicacionesMejoras/PublicacionesMejoras";
 import Preguntas from "../components/pages/Preguntas/Preguntas";
 import Excedentes from "../components/pages/Inventarios/Excedentes/Excedentes";
+import StockComponentes from "../components/pages/Inventarios/Excedentes/StockComponentes";
 
 const Rutas = () => {
   return (
@@ -235,6 +236,20 @@ const Rutas = () => {
               ]}
             >
               <Excedentes />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/stock-componentes"
+          element={
+            <ProtectedRoute
+              allowedRoles={[
+                "administrador",
+                "Almacenista"
+              ]}
+            >
+              <StockComponentes />
             </ProtectedRoute>
           }
         />
