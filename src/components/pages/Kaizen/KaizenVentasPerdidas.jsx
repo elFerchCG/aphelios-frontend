@@ -37,7 +37,6 @@ const obtenerAnioSemanaActualISO = () => {
   };
 };
 
-
 const obtenerInicioSemanaISO = (anio, semana) => {
   const enero4 = new Date(Date.UTC(Number(anio), 0, 4));
 
@@ -515,6 +514,21 @@ const KaizenVentasPerdidas = () => {
           variant="outlined"
         />
       ),
+    },
+    {
+      field: "stock_fisico",
+      headerName: "Stock Físico",
+      width: 130,
+      align: "center",
+      headerAlign: "center",
+    },
+
+    {
+      field: "stock_ml",
+      headerName: "Stock ML",
+      width: 120,
+      align: "center",
+      headerAlign: "center",
     },
     {
       field: "stock_total",
