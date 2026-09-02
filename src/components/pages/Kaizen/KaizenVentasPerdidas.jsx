@@ -37,6 +37,7 @@ const obtenerAnioSemanaActualISO = () => {
   };
 };
 
+
 const obtenerInicioSemanaISO = (anio, semana) => {
   const enero4 = new Date(Date.UTC(Number(anio), 0, 4));
 
