@@ -198,11 +198,29 @@ const TableOrdenes = () => {
     // estás consultando) llegue tarde y pise el producto que sí seleccionaste.
     const existenciasAbortRef = useRef(null);
 
+    // Espejo SIEMPRE actualizado de productoId (a diferencia del parámetro
+    // "productoId" que recibe fetchExistencias, que queda fijo al momento en
+    // que arrancó esa llamada). Sirve para detectar si, cuando por fin
+    // responde fetchExistencias, el usuario ya avanzó a otro producto o ya
+    // se limpió el campo (p. ej. porque la fila ya se agregó sola).
+    const productoIdRef = useRef(productoId);
+    useEffect(() => {
+        productoIdRef.current = productoId;
+    }, [productoId]);
+
     // Evita que un mismo escaneo dispare dos búsquedas a la vez (por ejemplo,
     // si el lector de código de barras genera "Enter" y además el campo
     // pierde el foco casi al mismo tiempo, onKeyDown y onBlur podrían
     // dispararse juntos).
     const skuSearchInFlightRef = useRef(false);
+    // Recuerda el último código ya buscado con éxito. Sin esto, un Enter del
+    // lector (handleKeyDown) seguido de un clic fuera del campo o en
+    // "Agregar Fila" (handleBlur) buscan el MISMO código dos veces: la
+    // primera búsqueda ya libera skuSearchInFlightRef antes de que llegue
+    // la segunda, así que ese candado no la detiene, y con ubicación y
+    // cantidad fijadas, la segunda búsqueda vuelve a disparar el alta
+    // automática para el mismo producto.
+    const lastSearchedCodeRef = useRef('');
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -509,11 +527,17 @@ const TableOrdenes = () => {
                     });
                     return; // Salir de la función si el producto no existe
                 }
+                // Si mientras se esperaba esta respuesta el usuario ya avanzó
+                // a otro producto (o el campo ya se limpió porque la fila se
+                // agregó sola), esta respuesta ya está vieja: aplicarla
+                // pisaría el producto nuevo. Se descarta en silencio.
+                if (String(productoIdRef.current) !== String(productoId)) {
+                    return;
+                }
                 setUbicaciones(response.data.data.salida);
                 setUbicacionEntrada(response.data.data.entrada);
                 setProductoTitle(response.data.data.producto.title);
                 setProductoSku(response.data.data.producto.sku);
-                setProductoId(response.data.data.producto.producto_id);
                 setProductoMlm(response.data.data.producto.inventory_id);
                 setProductoLogisticType(response.data.data.producto.logistic_type || '');
             } else {
@@ -561,20 +585,30 @@ const TableOrdenes = () => {
                     return; // Salir de la función si el producto no existe
                 }
 
+                // Si mientras se esperaba esta respuesta el usuario ya avanzó
+                // a otro producto (o el campo ya se limpió porque la fila se
+                // agregó sola), esta respuesta ya está vieja. Aplicarla de
+                // todas formas volvería a poner un producto_id que el efecto
+                // de alta automática interpreta como "otro producto nuevo
+                // que hay que agregar", duplicando la línea — esto era
+                // justo lo que causaba el alta doble con ubicación y
+                // cantidad fijas. Se descarta en silencio.
+                if (String(productoIdRef.current) !== String(productoId)) {
+                    return;
+                }
+
                 // Si la bodega de salida está habilitada
                 if (categoriaTemp === 'salida' && response.data.ok) {
                     setUbicaciones(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
                     setProductoSku(response.data.data.producto.sku);
                     setProductoMlm(response.data.data.producto.inventory_id);
-                    setProductoId(response.data.data.producto.producto_id);
                     setProductoLogisticType(response.data.data.producto.logistic_type || '');
                 } else if (categoriaTemp === 'entrada' && response.data.ok) {
                     setUbicacionEntrada(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
                     setProductoSku(response.data.data.producto.sku);
                     setProductoMlm(response.data.data.producto.inventory_id);
-                    setProductoId(response.data.data.producto.producto_id);
                     setProductoLogisticType(response.data.data.producto.logistic_type || '');
                 }
             }
@@ -1716,11 +1750,18 @@ const TableOrdenes = () => {
             return;
         }
 
+        if (codigo === lastSearchedCodeRef.current) {
+            // Ya se buscó este mismo código (Enter + blur casi seguidos,
+            // Enter + clic en "Agregar Fila", etc.): no repetirla.
+            return;
+        }
+
         if (skuSearchInFlightRef.current) {
             // Ya hay una búsqueda de este mismo escaneo en curso (p. ej. el
             // lector dispara "Enter" y el campo pierde el foco casi a la vez).
             return;
         }
+        lastSearchedCodeRef.current = codigo;
         skuSearchInFlightRef.current = true;
 
         try {
@@ -1788,6 +1829,11 @@ const TableOrdenes = () => {
 
     const handleProductId = (event) => {
         const sku = event.target.value;
+        // El usuario/lector está escribiendo un código nuevo: libera el
+        // candado para que, cuando termine, SÍ se pueda volver a buscar
+        // (incluso si por casualidad es idéntico al anterior, p. ej. otra
+        // caja del mismo SKU).
+        lastSearchedCodeRef.current = '';
         setProductoSku(sku);
         setSearchTerm(sku);
     };
@@ -2350,6 +2396,9 @@ const TableOrdenes = () => {
     // español, la misma condición que ya decide isButtonDisabled / enableXxx
     // más abajo, para que el usuario entienda qué falta.
     const getAddRowDisabledReason = () => {
+        if (categoriaTemp === 'entrada' && ubicacionEntradaFija && cantidadFija) {
+            return 'Ubicación y cantidad fijas: cada producto escaneado se agrega solo, no hace falta el botón.';
+        }
         if (!categoriaTemp) return 'Selecciona primero un tipo de movimiento.';
         if (categoriaTemp === 'transferencia' && (!selectedBodegaSalida || !selectedBodegaEntrada)) {
             return 'Selecciona la bodega de salida y la bodega de entrada.';
@@ -2406,6 +2455,12 @@ const TableOrdenes = () => {
     };
 
     const addRowDisabledReason = getAddRowDisabledReason();
+    // Con ubicación y cantidad fijas en un movimiento de entrada, cada
+    // producto escaneado se agrega solo (ver el efecto de alta automática
+    // más arriba); dejar "Agregar Fila" clicable en ese momento es justo lo
+    // que permitía que un clic manual duplicara el movimiento que el alta
+    // automática ya había disparado.
+    const autoAddActivo = categoriaTemp === 'entrada' && ubicacionEntradaFija && cantidadFija;
 
     // Resalta visualmente el siguiente campo que el usuario puede llenar,
     // para que sea evidente dónde continuar el flujo sin tener que adivinar
@@ -3081,7 +3136,11 @@ const TableOrdenes = () => {
                         )}
 
                         <Tooltip
-                            title={isButtonDisabled ? addRowDisabledReason : 'Agregar la línea a la orden'}
+                            title={
+                                isButtonDisabled || autoAddActivo
+                                    ? addRowDisabledReason
+                                    : 'Agregar la línea a la orden'
+                            }
                             arrow
                         >
                             <span>
@@ -3089,7 +3148,7 @@ const TableOrdenes = () => {
                                     variant="contained"
                                     endIcon={<SendIcon />}
                                     onClick={handleGenerarOrder}
-                                    disabled={isButtonDisabled}
+                                    disabled={isButtonDisabled || autoAddActivo}
                                     sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                                 >
                                     Agregar Fila

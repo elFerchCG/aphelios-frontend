@@ -366,7 +366,8 @@ export default function ExcedentesMonitor() {
                     String(r.producto_id || '').toLowerCase().includes(q) ||
                     String(r.title || '').toLowerCase().includes(q) ||
                     String(r.sku || '').toLowerCase().includes(q) ||
-                    String(r.mlm || '').toLowerCase().includes(q)
+                    String(r.mlm || '').toLowerCase().includes(q) ||
+                    String(r.ml || '').toLowerCase().includes(q) 
             );
         }
         data.sort((a, b) => {
