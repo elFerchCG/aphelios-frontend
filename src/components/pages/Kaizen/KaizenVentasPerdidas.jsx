@@ -44,16 +44,11 @@ const obtenerInicioSemanaISO = (anio, semana) => {
 
   const lunesSemana1 = new Date(enero4);
 
-  lunesSemana1.setUTCDate(
-    enero4.getUTCDate() - diaSemana + 1,
-  );
+  lunesSemana1.setUTCDate(enero4.getUTCDate() - diaSemana + 1);
 
   const fecha = new Date(lunesSemana1);
 
-  fecha.setUTCDate(
-    lunesSemana1.getUTCDate() +
-      (Number(semana) - 1) * 7,
-  );
+  fecha.setUTCDate(lunesSemana1.getUTCDate() + (Number(semana) - 1) * 7);
 
   fecha.setUTCHours(0, 0, 0, 0);
 
@@ -421,6 +416,72 @@ const KaizenVentasPerdidas = () => {
       minWidth: 160,
     },
     {
+      field: "publicacion_id",
+      headerName: "MLM",
+      minWidth: 160,
+      flex: 1,
+      renderCell: (params) => (
+        <Box
+          sx={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="body2">{params.value || "-"}</Typography>
+        </Box>
+      ),
+    },
+
+    {
+      field: "user_product_id",
+      headerName: "MLMU",
+      minWidth: 180,
+      flex: 1,
+      renderCell: (params) => (
+        <Box
+          sx={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="body2">{params.value || "-"}</Typography>
+        </Box>
+      ),
+    },
+
+    {
+      field: "logistic_type",
+      headerName: "Logística",
+      width: 140,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => {
+        const logisticType = String(params.value || "")
+          .trim()
+          .toLowerCase();
+
+        let label = params.value || "-";
+        let color = "default";
+
+        if (logisticType === "fulfillment") {
+          label = "Fulfillment";
+          color = "success";
+        } else if (logisticType === "cross_docking") {
+          label = "Cross docking";
+          color = "primary";
+        } else if (logisticType === "xd_drop_off") {
+          label = "Drop off";
+          color = "warning";
+        }
+
+        return (
+          <Chip label={label} color={color} size="small" variant="outlined" />
+        );
+      },
+    },
+    {
       field: "ventas_dinero",
       headerName: "Ventas $",
       width: 150,
@@ -631,12 +692,12 @@ const KaizenVentasPerdidas = () => {
           </Stack>
 
           <TextField
-            label="Buscar producto o SKU"
+            label="Buscar producto, SKU, MLM o User Product ID"
             size="small"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Escribe un SKU o nombre del producto..."
-            sx={{ maxWidth: 480 }}
+            placeholder="Buscar producto, SKU, MLM o User Product ID..."
+            sx={{ maxWidth: 520 }}
           />
         </Box>
 
@@ -687,7 +748,7 @@ const KaizenVentasPerdidas = () => {
       >
         <Box
           sx={{
-            minWidth: 1400,
+            minWidth: 1900,
             height: 600,
           }}
         >
