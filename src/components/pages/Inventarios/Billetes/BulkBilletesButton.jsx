@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import Swal from "sweetalert2";
 import {
   Box,
   Button,
@@ -106,9 +107,23 @@ export default function BulkBilletesButton({ onSuccess }) {
     }
   };
 
-  const onChooseFile = () => {
+  const onChooseFile = async () => {
     handleCloseMenu();
-    if (fileRef.current) fileRef.current.value = null;
+
+    if (dryRun) {
+      await Swal.fire({
+        icon: "info",
+        title: "Modo simulación activo",
+        text: "El archivo se subirá en modo simulación. No se realizará ningún cambio real en la información.",
+        confirmButtonText: "Entendido",
+        confirmButtonColor: "#1976d2",
+      });
+    }
+
+    if (fileRef.current) {
+      fileRef.current.value = null;
+    }
+
     fileRef.current?.click();
   };
 

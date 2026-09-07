@@ -1,97 +1,319 @@
-import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+
+import { Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
+
+import LogoutIcon from "@mui/icons-material/Logout";
+import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
+
+import { useLocation, useNavigate } from "react-router-dom";
+
+import SidebarNavigation from "../navigation/SidebarNavigation";
+import { navigationConfig } from "../../config/navigationConfig";
+
 import "../../estilos/header.css";
+
+import AvatarSelectorModal from "./AvatarSelectorModal";
+
 import logo from "../../images/APHELIOS negro.png";
-import inicio from "../../images/hogar.svg";
-import envio from "../../images/shipment.svg";
-import reCharts from "../../images/reCharts.png";
-import inventario from "../../images/inventory.png";
-import configuracion from "../../images/settings.png";
 import sesion from "../../images/sesion.png";
-import marketing from "../../images/marketing.png";
-import { useNavigate } from "react-router-dom";
+
 import useAuthStore from "../../store/authStore";
+
+import { getAvatarImage } from "../../config/avatarConfig";
 
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
+
   const { token, user, logout } = useAuthStore();
 
-  const rolesMarketing = [
-    "administrador",
-    "Marketing",
-    "Coordinador Comercial",
-    "Lider Marketing",
-  ];
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  if (!token || location.pathname === "/login") return null;
+  const [anchorUser, setAnchorUser] = useState(null);
+
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+
+  const openUserMenu = Boolean(anchorUser);
+
+  const avatarImage = getAvatarImage(user?.avatar_key);
+  console.log("USER HEADER:", user);
+  console.log("AVATAR KEY HEADER:", user?.avatar_key);
+  console.log("AVATAR IMAGE HEADER:", avatarImage);
+
+  if (!token || location.pathname === "/login") {
+    return null;
+  }
+
+  // =====================================================
+  // LOGOUT
+  // =====================================================
 
   const handleLogout = () => {
+    setAnchorUser(null);
+
     logout();
+
     navigate("/login");
   };
 
+  // =====================================================
+  // MENÚ USUARIO
+  // =====================================================
+
+  const handleOpenUserMenu = (event) => {
+    if (openUserMenu) {
+      setAnchorUser(null);
+      return;
+    }
+
+    setAnchorUser(event.currentTarget);
+  };
+
+  const handleCloseUserMenu = () => {
+    setAnchorUser(null);
+  };
+
+  const handleOpenAvatarSelector = () => {
+    setAnchorUser(null);
+    setAvatarModalOpen(true);
+  };
+
+  // =====================================================
+  // SIDEBAR
+  // =====================================================
+
+  const closeSidebar = () => {
+    setMenuOpen(false);
+  };
+
   return (
-    <header className="header">
-      <div className="left">
-        <div className="nav">
-          <NavLink to="/home" className="nav-link">
-            <img src={inicio} alt="Inicio" className="nav-icon" />
-            <span>Inicio</span>
-          </NavLink>
-          <NavLink to="/envios" className="nav-link">
-            <img src={envio} alt="Envios" className="nav-icon" />
-            <span>Envios</span>
-          </NavLink>
-          {["administrador"].includes(user?.rol_descripcion) && (
-            <NavLink to="/reCharts" className="nav-link">
-              <img src={reCharts} alt="reCharts" className="nav-icon" />
-              <span>Graficas</span>
-            </NavLink>
-          )}
-          <NavLink to="/inventario" className="nav-link">
-            <img src={inventario} alt="Inventario" className="nav-icon" />
-            <span>Inventario</span>
-          </NavLink>
-          {rolesMarketing.includes(user?.rol_descripcion) && (
-            <NavLink to="/marketing" className="nav-link">
-              <img src={marketing} alt="Marketing" className="nav-icon" />
-              <span>Marketing</span>
-            </NavLink>
-          )}
-          {["administrador", "Planeador"].includes(user?.rol_descripcion) && (
-            <NavLink to="/configuraciones" className="nav-link">
+    <>
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
+      <header className="header">
+        {/* IZQUIERDA */}
+
+        <div className="header-left">
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Abrir menú"
+          >
+            ☰
+          </button>
+        </div>
+
+        {/* CENTRO */}
+
+        <div className="header-center">
+          <img src={logo} alt="Aphelios" className="logo" />
+        </div>
+
+        {/* DERECHA */}
+
+        <div className="header-right">
+          <button
+            type="button"
+            className={`profile-button ${openUserMenu ? "open" : ""}`}
+            onClick={handleOpenUserMenu}
+            aria-label="Menú de usuario"
+          >
+            {avatarImage ? (
               <img
-                src={configuracion}
-                alt="Configuracion"
-                className="nav-icon"
+                src={avatarImage}
+                alt="Avatar del usuario"
+                className="profile-avatar-image"
               />
-              <span>Configuracion</span>
-            </NavLink>
-          )}
-        </div>
-      </div>
+            ) : (
+              <img src={sesion} alt="Usuario" className="profile-icon" />
+            )}
+          </button>
 
-      <div className="center">
-        <div className="logo-container">
-          <img src={logo} alt="logo" className="logo" />
-        </div>
-      </div>
+          {/* =====================================================
+              MENÚ DEL USUARIO
+          ===================================================== */}
 
-      <div className="right">
-        <div className="person-container">
-          <div className="person-nav">
-            <img src={sesion} alt="user" className="logo-person" />
-            <span className="letra-person">{user?.nombre}</span>
-          </div>
-          <div className="person-nav">
-            <button className="logout-button" onClick={handleLogout}>
-              Cerrar sesión
-            </button>
-          </div>
+          <Menu
+            anchorEl={anchorUser}
+            open={openUserMenu}
+            onClose={handleCloseUserMenu}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "right",
+            }}
+            transformOrigin={{
+              vertical: "top",
+              horizontal: "right",
+            }}
+            slotProps={{
+              root: {
+                sx: {
+                  zIndex: 2100,
+                },
+              },
+
+              paper: {
+                sx: {
+                  mt: 1.5,
+
+                  minWidth: 250,
+
+                  borderRadius: "16px",
+
+                  overflow: "hidden",
+
+                  border: "1px solid rgba(0,0,0,0.06)",
+
+                  boxShadow: "0px 12px 35px rgba(0,0,0,0.22)",
+
+                  backgroundColor: "#ffffff",
+                },
+              },
+            }}
+          >
+            {/* =====================================================
+                INFORMACIÓN DEL USUARIO
+            ===================================================== */}
+
+            <div className="profile-menu-user">
+              <div className="profile-menu-avatar">
+                <img src={avatarImage || sesion} alt="Avatar del usuario" />
+              </div>
+
+              <div className="profile-menu-info">
+                <span className="profile-menu-label">Sesión iniciada como</span>
+
+                <span className="profile-menu-name">{user?.nombre}</span>
+              </div>
+            </div>
+
+            <div className="profile-menu-divider" />
+
+            {/* =====================================================
+                CAMBIAR AVATAR
+            ===================================================== */}
+
+            <MenuItem
+              onClick={handleOpenAvatarSelector}
+              sx={{
+                py: 1.4,
+                px: 2,
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 700,
+
+                "&:hover": {
+                  backgroundColor: "#f5f7fa",
+                },
+              }}
+            >
+              <ListItemIcon>
+                <FaceRetouchingNaturalIcon
+                  fontSize="small"
+                  sx={{
+                    color: "#2196f3",
+                  }}
+                />
+              </ListItemIcon>
+
+              <ListItemText
+                primary="Cambiar avatar"
+                primaryTypographyProps={{
+                  fontFamily: "Montserrat, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "#0f2744",
+                }}
+              />
+            </MenuItem>
+
+            <div className="profile-menu-divider" />
+
+            {/* =====================================================
+                CERRAR SESIÓN
+            ===================================================== */}
+
+            <MenuItem
+              onClick={handleLogout}
+              sx={{
+                py: 1.4,
+                px: 2,
+                fontFamily: "Montserrat, sans-serif",
+                fontWeight: 700,
+
+                "&:hover": {
+                  backgroundColor: "#f5f7fa",
+                },
+              }}
+            >
+              <ListItemIcon>
+                <LogoutIcon
+                  fontSize="small"
+                  sx={{
+                    color: "#d32f2f",
+                  }}
+                />
+              </ListItemIcon>
+
+              <ListItemText
+                primary="Cerrar sesión"
+                primaryTypographyProps={{
+                  fontFamily: "Montserrat, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "#d32f2f",
+                }}
+              />
+            </MenuItem>
+          </Menu>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* =====================================================
+          FONDO SIDEBAR Y PERFIL
+      ===================================================== */}
+
+      {openUserMenu && (
+        <div className="profile-backdrop" onClick={handleCloseUserMenu} />
+      )}
+
+      <div
+        className={`sidebar-backdrop ${menuOpen ? "open" : ""}`}
+        onClick={closeSidebar}
+      />
+
+      {/* =====================================================
+          SIDEBAR
+      ===================================================== */}
+
+      <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
+        <div className="sidebar-header">
+          <span>Menú</span>
+
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={closeSidebar}
+            aria-label="Cerrar menú"
+          >
+            ✕
+          </button>
+        </div>
+
+        <SidebarNavigation
+          items={navigationConfig}
+          userRole={user?.rol_descripcion}
+          onNavigate={closeSidebar}
+        />
+      </aside>
+
+      <AvatarSelectorModal
+        open={avatarModalOpen}
+        onClose={() => setAvatarModalOpen(false)}
+      />
+    </>
   );
 };
 
