@@ -31,8 +31,11 @@ import {
     Alert
 } from "@mui/material";
 
+import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
+
 import SearchIcon from "@mui/icons-material/Search";
 import TuneIcon from "@mui/icons-material/Tune";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import HistoryIcon from "@mui/icons-material/History";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -61,6 +64,14 @@ const swalConfig = {
         }
     },
 };
+
+// Ubicación fija a la que siempre va el stock agregado desde el
+// diálogo "Agregar stock" (StockComponentes.jsx, pestaña Stock real).
+const UBICACION_EXCEDENTES_DESCRIPCION = "Excedentes componentes";
+
+// Límite de sugerencias que muestra el autosearch de componentes, para
+// que el Autocomplete no intente renderizar cientos de opciones a la vez.
+const filterComponentesOptions = createFilterOptions({ limit: 20 });
 
 const StockComponentes = () => {
 
@@ -110,6 +121,27 @@ const StockComponentes = () => {
 
     const [comentarioAjuste, setComentarioAjuste] =
         useState("");
+
+    // ------------------------------------------------------------------
+    // Dialog "Agregar stock" (buscador de componentes con autosearch,
+    // pestaña Stock real). El stock agregado desde aquí siempre va a la
+    // ubicación fija "Excedentes componentes" — no se deja elegir otra.
+    // ------------------------------------------------------------------
+    const [openAgregarStock, setOpenAgregarStock] = useState(false);
+
+    const [componentesCatalogo, setComponentesCatalogo] = useState([]);
+    const [loadingComponentesCatalogo, setLoadingComponentesCatalogo] =
+        useState(false);
+
+    // id de la localidad "Excedentes componentes" (se resuelve por
+    // descripción una sola vez, la primera vez que se abre el diálogo).
+    const [ubicacionExcedentesId, setUbicacionExcedentesId] = useState(null);
+    const [loadingUbicacionExcedentes, setLoadingUbicacionExcedentes] =
+        useState(false);
+
+    const [componenteNuevoStock, setComponenteNuevoStock] = useState(null);
+    const [cantidadNuevoStock, setCantidadNuevoStock] = useState("");
+    const [guardandoNuevoStock, setGuardandoNuevoStock] = useState(false);
 
     // Orden y paginación por pestaña (mismo patrón que Excedentes.jsx):
     // cada tabla tiene su propio order/orderBy/page/rowsPerPage.
@@ -247,6 +279,116 @@ const StockComponentes = () => {
 
             setLoadingSolicitudes(false);
 
+        }
+    };
+
+    // Catálogo de componentes (tabla `componentes`) para el buscador
+    // autosearch del diálogo "Agregar stock". Se carga una sola vez,
+    // la primera vez que se abre el diálogo.
+    const cargarComponentesCatalogo = async () => {
+
+        try {
+
+            setLoadingComponentesCatalogo(true);
+
+            const response = await axios.get(
+                `${apiUrl}/componentes/todos`
+            );
+
+            setComponentesCatalogo(response.data?.data || []);
+
+        } catch (error) {
+
+            console.error(error);
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Error",
+                text: "No fue posible cargar el catálogo de componentes",
+                icon: "error",
+            });
+
+        } finally {
+
+            setLoadingComponentesCatalogo(false);
+
+        }
+    };
+
+    // El stock que se agrega desde el buscador siempre va a esta
+    // ubicación fija (no se deja elegir otra) — se resuelve su id por
+    // descripción una sola vez, la primera vez que se abre el diálogo.
+    const cargarUbicacionExcedentes = async () => {
+
+        try {
+
+            setLoadingUbicacionExcedentes(true);
+
+            const response = await axios.get(
+                `${apiUrl}/inventario/localidades`
+            );
+
+            const localidades = response.data || [];
+
+            const ubicacion = localidades.find(
+                (l) =>
+                    String(l.descripcion || "")
+                        .trim()
+                        .toLowerCase() ===
+                    UBICACION_EXCEDENTES_DESCRIPCION.toLowerCase()
+            );
+
+            if (!ubicacion) {
+
+                setUbicacionExcedentesId(null);
+
+                Swal.fire({
+                    ...swalConfig,
+                    title: "Ubicación no encontrada",
+                    text: `No se encontró una ubicación activa con la
+                        descripción "${UBICACION_EXCEDENTES_DESCRIPCION}".
+                        Revisa el catálogo de localidades.`,
+                    icon: "error",
+                });
+
+                return;
+            }
+
+            setUbicacionExcedentesId(ubicacion.id);
+
+        } catch (error) {
+
+            console.error(error);
+
+            setUbicacionExcedentesId(null);
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Error",
+                text: "No fue posible obtener la ubicación de Excedentes componentes",
+                icon: "error",
+            });
+
+        } finally {
+
+            setLoadingUbicacionExcedentes(false);
+
+        }
+    };
+
+    const abrirAgregarStock = () => {
+
+        setComponenteNuevoStock(null);
+        setCantidadNuevoStock("");
+
+        setOpenAgregarStock(true);
+
+        if (componentesCatalogo.length === 0) {
+            cargarComponentesCatalogo();
+        }
+
+        if (ubicacionExcedentesId === null) {
+            cargarUbicacionExcedentes();
         }
     };
 
@@ -711,6 +853,36 @@ const StockComponentes = () => {
         }
     }, [solicitudesOrdenadas, pageSolicitud, rowsPerPageSolicitud]);
 
+    // Ubicaciones donde el componente elegido en el buscador ya tiene
+    // stock registrado (actual / reservado / por ingresar), tomadas del
+    // mismo listado que ya se cargó para la tabla de "Stock real" — así
+    // el diálogo no necesita pegarle de nuevo al backend.
+    const ubicacionesComponenteNuevoStock = useMemo(() => {
+
+        if (!componenteNuevoStock) return [];
+
+        return stock.filter(
+            (item) =>
+                item.componente_id === componenteNuevoStock.componente_id
+        );
+
+    }, [stock, componenteNuevoStock]);
+
+    // Si la ubicación fija "Excedentes componentes" ya tiene una fila de
+    // existencia para este componente, se avisa que la cantidad a
+    // agregar se va a sumar ahí.
+    const ubicacionCoincidenteNuevoStock = useMemo(() => {
+
+        if (!ubicacionExcedentesId) return null;
+
+        return (
+            ubicacionesComponenteNuevoStock.find(
+                (u) => String(u.localidad_id) === String(ubicacionExcedentesId)
+            ) || null
+        );
+
+    }, [ubicacionesComponenteNuevoStock, ubicacionExcedentesId]);
+
     const abrirAjuste = (item) => {
 
         setStockSeleccionado(item);
@@ -861,6 +1033,101 @@ const StockComponentes = () => {
 
         }
 
+    };
+
+    const guardarNuevoStockComponente = async () => {
+
+        if (!componenteNuevoStock) {
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Falta el componente",
+                text: "Busca y selecciona un componente antes de continuar",
+                icon: "warning",
+            });
+
+            return;
+        }
+
+        if (!ubicacionExcedentesId) {
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Falta la ubicación",
+                text: `No se pudo resolver la ubicación
+                    "${UBICACION_EXCEDENTES_DESCRIPCION}". Cierra el
+                    diálogo e inténtalo de nuevo.`,
+                icon: "warning",
+            });
+
+            return;
+        }
+
+        const cantidad = Number(cantidadNuevoStock);
+
+        if (!Number.isInteger(cantidad) || cantidad <= 0) {
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Cantidad inválida",
+                text: "La cantidad a agregar debe ser un entero mayor a 0",
+                icon: "warning",
+            });
+
+            return;
+        }
+
+        try {
+
+            setGuardandoNuevoStock(true);
+
+            const response = await axios.post(
+                `${apiUrl}/inventario/existencias/componentes-stock/agregar`,
+                {
+                    componente_id: componenteNuevoStock.componente_id,
+                    localidad_id: ubicacionExcedentesId,
+                    cantidad,
+                    usuario: user?.nombre || "SISTEMA",
+                }
+            );
+
+            setOpenAgregarStock(false);
+
+            await cargarStock();
+            await cargarMovimientos();
+
+            const data = response.data?.data;
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Stock agregado",
+                html: data?.existia_previamente
+                    ? `Se sumaron <b>${cantidad}</b> unidades al stock que ya
+                       existía en esa ubicación
+                       (${data.cantidad_anterior} → ${data.cantidad_nueva}).`
+                    : `Se creó el registro de stock con
+                       <b>${cantidad}</b> unidades en esa ubicación.`,
+                icon: "success",
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            Swal.fire({
+                ...swalConfig,
+                title: "Error",
+                text:
+                    error?.response?.data?.message?.messageText ||
+                    "No fue posible agregar el stock",
+                icon: "error",
+            });
+
+        } finally {
+
+            setGuardandoNuevoStock(false);
+
+        }
     };
 
     const abrirProcesar = (movimiento) => {
@@ -1439,7 +1706,8 @@ const StockComponentes = () => {
                                 md: "row"
                             }}
                             spacing={1.5}
-                            sx={{ mb: 2 }}
+                            useFlexGap
+                            sx={{ mb: 2, flexWrap: "wrap" }}
                         >
 
                             <TextField
@@ -1534,8 +1802,24 @@ const StockComponentes = () => {
                                     setLocalidadStock("");
                                     setProveedorStock("");
                                 }}
+                                sx={{
+                                    flexShrink: 0,
+                                    whiteSpace: "nowrap"
+                                }}
                             >
                                 Limpiar
+                            </Button>
+
+                            <Button
+                                variant="contained"
+                                startIcon={<AddCircleOutlineIcon />}
+                                onClick={abrirAgregarStock}
+                                sx={{
+                                    flexShrink: 0,
+                                    whiteSpace: "nowrap"
+                                }}
+                            >
+                                Agregar stock
                             </Button>
 
                         </Stack>
@@ -2827,6 +3111,235 @@ const StockComponentes = () => {
                         onClick={guardarAjuste}
                     >
                         Guardar ajuste
+                    </Button>
+
+                </DialogActions>
+
+            </Dialog>
+
+
+            {/* ==================================================
+                DIALOG AGREGAR STOCK (buscador de componentes)
+            ================================================== */}
+
+            <Dialog
+                open={openAgregarStock}
+                onClose={() => setOpenAgregarStock(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+
+                <DialogTitle>
+                    Agregar stock de componente
+                </DialogTitle>
+
+                <DialogContent>
+
+                    <Stack spacing={2} sx={{ pt: 1 }}>
+
+                        <Autocomplete
+                            options={componentesCatalogo}
+                            filterOptions={filterComponentesOptions}
+                            loading={loadingComponentesCatalogo}
+                            value={componenteNuevoStock}
+                            onChange={(_, value) => {
+                                setComponenteNuevoStock(value);
+                            }}
+                            isOptionEqualToValue={(option, value) =>
+                                option.componente_id === value.componente_id
+                            }
+                            getOptionLabel={(option) =>
+                                option
+                                    ? `${option.sku || "SIN SKU"} - ${
+                                          option.descripcion ||
+                                          "Sin descripción"
+                                      }`
+                                    : ""
+                            }
+                            noOptionsText="Sin coincidencias"
+                            loadingText="Cargando componentes..."
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="Buscar componente por SKU o descripción"
+                                    autoFocus
+                                    InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {loadingComponentesCatalogo ? (
+                                                    <CircularProgress
+                                                        size={18}
+                                                    />
+                                                ) : null}
+                                                {params.InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    }}
+                                />
+                            )}
+                        />
+
+                        {componenteNuevoStock && (
+
+                            <Paper variant="outlined" sx={{ p: 1.5 }}>
+
+                                <Typography
+                                    variant="subtitle2"
+                                    sx={{ fontWeight: 700, mb: 1 }}
+                                >
+                                    Stock actual de{" "}
+                                    {componenteNuevoStock.sku}
+                                </Typography>
+
+                                {ubicacionesComponenteNuevoStock.length === 0 ? (
+
+                                    <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                    >
+                                        Este componente todavía no tiene
+                                        stock registrado en ninguna
+                                        ubicación.
+                                    </Typography>
+
+                                ) : (
+
+                                    <Table size="small">
+
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>
+                                                    Ubicación
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    Actual
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    Reservado
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    Por ingresar
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableHead>
+
+                                        <TableBody>
+                                            {ubicacionesComponenteNuevoStock.map(
+                                                (u) => (
+                                                    <TableRow
+                                                        key={u.existencia_id}
+                                                    >
+                                                        <TableCell>
+                                                            {
+                                                                u.localidad_descripcion
+                                                            }{" "}
+                                                            (
+                                                            {u.bodega_nombre}
+                                                            )
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            {u.cantidad}
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            {Number(
+                                                                u.stock_reservado ||
+                                                                    0
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            {Number(
+                                                                u.stock_por_ingresar ||
+                                                                    0
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            )}
+                                        </TableBody>
+
+                                    </Table>
+
+                                )}
+
+                            </Paper>
+
+                        )}
+
+                        <TextField
+                            label="Ubicación donde se agregará el stock"
+                            value={
+                                loadingUbicacionExcedentes
+                                    ? "Cargando..."
+                                    : ubicacionExcedentesId
+                                    ? UBICACION_EXCEDENTES_DESCRIPCION
+                                    : "No encontrada"
+                            }
+                            fullWidth
+                            disabled
+                            InputProps={{
+                                readOnly: true,
+                                endAdornment: loadingUbicacionExcedentes ? (
+                                    <InputAdornment position="end">
+                                        <CircularProgress size={18} />
+                                    </InputAdornment>
+                                ) : undefined,
+                            }}
+                            helperText="El stock que agregues siempre va a esta ubicación fija"
+                        />
+
+                        {ubicacionCoincidenteNuevoStock && (
+
+                            <Alert severity="info">
+                                Ya hay{" "}
+                                <b>
+                                    {ubicacionCoincidenteNuevoStock.cantidad}
+                                </b>{" "}
+                                unidades registradas en esta ubicación — la
+                                cantidad que agregues se sumará a esa
+                                existencia.
+                            </Alert>
+
+                        )}
+
+                        <TextField
+                            label="Cantidad a agregar"
+                            type="number"
+                            fullWidth
+                            value={cantidadNuevoStock}
+                            onChange={(e) =>
+                                setCantidadNuevoStock(e.target.value)
+                            }
+                            inputProps={{ min: 1, step: 1 }}
+                            disabled={!ubicacionExcedentesId}
+                        />
+
+                    </Stack>
+
+                </DialogContent>
+
+                <DialogActions>
+
+                    <Button
+                        onClick={() => setOpenAgregarStock(false)}
+                        disabled={guardandoNuevoStock}
+                    >
+                        Cancelar
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        startIcon={<AddCircleOutlineIcon />}
+                        onClick={guardarNuevoStockComponente}
+                        disabled={
+                            guardandoNuevoStock ||
+                            !componenteNuevoStock ||
+                            !ubicacionExcedentesId
+                        }
+                    >
+                        {guardandoNuevoStock
+                            ? "Guardando..."
+                            : "Agregar stock"}
                     </Button>
 
                 </DialogActions>

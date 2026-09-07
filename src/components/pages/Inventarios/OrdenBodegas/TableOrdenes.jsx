@@ -142,11 +142,6 @@ const TableOrdenes = () => {
     // Referencia para no disparar dos veces el alta automática de fila para
     // el mismo producto (ver más abajo, efecto de "entrada 100% fija").
     const autoAddedProductoIdRef = useRef(null);
-    // Evita que "Agregar Fila" (clic manual) y el alta automática por pines
-    // fijados disparen el mismo movimiento dos veces si ambos se activan
-    // casi al mismo tiempo (la ventana es mucho más ancha en producción,
-    // por la latencia real de red, que en local).
-    const generarOrderInFlightRef = useRef(false);
 
     const [habilitarTraspaso, setHabilitarTraspaso] = useState(false);
     const [habilitarDescripcion, setHabilitarDescripcion] = useState(false);
@@ -198,29 +193,11 @@ const TableOrdenes = () => {
     // estás consultando) llegue tarde y pise el producto que sí seleccionaste.
     const existenciasAbortRef = useRef(null);
 
-    // Espejo SIEMPRE actualizado de productoId (a diferencia del parámetro
-    // "productoId" que recibe fetchExistencias, que queda fijo al momento en
-    // que arrancó esa llamada). Sirve para detectar si, cuando por fin
-    // responde fetchExistencias, el usuario ya avanzó a otro producto o ya
-    // se limpió el campo (p. ej. porque la fila ya se agregó sola).
-    const productoIdRef = useRef(productoId);
-    useEffect(() => {
-        productoIdRef.current = productoId;
-    }, [productoId]);
-
     // Evita que un mismo escaneo dispare dos búsquedas a la vez (por ejemplo,
     // si el lector de código de barras genera "Enter" y además el campo
     // pierde el foco casi al mismo tiempo, onKeyDown y onBlur podrían
     // dispararse juntos).
     const skuSearchInFlightRef = useRef(false);
-    // Recuerda el último código ya buscado con éxito. Sin esto, un Enter del
-    // lector (handleKeyDown) seguido de un clic fuera del campo o en
-    // "Agregar Fila" (handleBlur) buscan el MISMO código dos veces: la
-    // primera búsqueda ya libera skuSearchInFlightRef antes de que llegue
-    // la segunda, así que ese candado no la detiene, y con ubicación y
-    // cantidad fijadas, la segunda búsqueda vuelve a disparar el alta
-    // automática para el mismo producto.
-    const lastSearchedCodeRef = useRef('');
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -527,19 +504,14 @@ const TableOrdenes = () => {
                     });
                     return; // Salir de la función si el producto no existe
                 }
-                // Si mientras se esperaba esta respuesta el usuario ya avanzó
-                // a otro producto (o el campo ya se limpió porque la fila se
-                // agregó sola), esta respuesta ya está vieja: aplicarla
-                // pisaría el producto nuevo. Se descarta en silencio.
-                if (String(productoIdRef.current) !== String(productoId)) {
-                    return;
-                }
                 setUbicaciones(response.data.data.salida);
                 setUbicacionEntrada(response.data.data.entrada);
                 setProductoTitle(response.data.data.producto.title);
                 setProductoSku(response.data.data.producto.sku);
+                setProductoId(response.data.data.producto.producto_id);
                 setProductoMlm(response.data.data.producto.inventory_id);
                 setProductoLogisticType(response.data.data.producto.logistic_type || '');
+                habilitarCamposTrasExistencias();
             } else {
                 let bodegaSeleccionada;
 
@@ -585,31 +557,23 @@ const TableOrdenes = () => {
                     return; // Salir de la función si el producto no existe
                 }
 
-                // Si mientras se esperaba esta respuesta el usuario ya avanzó
-                // a otro producto (o el campo ya se limpió porque la fila se
-                // agregó sola), esta respuesta ya está vieja. Aplicarla de
-                // todas formas volvería a poner un producto_id que el efecto
-                // de alta automática interpreta como "otro producto nuevo
-                // que hay que agregar", duplicando la línea — esto era
-                // justo lo que causaba el alta doble con ubicación y
-                // cantidad fijas. Se descarta en silencio.
-                if (String(productoIdRef.current) !== String(productoId)) {
-                    return;
-                }
-
                 // Si la bodega de salida está habilitada
                 if (categoriaTemp === 'salida' && response.data.ok) {
                     setUbicaciones(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
                     setProductoSku(response.data.data.producto.sku);
                     setProductoMlm(response.data.data.producto.inventory_id);
+                    setProductoId(response.data.data.producto.producto_id);
                     setProductoLogisticType(response.data.data.producto.logistic_type || '');
+                    habilitarCamposTrasExistencias();
                 } else if (categoriaTemp === 'entrada' && response.data.ok) {
                     setUbicacionEntrada(response.data.data.existencias);
                     setProductoTitle(response.data.data.producto.title);
                     setProductoSku(response.data.data.producto.sku);
                     setProductoMlm(response.data.data.producto.inventory_id);
+                    setProductoId(response.data.data.producto.producto_id);
                     setProductoLogisticType(response.data.data.producto.logistic_type || '');
+                    habilitarCamposTrasExistencias();
                 }
             }
         } catch (error) {
@@ -622,26 +586,37 @@ const TableOrdenes = () => {
         }
     };
 
+    // Habilita el botón "Agregar Fila" y los campos según el tipo de
+    // movimiento. Se llama SOLO al final de cada rama exitosa de
+    // fetchExistencias (una vez que título/SKU/ML/logistic_type y las
+    // ubicaciones del producto YA llegaron completos) — antes se llamaba
+    // desde handleSearch, sin esperar esa respuesta, lo que dejaba una
+    // ventana donde el botón (o el alta automática de entradas) ya estaba
+    // habilitado con datos del producto anterior todavía a medio actualizar
+    // (por eso a veces el ML no salía hasta refrescar la orden).
+    const habilitarCamposTrasExistencias = () => {
+        setIsButtonDisabled(false);
+        if (categoriaTemp === 'transferencia') {
+            setUbicacionSalidaHabilitada(true);
+            setUbicacionEntradaHabilitada(true);
+            setHabilitarCantidad(true);
+            setHabilitarComentario(true);
+        } else if (categoriaTemp === 'salida') {
+            setUbicacionSalidaHabilitada(true);
+            setUbicacionEntradaHabilitada(false);
+            setHabilitarCantidad(true);
+            setHabilitarComentario(true);
+        } else if (categoriaTemp === 'entrada') {
+            setUbicacionEntradaHabilitada(true);
+            setUbicacionSalidaHabilitada(false);
+            setHabilitarCantidad(true);
+            setHabilitarComentario(true);
+        }
+    };
+
     const handleSearch = async (productoId) => {
         if (productoId) {
             fetchExistencias(productoId);
-            setIsButtonDisabled(false);
-            if (categoriaTemp === 'transferencia') {
-                setUbicacionSalidaHabilitada(true);
-                setUbicacionEntradaHabilitada(true);
-                setHabilitarCantidad(true);
-                setHabilitarComentario(true);
-            } else if (categoriaTemp === 'salida') {
-                setUbicacionSalidaHabilitada(true);
-                setUbicacionEntradaHabilitada(false);
-                setHabilitarCantidad(true);
-                setHabilitarComentario(true);
-            } else if (categoriaTemp === 'entrada') {
-                setUbicacionEntradaHabilitada(true);
-                setUbicacionSalidaHabilitada(false);
-                setHabilitarCantidad(true);
-                setHabilitarComentario(true);
-            }
         }
     };
 
@@ -934,222 +909,82 @@ const TableOrdenes = () => {
             });
             return TableOrdenes;
         }
-        if (generarOrderInFlightRef.current) return;
-        generarOrderInFlightRef.current = true;
+
         execute(
             async () => {
-                try {
-                    const handleAddRow = (lineasIds = []) => {
-                        const selectedUbicacionSalidaDescripcion =
-                            ubicaciones.find((ubic) => ubic.id === selectedUbicacionSalida)?.descripcion || '';
-                        const selectedUbicacionEntradaDescripcion =
-                            ubicacionEntrada.find((ubicacion) => ubicacion.id === selectedUbicacionEntrada)
-                                ?.descripcion || '';
+                const handleAddRow = (lineasIds = []) => {
+                    const selectedUbicacionSalidaDescripcion =
+                        ubicaciones.find((ubic) => ubic.id === selectedUbicacionSalida)?.descripcion || '';
+                    const selectedUbicacionEntradaDescripcion =
+                        ubicacionEntrada.find((ubicacion) => ubicacion.id === selectedUbicacionEntrada)
+                            ?.descripcion || '';
 
-                        const newRow = {
-                            id: lineasIds[0] || rows.length + 1, // Asigna un ID único
-                            cantidad: parseInt(inputValue),
-                            producto_id: productoId, // ID del producto seleccionado,
-                            sku: productoSku,
-                            inventory_id: productoMlm,
-                            producto_title: productoTitle,
-                            logistic_type: productoLogisticType,
-                            existencias_origen: existenciaProducto,
-                            existencias_destino: existenciaProductoDestino,
-                            localidad_entrada: selectedUbicacionEntradaDescripcion,
-                            localidad_salida: selectedUbicacionSalidaDescripcion,
-                            localidad_entrada_id: selectedUbicacionEntrada,
-                            localidad_salida_id: selectedUbicacionSalida,
-                            comentario: selectedComment,
-                        };
-
-                        // La fila más reciente se muestra primero (arriba de todo).
-                        setRows((prevRows) => [newRow, ...prevRows]);
-
-                        setProductoId('');
-                        setProductoSku('');
-                        setProductoMlm('');
-                        // Libera el guardado de "ya se agregó esta fila sola" para
-                        // que, si se vuelve a escanear el MISMO producto_id (otra
-                        // caja del mismo SKU, por ejemplo), la fila se vuelva a
-                        // agregar automáticamente en vez de quedarse bloqueada.
-                        autoAddedProductoIdRef.current = null;
-                        // La ubicación de entrada solo se limpia si NO está fijada;
-                        // fijada, se mantiene para el siguiente escaneo.
-                        if (!ubicacionEntradaFija) {
-                            setSelectedUbicacionEntrada('');
-                        }
-                        // La ubicación de salida se limpia siempre aquí: en cuanto
-                        // se escanee el siguiente producto, el efecto de
-                        // autoselección la vuelve a calcular sola (la de menor
-                        // stock disponible para ESE producto).
-                        setSelectedUbicacionSalida('');
-                        setExistenciaProducto('');
-                        setExistenciaProductoDestino('');
-                        // La cantidad solo se limpia si NO está fijada.
-                        if (!cantidadFija) {
-                            setInputValue('');
-                        }
-                        setSelectedComment('');
-                        setIsButtonDisabled(true);
-
-                        // Regresa el foco al campo de escaneo para poder seguir
-                        // escaneando el siguiente producto sin usar el mouse.
-                        skuInputRef.current?.focus();
+                    const newRow = {
+                        id: lineasIds[0] || rows.length + 1, // Asigna un ID único
+                        cantidad: parseInt(inputValue),
+                        producto_id: productoId, // ID del producto seleccionado,
+                        sku: productoSku,
+                        inventory_id: productoMlm,
+                        producto_title: productoTitle,
+                        logistic_type: productoLogisticType,
+                        existencias_origen: existenciaProducto,
+                        existencias_destino: existenciaProductoDestino,
+                        localidad_entrada: selectedUbicacionEntradaDescripcion,
+                        localidad_salida: selectedUbicacionSalidaDescripcion,
+                        localidad_entrada_id: selectedUbicacionEntrada,
+                        localidad_salida_id: selectedUbicacionSalida,
+                        comentario: selectedComment,
                     };
 
-                    if (estatus === 'abierto') {
-                        const lineasData = {
-                            lineas: [
-                                {
-                                    producto_id: productoId,
-                                    cantidad: parseInt(inputValue),
-                                    comentario: selectedComment,
-                                    localidad_salida_id: parseOrNull(selectedUbicacionSalida),
-                                    localidad_entrada_id: parseOrNull(selectedUbicacionEntrada),
-                                },
-                            ],
-                        };
+                    // La fila más reciente se muestra primero (arriba de todo).
+                    setRows((prevRows) => [newRow, ...prevRows]);
 
-                        const enviarLineas = async (ordenId) => {
-                            if (ubicacionSalidaRef.current) {
-                                ubicacionSalidaRef.current.classList.remove('error');
-                            }
-                            if (ubicacionEntradaRef.current) {
-                                ubicacionEntradaRef.current.classList.remove('error');
-                            }
+                    setProductoId('');
+                    setProductoSku('');
+                    setProductoMlm('');
+                    // Libera el guardado de "ya se agregó esta fila sola" para
+                    // que, si se vuelve a escanear el MISMO producto_id (otra
+                    // caja del mismo SKU, por ejemplo), la fila se vuelva a
+                    // agregar automáticamente en vez de quedarse bloqueada.
+                    autoAddedProductoIdRef.current = null;
+                    // La ubicación de entrada solo se limpia si NO está fijada;
+                    // fijada, se mantiene para el siguiente escaneo.
+                    if (!ubicacionEntradaFija) {
+                        setSelectedUbicacionEntrada('');
+                    }
+                    // La ubicación de salida se limpia siempre aquí: en cuanto
+                    // se escanee el siguiente producto, el efecto de
+                    // autoselección la vuelve a calcular sola (la de menor
+                    // stock disponible para ESE producto).
+                    setSelectedUbicacionSalida('');
+                    setExistenciaProducto('');
+                    setExistenciaProductoDestino('');
+                    // La cantidad solo se limpia si NO está fijada.
+                    if (!cantidadFija) {
+                        setInputValue('');
+                    }
+                    setSelectedComment('');
+                    setIsButtonDisabled(true);
 
-                            if (cantidadRef.current) {
-                                cantidadRef.current.classList.remove('error');
-                            }
+                    // Regresa el foco al campo de escaneo para poder seguir
+                    // escaneando el siguiente producto sin usar el mouse.
+                    skuInputRef.current?.focus();
+                };
 
-                            let isValid = true;
+                if (estatus === 'abierto') {
+                    const lineasData = {
+                        lineas: [
+                            {
+                                producto_id: productoId,
+                                cantidad: parseInt(inputValue),
+                                comentario: selectedComment,
+                                localidad_salida_id: parseOrNull(selectedUbicacionSalida),
+                                localidad_entrada_id: parseOrNull(selectedUbicacionEntrada),
+                            },
+                        ],
+                    };
 
-                            try {
-                                if (categoriaTemp === 'transferencia') {
-                                    if (!selectedUbicacionSalida) {
-                                        if (ubicacionSalidaRef.current) {
-                                            ubicacionSalidaRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!selectedUbicacionEntrada) {
-                                        if (ubicacionEntradaRef.current) {
-                                            ubicacionEntradaRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!inputValue) {
-                                        if (cantidadRef.current) {
-                                            cantidadRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!isValid) {
-                                        Swal.fire({
-                                            title: '¡Faltan datos!',
-                                            text: 'Por favor, selecciona y rellena todos los campos',
-                                            icon: 'warning',
-                                            timer: 5000,
-                                            showCloseButton: true,
-                                            allowEscapeKey: true,
-                                        });
-                                        return;
-                                    }
-                                } else if (categoriaTemp === 'salida') {
-                                    if (!selectedUbicacionSalida) {
-                                        if (ubicacionSalidaRef.current) {
-                                            ubicacionSalidaRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!inputValue) {
-                                        if (cantidadRef.current) {
-                                            cantidadRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!isValid) {
-                                        Swal.fire({
-                                            title: '¡Faltan datos!',
-                                            text: 'Por favor, selecciona y rellena todos los campos',
-                                            icon: 'warning',
-                                            timer: 5000,
-                                            showCloseButton: true,
-                                            allowEscapeKey: true,
-                                        });
-                                        return;
-                                    }
-                                } else if (categoriaTemp === 'entrada') {
-                                    if (!selectedUbicacionEntrada) {
-                                        if (ubicacionEntradaRef.current) {
-                                            ubicacionEntradaRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!inputValue) {
-                                        if (cantidadRef.current) {
-                                            cantidadRef.current.classList.add('error');
-                                        }
-                                        isValid = false;
-                                    }
-                                    if (!isValid) {
-                                        Swal.fire({
-                                            title: '¡Faltan datos!',
-                                            text: 'Por favor, selecciona y rellena todos los campos',
-                                            icon: 'warning',
-                                            timer: 5000,
-                                            showCloseButton: true,
-                                            allowEscapeKey: true,
-                                        });
-                                        return;
-                                    }
-                                }
-                                const response = await axios.post(
-                                    `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`,
-                                    lineasData,
-                                    {
-                                        headers: {
-                                            Authorization: `Bearer ${token}`,
-                                        },
-                                    },
-                                );
-                                if (response.data.ok && response.data.lineasIds) {
-                                    handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
-                                }
-                            } catch (error) {
-                                showErrorFallback(error, 'No se pudo agregar la línea a la orden.');
-                            }
-                        };
-
-                        // Llamar a la función con el ID de la orden correspondiente
-                        const ordenId = idOrder; // Cambia esto por el ID de la orden real
-                        await enviarLineas(ordenId);
-                    } else if (!estatus) {
-                        const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
-                        const data = {
-                            fecha_abierto: dateTime,
-                            tipo_transaccion_id: idTraspaso,
-                            bodega_salida_id: parseOrNull(selectedBodegaSalida),
-                            bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
-                            estatus: 'abierto',
-                            descripcion: descripcion,
-                            lineas: [
-                                {
-                                    producto_id: productoId,
-                                    cantidad: parseInt(inputValue),
-                                    comentario: selectedComment,
-                                    localidad_salida_id: parseOrNull(selectedUbicacionSalida),
-                                    localidad_entrada_id: parseOrNull(selectedUbicacionEntrada),
-                                },
-                            ],
-                        };
-
-                        if (descripcionRef.current) {
-                            descripcionRef.current.classList.remove('error');
-                        }
-
+                    const enviarLineas = async (ordenId) => {
                         if (ubicacionSalidaRef.current) {
                             ubicacionSalidaRef.current.classList.remove('error');
                         }
@@ -1163,17 +998,186 @@ const TableOrdenes = () => {
 
                         let isValid = true;
 
-                        if (!descripcion) {
-                            if (descripcionRef.current) {
-                                descripcionRef.current.classList.add('error');
+                        try {
+                            if (categoriaTemp === 'transferencia') {
+                                if (!selectedUbicacionSalida) {
+                                    if (ubicacionSalidaRef.current) {
+                                        ubicacionSalidaRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!selectedUbicacionEntrada) {
+                                    if (ubicacionEntradaRef.current) {
+                                        ubicacionEntradaRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!inputValue) {
+                                    if (cantidadRef.current) {
+                                        cantidadRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!isValid) {
+                                    Swal.fire({
+                                        title: '¡Faltan datos!',
+                                        text: 'Por favor, selecciona y rellena todos los campos',
+                                        icon: 'warning',
+                                        timer: 5000,
+                                        showCloseButton: true,
+                                        allowEscapeKey: true,
+                                    });
+                                    return;
+                                }
+                            } else if (categoriaTemp === 'salida') {
+                                if (!selectedUbicacionSalida) {
+                                    if (ubicacionSalidaRef.current) {
+                                        ubicacionSalidaRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!inputValue) {
+                                    if (cantidadRef.current) {
+                                        cantidadRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!isValid) {
+                                    Swal.fire({
+                                        title: '¡Faltan datos!',
+                                        text: 'Por favor, selecciona y rellena todos los campos',
+                                        icon: 'warning',
+                                        timer: 5000,
+                                        showCloseButton: true,
+                                        allowEscapeKey: true,
+                                    });
+                                    return;
+                                }
+                            } else if (categoriaTemp === 'entrada') {
+                                if (!selectedUbicacionEntrada) {
+                                    if (ubicacionEntradaRef.current) {
+                                        ubicacionEntradaRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!inputValue) {
+                                    if (cantidadRef.current) {
+                                        cantidadRef.current.classList.add('error');
+                                    }
+                                    isValid = false;
+                                }
+                                if (!isValid) {
+                                    Swal.fire({
+                                        title: '¡Faltan datos!',
+                                        text: 'Por favor, selecciona y rellena todos los campos',
+                                        icon: 'warning',
+                                        timer: 5000,
+                                        showCloseButton: true,
+                                        allowEscapeKey: true,
+                                    });
+                                    return;
+                                }
+                            }
+                            const response = await axios.post(
+                                `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${ordenId}/lineas`,
+                                lineasData,
+                                {
+                                    headers: {
+                                        Authorization: `Bearer ${token}`,
+                                    },
+                                },
+                            );
+                            if (response.data.ok && response.data.lineasIds) {
+                                handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
+                            }
+                        } catch (error) {
+                            showErrorFallback(error, 'No se pudo agregar la línea a la orden.');
+                        }
+                    };
+
+                    // Llamar a la función con el ID de la orden correspondiente
+                    const ordenId = idOrder; // Cambia esto por el ID de la orden real
+                    await enviarLineas(ordenId);
+                } else if (!estatus) {
+                    const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+                    const data = {
+                        fecha_abierto: dateTime,
+                        tipo_transaccion_id: idTraspaso,
+                        bodega_salida_id: parseOrNull(selectedBodegaSalida),
+                        bodega_entrada_id: parseOrNull(selectedBodegaEntrada),
+                        estatus: 'abierto',
+                        descripcion: descripcion,
+                        lineas: [
+                            {
+                                producto_id: productoId,
+                                cantidad: parseInt(inputValue),
+                                comentario: selectedComment,
+                                localidad_salida_id: parseOrNull(selectedUbicacionSalida),
+                                localidad_entrada_id: parseOrNull(selectedUbicacionEntrada),
+                            },
+                        ],
+                    };
+
+                    if (descripcionRef.current) {
+                        descripcionRef.current.classList.remove('error');
+                    }
+
+                    if (ubicacionSalidaRef.current) {
+                        ubicacionSalidaRef.current.classList.remove('error');
+                    }
+                    if (ubicacionEntradaRef.current) {
+                        ubicacionEntradaRef.current.classList.remove('error');
+                    }
+
+                    if (cantidadRef.current) {
+                        cantidadRef.current.classList.remove('error');
+                    }
+
+                    let isValid = true;
+
+                    if (!descripcion) {
+                        if (descripcionRef.current) {
+                            descripcionRef.current.classList.add('error');
+                        }
+                        isValid = false;
+                    }
+
+                    if (!isValid) {
+                        Swal.fire({
+                            title: '¡Faltan datos!',
+                            text: 'Por favor, escribe una descripcion para tu orden',
+                            icon: 'warning',
+                            timer: 5000,
+                            showCloseButton: true,
+                            allowEscapeKey: true,
+                        });
+                        return;
+                    }
+
+                    if (categoriaTemp === 'transferencia') {
+                        if (!selectedUbicacionSalida) {
+                            if (ubicacionSalidaRef.current) {
+                                ubicacionSalidaRef.current.classList.add('error');
                             }
                             isValid = false;
                         }
-
+                        if (!selectedUbicacionEntrada) {
+                            if (ubicacionEntradaRef.current) {
+                                ubicacionEntradaRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!inputValue) {
+                            if (cantidadRef.current) {
+                                cantidadRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
                         if (!isValid) {
                             Swal.fire({
                                 title: '¡Faltan datos!',
-                                text: 'Por favor, escribe una descripcion para tu orden',
+                                text: 'Por favor, selecciona y rellena todos los campos',
                                 icon: 'warning',
                                 timer: 5000,
                                 showCloseButton: true,
@@ -1181,120 +1185,86 @@ const TableOrdenes = () => {
                             });
                             return;
                         }
-
-                        if (categoriaTemp === 'transferencia') {
-                            if (!selectedUbicacionSalida) {
-                                if (ubicacionSalidaRef.current) {
-                                    ubicacionSalidaRef.current.classList.add('error');
-                                }
-                                isValid = false;
+                    } else if (categoriaTemp === 'salida') {
+                        if (!selectedUbicacionSalida) {
+                            if (ubicacionSalidaRef.current) {
+                                ubicacionSalidaRef.current.classList.add('error');
                             }
-                            if (!selectedUbicacionEntrada) {
-                                if (ubicacionEntradaRef.current) {
-                                    ubicacionEntradaRef.current.classList.add('error');
-                                }
-                                isValid = false;
-                            }
-                            if (!inputValue) {
-                                if (cantidadRef.current) {
-                                    cantidadRef.current.classList.add('error');
-                                }
-                                isValid = false;
-                            }
-                            if (!isValid) {
-                                Swal.fire({
-                                    title: '¡Faltan datos!',
-                                    text: 'Por favor, selecciona y rellena todos los campos',
-                                    icon: 'warning',
-                                    timer: 5000,
-                                    showCloseButton: true,
-                                    allowEscapeKey: true,
-                                });
-                                return;
-                            }
-                        } else if (categoriaTemp === 'salida') {
-                            if (!selectedUbicacionSalida) {
-                                if (ubicacionSalidaRef.current) {
-                                    ubicacionSalidaRef.current.classList.add('error');
-                                }
-                                isValid = false;
-                            }
-                            if (!inputValue) {
-                                if (cantidadRef.current) {
-                                    cantidadRef.current.classList.add('error');
-                                }
-                                isValid = false;
-                            }
-                            if (!isValid) {
-                                Swal.fire({
-                                    title: '¡Faltan datos!',
-                                    text: 'Por favor, selecciona y rellena todos los campos',
-                                    icon: 'warning',
-                                    timer: 5000,
-                                    showCloseButton: true,
-                                    allowEscapeKey: true,
-                                });
-                                return;
-                            }
-                        } else if (categoriaTemp === 'entrada') {
-                            if (!selectedUbicacionEntrada) {
-                                if (ubicacionEntradaRef.current) {
-                                    ubicacionEntradaRef.current.classList.add('error');
-                                }
-                                isValid = false;
-                            }
-                            if (!inputValue) {
-                                if (cantidadRef.current) {
-                                    cantidadRef.current.classList.add('error');
-                                }
-                                isValid = false;
-                            }
-                            if (!isValid) {
-                                Swal.fire({
-                                    title: '¡Faltan datos!',
-                                    text: 'Por favor, selecciona y rellena todos los campos',
-                                    icon: 'warning',
-                                    timer: 5000,
-                                    showCloseButton: true,
-                                    allowEscapeKey: true,
-                                });
-                                return;
-                            }
+                            isValid = false;
                         }
-                        const response = await axios.post(
-                            `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idTraspaso}`,
-                            data,
-                            {
-                                headers: {
-                                    Authorization: `Bearer ${token}`,
-                                },
-                            },
-                        );
-                        if (response.data.ok) {
-                            let resultRolId;
-                            let resultRolIdEntrada;
-                            if (categoriaTemp === 'salida') {
-                                // Aquí guarda el rol_id de la bodega en rolIdTemp
-                                resultRolId = response.data.rolIdSalida;
-                            } else if (categoriaTemp === 'entrada') {
-                                resultRolIdEntrada = response.data.rolIdEntrada;
-                            } else if (categoriaTemp === 'transferencia') {
-                                resultRolId = response.data.rolIdSalida;
-                                resultRolIdEntrada = response.data.rolIdEntrada;
+                        if (!inputValue) {
+                            if (cantidadRef.current) {
+                                cantidadRef.current.classList.add('error');
                             }
-                            setRolIdTemp(resultRolId);
-                            setRolIdTempEntrada(resultRolIdEntrada);
-                            setIdOrder(response.data.id);
-                            setEstatus(response.data.estatus);
-                            if (response.data.lineasIds) {
-                                handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
-                            } else {
-                                handleAddRow(); // Si no hay lineasIds, agregar la fila sin esa información
+                            isValid = false;
+                        }
+                        if (!isValid) {
+                            Swal.fire({
+                                title: '¡Faltan datos!',
+                                text: 'Por favor, selecciona y rellena todos los campos',
+                                icon: 'warning',
+                                timer: 5000,
+                                showCloseButton: true,
+                                allowEscapeKey: true,
+                            });
+                            return;
+                        }
+                    } else if (categoriaTemp === 'entrada') {
+                        if (!selectedUbicacionEntrada) {
+                            if (ubicacionEntradaRef.current) {
+                                ubicacionEntradaRef.current.classList.add('error');
                             }
+                            isValid = false;
+                        }
+                        if (!inputValue) {
+                            if (cantidadRef.current) {
+                                cantidadRef.current.classList.add('error');
+                            }
+                            isValid = false;
+                        }
+                        if (!isValid) {
+                            Swal.fire({
+                                title: '¡Faltan datos!',
+                                text: 'Por favor, selecciona y rellena todos los campos',
+                                icon: 'warning',
+                                timer: 5000,
+                                showCloseButton: true,
+                                allowEscapeKey: true,
+                            });
+                            return;
                         }
                     }
-                } finally {
-                    generarOrderInFlightRef.current = false;
+                    const response = await axios.post(
+                        `${apiUrl}/inventario/ordenBodegas_y_lineasBodegas/orden/${idTraspaso}`,
+                        data,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        },
+                    );
+                    if (response.data.ok) {
+                        let resultRolId;
+                        let resultRolIdEntrada;
+                        if (categoriaTemp === 'salida') {
+                            // Aquí guarda el rol_id de la bodega en rolIdTemp
+                            resultRolId = response.data.rolIdSalida;
+                        } else if (categoriaTemp === 'entrada') {
+                            resultRolIdEntrada = response.data.rolIdEntrada;
+                        } else if (categoriaTemp === 'transferencia') {
+                            resultRolId = response.data.rolIdSalida;
+                            resultRolIdEntrada = response.data.rolIdEntrada;
+                        }
+                        setRolIdTemp(resultRolId);
+                        setRolIdTempEntrada(resultRolIdEntrada);
+                        setIdOrder(response.data.id);
+                        setEstatus(response.data.estatus);
+                        if (response.data.lineasIds) {
+                            handleAddRow(response.data.lineasIds); // Pasar los IDs de las líneas al método de agregar filas
+                        } else {
+                            handleAddRow(); // Si no hay lineasIds, agregar la fila sin esa información
+                        }
+                    }
                 }
             },
             {
@@ -1750,18 +1720,11 @@ const TableOrdenes = () => {
             return;
         }
 
-        if (codigo === lastSearchedCodeRef.current) {
-            // Ya se buscó este mismo código (Enter + blur casi seguidos,
-            // Enter + clic en "Agregar Fila", etc.): no repetirla.
-            return;
-        }
-
         if (skuSearchInFlightRef.current) {
             // Ya hay una búsqueda de este mismo escaneo en curso (p. ej. el
             // lector dispara "Enter" y el campo pierde el foco casi a la vez).
             return;
         }
-        lastSearchedCodeRef.current = codigo;
         skuSearchInFlightRef.current = true;
 
         try {
@@ -1829,11 +1792,6 @@ const TableOrdenes = () => {
 
     const handleProductId = (event) => {
         const sku = event.target.value;
-        // El usuario/lector está escribiendo un código nuevo: libera el
-        // candado para que, cuando termine, SÍ se pueda volver a buscar
-        // (incluso si por casualidad es idéntico al anterior, p. ej. otra
-        // caja del mismo SKU).
-        lastSearchedCodeRef.current = '';
         setProductoSku(sku);
         setSearchTerm(sku);
     };
@@ -2372,14 +2330,20 @@ const TableOrdenes = () => {
     }, [ubicaciones, selectedUbicacionSalida]);
 
     // SOLO para órdenes de ENTRADA: si tanto la ubicación de entrada como la
-    // cantidad están fijadas, en cuanto se encuentra/selecciona un producto
-    // (ya con su producto_id resuelto y sus existencias cargadas) la fila se
-    // agrega sola, sin necesidad de darle clic a "Agregar Fila". Reutiliza
-    // handleGenerarOrder tal cual (mismas validaciones de siempre); no aplica
-    // a salidas ni transferencias.
+    // cantidad están fijadas, en cuanto un producto queda completamente
+    // resuelto (título/SKU/ML/logistic_type y existencias YA cargados —
+    // `isButtonDisabled` en false es la misma señal que usa el botón "Agregar
+    // Fila", ver `habilitarCamposTrasExistencias`) la fila se agrega sola,
+    // sin necesidad de darle clic. Reutiliza handleGenerarOrder tal cual
+    // (mismas validaciones de siempre); no aplica a salidas ni
+    // transferencias. Importante: NO se dispara solo con que `productoId`
+    // exista, porque ese campo se llena antes que el resto de los datos del
+    // producto (ML, título, etc.) durante un escaneo — esperar a
+    // `isButtonDisabled === false` evita agregar la fila con datos a medias.
     useEffect(() => {
         if (categoriaTemp !== 'entrada') return;
         if (!ubicacionEntradaFija || !cantidadFija) return;
+        if (isButtonDisabled) return;
         if (!productoId || !selectedUbicacionEntrada || !inputValue) return;
         // Evita disparar el alta dos veces para el mismo producto (p. ej. si
         // este efecto se vuelve a evaluar por algún otro cambio de estado).
@@ -2387,7 +2351,15 @@ const TableOrdenes = () => {
 
         autoAddedProductoIdRef.current = productoId;
         handleGenerarOrder();
-    }, [categoriaTemp, ubicacionEntradaFija, cantidadFija, productoId, selectedUbicacionEntrada, inputValue]);
+    }, [
+        categoriaTemp,
+        ubicacionEntradaFija,
+        cantidadFija,
+        isButtonDisabled,
+        productoId,
+        selectedUbicacionEntrada,
+        inputValue,
+    ]);
 
     const estatusInfo = getEstatusInfo(estatus);
 
@@ -2396,9 +2368,6 @@ const TableOrdenes = () => {
     // español, la misma condición que ya decide isButtonDisabled / enableXxx
     // más abajo, para que el usuario entienda qué falta.
     const getAddRowDisabledReason = () => {
-        if (categoriaTemp === 'entrada' && ubicacionEntradaFija && cantidadFija) {
-            return 'Ubicación y cantidad fijas: cada producto escaneado se agrega solo, no hace falta el botón.';
-        }
         if (!categoriaTemp) return 'Selecciona primero un tipo de movimiento.';
         if (categoriaTemp === 'transferencia' && (!selectedBodegaSalida || !selectedBodegaEntrada)) {
             return 'Selecciona la bodega de salida y la bodega de entrada.';
@@ -2455,12 +2424,6 @@ const TableOrdenes = () => {
     };
 
     const addRowDisabledReason = getAddRowDisabledReason();
-    // Con ubicación y cantidad fijas en un movimiento de entrada, cada
-    // producto escaneado se agrega solo (ver el efecto de alta automática
-    // más arriba); dejar "Agregar Fila" clicable en ese momento es justo lo
-    // que permitía que un clic manual duplicara el movimiento que el alta
-    // automática ya había disparado.
-    const autoAddActivo = categoriaTemp === 'entrada' && ubicacionEntradaFija && cantidadFija;
 
     // Resalta visualmente el siguiente campo que el usuario puede llenar,
     // para que sea evidente dónde continuar el flujo sin tener que adivinar
@@ -3014,7 +2977,7 @@ const TableOrdenes = () => {
                                 <span>
                                     <IconButton
                                         size="small"
-                                        disabled={!ubicacionEntradaHabilitada && !ubicacionEntradaFija}
+                                        disabled={!ubicacionEntradaHabilitada}
                                         onClick={handleToggleUbicacionEntradaFija}
                                     >
                                         {ubicacionEntradaFija ? (
@@ -3063,7 +3026,7 @@ const TableOrdenes = () => {
                                 <span>
                                     <IconButton
                                         size="small"
-                                        disabled={!habilitarCantidad && !cantidadFija}
+                                        disabled={!habilitarCantidad}
                                         onClick={handleToggleCantidadFija}
                                     >
                                         {cantidadFija ? (
@@ -3136,11 +3099,7 @@ const TableOrdenes = () => {
                         )}
 
                         <Tooltip
-                            title={
-                                isButtonDisabled || autoAddActivo
-                                    ? addRowDisabledReason
-                                    : 'Agregar la línea a la orden'
-                            }
+                            title={isButtonDisabled ? addRowDisabledReason : 'Agregar la línea a la orden'}
                             arrow
                         >
                             <span>
@@ -3148,7 +3107,7 @@ const TableOrdenes = () => {
                                     variant="contained"
                                     endIcon={<SendIcon />}
                                     onClick={handleGenerarOrder}
-                                    disabled={isButtonDisabled || autoAddActivo}
+                                    disabled={isButtonDisabled}
                                     sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                                 >
                                     Agregar Fila
