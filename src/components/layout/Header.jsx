@@ -36,9 +36,6 @@ const Header = () => {
   const openUserMenu = Boolean(anchorUser);
 
   const avatarImage = getAvatarImage(user?.avatar_key);
-  console.log("USER HEADER:", user);
-  console.log("AVATAR KEY HEADER:", user?.avatar_key);
-  console.log("AVATAR IMAGE HEADER:", avatarImage);
 
   if (!token || location.pathname === "/login") {
     return null;
