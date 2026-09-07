@@ -300,7 +300,7 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
         { field: 'descripcion', headerName: 'Descripción', flex: 1, minWidth: 220 },
         {
             field: 'categoria',
-            headerName: 'Movimiento',
+            headerName: 'Tipo de movimiento',
             width: 160,
             renderCell: (params) => capitalize(params.value),
         },
@@ -342,7 +342,17 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
                 truco de GlobalStyles que ya se usa para el panel de columnas del
                 DataGrid en TableOrdenes.jsx. */}
             <GlobalStyles
-                styles={(theme) => ({ '.swal2-container': { zIndex: theme.zIndex.modal + 200 } })}
+                styles={(theme) => ({
+                    '.swal2-container': { zIndex: theme.zIndex.modal + 200 },
+                    // El calendario de react-datepicker (fecha inicio / fecha fin) se
+                    // renderiza dentro de un "portal" propio (ver prop portalId más
+                    // abajo) para escapar del recorte de overflow del DialogContent.
+                    // Ese portal, al no tener z-index explícito, queda por defecto
+                    // por debajo del Dialog (z-index 1300) y se ve "mocho"/tapado sin
+                    // importar el zoom. Se sube igual que el panel del DataGrid y el
+                    // contenedor de SweetAlert2.
+                    '.react-datepicker-popper': { zIndex: theme.zIndex.modal + 200 },
+                })}
             />
             <Dialog
                 open={openModal}
@@ -438,6 +448,13 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
                                     maxDate={new Date()}
                                     placeholderText="Fecha inicio"
                                     className="custom-datepicker"
+                                    // Escapa del recorte del DialogContent (ver comentario del
+                                    // GlobalStyles de arriba): el calendario se monta en un
+                                    // <div id="buscar-ordenes-datepicker-portal"> que
+                                    // react-datepicker crea solo si no existe, al final del
+                                    // <body>, en vez de quedar anidado (y recortado) dentro
+                                    // de esta modal.
+                                    portalId="buscar-ordenes-datepicker-portal"
                                 />
                                 <DatePicker
                                     selected={endDate}
@@ -447,6 +464,7 @@ const BuscarOrdenes = ({ selectedOrder, openModal, setOpenModal }) => {
                                     maxDate={new Date()}
                                     placeholderText="Fecha fin"
                                     className="custom-datepicker"
+                                    portalId="buscar-ordenes-datepicker-portal"
                                 />
 
                                 <Box sx={{ flex: '1 1 auto' }} />
