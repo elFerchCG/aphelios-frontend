@@ -204,7 +204,11 @@ const KaizenSeguimiento = () => {
 
       if (!respHistorial.data.ok) return;
 
-      const accionesActivas = respHistorial.data.data.filter(
+      const kaizens = Array.isArray(respHistorial.data.data?.kaizens)
+        ? respHistorial.data.data.kaizens
+        : [];
+
+      const accionesActivas = kaizens.filter(
         (item) => item.estatus === "activo",
       );
 
@@ -432,29 +436,90 @@ const KaizenSeguimiento = () => {
         );
       },
     },
+
     {
       field: "sku",
       headerName: "SKU",
       minWidth: 170,
       flex: 1,
     },
+
+    {
+      field: "publicacion_mlm",
+      headerName: "MLM",
+      minWidth: 170,
+      flex: 1,
+    },
+
+    {
+      field: "user_product_id",
+      headerName: "User Product ID",
+      minWidth: 170,
+      flex: 1,
+    },
+
+    {
+      field: "logistic_type",
+      headerName: "Logística",
+      width: 150,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => {
+        const value = String(params.value || "")
+          .trim()
+          .toLowerCase();
+
+        const config = {
+          fulfillment: {
+            label: "Fulfillment",
+            color: "success",
+          },
+          cross_docking: {
+            label: "Cross Docking",
+            color: "info",
+          },
+          xd_drop_off: {
+            label: "XD Drop Off",
+            color: "warning",
+          },
+        };
+
+        const estado = config[value] || {
+          label: params.value || "Sin dato",
+          color: "default",
+        };
+
+        return (
+          <Chip
+            label={estado.label}
+            color={estado.color}
+            size="small"
+            variant="outlined"
+          />
+        );
+      },
+    },
+
     {
       field: "fecha_kaizen",
       headerName: "Fecha Kaizen",
       width: 150,
       renderCell: (params) => formatoFecha(params.value),
     },
+
     {
       field: "fecha_seguimiento",
       headerName: "Seguimiento",
       width: 150,
       renderCell: (params) => formatoFecha(params.value),
     },
+
     {
       field: "responsables",
       headerName: "Asignado a",
       width: 220,
     },
+
     {
       field: "estatus",
       headerName: "Estatus",
@@ -481,6 +546,7 @@ const KaizenSeguimiento = () => {
         return <Chip label={estado.label} color={estado.color} size="small" />;
       },
     },
+
     {
       field: "acciones",
       headerName: "Historial",
@@ -716,12 +782,12 @@ const KaizenSeguimiento = () => {
               </Box>
 
               <TextField
-                label="Buscar producto o SKU"
+                label="Buscar producto, SKU, MLM o User Product ID"
                 size="small"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Escribe un SKU o nombre del producto..."
-                sx={{ maxWidth: 480 }}
+                placeholder="Escribe producto, SKU, MLM o User Product ID..."
+                sx={{ maxWidth: 520 }}
               />
             </Box>
 

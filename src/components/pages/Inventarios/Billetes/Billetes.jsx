@@ -1,18 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "../../../../estilos/billetes.css";
-import SearchIcon from "@mui/icons-material/Search";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import axios from "axios";
 import Swal from "sweetalert2";
 import {
   Box,
-  Button,
-  InputAdornment,
-  TextField,
   Typography,
 } from "@mui/material";
 
-import BulkBilletesButton from "./BulkBilletesButton";
 import DetalleBilleteDialog from "./DetalleBilleteDialog";
 import AgregarComponenteDialog from "../Componentes/AgregarComponenteDialog.jsx";
 import ActualizarComponenteDialog from "../Componentes/ActualizarComponenteDialog.jsx";

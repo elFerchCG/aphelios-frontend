@@ -4,7 +4,6 @@ import apiUrl from '../config';
 import { jwtDecode } from 'jwt-decode';
 import Swal from 'sweetalert2';
 
-
 let logoutTimer;
 
 const useAuthStore = create((set) => ({
@@ -16,7 +15,6 @@ const useAuthStore = create((set) => ({
     localStorage.setItem('user', JSON.stringify(user));
     set({ token, user });
 
-    // Limpiar cualquier timer anterior
     if (logoutTimer) clearTimeout(logoutTimer);
 
     try {
@@ -27,7 +25,6 @@ const useAuthStore = create((set) => ({
 
       if (timeLeftMs > 0) {
         logoutTimer = setTimeout(async () => {
-          // Mostrar alerta antes de cerrar sesión
           await Swal.fire({
             title: 'Sesión expirada',
             text: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.',
@@ -51,26 +48,70 @@ const useAuthStore = create((set) => ({
     }
   },
 
+  updateUser: (changes) => {
+    set((state) => {
+      const updatedUser = {
+        ...state.user,
+        ...changes,
+      };
+
+      localStorage.setItem(
+        'user',
+        JSON.stringify(updatedUser)
+      );
+
+      return {
+        user: updatedUser,
+      };
+    });
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    set({ token: null, user: null });
-    if (logoutTimer) clearTimeout(logoutTimer);
+
+    set({
+      token: null,
+      user: null,
+    });
+
+    if (logoutTimer) {
+      clearTimeout(logoutTimer);
+    }
   },
 
   validateSession: async () => {
     try {
-      const response = await axios.get(`${apiUrl}/auth/validate`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      const response = await axios.get(
+        `${apiUrl}/auth/validate`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+
+      localStorage.setItem(
+        'user',
+        JSON.stringify(response.data.user)
+      );
+
+      set({
+        user: response.data.user,
       });
-      set({ user: response.data.user });
+
       return true;
     } catch {
-      set({ token: null, user: null });
+      set({
+        token: null,
+        user: null,
+      });
+
       localStorage.clear();
+
       return false;
     }
-  }
+  },
 }));
 
 export default useAuthStore;

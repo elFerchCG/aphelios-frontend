@@ -3,7 +3,6 @@ import "../../../estilos/configuracion.css";
 import ventas from "../../../images/ventas.png";
 import pronostico from "../../../images/pronostico.png";
 import scoreCard from "../../../images/scoreCard.png";
-import kaizen from "../../../images/scoreCard.png";
 import { NavLink } from "react-router-dom";
 
 const ReCharts = () => {

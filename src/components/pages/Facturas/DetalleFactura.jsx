@@ -446,11 +446,6 @@ const DetalleFactura = () => {
     setOpenModal(true);
   };
 
-  const handleHabilitarFull = (params) => {
-    //setProductoId(params.row.producto_id);
-    habilitarFullManual(params.row.producto_id);
-  };
-
   const manejarProductoDevolver = async (lineaId) => {
     const confirm = await Swal.fire({
       title: "¿Estás seguro?",
@@ -488,32 +483,6 @@ const DetalleFactura = () => {
         "No se pudo marcar el producto como 'a devolver'.";
 
       await Swal.fire("Error", msg, "error");
-    }
-  };
-
-  const habilitarFullManual = async (productoId) => {
-    try {
-      await axios.put(`${apiUrl}/facturas/habilitarFull/${productoId}`);
-      Swal.fire({
-        title: "¡Éxito!",
-        text: "Producto habilitado para FULL correctamente.",
-        icon: "success",
-        timer: 3000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-      fetchDetalleFactura(facturaId);
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Error al habilitar el producto";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
     }
   };
 
@@ -1301,18 +1270,18 @@ const DetalleFactura = () => {
 
     return Number(
       row.op_detalle_id ||
-      row.opd_activa_id ||
-      row.orden_produccion_detalle_id ||
-      0,
+        row.opd_activa_id ||
+        row.orden_produccion_detalle_id ||
+        0,
     );
   };
 
   const obtenerOrdenCompraDetalleIdDeFila = (row) => {
     return Number(
       row.detalle_orden_compra_id ||
-      row.orden_compra_detalle_id ||
-      row.oc_detalle_id ||
-      0,
+        row.orden_compra_detalle_id ||
+        row.oc_detalle_id ||
+        0,
     );
   };
 
@@ -1331,10 +1300,10 @@ const DetalleFactura = () => {
   const getCantidadFila = (row) =>
     Number(
       row?.cantidad ??
-      row?.cantidad_pendiente ??
-      row?.cantidad_restante ??
-      row?.pendiente ??
-      0,
+        row?.cantidad_pendiente ??
+        row?.cantidad_restante ??
+        row?.pendiente ??
+        0,
     );
 
   const buildAsignacionDesdeFila = (
@@ -1946,8 +1915,9 @@ const DetalleFactura = () => {
         </p>
 
         <ul>
-          <li>Otras facturas pendientes/parciales: <strong>${hayOtrasFacturas ? "Sí" : "No"
-                }</strong></li>
+          <li>Otras facturas pendientes/parciales: <strong>${
+            hayOtrasFacturas ? "Sí" : "No"
+          }</strong></li>
         </ul>
 
         <hr />
@@ -2369,22 +2339,46 @@ const DetalleFactura = () => {
       // ======================================================
       if (skuExisteEnComponentes === false) {
         const r = await Swal.fire({
-          title: "SKU no existe en componentes",
-          html: "Este SKU <b>no existe</b> en Aphelios.<br/>¿Deseas marcarlo como <b>Producto nuevo</b>?",
+          title: "SKU no existe en Aphelios",
+          html: `
+      Este SKU <b>no existe en componentes</b> y tampoco se encontró en pedidos.
+      <br/><br/>
+      ¿Qué deseas hacer?
+    `,
           icon: "warning",
+
           showConfirmButton: true,
+          showDenyButton: true,
+
           confirmButtonText: "🆕 Producto nuevo",
-          showCancelButton: false,
+          denyButtonText: "🔁 Cambio de SKU",
+
           showCloseButton: true,
           allowOutsideClick: false,
           allowEscapeKey: true,
         });
 
+        // Producto nuevo
         if (r.isConfirmed) {
           await MarcarSkuComoNuevo(lineaId);
           fetchDetalleFactura(facturaId);
+          return;
         }
-        return; // cerró con X/ESC o confirmó
+
+        // Cambio de SKU
+        if (r.isDenied) {
+          setModoCambioSku(true);
+
+          const respSkus = await axios.get(
+            `${apiUrl}/facturas/componentes/skulibres`,
+          );
+
+          setSkusLibres(respSkus.data.data);
+          setOpenModalCambioSku(true);
+          return;
+        }
+
+        return;
       }
 
       // ======================================================
@@ -2483,7 +2477,7 @@ const DetalleFactura = () => {
               await Swal.fire(
                 "No pertenece al producto",
                 resp.data?.message ||
-                "El SKU no pertenece al producto seleccionado (no está en su billete).",
+                  "El SKU no pertenece al producto seleccionado (no está en su billete).",
                 "warning",
               );
               return;
@@ -2590,49 +2584,6 @@ const DetalleFactura = () => {
     setOpenEnvioModal(false);
     setSelectedEnvio(null);
     setSelectedLineasFacturas([]);
-  };
-
-  const handleQuitarEnlaceExcedente = async (params) => {
-    const facturaDetalleAsignacionId = Number(
-      params.row.factura_detalle_asignacion_id,
-    );
-
-    try {
-      if (!facturaDetalleAsignacionId) {
-        await Swal.fire(
-          "Error",
-          "La fila no tiene factura_detalle_asignacion_id.",
-          "error",
-        );
-        return;
-      }
-
-      const confirm = await Swal.fire({
-        title: "¿Desenlazar excedente?",
-        text: "Esto revertirá solo esta asignación de excedente.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Sí, desenlazar",
-        cancelButtonText: "Cancelar",
-      });
-
-      if (!confirm.isConfirmed) return;
-
-      await axios.put(
-        `${apiUrl}/facturas/detalleAsignacion/${facturaDetalleAsignacionId}/desenlazarExcedente`,
-      );
-
-      await Swal.fire("Listo", "Excedente desenlazado.", "success");
-
-      await fetchDetalleFactura(facturaId);
-    } catch (err) {
-      console.error(err);
-      await Swal.fire(
-        "Error",
-        err?.response?.data?.message || "No se pudo desenlazar excedente.",
-        "error",
-      );
-    }
   };
 
   const obtenerPreviewBackorders = async ({ pedidoLineaId }) => {
@@ -2744,43 +2695,6 @@ const DetalleFactura = () => {
     }
   };
 
-  const handleSingleUnlink = async () => {
-    if (!pendingBackorderParams) return;
-
-    const facturaDetalleId = pendingBackorderParams.row.id;
-    const pedidoLineaId = pendingBackorderParams.row.pedido_linea_id;
-
-    try {
-      const data = await ejecutarDesenlaceBackorder({
-        facturaDetalleId,
-        modo: "single",
-        pedidoLineaId,
-      });
-
-      if (data?.ok) {
-        setOpenChainModal(false);
-        setChainData(null);
-        setPendingBackorderParams(null);
-
-        await Swal.fire("Listo", "Se desenlazó solo esta línea.", "success");
-        await fetchDetalleFactura(facturaId);
-        return;
-      }
-
-      await Swal.fire(
-        "Atención",
-        data?.message || "No se pudo desenlazar.",
-        "warning",
-      );
-    } catch (err) {
-      await Swal.fire(
-        "No se pudo",
-        err?.response?.data?.message || "Error al desenlazar.",
-        "error",
-      );
-    }
-  };
-
   const handleUnlinkSingleBackorder = async (asignacion) => {
     try {
       const facturaDetalleAsignacionId = Number(
@@ -2845,59 +2759,6 @@ const DetalleFactura = () => {
       );
     } finally {
       setLoadingSingleUnlink(false);
-    }
-  };
-
-  const handleResetToParent = async () => {
-    if (!pendingBackorderParams || !chainData) return;
-
-    const parentPedidoLineaId = Number(chainData.parent_id || 0);
-    if (!parentPedidoLineaId) {
-      await Swal.fire(
-        "Atención",
-        "No se encontró la línea base para el reset.",
-        "warning",
-      );
-      return;
-    }
-
-    const confirm = await Swal.fire({
-      title: "¿Reset masivo de backorder?",
-      text: "Esto revertirá todas las asignaciones backorder de esta familia, incluso si están en otras facturas.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Sí, reset",
-      cancelButtonText: "Cancelar",
-    });
-
-    if (!confirm.isConfirmed) return;
-
-    try {
-      const data = await ejecutarResetBackorderMasivo({
-        parentPedidoLineaId,
-      });
-
-      if (data?.ok) {
-        setOpenChainModal(false);
-        setChainData(null);
-        setPendingBackorderParams(null);
-
-        await Swal.fire("Listo", "Reset aplicado correctamente.", "success");
-        await fetchDetalleFactura(facturaId);
-        return;
-      }
-
-      await Swal.fire(
-        "Atención",
-        data?.message || "No se pudo aplicar el reset.",
-        "warning",
-      );
-    } catch (err) {
-      await Swal.fire(
-        "No se pudo",
-        err?.response?.data?.message || "Error al aplicar reset.",
-        "error",
-      );
     }
   };
 
@@ -3691,7 +3552,7 @@ const DetalleFactura = () => {
       <Dialog
         id="modal-enlazar"
         open={openModal}
-        onClose={() => { }} // evitamos que se cierre automáticamente
+        onClose={() => {}} // evitamos que se cierre automáticamente
         fullWidth
         maxWidth={false}
         PaperProps={{
@@ -3852,7 +3713,7 @@ const DetalleFactura = () => {
                 filterable: false,
                 renderCell: (params) =>
                   skuSeleccionado?.componente_id ===
-                    params.row.componente_id ? (
+                  params.row.componente_id ? (
                     <Box
                       sx={{
                         display: "flex",
