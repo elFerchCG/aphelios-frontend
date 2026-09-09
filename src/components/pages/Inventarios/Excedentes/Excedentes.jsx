@@ -163,7 +163,7 @@ async function fetchMovimientos(estatus) {
 }
 
 async function postGenerarOrden(payload) {
-    const res = await fetch(`${apiUrl}/inventario/existencias/generar-salida-excedentes`, {
+    const res = await fetch(`${apiUrl}/inventario/existencias/generar-transferencia-excedentes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -367,7 +367,9 @@ export default function ExcedentesMonitor() {
                     String(r.title || '').toLowerCase().includes(q) ||
                     String(r.sku || '').toLowerCase().includes(q) ||
                     String(r.mlm || '').toLowerCase().includes(q) ||
-                    String(r.ml || '').toLowerCase().includes(q) 
+                    String(r.ml || '').toLowerCase().includes(q) ||
+                    String(r.folio_interno || '').toLowerCase().includes(q) ||
+                    String(r.proforma_titulo || '').toLowerCase().includes(q)
             );
         }
         data.sort((a, b) => {
@@ -598,7 +600,10 @@ export default function ExcedentesMonitor() {
                     String(m.mlm || '').toLowerCase().includes(q) ||
                     String(m.usuario || '').toLowerCase().includes(q) ||
                     String(m.origen_nombre || '').toLowerCase().includes(q) ||
-                    String(m.destino_nombre || '').toLowerCase().includes(q)
+                    String(m.destino_nombre || '').toLowerCase().includes(q) ||
+                    String(m.folio_interno || '').toLowerCase().includes(q) ||
+                    String(m.envio_id || '').toLowerCase().includes(q) ||
+                    String(m.proforma_titulo || '').toLowerCase().includes(q)
             );
         }
         data.sort((a, b) => {
@@ -616,6 +621,40 @@ export default function ExcedentesMonitor() {
         () => movimientosFiltrados.slice(pageMov * rowsPerPageMov, pageMov * rowsPerPageMov + rowsPerPageMov),
         [movimientosFiltrados, pageMov, rowsPerPageMov]
     );
+
+    // ---- Selección masiva "por hoja" (página actual de la tabla) --------------
+    // Solo entran los movimientos seleccionables de la página visible (mismo
+    // criterio que la selección individual: estatus 'pendiente' + misma bodega
+    // destino que el resto de la selección ya hecha, si la hay).
+    const seleccionablesPagina = useMemo(
+        () => movimientosPaginados.filter(puedeSeleccionar),
+        [movimientosPaginados, bodegaDestinoSeleccion]
+    );
+
+    const idsSeleccionablesPagina = useMemo(
+        () => seleccionablesPagina.map((m) => m.id),
+        [seleccionablesPagina]
+    );
+
+    const todosSeleccionadosPagina =
+        idsSeleccionablesPagina.length > 0 && idsSeleccionablesPagina.every((id) => seleccionados.includes(id));
+
+    const algunosSeleccionadosPagina =
+        !todosSeleccionadosPagina && idsSeleccionablesPagina.some((id) => seleccionados.includes(id));
+
+    const toggleSeleccionTodosPagina = () => {
+        setSeleccionados((prev) => {
+            if (todosSeleccionadosPagina) {
+                // Deseleccionar solo los de esta página, respetar el resto
+                return prev.filter((id) => !idsSeleccionablesPagina.includes(id));
+            }
+            // Agregar los seleccionables de esta página que aún no estén marcados
+            const nuevos = idsSeleccionablesPagina.filter((id) => !prev.includes(id));
+            return [...prev, ...nuevos];
+        });
+    };
+
+    const limpiarSeleccion = () => setSeleccionados([]);
 
     return (
         <Box sx={{ bgcolor: tokens.canvas, minHeight: '100vh', p: { xs: 2, md: 2 } }}>
@@ -685,7 +724,7 @@ export default function ExcedentesMonitor() {
                     <Box sx={{ p: 2, display: 'flex', gap: 1.5, alignItems: 'center' }}>
                         <TextField
                             size="small"
-                            placeholder="Buscar por Título, SKU, MLM o ID..."
+                            placeholder="Buscar por Título, SKU, MLM, ID, Envío o Proforma..."
                             value={search}
                             onChange={handleSearchChange}
                             sx={{ minWidth: 300, flex: 1, bgcolor: tokens.surface }}
@@ -920,7 +959,7 @@ export default function ExcedentesMonitor() {
 
                         <TextField
                             size="small"
-                            placeholder="Buscar por Título, SKU, MLM, ID, Usuario..."
+                            placeholder="Buscar por Título, SKU, MLM, ID, Usuario, Envío o Proforma..."
                             value={searchMov}
                             onChange={handleSearchMovChange}
                             sx={{ minWidth: 280, flex: 1, bgcolor: tokens.surface }}
@@ -934,11 +973,23 @@ export default function ExcedentesMonitor() {
                         />
 
                         {seleccionados.length > 0 && (
-                            <Stack direction="row" spacing={1.5} alignItems="center">
+                            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1 }}>
+                                <Chip
+                                    size="small"
+                                    label={`${resumenSeleccion.count} ${resumenSeleccion.count === 1 ? 'seleccionado' : 'seleccionados'}`}
+                                    sx={{ bgcolor: tokens.amberBg, color: tokens.amber, fontWeight: 700 }}
+                                />
                                 <Typography variant="body2" sx={{ color: tokens.slate }}>
-                                    <strong>{resumenSeleccion.count}</strong> seleccionados · {fmtNum(resumenSeleccion.totalUnidades)} unidades
+                                    {fmtNum(resumenSeleccion.totalUnidades)} unidades
                                     {resumenSeleccion.bodegaNombre ? ` → ${resumenSeleccion.bodegaNombre}` : ''}
                                 </Typography>
+                                <Button
+                                    size="small"
+                                    onClick={limpiarSeleccion}
+                                    sx={{ textTransform: 'none', fontWeight: 600, color: tokens.slate }}
+                                >
+                                    Limpiar selección
+                                </Button>
                                 <Button
                                     variant="contained"
                                     disableElevation
@@ -946,7 +997,7 @@ export default function ExcedentesMonitor() {
                                     onClick={abrirGenerarOrden}
                                     sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.amber, '&:hover': { bgcolor: '#2E7D5B' } }}
                                 >
-                                    Generar orden de salida
+                                    Generar orden de transferencia
                                 </Button>
                             </Stack>
                         )}
@@ -958,7 +1009,26 @@ export default function ExcedentesMonitor() {
                         <Table size="medium">
                             <TableHead>
                                 <TableRow sx={{ '& th': { bgcolor: tokens.canvas, borderColor: tokens.line, fontWeight: 700, color: tokens.slate, fontSize: 12, textTransform: 'uppercase' } }}>
-                                    <TableCell padding="checkbox" />
+                                    <TableCell padding="checkbox">
+                                        <Tooltip
+                                            title={
+                                                idsSeleccionablesPagina.length === 0
+                                                    ? 'No hay movimientos pendientes seleccionables en esta página'
+                                                    : todosSeleccionadosPagina
+                                                        ? 'Deseleccionar todos los de esta página'
+                                                        : 'Seleccionar todos los pendientes de esta página (misma bodega destino)'
+                                            }
+                                        >
+                                            <span>
+                                                <Checkbox
+                                                    checked={todosSeleccionadosPagina}
+                                                    indeterminate={algunosSeleccionadosPagina}
+                                                    disabled={idsSeleccionablesPagina.length === 0}
+                                                    onChange={toggleSeleccionTodosPagina}
+                                                />
+                                            </span>
+                                        </Tooltip>
+                                    </TableCell>
 
                                     <TableCell>
                                         <TableSortLabel
@@ -1305,11 +1375,11 @@ export default function ExcedentesMonitor() {
                 </DialogActions>
             </Dialog>
 
-            {/* Modal Generar orden de salida */}
+            {/* Modal Generar orden de transferencia */}
             <Dialog open={openGenerarDialog} onClose={() => !generando && setOpenGenerarDialog(false)} maxWidth="xs" fullWidth>
                 <DialogTitle sx={{ pb: 1 }}>
                     <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18 }}>
-                        Generar orden de bodega de salida
+                        Generar orden de bodega de transferencia
                     </Typography>
                 </DialogTitle>
                 <Divider />
