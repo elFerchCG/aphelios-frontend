@@ -575,7 +575,7 @@ const EnvioDetalle = () => {
             </Grid>
 
             {/* Muestra el CircularProgress mientras cargan los datos */}
-            <Box>
+            <Box sx={{ mt: 4 }}>
                 <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
                     {/* DataGrid a la izquierda */}
                     <Box

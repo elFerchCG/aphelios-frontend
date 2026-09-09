@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Chip, FormControl, IconButton, InputAdornment, InputLabel, LinearProgress, MenuItem, Modal, OutlinedInput, Paper, Select, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, FormControl, IconButton, InputAdornment, InputLabel, LinearProgress, MenuItem, Modal, OutlinedInput, Paper, Select, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import React, { useEffect, useRef, useState, useMemo } from 'react'
 import SearchIcon from '@mui/icons-material/Search';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
@@ -10,6 +10,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 // El Swal de "No se puede contar todavía" se dispara mientras el Modal de
 // asignar (FULL o No-FULL) sigue abierto; el Modal de MUI usa z-index 1300
@@ -156,7 +157,6 @@ const Surtido = () => {
         return lista.every((c) => cumpleComponente(c, resumen));
     };
 
-    // 3. Valor derivado — debe declararse ANTES de cualquier hook que lo use
     const modoSoloLectura = useMemo(
         () => calcularModoSoloLectura(componentes, resumenOrden),
         [componentes, resumenOrden]
@@ -361,6 +361,44 @@ const Surtido = () => {
     const getCantidadPorUnidad = (c) =>
         Number(c.cantidad_por_unidad) || 1;
 
+    // Replica en el frontend el mismo cálculo del backend
+    // (helpers/ordenProduccionHelpers.js: calcularEstadoKitsOrden) para
+    // avisar ANTES de que le den clic a "Asignar"/"Imprimir", en vez de que
+    // se enteren solo cuando el backend lo rechace.
+    const calcularEstadoEtiquetas = (lista, resumen) => {
+        if (!lista || lista.length === 0 || !resumen) return null;
+
+        const kitsListos = Math.min(
+            ...lista.map((c) => Math.floor(Number(c.cantidad_contada || 0) / getCantidadPorUnidad(c)))
+        );
+        const kitsYaSurtidos = Math.min(
+            ...lista.map((c) => Math.floor(Number(c.cantidad_surtida || 0) / getCantidadPorUnidad(c)))
+        );
+        const kitsTotalesPosibles = Number(resumen.cantidad_producto_a_producir) || 0;
+        const kitsDisponibles = Math.max(kitsListos - kitsYaSurtidos, 0);
+        const kitsRestantesOrden = Math.max(kitsTotalesPosibles - kitsYaSurtidos, 0);
+        const kitsNuevos = Math.min(kitsDisponibles, kitsRestantesOrden);
+        const completo = kitsYaSurtidos >= kitsTotalesPosibles;
+
+        const faltantes = completo
+            ? []
+            : lista
+                .filter((c) => Math.floor(Number(c.cantidad_contada || 0) / getCantidadPorUnidad(c)) <= kitsYaSurtidos)
+                .map((c) => ({
+                    id: c.id,
+                    sku: c.sku,
+                    descripcion: c.descripcion,
+                    faltan: (kitsYaSurtidos + 1) * getCantidadPorUnidad(c) - Number(c.cantidad_contada || 0)
+                }));
+
+        return { kitsListos, kitsYaSurtidos, kitsNuevos, kitsTotalesPosibles, completo, faltantes };
+    };
+
+    const estadoEtiquetas = useMemo(
+        () => calcularEstadoEtiquetas(componentes, resumenOrden),
+        [componentes, resumenOrden]
+    );
+
     const handleOpenAsignar = async (
         ordenId,
         detalleId,
@@ -533,20 +571,35 @@ const Surtido = () => {
             const response = await axios.post(`${apiUrl}/mrp/imprimirEtiquetasNoFull`, data, {
             });
             if (response.data.ok) {
-                setCantidadTicket();
-                await fetchValoresOrden(response.data.cantidadEtiquetas);
-                setSku('');
-                setData([]); // <- limpia los datos mostrados en el DataGrid
-                handleCloseSurtirNoFull();
+                if (Number(response.data.cantidadEtiquetas) > 0) {
+                    setCantidadTicket();
+                    await fetchValoresOrden(response.data.cantidadEtiquetas);
+                    setSku('');
+                    setData([]); // <- limpia los datos mostrados en el DataGrid
+                    handleCloseSurtirNoFull();
+                } else {
+                    // ok:true pero sin etiquetas nuevas: ya está completa,
+                    // no hay nada que imprimir ni descargar.
+                    Swal.fire({
+                        title: 'Nada por imprimir',
+                        text: response.data.message || 'Ya se imprimieron todas las etiquetas necesarias para esta orden.',
+                        icon: 'info',
+                        showCloseButton: true,
+                        allowEscapeKey: true
+                    });
+                }
             }
         } catch (error) {
-            const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
+            const errorData = error?.response?.data;
+            const faltantes = errorData?.faltantes;
 
             Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
+                title: 'Faltan componentes por contar',
+                html: faltantes && faltantes.length > 0
+                    ? `${errorData?.message || 'Ocurrió un error inesperado'}<br/><br/>` +
+                    faltantes.map(f => `• ${f.sku || f.componente_id}${f.descripcion ? ` (${f.descripcion})` : ''}: faltan ${f.faltan_para_siguiente_kit}`).join('<br/>')
+                    : (errorData?.message || 'Ocurrió un error inesperado'),
+                icon: 'warning',
                 showCloseButton: true,
                 allowEscapeKey: true
             });
@@ -580,13 +633,16 @@ const Surtido = () => {
                 inputRef.current?.focus();
             }
         } catch (error) {
-            const errorMessage = error?.response?.data?.message || 'Ocurrió un error inesperado';
+            const errorData = error?.response?.data;
+            const faltantes = errorData?.faltantes;
 
             Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
+                title: 'Faltan componentes por contar',
+                html: faltantes && faltantes.length > 0
+                    ? `${errorData?.message || 'Ocurrió un error inesperado'}<br/><br/>` +
+                    faltantes.map(f => `• ${f.sku || f.componente_id}${f.descripcion ? ` (${f.descripcion})` : ''}: faltan ${f.faltan_para_siguiente_kit}`).join('<br/>')
+                    : (errorData?.message || 'Ocurrió un error inesperado'),
+                icon: 'warning',
                 showCloseButton: true,
                 allowEscapeKey: true
             });
@@ -1264,7 +1320,7 @@ const Surtido = () => {
         },
         {
             field: "cantidad_surtida",
-            headerName: "Etiquetas",
+            headerName: "Procesado",
             flex: 1,
             type: "number",
             valueFormatter: (value) => Math.round(Number(value ?? 0))
@@ -2080,68 +2136,116 @@ const Surtido = () => {
                     {
                         resumenOrden && componentes.length > 0 && (
 
-                            <Paper
+                            <Accordion
                                 variant="outlined"
                                 sx={{
                                     mb: 2,
-                                    p: 2,
                                     borderRadius: 2,
                                     bgcolor: "#FFFDF5",
-                                    borderColor: "warning.light"
+                                    borderColor: "warning.light",
+                                    '&:before': { display: 'none' }
                                 }}
                             >
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <BuildOutlinedIcon color="warning" fontSize="small" />
+                                        <Typography variant="subtitle2" fontWeight="bold">
+                                            Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                        </Typography>
+                                    </Stack>
+                                </AccordionSummary>
 
-                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-                                    <BuildOutlinedIcon color="warning" fontSize="small" />
-                                    <Typography variant="subtitle2" fontWeight="bold">
-                                        Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                <AccordionDetails>
+                                    <Box
+                                        sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                            gap: 1.5
+                                        }}
+                                    >
+                                        {
+                                            componentes.map((c) => {
+                                                const porUnidad = getCantidadPorUnidad(c);
+
+                                                return (
+                                                    <Paper
+                                                        key={c.id}
+                                                        variant="outlined"
+                                                        sx={{
+                                                            p: 1,
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            bgcolor: "#fff"
+                                                        }}
+                                                    >
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {c.sku}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {c.descripcion ?? "Sin descripción"}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        <Chip
+                                                            size="small"
+                                                            color={porUnidad > 1 ? "secondary" : "default"}
+                                                            label={`x${porUnidad}`}
+                                                        />
+                                                    </Paper>
+                                                );
+                                            })
+                                        }
+                                    </Box>
+                                </AccordionDetails>
+                            </Accordion>
+
+                        )
+                    }
+
+                    {
+                        estadoEtiquetas && !modoSoloLectura && (
+
+                            <Accordion defaultExpanded sx={{ mb: 2 }}>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography
+                                        variant="subtitle2"
+                                        fontWeight="bold"
+                                        color={estadoEtiquetas.kitsNuevos > 0 ? "success.main" : (estadoEtiquetas.completo ? "info.main" : "warning.main")}
+                                    >
+                                        {estadoEtiquetas.completo
+                                            ? "Etiquetas: ya se imprimieron todas las necesarias"
+                                            : estadoEtiquetas.kitsNuevos > 0
+                                                ? `Etiquetas: ${estadoEtiquetas.kitsNuevos} lista(s) para imprimir`
+                                                : "Etiquetas: faltan componentes por contar"}
                                     </Typography>
-                                </Stack>
-
-                                <Box
-                                    sx={{
-                                        display: "grid",
-                                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                                        gap: 1.5
-                                    }}
-                                >
-                                    {
-                                        componentes.map((c) => {
-                                            const porUnidad = getCantidadPorUnidad(c);
-
-                                            return (
-                                                <Paper
-                                                    key={c.id}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        p: 1,
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "center",
-                                                        bgcolor: "#fff"
-                                                    }}
-                                                >
-                                                    <Box>
-                                                        <Typography variant="body2" fontWeight="bold">
-                                                            {c.sku}
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Alert
+                                        severity={estadoEtiquetas.kitsNuevos > 0 ? "success" : (estadoEtiquetas.completo ? "info" : "warning")}
+                                    >
+                                        {estadoEtiquetas.completo ? (
+                                            "Ya se imprimieron todas las etiquetas necesarias para esta orden."
+                                        ) : estadoEtiquetas.kitsNuevos > 0 ? (
+                                            `Hay ${estadoEtiquetas.kitsNuevos} etiqueta(s) lista(s) para imprimir.`
+                                        ) : (
+                                            <>
+                                                <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                                                    Todavía no hay etiquetas listas — faltan por contar:
+                                                </Typography>
+                                                <Stack spacing={0.5}>
+                                                    {estadoEtiquetas.faltantes.map((f) => (
+                                                        <Typography key={f.id} variant="body2">
+                                                            • {f.sku}{f.descripcion ? ` (${f.descripcion})` : ''}: faltan {f.faltan}
                                                         </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {c.descripcion ?? "Sin descripción"}
-                                                        </Typography>
-                                                    </Box>
-
-                                                    <Chip
-                                                        size="small"
-                                                        color={porUnidad > 1 ? "secondary" : "default"}
-                                                        label={`x${porUnidad}`}
-                                                    />
-                                                </Paper>
-                                            );
-                                        })
-                                    }
-                                </Box>
-
-                            </Paper>
+                                                    ))}
+                                                </Stack>
+                                            </>
+                                        )}
+                                    </Alert>
+                                </AccordionDetails>
+                            </Accordion>
 
                         )
                     }
@@ -2591,68 +2695,116 @@ const Surtido = () => {
                     {
                         resumenOrden && componentes.length > 0 && (
 
-                            <Paper
+                            <Accordion
                                 variant="outlined"
                                 sx={{
                                     mb: 2,
-                                    p: 2,
                                     borderRadius: 2,
                                     bgcolor: "#FFFDF5",
-                                    borderColor: "warning.light"
+                                    borderColor: "warning.light",
+                                    '&:before': { display: 'none' }
                                 }}
                             >
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <BuildOutlinedIcon color="warning" fontSize="small" />
+                                        <Typography variant="subtitle2" fontWeight="bold">
+                                            Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                        </Typography>
+                                    </Stack>
+                                </AccordionSummary>
 
-                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-                                    <BuildOutlinedIcon color="warning" fontSize="small" />
-                                    <Typography variant="subtitle2" fontWeight="bold">
-                                        Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                <AccordionDetails>
+                                    <Box
+                                        sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                            gap: 1.5
+                                        }}
+                                    >
+                                        {
+                                            componentes.map((c) => {
+                                                const porUnidad = getCantidadPorUnidad(c);
+
+                                                return (
+                                                    <Paper
+                                                        key={c.id}
+                                                        variant="outlined"
+                                                        sx={{
+                                                            p: 1,
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            bgcolor: "#fff"
+                                                        }}
+                                                    >
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {c.sku}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {c.descripcion ?? "Sin descripción"}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        <Chip
+                                                            size="small"
+                                                            color={porUnidad > 1 ? "secondary" : "default"}
+                                                            label={`x${porUnidad}`}
+                                                        />
+                                                    </Paper>
+                                                );
+                                            })
+                                        }
+                                    </Box>
+                                </AccordionDetails>
+                            </Accordion>
+
+                        )
+                    }
+
+                    {
+                        estadoEtiquetas && !modoSoloLectura && (
+
+                            <Accordion defaultExpanded sx={{ mb: 2 }}>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography
+                                        variant="subtitle2"
+                                        fontWeight="bold"
+                                        color={estadoEtiquetas.kitsNuevos > 0 ? "success.main" : (estadoEtiquetas.completo ? "info.main" : "warning.main")}
+                                    >
+                                        {estadoEtiquetas.completo
+                                            ? "Etiquetas: ya se imprimieron todas las necesarias"
+                                            : estadoEtiquetas.kitsNuevos > 0
+                                                ? `Etiquetas: ${estadoEtiquetas.kitsNuevos} lista(s) para imprimir`
+                                                : "Etiquetas: faltan componentes por contar"}
                                     </Typography>
-                                </Stack>
-
-                                <Box
-                                    sx={{
-                                        display: "grid",
-                                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                                        gap: 1.5
-                                    }}
-                                >
-                                    {
-                                        componentes.map((c) => {
-                                            const porUnidad = getCantidadPorUnidad(c);
-
-                                            return (
-                                                <Paper
-                                                    key={c.id}
-                                                    variant="outlined"
-                                                    sx={{
-                                                        p: 1,
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "center",
-                                                        bgcolor: "#fff"
-                                                    }}
-                                                >
-                                                    <Box>
-                                                        <Typography variant="body2" fontWeight="bold">
-                                                            {c.sku}
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Alert
+                                        severity={estadoEtiquetas.kitsNuevos > 0 ? "success" : (estadoEtiquetas.completo ? "info" : "warning")}
+                                    >
+                                        {estadoEtiquetas.completo ? (
+                                            "Ya se imprimieron todas las etiquetas necesarias para esta orden."
+                                        ) : estadoEtiquetas.kitsNuevos > 0 ? (
+                                            `Hay ${estadoEtiquetas.kitsNuevos} etiqueta(s) lista(s) para imprimir.`
+                                        ) : (
+                                            <>
+                                                <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                                                    Todavía no hay etiquetas listas — faltan por contar:
+                                                </Typography>
+                                                <Stack spacing={0.5}>
+                                                    {estadoEtiquetas.faltantes.map((f) => (
+                                                        <Typography key={f.id} variant="body2">
+                                                            • {f.sku}{f.descripcion ? ` (${f.descripcion})` : ''}: faltan {f.faltan}
                                                         </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {c.descripcion ?? "Sin descripción"}
-                                                        </Typography>
-                                                    </Box>
-
-                                                    <Chip
-                                                        size="small"
-                                                        color={porUnidad > 1 ? "secondary" : "default"}
-                                                        label={`x${porUnidad}`}
-                                                    />
-                                                </Paper>
-                                            );
-                                        })
-                                    }
-                                </Box>
-
-                            </Paper>
+                                                    ))}
+                                                </Stack>
+                                            </>
+                                        )}
+                                    </Alert>
+                                </AccordionDetails>
+                            </Accordion>
 
                         )
                     }

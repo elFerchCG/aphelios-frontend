@@ -148,7 +148,7 @@ const Header = () => {
             slotProps={{
               root: {
                 sx: {
-                  zIndex: 2100,
+                  zIndex: 1300,
                 },
               },
 

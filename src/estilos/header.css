@@ -17,7 +17,7 @@
   box-sizing: border-box;
 
   position: relative;
-  z-index: 1500;
+  z-index: 1100;
 
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
@@ -279,7 +279,7 @@
 
   background: rgba(0, 0, 0, 0.08);
 
-  z-index: 2050;
+   z-index: 1200;
 }
 
 /* =========================================================
@@ -298,7 +298,7 @@
 
   pointer-events: none;
 
-  z-index: 1800;
+  z-index: 1200;
 
   transition:
     opacity 0.25s ease,
@@ -331,7 +331,7 @@
 
   background: linear-gradient(180deg, #173962 0%, #10233d 42%, #0d1a2d 100%);
 
-  z-index: 2000;
+  z-index: 1250;
 
   overflow-y: auto;
   overflow-x: hidden;
