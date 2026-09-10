@@ -1,10 +1,5 @@
 import {
   Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -12,14 +7,32 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import { DataGrid, GridActionsCellItem } from "@mui/x-data-grid";
+
+import { GridActionsCellItem } from "@mui/x-data-grid";
+
 import axios from "axios";
-import React from "react";
-import { useEffect } from "react";
-import { useState } from "react";
-import Swal from "sweetalert2";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import {
+  swalSuccess,
+  swalInfo,
+} from "../../../../helpers/sweetAlert";
+import { handleApiError } from "../../../../helpers/apiErrorHandler";
+
 import EditNoteIcon from "@mui/icons-material/EditNote";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
+import SwapHorizOutlinedIcon from "@mui/icons-material/SwapHorizOutlined";
+
+import AppDataGrid from "../../../common/AppDataGrid";
+import PageHeader from "../../../common/PageHeader";
+import PageToolbarCard from "../../../common/PageToolbarCard";
+
+import {
+  fieldWidths,
+  toolbarButtonSx,
+  toolbarFieldSx,
+} from "../../../common/formStyles";
+
+import TipoTransaccionModal from "./components/TipoTransaccionModal";
 
 const DataGridT = () => {
   const apiUrl =
@@ -27,491 +40,408 @@ const DataGridT = () => {
       ? process.env.REACT_APP_API_URL
       : process.env.REACT_APP_API_URL_LOCAL;
 
-  const initialTransaccionData = {
-    id: "",
-    descripcion: "",
-    categoria: "",
-    activo: "",
-    rol_id: "",
-  };
-
-  const initialNewTransaccionData = {
-    descripcion: "",
-    categoria: "",
-    rol_id: "",
-  };
-
   const [rows, setRows] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [selectedTransaccion, setSelectedTransaccion] = useState(null);
-  const [openModalPost, setOpenModalPost] = useState(false);
-  const [transaccionData, setTransaccionData] = useState(
-    initialTransaccionData,
-  );
-  const [newTransaccionData, setNewTransaccionData] = useState(
-    initialNewTransaccionData,
-  );
-  const [loading, setLoading] = useState(true);
 
-  const fetchTiposTransacciones = async () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+
+  const [openModal, setOpenModal] = useState(false);
+  const [modalMode, setModalMode] = useState("create");
+  const [selectedTransaccion, setSelectedTransaccion] = useState(null);
+
+  // ============================================================
+  // CARGAR TIPOS DE TRANSACCIÓN
+  // ============================================================
+
+  const fetchTiposTransacciones = useCallback(async () => {
+    setLoading(true);
+
     try {
       const response = await axios.get(`${apiUrl}/inventario/tipoTransaccion/`);
+
       if (response.data && Array.isArray(response.data)) {
         setRows(response.data);
       } else {
-        Swal.fire({
-          title: "!Tipos de movimientos no encontrados!",
-          text: "No se encontraron tipos de movimientos",
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
+        setRows([]);
+
+        swalInfo(
+          "Tipos de movimientos no encontrados",
+          "No se encontraron tipos de movimientos",
+        );
       }
     } catch (error) {
-      Swal.fire({
-        title: "Error",
-        text: `Error: ${error.message}`,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
+      handleApiError(error, {
+        defaultMessage: "No se pudieron cargar los tipos de transacción.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [apiUrl]);
+
+  // ============================================================
+  // CARGAR ROLES
+  // ============================================================
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/usuarios/roles`);
+
+      if (response.data && Array.isArray(response.data)) {
+        setRoles(response.data);
+      } else {
+        setRoles([]);
+      }
+    } catch (error) {
+      handleApiError(error, {
+        defaultMessage: "No se pudieron cargar los roles.",
       });
     }
-  };
+  }, [apiUrl]);
+
+  // ============================================================
+  // CARGA INICIAL
+  // ============================================================
 
   useEffect(() => {
-    const fetchTiposTransacciones = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(
-          `${apiUrl}/inventario/tipoTransaccion/`,
-        );
-        if (response.data && Array.isArray(response.data)) {
-          setRows(response.data);
-        } else {
-          Swal.fire({
-            title: "!Tipos de movimientos no encontrados!",
-            text: "No se encontraron tipos de movimientos",
-            icon: "error",
-            timer: 5000,
-            showCloseButton: true,
-            allowEscapeKey: true,
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: "Error",
-          text: `Error: ${error.message}`,
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchRoles = async () => {
-      try {
-        const response = await axios.get(`${apiUrl}/usuarios/roles`);
-        if (response.data && Array.isArray(response.data)) {
-          setRoles(response.data);
-        }
-      } catch (error) {
-        Swal.fire({
-          title: "Error",
-          text: "No se pudieron cargar los roles",
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-      }
-    };
-
     fetchTiposTransacciones();
-    if (selectedTransaccion || openModalPost) {
+  }, [fetchTiposTransacciones]);
+
+  // ============================================================
+  // CARGAR ROLES AL ABRIR EL MODAL
+  // ============================================================
+
+  useEffect(() => {
+    if (openModal) {
       fetchRoles();
     }
-  }, [apiUrl, selectedTransaccion, openModalPost]);
+  }, [openModal, fetchRoles]);
 
-  const handleOpenModal = (transaccion) => {
-    setSelectedTransaccion(transaccion);
-    setTransaccionData({
-      ...initialTransaccionData,
-      ...transaccion,
-      rol_descripcion: getRolDescripcion(transaccion.rol_id),
-      activo_descripcion: transaccion.activo === 1 ? "Activo" : "Inactivo",
-    });
+  // ============================================================
+  // ABRIR MODAL PARA CREAR
+  // ============================================================
+
+  const handleOpenCreateModal = () => {
+    setModalMode("create");
+    setSelectedTransaccion(null);
     setOpenModal(true);
   };
 
+  // ============================================================
+  // ABRIR MODAL PARA EDITAR
+  // ============================================================
+
+  const handleOpenEditModal = (transaccion) => {
+    setModalMode("edit");
+    setSelectedTransaccion(transaccion);
+    setOpenModal(true);
+  };
+
+  // ============================================================
+  // CERRAR MODAL
+  // ============================================================
+
   const handleCloseModal = () => {
+    if (saving) return;
+
     setOpenModal(false);
-    setTransaccionData(initialTransaccionData);
+    setSelectedTransaccion(null);
   };
 
-  const handleOpenModalPost = () => {
-    setOpenModalPost(true);
-  };
+  // ============================================================
+  // CREAR TIPO DE TRANSACCIÓN
+  // ============================================================
 
-  const handleCloseModalPost = () => {
-    setOpenModalPost(false);
-    setTransaccionData(initialTransaccionData);
-  };
-
-  const getRolDescripcion = (rolId) => {
-    const rol = roles.find((role) => role.id === rolId);
-    return rol ? rol.descripcion : "Desconocido";
-  };
-
-  const handleChangeEstado = (e) => {
-    const selectedEstado = e.target.value;
-    const descripcionEstado = selectedEstado === 1 ? "Activo" : "Inactivo";
-    setTransaccionData({
-      ...transaccionData,
-      activo: selectedEstado,
-      activo_descripcion: descripcionEstado,
-    });
-  };
-
-  const handleSaveChanges = async () => {
+  const createTipoTransaccion = async (formData) => {
     try {
-      const response = await axios.put(
-        `${apiUrl}/inventario/tipoTransaccion/${transaccionData.id}`,
-        {
-          descripcion: transaccionData.descripcion,
-          categoria: transaccionData.categoria,
-          activo: transaccionData.activo, // Enviar el estado (1 o 0)
-          rol_id: parseInt(transaccionData.rol_id, 10), // Convertir a número entero
-        },
-      );
-      if (response.status === 200) {
-        Swal.fire({
-          title: "Tipo de movimiento actualizado",
-          text: "Los cambios se guardaron correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-        setTransaccionData("");
-        fetchTiposTransacciones();
-        setOpenModal(false);
-      }
-    } catch (error) {
-      setTransaccionData("");
-      const errorMessage =
-        error.response?.data?.message || "Hubo un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-      setOpenModal(false);
-    }
-  };
+      setSaving(true);
 
-  const addTipoTransaccion = async () => {
-    try {
       const response = await axios.post(
         `${apiUrl}/inventario/tipoTransaccion/`,
         {
-          descripcion: newTransaccionData.descripcion,
-          categoria: newTransaccionData.categoria,
-          rol_id: newTransaccionData.rol_id, // Convertir a número entero
+          descripcion: formData.descripcion,
+          categoria: formData.categoria,
+          rol_id: formData.rol_id,
         },
       );
-      if (response.data.ok) {
-        Swal.fire({
-          title: "Tipo de transacción creado",
-          text: "El nuevo tipo de transacción se ha creado correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-        fetchTiposTransacciones();
-        setNewTransaccionData("");
-        handleCloseModalPost();
+
+      if (response.data?.ok) {
+        // Refrescamos la tabla
+        await fetchTiposTransacciones();
+
+        // Cerramos el modal antes del mensaje de éxito
+        setOpenModal(false);
+        setSelectedTransaccion(null);
+
+        swalSuccess(
+          "Tipo de transacción creado",
+          "El nuevo tipo de transacción se creó correctamente",
+        );
       }
     } catch (error) {
-      setNewTransaccionData("");
-      const errorMessage =
-        error.response?.data?.message || "Hubo un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
+      // El modal permanece abierto.
+      // handleApiError decide si es warning, error 500
+      // o error de conexión.
+      handleApiError(error, {
+        defaultMessage: "No se pudo crear el tipo de transacción.",
       });
-      setOpenModalPost(false);
+    } finally {
+      setSaving(false);
     }
   };
 
+  // ============================================================
+  // ACTUALIZAR TIPO DE TRANSACCIÓN
+  // ============================================================
+
+  const updateTipoTransaccion = async (formData) => {
+    try {
+      setSaving(true);
+
+      const response = await axios.put(
+        `${apiUrl}/inventario/tipoTransaccion/${formData.id}`,
+        {
+          descripcion: formData.descripcion,
+          categoria: formData.categoria,
+          activo: formData.activo,
+          rol_id: formData.rol_id,
+        },
+      );
+
+      if (response.status === 200) {
+        // Refrescamos la tabla
+        await fetchTiposTransacciones();
+
+        // Cerramos el modal antes del mensaje de éxito
+        setOpenModal(false);
+        setSelectedTransaccion(null);
+
+        swalSuccess(
+          "Tipo de movimiento actualizado",
+          "Los cambios se guardaron correctamente",
+        );
+      }
+    } catch (error) {
+      // El modal permanece abierto
+      handleApiError(error, {
+        defaultMessage: "No se pudo actualizar el tipo de transacción.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ============================================================
+  // GUARDAR SEGÚN MODO
+  // ============================================================
+
+  const handleSaveTransaccion = async (formData) => {
+    if (modalMode === "edit") {
+      await updateTipoTransaccion(formData);
+      return;
+    }
+
+    await createTipoTransaccion(formData);
+  };
+
+  // ============================================================
+  // FILTRADO
+  // ============================================================
+
+  const filteredRows = useMemo(() => {
+    const searchValue = search.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      // ============================
+      // FILTRO DE BÚSQUEDA
+      // ============================
+
+      const matchesSearch =
+        !searchValue ||
+        row.descripcion?.toLowerCase().includes(searchValue) ||
+        row.categoria?.toLowerCase().includes(searchValue) ||
+        row.rol_descripcion?.toLowerCase().includes(searchValue);
+
+      // ============================
+      // FILTRO DE ESTATUS
+      // ============================
+
+      const matchesStatus =
+        statusFilter === "todos" ||
+        (statusFilter === "activos" && row.activo === 1) ||
+        (statusFilter === "inactivos" && row.activo === 0);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [rows, search, statusFilter]);
+
+  // ============================================================
+  // COLUMNAS
+  // ============================================================
+
   const columns = [
-    { field: "id", headerName: "Folio", flex: 1 },
-    { field: "descripcion", headerName: "Descripción", flex: 3 },
-    { field: "categoria", headerName: "Categoria", flex: 1 },
-    // { field: 'activo', headerName: 'Activo', flex: 1 },
-    // {
-    //     field: 'activo_descripcion', headerName: 'Activo', flex: 0.8,
-    //     renderCell: (params) => (
-    //         params.value === "Sí"
-    //             ? <Chip label="Activo" color="success" size="small" />
-    //             : <Chip label="Inactivo" color="default" size="small" />
-    //     )
-    // },
-    { field: "rol_id", headerName: "Rol", flex: 1 },
-    { field: "rol_descripcion", headerName: "Rol", flex: 0.8 },
+    {
+      field: "id",
+      headerName: "Folio",
+      flex: 0.5,
+    },
+    {
+      field: "descripcion",
+      headerName: "Descripción",
+      flex: 2,
+      minWidth: 220,
+    },
+    {
+      field: "categoria",
+      headerName: "Categoría",
+      flex: 1,
+      minWidth: 140,
+    },
+    {
+      field: "rol_id",
+      headerName: "Rol ID",
+      flex: 0.6,
+    },
+    {
+      field: "rol_descripcion",
+      headerName: "Rol",
+      flex: 1,
+      minWidth: 160,
+    },
+    {
+      field: "activo",
+      headerName: "Estatus",
+      flex: 0.7,
+      minWidth: 110,
+      valueGetter: (value) => {
+        return value === 1 ? "Activo" : "Inactivo";
+      },
+    },
     {
       field: "actions",
       headerName: "Acciones",
       type: "actions",
-      width: 150,
+      width: 110,
       getActions: (params) => [
-        <Tooltip title="Ver detalles">
+        <Tooltip
+          key={`editar-${params.row.id}`}
+          title="Editar tipo de transacción"
+          arrow
+        >
           <GridActionsCellItem
             icon={<EditNoteIcon />}
             label="Editar tipo de transacción"
-            sx={{ color: "green" }}
-            onClick={() => handleOpenModal(params.row)}
+            onClick={() => handleOpenEditModal(params.row)}
+            showInMenu={false}
+            sx={{
+              color: "#1976d2",
+              "&:hover": {
+                color: "#1565c0",
+                backgroundColor: "rgba(25, 118, 210, 0.08)",
+              },
+            }}
           />
         </Tooltip>,
       ],
     },
   ];
 
-  // const filteredRows = data.filter(row =>
-  //     (row.id && row.id.toString().includes(filter)) ||
-  //     (row.descripcion && row.descripcion.toLowerCase().includes(filter.toLowerCase())) ||
-  //     (row.categoria && row.categoria.toLowerCase().includes(filter.toLowerCase())) ||
-  //     (row.responsable && row.responsable.toLowerCase().includes(filter.toLowerCase()))
-  // )
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <div className="contenido">
-      <div className="encabezado">
-        <h1>Tipos de transacciones</h1>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "500px",
-          width: "auto",
-          margin: "30px",
-          marginTop: "-30px",
-        }}
-      >
-        {/* Contenedor flex para el TextField y el Button */}
+    <div>
+      <PageHeader
+        icon={SwapHorizOutlinedIcon}
+        title="Tipos de transacciones"
+        subtitle="Administra los tipos de movimiento disponibles en inventario."
+      />
+
+      <PageToolbarCard>
         <div
           style={{
             display: "flex",
-            alignItems: "center", // Para alinear ambos elementos a la misma altura
-            marginBottom: "10px", // Espacio entre el formulario y el DataGrid
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
           }}
         >
-          {/* TextField alineado a la izquierda */}
           <TextField
-            id="outlined-basic"
             label="Buscar tipo de transacción"
-            variant="outlined"
-            style={{
-              minWidth: "350px", // Ajusta el tamaño del TextField según sea necesario
-              marginRight: "auto", // Para que el TextField ocupe todo el espacio posible
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.large,
             }}
           />
-          {/* Botón alineado a la derecha */}
+
+          <FormControl
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.medium,
+            }}
+          >
+            <InputLabel id="estatus-filter-label">Estatus</InputLabel>
+
+            <Select
+              labelId="estatus-filter-label"
+              value={statusFilter}
+              label="Estatus"
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="todos">Todos</MenuItem>
+              <MenuItem value="activos">Activos</MenuItem>
+              <MenuItem value="inactivos">Inactivos</MenuItem>
+            </Select>
+          </FormControl>
+
           <Button
             variant="contained"
-            color="primary"
-            onClick={handleOpenModalPost}
-            style={{
-              marginLeft: "auto", // Empuja el botón hacia la derecha
+            onClick={handleOpenCreateModal}
+            sx={{
+              ...toolbarButtonSx,
+              ml: "auto",
             }}
           >
             Agregar Tipo de transacción
           </Button>
         </div>
-        {/* DataGrid */}
+      </PageToolbarCard>
 
-        <DataGrid
-          rows={rows}
+      <div
+        style={{
+          marginLeft: "30px",
+          marginRight: "30px",
+        }}
+      >
+        <AppDataGrid
+          rows={filteredRows}
           columns={columns}
-          pageSize={5}
           loading={loading}
-          disableColumnResize={false}
-          showCellVerticalBorder
-          showColumnVerticalBorder
           getRowId={(row) => row.id}
-          experimentalFeatures={{ newEditingApi: true }}
-          columnVisibilityModel={{
+          exportFileName="tipos-transacciones"
+          initialColumnVisibilityModel={{
             id: false,
             activo: false,
             rol_id: false,
           }}
         />
       </div>
-      {/* Modal para editar usuario */}
-      <Dialog open={openModal} onClose={handleCloseModal}>
-        <DialogTitle>Editar tipo de transacción</DialogTitle>
-        <DialogContent>
-          <TextField
-            label={"descripción"}
-            fullWidth
-            margin="normal"
-            type="text"
-            value={transaccionData.descripcion}
-            onChange={(e) =>
-              setTransaccionData({
-                ...transaccionData,
-                descripcion: e.target.value,
-              })
-            }
-          />
-          <TextField
-            label={"categoria"}
-            fullWidth
-            margin="normal"
-            value={transaccionData.categoria}
-            onChange={(e) =>
-              setTransaccionData({
-                ...transaccionData,
-                categoria: e.target.value,
-              })
-            }
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Rol"}</InputLabel>
-            <Select
-              value={transaccionData.rol_id || ""}
-              onChange={(e) => {
-                const selectedRol = e.target.value;
-                const descripcion = getRolDescripcion(selectedRol);
-                setTransaccionData({
-                  ...transaccionData,
-                  rol_id: parseInt(selectedRol, 10), // Convertir el rol seleccionado a número
-                  rol_descripcion: descripcion,
-                });
-              }}
-            >
-              <MenuItem value="">
-                <em>Seleccionar rol</em>
-              </MenuItem>
-              {roles.length > 0 ? (
-                roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    {role.descripcion}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem value="" disabled>
-                  No hay roles disponibles
-                </MenuItem>
-              )}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Estatus"}</InputLabel>
-            <Select
-              value={
-                transaccionData.activo !== undefined
-                  ? transaccionData.activo
-                  : ""
-              }
-              onChange={handleChangeEstado}
-            >
-              <MenuItem value={1}>Activo</MenuItem>
-              <MenuItem value={0}>Inactivo</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={handleSaveChanges} color="primary">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Modal para crear usuario */}
-      <Dialog open={openModalPost} onClose={handleCloseModalPost}>
-        <DialogTitle>Crear tipo de transacción</DialogTitle>
-        <DialogContent>
-          <TextField
-            label={"Descripción"}
-            fullWidth
-            margin="normal"
-            value={newTransaccionData.descripcion}
-            onChange={(e) =>
-              setNewTransaccionData({
-                ...newTransaccionData,
-                descripcion: e.target.value,
-              })
-            }
-          />
-          <TextField
-            label={"Categoria"}
-            fullWidth
-            margin="normal"
-            value={newTransaccionData.categoria}
-            onChange={(e) =>
-              setNewTransaccionData({
-                ...newTransaccionData,
-                categoria: e.target.value,
-              })
-            }
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Rol"}</InputLabel>
-            <Select
-              value={newTransaccionData.rol_id || ""} // El valor de 'rol_id' debe coincidir con los valores de los roles
-              onChange={(e) => {
-                const selectedRol = e.target.value;
-                const descripcion = getRolDescripcion(selectedRol);
-                setNewTransaccionData({
-                  ...newTransaccionData,
-                  rol_id: selectedRol,
-                  rol_descripcion: descripcion, // Aquí puedes también almacenar la descripción si lo necesitas
-                });
-              }}
-            >
-              <MenuItem defaultValue="">
-                <em>Seleccionar rol</em>
-              </MenuItem>
-              {roles.length > 0 ? (
-                roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    {role.descripcion}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem defaultValue="" disabled>
-                  No hay roles disponibles
-                </MenuItem>
-              )}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModalPost} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={addTipoTransaccion} color="primary">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
+
+      <TipoTransaccionModal
+        open={openModal}
+        mode={modalMode}
+        data={selectedTransaccion}
+        roles={roles}
+        onClose={handleCloseModal}
+        onSave={handleSaveTransaccion}
+        loading={saving}
+      />
     </div>
   );
 };

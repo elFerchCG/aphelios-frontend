@@ -10,7 +10,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import Home from "../components/pages/Menu/Home";
 import Configuracion from "../components/pages/Menu/Configuracion";
 import Inventario from "../components/pages/Menu/Inventario";
-import Marketing from "../components/pages/Menu/Marketing";
+import Marketing from "../components/pages/Marketing/Marketing";
 
 // ==============================
 // CONFIGURACIÓN

@@ -1,27 +1,43 @@
-import React from "react";
-import { useEffect, useState, useRef } from "react";
-import axios from "axios";
-import EditNoteIcon from "@mui/icons-material/EditNote";
-import Swal from "sweetalert2";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
-  Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Chip,
   FormControl,
   InputLabel,
   MenuItem,
-  Modal,
   Select,
   TextField,
   Tooltip,
 } from "@mui/material";
-import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
-import { Chip } from "@mui/material";
+
+import { GridActionsCellItem } from "@mui/x-data-grid";
+
+import axios from "axios";
+
+import EditNoteIcon from "@mui/icons-material/EditNote";
 import HourglassTopIcon from "@mui/icons-material/HourglassTop";
-import { set } from "date-fns";
+import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
+
+import AppDataGrid from "../../common/AppDataGrid";
+import PageHeader from "../../common/PageHeader";
+import PageToolbarCard from "../../common/PageToolbarCard";
+
+import {
+  fieldWidths,
+  toolbarButtonSx,
+  toolbarFieldSx,
+} from "../../common/formStyles";
+
+import {
+  swalInfo,
+  swalSuccess,
+} from "../../../helpers/sweetAlert";
+
+import { handleApiError } from "../../../helpers/apiErrorHandler";
+
+import ProveedorModal from "./components/ProveedorModal";
+import InventariosMRPModal from "./components/InventariosMRPModal";
 
 const ProveedoresTable = () => {
   const apiUrl =
@@ -29,733 +45,534 @@ const ProveedoresTable = () => {
       ? process.env.REACT_APP_API_URL
       : process.env.REACT_APP_API_URL_LOCAL;
 
-  const initialProveedorData = {
-    id_proveedor: "",
-    razon_social: "",
-    rfc: "",
-    correo: "",
-    surtido: 1,
-    backorder: 1,
-    estado: 1,
-    sku_proveedor: "",
-  };
-
-  const initialNewProveedorData = {
-    razon_social: "",
-    rfc: "",
-    correo: "",
-    surtido: 1,
-    backorder: 1,
-    sku_proveedor: "",
-  };
+  // ==============================
+  // ESTADOS
+  // ==============================
 
   const [rows, setRows] = useState([]);
-  const [openModal, setOpenModal] = useState(false);
-  const [openModalPost, setOpenModalPost] = useState(false);
-  const [selectedProveedor, setSelectedProveedor] = useState(null);
-  const [proveedorData, setProveedorData] = useState(initialProveedorData);
-  const [newProveedorData, setNewProveedorData] = useState(
-    initialNewProveedorData,
-  );
+
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savingInventarios, setSavingInventarios] =
+    useState(false);
 
-  const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-    id_proveedor: false,
-    estado: false,
-  });
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState("todos");
 
-  const initialInventariosMRP = {
-    inv_seguridad: "1.0",
-    inv_maximo: "1.0",
+  const [openProveedorModal, setOpenProveedorModal] =
+    useState(false);
+
+  const [modalMode, setModalMode] =
+    useState("create");
+
+  const [selectedProveedor, setSelectedProveedor] =
+    useState(null);
+
+  const [openInventariosModal, setOpenInventariosModal] =
+    useState(false);
+
+  // ==============================
+  // CARGAR PROVEEDORES
+  // ==============================
+
+  const fetchProveedores = useCallback(async () => {
+    setLoading(true);
+
+    try {
+      const response = await axios.get(
+        `${apiUrl}/proveedores`,
+      );
+
+      if (
+        response.data &&
+        Array.isArray(response.data)
+      ) {
+        setRows(response.data);
+
+        if (response.data.length === 0) {
+          swalInfo(
+            "Proveedores no encontrados",
+            "No se encontraron proveedores registrados",
+          );
+        }
+      } else {
+        setRows([]);
+      }
+    } catch (error) {
+      handleApiError(error, {
+        defaultMessage:
+          "No se pudieron cargar los proveedores.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [apiUrl]);
+
+  useEffect(() => {
+    fetchProveedores();
+  }, [fetchProveedores]);
+
+  // ==============================
+  // MODAL PROVEEDOR
+  // ==============================
+
+  const handleOpenCreateModal = () => {
+    setModalMode("create");
+    setSelectedProveedor(null);
+    setOpenProveedorModal(true);
   };
 
-  const [inventariosMRPData, setInventariosMRPData] = useState(
-    initialInventariosMRP,
-  );
-
-  const [openModalInventarios, setOpenModalInventarios] = useState(false);
-  const handleOpenModalInventarios = (proveedor) => {
+  const handleOpenEditModal = (proveedor) => {
+    setModalMode("edit");
     setSelectedProveedor(proveedor);
-    setOpenModalInventarios(true);
+    setOpenProveedorModal(true);
   };
-  const handleCloseModalInventarios = () => {
-    setOpenModalInventarios(false);
+
+  const handleCloseProveedorModal = () => {
+    if (saving) return;
+
+    setOpenProveedorModal(false);
     setSelectedProveedor(null);
   };
 
-  const styleModalInventarios = {
-    fontFamily: "Montserrat",
-    fontWeight: "bold",
-    position: "absolute",
-    textAlign: "center",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: 500,
-    bgcolor: "background.paper",
-    border: "2px solid #1e88e5",
-    borderRadius: 4,
-    boxShadow: 24,
-    p: 4,
-  };
+  // ==============================
+  // CREAR PROVEEDOR
+  // ==============================
 
-  const seguridadRef = useRef(null);
-
-  useEffect(() => {
-    if (openModalInventarios) {
-      setInventariosMRPData(initialInventariosMRP);
-    }
-  }, [openModalInventarios]);
-
-  useEffect(() => {
-    if (openModalInventarios) {
-      setTimeout(() => {
-        seguridadRef.current?.focus();
-      }, 100);
-    }
-  }, [openModalInventarios]);
-
-  const fetchProveedores = async () => {
+  const createProveedor = async (formData) => {
     try {
-      const response = await axios.get(`${apiUrl}/proveedores`);
-      if (response.data && Array.isArray(response.data)) {
-        setRows(response.data);
-      } else {
-        Swal.fire({
-          title: "!Proveedores no encontrados!",
-          text: "No se encontraron proveedores",
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
+      setSaving(true);
+
+      const response = await axios.post(
+        `${apiUrl}/proveedores/`,
+        {
+          razon_social: formData.razon_social,
+          rfc: formData.rfc,
+          correo: formData.correo,
+          surtido: formData.surtido,
+          backorder: formData.backorder,
+          sku_proveedor: formData.sku_proveedor,
+        },
+      );
+
+      if (response.data?.ok) {
+        await fetchProveedores();
+
+        setOpenProveedorModal(false);
+        setSelectedProveedor(null);
+
+        swalSuccess(
+          "Proveedor creado",
+          "El nuevo proveedor se creó correctamente",
+        );
       }
     } catch (error) {
-      Swal.fire({
-        title: "Error",
-        text: `Error: ${error.message}`,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
+      handleApiError(error, {
+        defaultMessage:
+          "No se pudo crear el proveedor.",
+        warningTitle:
+          "No se pudo crear el proveedor",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
-  useEffect(() => {
-    const fetchProveedores = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${apiUrl}/proveedores`);
-        if (response.data && Array.isArray(response.data)) {
-          setRows(response.data);
-        } else {
-          Swal.fire({
-            title: "!Proveedores no encontrados!",
-            text: "No se encontraron proveedores",
-            icon: "error",
-            timer: 5000,
-            showCloseButton: true,
-            allowEscapeKey: true,
-          });
-        }
-      } catch (error) {
-        Swal.fire({
-          title: "Error",
-          text: `Error: ${error.message}`,
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProveedores();
-  }, [apiUrl]);
+  // ==============================
+  // ACTUALIZAR PROVEEDOR
+  // ==============================
 
-  const handleOpenModal = (proveedor) => {
-    setSelectedProveedor(proveedor);
-    setProveedorData({
-      ...initialProveedorData,
-      ...proveedor,
-      estado: proveedor.estado ?? 1,
-      surtido: proveedor.surtido ?? 1,
-      backorder: proveedor.backorder ?? 1,
-    });
-    setOpenModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setOpenModal(false);
-    setProveedorData(initialProveedorData);
-  };
-
-  const handleOpenModalPost = () => {
-    setOpenModalPost(true);
-  };
-
-  const handleCloseModalPost = () => {
-    setOpenModalPost(false);
-  };
-
-  const handleChangeEstado = (e) => {
-    setProveedorData({
-      ...proveedorData,
-      estado: e.target.value,
-    });
-  };
-
-  // const handleChangeSurtido = (e) => {
-  //     setProveedorData({
-  //         ...proveedorData,
-  //         surtido: e.target.value,
-  //     });
-  // }
-
-  const handleChangeBackOrder = (e) => {
-    setProveedorData({
-      ...proveedorData,
-      backorder: e.target.value,
-    });
-  };
-
-  const addProveedor = async () => {
+  const updateProveedor = async (formData) => {
     try {
-      const response = await axios.post(`${apiUrl}/proveedores/`, {
-        razon_social: newProveedorData.razon_social,
-        rfc: newProveedorData.rfc,
-        correo: newProveedorData.correo,
-        surtido: newProveedorData.surtido,
-        backorder: newProveedorData.backorder,
-        sku_proveedor: newProveedorData.sku_proveedor,
-      });
-      if (response.data.ok) {
-        handleCloseModalPost(); // 👈 primero cerrar modal
-        setNewProveedorData(initialNewProveedorData);
-        Swal.fire({
-          title: "Proveedor creado",
-          text: "El nuevo proveedor se ha creado correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-        fetchProveedores();
-      }
-    } catch (error) {
-      handleCloseModalPost();
-      setNewProveedorData(initialNewProveedorData);
-      Swal.fire({
-        title: "Error",
-        text: "Hubo un problema al crear el proveedor",
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-    }
-  };
+      setSaving(true);
 
-  const handleSaveChanges = async () => {
-    try {
       await axios.put(
-        `${apiUrl}/proveedores/${proveedorData.id_proveedor}`,
-        proveedorData,
+        `${apiUrl}/proveedores/${formData.id_proveedor}`,
+        formData,
       );
-      Swal.fire(
-        "Actualizado",
-        "Proveedor actualizado correctamente",
-        "success",
+
+      await fetchProveedores();
+
+      setOpenProveedorModal(false);
+      setSelectedProveedor(null);
+
+      swalSuccess(
+        "Proveedor actualizado",
+        "Los cambios se guardaron correctamente",
       );
-      fetchProveedores();
-      setProveedorData(initialProveedorData);
-      setOpenModal(false);
     } catch (error) {
-      Swal.fire("Error", "Hubo un problema al guardar", "error");
-      setProveedorData(initialProveedorData);
+      handleApiError(error, {
+        defaultMessage:
+          "No se pudo actualizar el proveedor.",
+        warningTitle:
+          "No se pudo actualizar el proveedor",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleSaveInventariosMRP = async () => {
+  // ==============================
+  // GUARDAR SEGÚN MODO
+  // ==============================
+
+  const handleSaveProveedor = async (formData) => {
+    if (modalMode === "edit") {
+      await updateProveedor(formData);
+      return;
+    }
+
+    await createProveedor(formData);
+  };
+
+  // ==============================
+  // INVENTARIOS MRP
+  // ==============================
+
+  const handleOpenInventariosModal = (proveedor) => {
+    setSelectedProveedor(proveedor);
+    setOpenInventariosModal(true);
+  };
+
+  const handleCloseInventariosModal = () => {
+    if (savingInventarios) return;
+
+    setOpenInventariosModal(false);
+    setSelectedProveedor(null);
+  };
+
+  const handleSaveInventariosMRP = async (payload) => {
+    if (!selectedProveedor) return;
+
     try {
-      const payload = {
-        inv_seguridad: Number(inventariosMRPData.inv_seguridad).toFixed(1),
-        inv_maximo: Number(inventariosMRPData.inv_maximo).toFixed(1),
-      };
+      setSavingInventarios(true);
 
       await axios.put(
         `${apiUrl}/proveedores/inventariosMRP/${selectedProveedor.id_proveedor}`,
         payload,
       );
 
-      setOpenModalInventarios(false);
-      Swal.fire(
-        "Actualizado",
-        "Todas las publicaciones se han actualizado correctamente",
-        "success",
+      await fetchProveedores();
+
+      setOpenInventariosModal(false);
+      setSelectedProveedor(null);
+
+      swalSuccess(
+        "Inventarios actualizados",
+        "Todas las publicaciones del proveedor se actualizaron correctamente",
       );
-      fetchProveedores();
     } catch (error) {
-      setOpenModalInventarios(false);
-      Swal.fire("Error", "Hubo un problema al guardar", "error");
+      handleApiError(error, {
+        defaultMessage:
+          "No se pudieron actualizar los inventarios MRP.",
+        warningTitle:
+          "No se pudieron actualizar los inventarios",
+      });
+    } finally {
+      setSavingInventarios(false);
     }
   };
 
-  const columns = [
-    { field: "id_proveedor", headerName: "Folio", flex: 1 },
-    { field: "razon_social", headerName: "Razón Social", flex: 1.5 },
-    { field: "rfc", headerName: "RFC", flex: 0.5 },
-    { field: "correo", headerName: "Correo", flex: 1 },
-    {
-      field: "estado",
-      headerName: "Estatus",
-      flex: 0.5,
-      renderCell: (params) =>
-        params.value === 1 ? (
-          <Chip label="Activo" color="success" size="small" />
-        ) : (
-          <Chip label="Inactivo" color="default" size="small" />
-        ),
-    },
-    {
-      field: "backorder",
-      headerName: "Back Order",
-      flex: 0.5,
-      renderCell: (params) =>
-        params.value === 1 ? (
-          <Chip label="Activo" color="success" size="small" />
-        ) : (
-          <Chip label="Inactivo" color="default" size="small" />
-        ),
-    },
-    { field: "sku_proveedor", headerName: "SKU", flex: 0.3 },
-    {
-      field: "surtido",
-      headerName: "Tiempo Proveedor",
-      flex: 0.3,
-      align: "center",
-      renderHeader: () => (
-        <Box textAlign="center">
-          Tiempo
-          <br />
-          Proveedor
-        </Box>
-      ),
-    },
-    {
-      field: "actions",
-      headerName: "Acciones",
-      type: "actions",
-      flex: 0.5,
-      getActions: (params) => [
-        <Tooltip title="Ver detalles">
-          <GridActionsCellItem
-            icon={<EditNoteIcon />}
-            label="Editar proveedor"
-            sx={{ color: "green" }}
-            onClick={() => handleOpenModal(params.row)}
+  // ==============================
+  // FILTROS
+  // ==============================
+
+  const filteredRows = useMemo(() => {
+    const searchValue =
+      search.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      const matchesSearch =
+        !searchValue ||
+        row.razon_social
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        row.rfc
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        row.correo
+          ?.toLowerCase()
+          .includes(searchValue) ||
+        row.sku_proveedor
+          ?.toLowerCase()
+          .includes(searchValue);
+
+      const matchesStatus =
+        statusFilter === "todos" ||
+        (statusFilter === "activos" &&
+          row.estado === 1) ||
+        (statusFilter === "inactivos" &&
+          row.estado === 0);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [rows, search, statusFilter]);
+
+  // ==============================
+  // COLUMNAS
+  // ==============================
+
+  const columns = useMemo(
+    () => [
+      {
+        field: "id_proveedor",
+        headerName: "Folio",
+        width: 90,
+      },
+      {
+        field: "razon_social",
+        headerName: "Razón social",
+        flex: 1.5,
+        minWidth: 180,
+      },
+      {
+        field: "rfc",
+        headerName: "RFC",
+        flex: 1,
+        minWidth: 130,
+      },
+      {
+        field: "correo",
+        headerName: "Correo",
+        flex: 1.4,
+        minWidth: 180,
+      },
+      {
+        field: "estado",
+        headerName: "Estatus",
+        flex: 0.7,
+        minWidth: 110,
+        renderCell: (params) => (
+          <Chip
+            label={
+              params.value === 1
+                ? "Activo"
+                : "Inactivo"
+            }
+            color={
+              params.value === 1
+                ? "success"
+                : "error"
+            }
+            variant="outlined"
+            size="small"
           />
-        </Tooltip>,
-        <Tooltip title="Ajustar inventarios">
-          <GridActionsCellItem
-            icon={<HourglassTopIcon />}
-            label="Inventarios"
-            sx={{ color: "orange" }}
-            onClick={() => handleOpenModalInventarios(params.row)}
+        ),
+      },
+      {
+        field: "backorder",
+        headerName: "Back Order",
+        flex: 0.8,
+        minWidth: 120,
+        renderCell: (params) => (
+          <Chip
+            label={
+              params.value === 1
+                ? "Activo"
+                : "Inactivo"
+            }
+            color={
+              params.value === 1
+                ? "success"
+                : "default"
+            }
+            variant="outlined"
+            size="small"
           />
-        </Tooltip>,
-      ],
-    },
-  ];
+        ),
+      },
+      {
+        field: "sku_proveedor",
+        headerName: "SKU",
+        flex: 0.8,
+        minWidth: 110,
+      },
+      {
+        field: "surtido",
+        headerName: "Tiempo proveedor",
+        flex: 0.8,
+        minWidth: 130,
+        align: "center",
+        headerAlign: "center",
+      },
+      {
+        field: "actions",
+        headerName: "Acciones",
+        type: "actions",
+        width: 120,
+
+        getActions: (params) => [
+          <Tooltip
+            key={`editar-${params.row.id_proveedor}`}
+            title="Editar proveedor"
+            arrow
+          >
+            <GridActionsCellItem
+              icon={<EditNoteIcon />}
+              label="Editar proveedor"
+              onClick={() =>
+                handleOpenEditModal(params.row)
+              }
+              showInMenu={false}
+              sx={{
+                color: "#1976d2",
+                "&:hover": {
+                  color: "#1565c0",
+                  backgroundColor:
+                    "rgba(25, 118, 210, 0.08)",
+                },
+              }}
+            />
+          </Tooltip>,
+
+          <Tooltip
+            key={`inventarios-${params.row.id_proveedor}`}
+            title="Ajustar inventarios MRP"
+            arrow
+          >
+            <GridActionsCellItem
+              icon={<HourglassTopIcon />}
+              label="Inventarios MRP"
+              onClick={() =>
+                handleOpenInventariosModal(
+                  params.row,
+                )
+              }
+              showInMenu={false}
+              sx={{
+                color: "#ed6c02",
+                "&:hover": {
+                  color: "#e65100",
+                  backgroundColor:
+                    "rgba(237, 108, 2, 0.08)",
+                },
+              }}
+            />
+          </Tooltip>,
+        ],
+      },
+    ],
+    [],
+  );
+
+  // ==============================
+  // RENDER
+  // ==============================
 
   return (
     <div className="contenido">
-      <div className="encabezado">
-        <h1>Proveedores</h1>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "500px",
-          width: "auto",
-          margin: "30px",
-          marginTop: "-30px",
-        }}
-      >
-        {/* Contenedor flex para el TextField y el Button */}
+      <PageHeader
+        title="Proveedores"
+        subtitle="Administra los proveedores y su configuración dentro de APHELIOS."
+      />
+
+      <PageToolbarCard>
         <div
           style={{
             display: "flex",
-            alignItems: "center", // Para alinear ambos elementos a la misma altura
-            marginBottom: "10px", // Espacio entre el formulario y el DataGrid
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+            width: "100%",
           }}
         >
-          {/* TextField alineado a la izquierda */}
           <TextField
-            id="outlined-basic"
             label="Buscar proveedor"
-            variant="outlined"
-            style={{
-              minWidth: "300px", // Ajusta el tamaño del TextField según sea necesario
-              marginRight: "auto", // Para que el TextField ocupe todo el espacio posible
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.large,
             }}
           />
-          {/* Botón alineado a la derecha */}
+
+          <FormControl
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.medium,
+            }}
+          >
+            <InputLabel id="proveedores-estatus-label">
+              Estatus
+            </InputLabel>
+
+            <Select
+              labelId="proveedores-estatus-label"
+              value={statusFilter}
+              label="Estatus"
+              onChange={(e) =>
+                setStatusFilter(e.target.value)
+              }
+            >
+              <MenuItem value="todos">
+                Todos
+              </MenuItem>
+
+              <MenuItem value="activos">
+                Activos
+              </MenuItem>
+
+              <MenuItem value="inactivos">
+                Inactivos
+              </MenuItem>
+            </Select>
+          </FormControl>
+
           <Button
             variant="contained"
-            color="primary"
-            onClick={handleOpenModalPost}
-            style={{
-              marginLeft: "auto", // Empuja el botón hacia la derecha
+            startIcon={
+              <PersonAddAltOutlinedIcon />
+            }
+            onClick={handleOpenCreateModal}
+            sx={{
+              ...toolbarButtonSx,
+              ml: "auto",
             }}
           >
-            Agregar Proveedor
+            Agregar proveedor
           </Button>
         </div>
+      </PageToolbarCard>
 
-        {/* DataGrid */}
-        <Box
-          sx={{
-            mt: 2,
-            height: "100vh",
-          }}
-        >
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            loading={loading}
-            showCellVerticalBorder
-            showColumnVerticalBorder
-            getRowId={(row) => row.id_proveedor}
-            columnVisibilityModel={columnVisibilityModel}
-            onColumnVisibilityModelChange={(newModel) =>
-              setColumnVisibilityModel(newModel)
-            }
-            experimentalFeatures={{ newEditingApi: true }}
-            density="compact"
-            slots={{ toolbar: GridToolbar }}
-            sx={{
-              borderRadius: 4,
-              boxShadow: 24,
-              borderWidth: 3,
-              borderColor: "#1e88e5",
-              height: "100%",
-            }}
-          />
-        </Box>
-
-        {/* Modal para editar proveedor */}
-        <Dialog open={openModal} onClose={handleCloseModal}>
-          <DialogTitle>Editar Proveedor</DialogTitle>
-          <DialogContent>
-            <TextField
-              required
-              label="Razón social"
-              fullWidth
-              margin="normal"
-              value={proveedorData.razon_social}
-              onChange={(e) =>
-                setProveedorData({
-                  ...proveedorData,
-                  razon_social: e.target.value,
-                })
-              }
-            />
-            <TextField
-              required
-              label={"RFC"}
-              fullWidth
-              margin="normal"
-              value={proveedorData.rfc}
-              onChange={(e) =>
-                setProveedorData({ ...proveedorData, rfc: e.target.value })
-              }
-            />
-            <TextField
-              label={"Correo"}
-              fullWidth
-              margin="normal"
-              value={proveedorData.correo}
-              onChange={(e) =>
-                setProveedorData({ ...proveedorData, correo: e.target.value })
-              }
-            />
-            <TextField
-              required
-              id="surtido-field"
-              label="Surtido MRP"
-              fullWidth
-              margin="normal"
-              type="number"
-              value={proveedorData.surtido ?? ""}
-              inputProps={{
-                min: 0,
-                step: 1,
-                inputMode: "numeric",
-                pattern: "[0-9]*",
-              }}
-              onChange={(e) => {
-                const value = e.target.value;
-
-                // Permite vacío para poder borrar
-                if (value === "") {
-                  setProveedorData({ ...proveedorData, surtido: "" });
-                  return;
-                }
-
-                // Solo enteros positivos
-                if (/^\d+$/.test(value)) {
-                  setProveedorData({
-                    ...proveedorData,
-                    surtido: Number(value),
-                  });
-                }
-              }}
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Back Order</InputLabel>
-              <Select
-                required
-                value={proveedorData.backorder ?? ""}
-                onChange={handleChangeBackOrder}
-              >
-                <MenuItem value={1}>Activo</MenuItem>
-                <MenuItem value={0}>Inactivo</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Estatus</InputLabel>
-              <Select
-                value={proveedorData.estado ?? ""}
-                onChange={handleChangeEstado}
-              >
-                <MenuItem value={1}>Activo</MenuItem>
-                <MenuItem value={0}>Inactivo</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-
-          <DialogActions>
-            <Button onClick={handleCloseModal}>Cancelar</Button>
-            <Button onClick={handleSaveChanges}>Guardar</Button>
-          </DialogActions>
-        </Dialog>
-        {/* Modal para crear proveedor */}
-        <Dialog open={openModalPost} onClose={handleCloseModalPost}>
-          <DialogTitle>Crear Proveedor</DialogTitle>
-          <DialogContent>
-            <TextField
-              required
-              label={"Razón social"}
-              fullWidth
-              margin="normal"
-              value={newProveedorData.razon_social}
-              onChange={(e) =>
-                setNewProveedorData({
-                  ...newProveedorData,
-                  razon_social: e.target.value,
-                })
-              }
-            />
-            <TextField
-              required
-              label={"RFC"}
-              fullWidth
-              margin="normal"
-              value={newProveedorData.rfc}
-              onChange={(e) =>
-                setNewProveedorData({
-                  ...newProveedorData,
-                  rfc: e.target.value,
-                })
-              }
-            />
-            <TextField
-              label={"Correo"}
-              fullWidth
-              margin="normal"
-              value={newProveedorData.correo}
-              onChange={(e) =>
-                setNewProveedorData({
-                  ...newProveedorData,
-                  correo: e.target.value,
-                })
-              }
-            />
-            <TextField
-              required
-              id="surtido-field"
-              label="Surtido MRP"
-              fullWidth
-              margin="normal"
-              type="number"
-              value={newProveedorData.surtido ?? ""}
-              inputProps={{
-                min: 0,
-                step: 1,
-                inputMode: "numeric",
-                pattern: "[0-9]*",
-              }}
-              onChange={(e) => {
-                const value = e.target.value;
-
-                // Permite vacío para poder borrar
-                if (value === "") {
-                  setNewProveedorData({ ...newProveedorData, surtido: "" });
-                  return;
-                }
-
-                // Solo enteros positivos
-                if (/^\d+$/.test(value)) {
-                  setNewProveedorData({
-                    ...newProveedorData,
-                    surtido: Number(value),
-                  });
-                }
-              }}
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Back Order</InputLabel>
-              <Select
-                required
-                value={newProveedorData.backorder ?? ""}
-                onChange={(e) =>
-                  setNewProveedorData({
-                    ...newProveedorData,
-                    backorder: e.target.value,
-                  })
-                }
-              >
-                <MenuItem value={1}>Activo</MenuItem>
-                <MenuItem value={0}>Inactivo</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label={"SKU"}
-              fullWidth
-              margin="normal"
-              value={newProveedorData.sku_proveedor}
-              onChange={(e) =>
-                setNewProveedorData({
-                  ...newProveedorData,
-                  sku_proveedor: e.target.value,
-                })
-              }
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseModalPost} color="primary">
-              Cancelar
-            </Button>
-            <Button onClick={addProveedor} color="primary">
-              Guardar
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </div>
-      <Modal
-        open={openModalInventarios}
-        onClose={handleCloseModalInventarios}
-        keepMounted
-        disableAutoFocus
-        disableEnforceFocus
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
+      <div
+        style={{
+          marginLeft: "30px",
+          marginRight: "30px",
+        }}
       >
-        <Box sx={styleModalInventarios}>
-          <h2 id="modal-modal-title">
-            Ajustar inventarios MASIVO MRP-{" "}
-            {selectedProveedor?.razon_social ?? ""}
-          </h2>
-          <TextField
-            label="Inventario de seguridad"
-            type="number"
-            fullWidth
-            margin="normal"
-            value={inventariosMRPData.inv_seguridad}
-            inputProps={{
-              min: 0,
-              step: 0.5,
-              inputMode: "decimal",
-            }}
-            onChange={(e) => {
-              const v = e.target.value;
+        <AppDataGrid
+          rows={filteredRows}
+          columns={columns}
+          loading={loading}
+          getRowId={(row) =>
+            row.id_proveedor
+          }
+          exportFileName="proveedores"
+          initialColumnVisibilityModel={{
+            id_proveedor: false,
+          }}
+        />
+      </div>
 
-              // Permite vacío
-              if (v === "") {
-                setInventariosMRPData({
-                  ...inventariosMRPData,
-                  inv_seguridad: "",
-                });
-                return;
-              }
+      <ProveedorModal
+        open={openProveedorModal}
+        mode={modalMode}
+        data={selectedProveedor}
+        loading={saving}
+        onClose={handleCloseProveedorModal}
+        onSave={handleSaveProveedor}
+      />
 
-              // Permite 1 decimal máximo
-              if (/^\d+(\.\d)?$/.test(v)) {
-                setInventariosMRPData({
-                  ...inventariosMRPData,
-                  inv_seguridad: v, // 👈 se guarda como string
-                });
-              }
-            }}
-          />
-          <TextField
-            label="Inventario máximo"
-            type="number"
-            fullWidth
-            margin="normal"
-            value={inventariosMRPData.inv_maximo}
-            inputProps={{
-              min: 0,
-              step: 0.5,
-              inputMode: "decimal",
-            }}
-            onChange={(e) => {
-              const v = e.target.value;
-
-              if (v === "") {
-                setInventariosMRPData({
-                  ...inventariosMRPData,
-                  inv_maximo: "",
-                });
-                return;
-              }
-
-              if (/^\d+(\.\d)?$/.test(v)) {
-                setInventariosMRPData({
-                  ...inventariosMRPData,
-                  inv_maximo: v,
-                });
-              }
-            }}
-          />
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              justifyContent: "space-between",
-            }}
-          >
-            <Button
-              onClick={handleCloseModalInventarios}
-              variant="contained"
-              color="primary"
-            >
-              Cerrar
-            </Button>
-            <Button
-              onClick={handleSaveInventariosMRP}
-              variant="contained"
-              color="success"
-            >
-              Guardar
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
+      <InventariosMRPModal
+        open={openInventariosModal}
+        proveedor={selectedProveedor}
+        loading={savingInventarios}
+        onClose={handleCloseInventariosModal}
+        onSave={handleSaveInventariosMRP}
+      />
     </div>
   );
 };

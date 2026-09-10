@@ -1,4 +1,3 @@
-import React from 'react'
 import DataGridT from './DataGridT'
 
 const Transacciones = () => {

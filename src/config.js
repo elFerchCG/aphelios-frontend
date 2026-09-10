@@ -3,7 +3,7 @@ const apiUrl =
         ? process.env.REACT_APP_API_URL
         : process.env.REACT_APP_API_URL_LOCAL;
 
-console.log(process.env.NODE_ENV); // Esto debe imprimir "production" en Netlify
-console.log(apiUrl); // Esto imprimirá la URL correcta según el entorno
+// console.log(process.env.NODE_ENV); 
+// console.log(apiUrl); 
 
 export default apiUrl;

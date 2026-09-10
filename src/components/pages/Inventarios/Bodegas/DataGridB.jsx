@@ -1,35 +1,41 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
-  Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Chip,
   FormControl,
   InputLabel,
   MenuItem,
-  Modal,
   Select,
   TextField,
   Tooltip,
 } from "@mui/material";
-import {
-  DataGrid,
-  GridActionsCellItem,
-  GridToolbarColumnsButton,
-  GridToolbarContainer,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-  GridToolbarFilterButton,
-} from "@mui/x-data-grid";
+
+import { GridActionsCellItem } from "@mui/x-data-grid";
+
 import axios from "axios";
-import React from "react";
-import { useEffect } from "react";
-import { useState } from "react";
-import Swal from "sweetalert2";
+
 import EditNoteIcon from "@mui/icons-material/EditNote";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
+import AddBusinessOutlinedIcon from "@mui/icons-material/AddBusinessOutlined";
+
+import AppDataGrid from "../../../common/AppDataGrid";
+import PageHeader from "../../../common/PageHeader";
+import PageToolbarCard from "../../../common/PageToolbarCard";
+
+import {
+  fieldWidths,
+  toolbarButtonSx,
+  toolbarFieldSx,
+} from "../../../common/formStyles";
+
+import { swalSuccess } from "../../../../helpers/sweetAlert";
+
+import { handleApiError } from "../../../../helpers/apiErrorHandler";
+
+import BodegaModal from "./components/BodegaModal";
+import UbicacionModal from "./components/UbicacionModal";
+import UbicacionesModal from "./components/UbicacionesModal";
 
 const DataGridB = () => {
   const apiUrl =
@@ -37,943 +43,698 @@ const DataGridB = () => {
       ? process.env.REACT_APP_API_URL
       : process.env.REACT_APP_API_URL_LOCAL;
 
-  const theme = createTheme({
-    palette: {
-      primary: { main: "#1976d2" },
-    },
-  });
-
-  // Estilos del modal de ubicaciones
-  const modalStyle = {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    bgcolor: "background.paper",
-    border: "2px solid #000",
-    borderRadius: 6,
-    boxShadow: 24,
-    p: 4,
-  };
+  // ==============================
+  // DATOS
+  // ==============================
 
   const [rows, setRows] = useState([]);
   const [roles, setRoles] = useState([]);
   const [rowsUbicaciones, setRowsUbicaciones] = useState([]);
-  const [filteredUbicaciones, setFilteredUbicaciones] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedBodega, setSelectedBodega] = useState(null);
-  const [selectedUbicacion, setSelectedUbicacion] = useState(null);
-  const [openModal, setOpenModal] = useState(false);
-  const [openModalPost, setOpenModalPost] = useState(false);
-  const [openModalUbicaciones, setOpenModalUbicaciones] = useState(false);
-  const [openModalUbicacionesPost, setOpenModalUbicacionesPost] =
-    useState(false);
-  const [openModalUbicacionesUpdate, setOpenModalUbicacionesUpdate] =
-    useState(false);
+
+  // ==============================
+  // LOADING
+  // ==============================
+
   const [loading, setLoading] = useState(true);
 
-  const [bodegaData, setBodegaData] = useState({
-    id: "",
-    Nombre: "",
-    Tipo: "",
-    Neteable: "",
-    rol_id: "",
-    activo: "",
-  });
+  const [loadingUbicaciones, setLoadingUbicaciones] = useState(false);
 
-  const [newBodegaData, setNewBodegaData] = useState({
-    Nombre: "",
-    Tipo: "",
-    Neteable: "",
-    rol_id: "",
-  });
+  const [savingBodega, setSavingBodega] = useState(false);
 
-  const [ubicacionData, setUbicacionData] = useState({
-    id: "",
-    descripcion: "",
-    disponible: "",
-    activo: "",
-  });
+  const [savingUbicacion, setSavingUbicacion] = useState(false);
 
-  const [newUbicacionData, setNewUbicacionData] = useState({
-    descripcion: "",
-    disponible: "",
-    bodega_id: "",
-  });
+  // ==============================
+  // FILTROS
+  // ==============================
 
-  const CustomToolbar = () => (
-    <GridToolbarContainer>
-      {/* Mantener solo los botones necesarios */}
-      <GridToolbarColumnsButton /> {/* Botón de Columnas */}
-      <GridToolbarFilterButton /> {/* Botón de Filtros */}
-      <GridToolbarDensitySelector />
-      {/* Botón de Densidad */}
-      <GridToolbarExport
-        csvOptions={{
-          fileName: "ubicaciones_exportadas",
-          utf8WithBom: true, //  Esto garantiza que la codificación sea UTF-8
-        }}
-      />
-    </GridToolbarContainer>
-  );
+  const [search, setSearch] = useState("");
 
-  const [columnVisibilityModelProducts, setColumnVisibilityModelProducts] =
-    useState({
-      id: false,
-      descripcion: true,
-      disponible: false,
-      bodega_nombre: false,
-      activo: false,
-      actions: true,
-    });
+  const [statusFilter, setStatusFilter] = useState("todos");
 
-  const fetchUbicaciones = async () => {
-    try {
-      //console.log("Esta es la bodega que se manda: ", selectedBodega);
-      const response = await axios.get(
-        `${apiUrl}/inventario/localidades/${selectedBodega}`,
-      );
-      if (response.data && Array.isArray(response.data)) {
-        setRowsUbicaciones(response.data);
-      }
-    } catch (error) {
-      Swal.fire({
-        title: "Error",
-        text: "No se pudieron cargar las ubicaciones",
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-    }
-  };
+  // ==============================
+  // BODEGA MODAL
+  // ==============================
 
-  const fetchBodegas = async () => {
+  const [openBodegaModal, setOpenBodegaModal] = useState(false);
+
+  const [bodegaModalMode, setBodegaModalMode] = useState("create");
+
+  const [selectedBodega, setSelectedBodega] = useState(null);
+
+  // ==============================
+  // UBICACIONES MODAL
+  // ==============================
+
+  const [openUbicacionesModal, setOpenUbicacionesModal] = useState(false);
+
+  // ==============================
+  // UBICACION CREATE / EDIT MODAL
+  // ==============================
+
+  const [openUbicacionModal, setOpenUbicacionModal] = useState(false);
+
+  const [ubicacionModalMode, setUbicacionModalMode] = useState("create");
+
+  const [selectedUbicacion, setSelectedUbicacion] = useState(null);
+
+  // ==========================================================
+  // FETCH BODEGAS
+  // ==========================================================
+
+  const fetchBodegas = useCallback(async () => {
+    setLoading(true);
+
     try {
       const response = await axios.get(`${apiUrl}/inventario/bodegas`);
-      if (response.data && Array.isArray(response.data)) {
+
+      if (Array.isArray(response.data)) {
         setRows(response.data);
       } else {
-        Swal.fire({
-          title: "!Bodegas no encontradas!",
-          text: "No se encontraron bodegas",
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
+        setRows([]);
       }
     } catch (error) {
-      Swal.fire({
-        title: "Error",
-        text: `Error: ${error.message}`,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
+      setRows([]);
+
+      handleApiError(error, {
+        defaultMessage: "No se pudieron cargar las bodegas.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [apiUrl]);
+
+  // ==========================================================
+  // FETCH ROLES
+  // ==========================================================
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/usuarios/roles`);
+
+      if (Array.isArray(response.data)) {
+        setRoles(response.data);
+      } else {
+        setRoles([]);
+      }
+    } catch (error) {
+      setRoles([]);
+
+      handleApiError(error, {
+        defaultMessage: "No se pudieron cargar los roles.",
       });
     }
-  };
+  }, [apiUrl]);
 
-  useEffect(() => {
-    const fetchBodegas = async () => {
-      setLoading(true);
+  // ==========================================================
+  // FETCH UBICACIONES
+  // ==========================================================
+
+  const fetchUbicaciones = useCallback(
+    async (bodegaId) => {
+      if (!bodegaId) return;
+
+      setLoadingUbicaciones(true);
+
       try {
-        const response = await axios.get(`${apiUrl}/inventario/bodegas`);
-        if (response.data && Array.isArray(response.data)) {
-          setRows(response.data);
+        const response = await axios.get(
+          `${apiUrl}/inventario/localidades/${bodegaId}`,
+        );
+
+        if (Array.isArray(response.data)) {
+          setRowsUbicaciones(response.data);
         } else {
-          Swal.fire({
-            title: "!Bodegas no encontradas!",
-            text: "No se encontraron bodegas",
-            icon: "error",
-            timer: 5000,
-            showCloseButton: true,
-            allowEscapeKey: true,
-          });
+          setRowsUbicaciones([]);
         }
       } catch (error) {
-        Swal.fire({
-          title: "Error",
-          text: `Error: ${error.message}`,
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
+        setRowsUbicaciones([]);
+
+        handleApiError(error, {
+          defaultMessage: "No se pudieron cargar las ubicaciones.",
         });
       } finally {
-        setLoading(false);
+        setLoadingUbicaciones(false);
       }
-    };
+    },
+    [apiUrl],
+  );
 
-    const fetchRoles = async () => {
-      try {
-        const response = await axios.get(`${apiUrl}/usuarios/roles`);
-        if (response.data && Array.isArray(response.data)) {
-          setRoles(response.data);
-        }
-      } catch (error) {
-        Swal.fire({
-          title: "Error",
-          text: "No se pudieron cargar los roles",
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-      }
-    };
-
-    fetchBodegas();
-    if (selectedBodega || openModalPost) {
-      fetchRoles();
-    }
-
-    const fetchUbicaciones = async () => {
-      try {
-        console.log("Esta es la bodega que se manda: ", selectedBodega);
-        const response = await axios.get(
-          `${apiUrl}/inventario/localidades/${selectedBodega}`,
-        );
-        if (response.data && Array.isArray(response.data)) {
-          setRowsUbicaciones(response.data);
-        }
-      } catch (error) {
-        Swal.fire({
-          title: "Error",
-          text: "No se pudieron cargar las ubicaciones",
-          icon: "error",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-      }
-    };
-
-    if (selectedBodega && openModalUbicaciones) {
-      fetchUbicaciones();
-    }
-
-    fetchBodegas();
-  }, [apiUrl, selectedBodega, openModalPost, openModalUbicaciones]);
-
-  const addBodega = async () => {
-    try {
-      const response = await axios.post(`${apiUrl}/inventario/bodegas/`, {
-        nombre: newBodegaData.Nombre,
-        tipo: newBodegaData.Tipo,
-        neteable: newBodegaData.Neteable,
-        rol_id: newBodegaData.rol_id,
-      });
-      if (response.data.ok) {
-        Swal.fire({
-          title: "Bodega creada",
-          text: "La nueva bodega se ha creado correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-        fetchBodegas();
-        setNewBodegaData("");
-        handleCloseModalPost();
-      }
-    } catch (error) {
-      setNewBodegaData("");
-      const errorMessage =
-        error.response?.data?.message || "Ha ocurrido un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-      handleCloseModalPost();
-    }
-  };
-
-  const getRolDescripcion = (rolId) => {
-    const rol = roles.find((role) => role.id === rolId);
-    return rol ? rol.descripcion : "Desconocido";
-  };
-
-  const handleOpenModal = (bodega) => {
-    setSelectedBodega(bodega);
-    setBodegaData({
-      ...bodega,
-      rol_descripcion: getRolDescripcion(bodega.rol_id),
-    });
-    setOpenModal(true);
-  };
-
-  const handleOpenModalUbicaciones = (row) => {
-    // Obtener el id directamente de la fila seleccionada
-    const selectedBodegaId = row.id; // `row.id` ya contiene el ID de la bodega
-    setSelectedBodega(selectedBodegaId);
-
-    // Ahora puedes abrir la modal si has encontrado la bodega
-    if (selectedBodegaId) {
-      setOpenModalUbicaciones(true);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setOpenModal(false);
-  };
-
-  const handleOpenModalPost = () => {
-    setOpenModalPost(true);
-  };
-
-  const handleOpenModalPostUbicacion = () => {
-    setOpenModalUbicacionesPost(true);
-  };
-
-  const handleCloseModalPost = () => {
-    setOpenModalPost(false);
-  };
-
-  const handleChangeNeteable = (e) => {
-    const selectedNeteable = e.target.value;
-    const descripcionNeteable =
-      selectedNeteable === 1 ? "Disponible para ventas" : "No disponible";
-    setBodegaData({
-      ...bodegaData,
-      Neteable: selectedNeteable,
-      Neteable_descripcion: descripcionNeteable,
-    });
-  };
-
-  const handleChangeActivo = (e) => {
-    const selectedActivo = e.target.value;
-    const descripcionActivo =
-      selectedActivo === 1 ? "Disponible para ventas" : "No disponible";
-    setBodegaData({
-      ...bodegaData,
-      activo: selectedActivo,
-      activo_descripcion: descripcionActivo,
-    });
-  };
-
-  const handleCloseModalUbicaciones = () => {
-    // Restablecer el searchTerm cuando se cierra la modal
-    setSearchTerm("");
-    setOpenModalUbicaciones(false);
-  };
-
-  const handleSaveChanges = async () => {
-    try {
-      const response = await axios.put(
-        `${apiUrl}/inventario/bodegas/${bodegaData.id}`,
-        {
-          nombre: bodegaData.Nombre,
-          tipo: bodegaData.Tipo,
-          neteable: bodegaData.Neteable, // Enviar el ID del rol
-          activo: bodegaData.activo, // Enviar permisos como string
-          rol_id: bodegaData.rol_id, // Enviar el estado (1 o 0)
-        },
-      );
-      if (response.data.ok) {
-        Swal.fire({
-          title: "Bodega actualizada",
-          text: "Los cambios se guardaron correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-        });
-        setBodegaData("");
-        fetchBodegas();
-        setOpenModal(false);
-      }
-    } catch (error) {
-      setBodegaData("");
-      const errorMessage =
-        error.response?.data?.message || "Ha ocurrido un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-      });
-      setOpenModal(false);
-    }
-  };
-
-  const handleCloseModalPostUbicaciones = () => {
-    setOpenModalUbicacionesPost(false);
-  };
-
-  const handleCloseModalUpdateUbicaciones = () => {
-    setOpenModalUbicacionesUpdate(false);
-  };
-
-  const handleSaveChangesUbicacion = async () => {
-    try {
-      const response = await axios.put(
-        `${apiUrl}/inventario/localidades/${ubicacionData.id}`,
-        {
-          descripcion: ubicacionData.descripcion,
-          disponible: ubicacionData.disponible,
-          activo: ubicacionData.activo,
-        },
-      );
-      if (response.data.ok) {
-        Swal.fire({
-          title: "Ubicación actualizada",
-          text: "Los cambios se guardaron correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-          timerProgressBar: true,
-          target: document.getElementById("modal-consultaUbi"),
-        });
-        setUbicacionData("");
-        fetchUbicaciones();
-        setOpenModalUbicacionesUpdate(false);
-      }
-    } catch (error) {
-      setUbicacionData("");
-      const errorMessage =
-        error.response?.data?.message || "Ha ocurrido un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-        target: document.getElementById("modal-consultaUbi"),
-      });
-      setOpenModalUbicacionesUpdate(false);
-    }
-  };
-
-  const addUbicación = async () => {
-    try {
-      const response = await axios.post(`${apiUrl}/inventario/localidades/`, {
-        descripcion: newUbicacionData.descripcion,
-        disponible: newUbicacionData.disponible,
-        bodega_id: selectedBodega,
-      });
-      if (response.data.ok) {
-        Swal.fire({
-          title: "Ubicación creada",
-          text: "La nueva ubicación se ha creado correctamente",
-          icon: "success",
-          timer: 5000,
-          showCloseButton: true,
-          allowEscapeKey: true,
-          target: document.getElementById("modal-consultaUbi"),
-        });
-        fetchUbicaciones();
-        setNewUbicacionData("");
-        handleCloseModalPostUbicaciones();
-      }
-    } catch (error) {
-      setNewUbicacionData("");
-      const errorMessage =
-        error.response?.data?.message || "Ha ocurrido un error desconocido";
-      Swal.fire({
-        title: "Error",
-        text: errorMessage,
-        icon: "error",
-        timer: 5000,
-        showCloseButton: true,
-        allowEscapeKey: true,
-        target: document.getElementById("modal-consultaUbi"),
-      });
-      handleCloseModalPostUbicaciones();
-    }
-  };
-
-  const handleOpenModalUpdateUbicaciones = (ubicacion) => {
-    setSelectedUbicacion(ubicacion);
-    setUbicacionData({
-      ...ubicacion,
-    });
-    setOpenModalUbicacionesUpdate(true);
-  };
+  // ==========================================================
+  // CARGA INICIAL
+  // ==========================================================
 
   useEffect(() => {
-    // Filtra las órdenes en base al término de búsqueda y otros filtros
-    let filtered = rowsUbicaciones;
+    fetchBodegas();
+    fetchRoles();
+  }, [fetchBodegas, fetchRoles]);
 
-    // Aplica el filtro de búsqueda
-    if (searchTerm) {
-      filtered = filtered.filter((ubicacion) =>
-        ubicacion.descripcion.toLowerCase().includes(searchTerm.toLowerCase()),
-      );
+  // ==========================================================
+  // CARGAR UBICACIONES CUANDO ABRIMOS LA BODEGA
+  // ==========================================================
+
+  useEffect(() => {
+    if (!openUbicacionesModal || !selectedBodega?.id) {
+      return;
     }
 
-    setFilteredUbicaciones(filtered);
-  }, [searchTerm, rowsUbicaciones]);
+    fetchUbicaciones(selectedBodega.id);
+  }, [openUbicacionesModal, selectedBodega, fetchUbicaciones]);
 
-  const columns = [
-    { field: "id", headerName: "Folio", flex: 1 },
-    { field: "Nombre", headerName: "Nombre", flex: 1 },
-    { field: "Tipo", headerName: "Tipo", flex: 1 },
-    { field: "Neteable", headerName: "Estado", flex: 1 },
-    { field: "activo", headerName: "Estatus", flex: 1 },
-    { field: "rol_id", headerName: "Rol", flex: 1 },
-    { field: "rol_descripcion", headerName: "Rol", flex: 1 },
-    {
-      field: "actions",
-      headerName: "Acciones",
-      type: "actions",
-      flex: 1,
-      getActions: (params) => [
-        <Tooltip title="Ver detalles">
-          <GridActionsCellItem
-            icon={<EditNoteIcon />}
-            sx={{ color: "green" }}
-            onClick={() => handleOpenModal(params.row)}
-          />
-        </Tooltip>,
-        <Tooltip title="Ver ubicaciones">
-          <GridActionsCellItem
-            icon={<LocationOnOutlinedIcon />}
-            sx={{ color: "blue" }}
-            onClick={() => handleOpenModalUbicaciones(params.row)}
-          />
-        </Tooltip>,
-      ],
-    },
-  ];
+  // ==========================================================
+  // ABRIR CREAR BODEGA
+  // ==========================================================
 
-  //Columnas del DataGrid de ubicaciones
-  const columnsUbicaciones = [
-    { field: "id", headerName: "Folio", flex: 1 },
-    { field: "descripcion", headerName: "Descripción", flex: 1 },
-    {
-      field: "disponible",
-      headerName: "Disponible para venta",
-      flex: 1,
-      renderCell: (params) => {
-        return params.value === 1 ? "Sí" : "No";
+  const handleOpenCreateBodega = () => {
+    setBodegaModalMode("create");
+    setSelectedBodega(null);
+    setOpenBodegaModal(true);
+  };
+
+  // ==========================================================
+  // ABRIR EDITAR BODEGA
+  // ==========================================================
+
+  const handleOpenEditBodega = (bodega) => {
+    setBodegaModalMode("edit");
+    setSelectedBodega(bodega);
+    setOpenBodegaModal(true);
+  };
+
+  // ==========================================================
+  // CERRAR MODAL BODEGA
+  // ==========================================================
+
+  const handleCloseBodegaModal = () => {
+    if (savingBodega) return;
+
+    setOpenBodegaModal(false);
+    setSelectedBodega(null);
+  };
+
+  // ==========================================================
+  // CREAR BODEGA
+  // ==========================================================
+
+  const createBodega = async (formData) => {
+    setSavingBodega(true);
+
+    try {
+      await axios.post(`${apiUrl}/inventario/bodegas/`, {
+        nombre: formData.nombre,
+        tipo: formData.tipo,
+        neteable: formData.neteable,
+        rol_id: formData.rol_id,
+      });
+
+      await fetchBodegas();
+
+      setOpenBodegaModal(false);
+      setSelectedBodega(null);
+
+      swalSuccess("Bodega creada", "La nueva bodega se creó correctamente.");
+    } catch (error) {
+      handleApiError(error, {
+        defaultMessage: "No se pudo crear la bodega.",
+        warningTitle: "No se pudo crear la bodega",
+      });
+    } finally {
+      setSavingBodega(false);
+    }
+  };
+
+  // ==========================================================
+  // ACTUALIZAR BODEGA
+  // ==========================================================
+
+  const updateBodega = async (formData) => {
+    setSavingBodega(true);
+
+    try {
+      await axios.put(`${apiUrl}/inventario/bodegas/${formData.id}`, {
+        nombre: formData.nombre,
+        tipo: formData.tipo,
+        neteable: formData.neteable,
+        activo: formData.activo,
+        rol_id: formData.rol_id,
+      });
+
+      await fetchBodegas();
+
+      setOpenBodegaModal(false);
+      setSelectedBodega(null);
+
+      swalSuccess(
+        "Bodega actualizada",
+        "Los cambios se guardaron correctamente.",
+      );
+    } catch (error) {
+      handleApiError(error, {
+        defaultMessage: "No se pudo actualizar la bodega.",
+        warningTitle: "No se pudo actualizar la bodega",
+      });
+    } finally {
+      setSavingBodega(false);
+    }
+  };
+
+  // ==========================================================
+  // GUARDAR BODEGA SEGÚN MODO
+  // ==========================================================
+
+  const handleSaveBodega = async (formData) => {
+    if (bodegaModalMode === "edit") {
+      await updateBodega(formData);
+      return;
+    }
+
+    await createBodega(formData);
+  };
+
+  // ==========================================================
+  // ABRIR UBICACIONES
+  // ==========================================================
+
+  const handleOpenUbicacionesModal = (bodega) => {
+    // Cerramos cualquier modal hijo que pudiera haber quedado abierto
+    setOpenUbicacionModal(false);
+    setSelectedUbicacion(null);
+
+    // Cerramos también el modal de edición de bodega
+    setOpenBodegaModal(false);
+
+    // Seleccionamos la bodega
+    setSelectedBodega(bodega);
+    setRowsUbicaciones([]);
+
+    // Abrimos EXCLUSIVAMENTE el listado de ubicaciones
+    setOpenUbicacionesModal(true);
+  };
+
+  // ==========================================================
+  // CERRAR UBICACIONES
+  // ==========================================================
+
+  const handleCloseUbicacionesModal = () => {
+    if (savingUbicacion) return;
+
+    // Cerrar cualquier formulario hijo
+    setOpenUbicacionModal(false);
+    setSelectedUbicacion(null);
+
+    // Cerrar listado
+    setOpenUbicacionesModal(false);
+
+    // Limpiar datos
+    setRowsUbicaciones([]);
+    setSelectedBodega(null);
+  };
+
+  // ==========================================================
+  // ABRIR CREAR UBICACION
+  // ==========================================================
+
+  const handleOpenCreateUbicacion = () => {
+    // Solo se puede crear una ubicación
+    // si estamos dentro del modal de ubicaciones
+    if (!openUbicacionesModal || !selectedBodega?.id) {
+      return;
+    }
+
+    setUbicacionModalMode("create");
+    setSelectedUbicacion(null);
+    setOpenUbicacionModal(true);
+  };
+
+  // ==========================================================
+  // ABRIR EDITAR UBICACION
+  // ==========================================================
+
+  const handleOpenEditUbicacion = (ubicacion) => {
+    if (!openUbicacionesModal || !selectedBodega?.id) {
+      return;
+    }
+
+    setUbicacionModalMode("edit");
+    setSelectedUbicacion(ubicacion);
+    setOpenUbicacionModal(true);
+  };
+
+  // ==========================================================
+  // CERRAR MODAL UBICACION
+  // ==========================================================
+
+  const handleCloseUbicacionModal = () => {
+    if (savingUbicacion) return;
+
+    setOpenUbicacionModal(false);
+    setSelectedUbicacion(null);
+  };
+
+  // ==========================================================
+  // CREAR UBICACION
+  // ==========================================================
+
+  const createUbicacion = async (formData) => {
+    if (!selectedBodega?.id) return;
+
+    setSavingUbicacion(true);
+
+    try {
+      await axios.post(`${apiUrl}/inventario/localidades/`, {
+        descripcion: formData.descripcion,
+        disponible: formData.disponible,
+        bodega_id: selectedBodega.id,
+      });
+
+      await fetchUbicaciones(selectedBodega.id);
+
+      setOpenUbicacionModal(false);
+      setSelectedUbicacion(null);
+
+      swalSuccess(
+        "Ubicación creada",
+        "La nueva ubicación se creó correctamente.",
+      );
+    } catch (error) {
+      handleApiError(error, {
+        defaultMessage: "No se pudo crear la ubicación.",
+        warningTitle: "No se pudo crear la ubicación",
+      });
+    } finally {
+      setSavingUbicacion(false);
+    }
+  };
+
+  // ==========================================================
+  // ACTUALIZAR UBICACION
+  // ==========================================================
+
+  const updateUbicacion = async (formData) => {
+    if (!selectedBodega?.id) return;
+
+    setSavingUbicacion(true);
+
+    try {
+      await axios.put(`${apiUrl}/inventario/localidades/${formData.id}`, {
+        descripcion: formData.descripcion,
+        disponible: formData.disponible,
+        activo: formData.activo,
+      });
+
+      await fetchUbicaciones(selectedBodega.id);
+
+      setOpenUbicacionModal(false);
+      setSelectedUbicacion(null);
+
+      swalSuccess(
+        "Ubicación actualizada",
+        "Los cambios se guardaron correctamente.",
+      );
+    } catch (error) {
+      handleApiError(error, {
+        defaultMessage: "No se pudo actualizar la ubicación.",
+        warningTitle: "No se pudo actualizar la ubicación",
+      });
+    } finally {
+      setSavingUbicacion(false);
+    }
+  };
+
+  // ==========================================================
+  // GUARDAR UBICACION SEGÚN MODO
+  // ==========================================================
+
+  const handleSaveUbicacion = async (formData) => {
+    if (ubicacionModalMode === "edit") {
+      await updateUbicacion(formData);
+      return;
+    }
+
+    await createUbicacion(formData);
+  };
+
+  // ==========================================================
+  // FILTRAR BODEGAS
+  // ==========================================================
+
+  const filteredRows = useMemo(() => {
+    const searchValue = search.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      const nombre = String(row.Nombre ?? row.nombre ?? "").toLowerCase();
+
+      const tipo = String(row.Tipo ?? row.tipo ?? "").toLowerCase();
+
+      const rol = String(row.rol_descripcion ?? "").toLowerCase();
+
+      const activo = Number(row.activo) === 1;
+
+      const matchesSearch =
+        !searchValue ||
+        nombre.includes(searchValue) ||
+        tipo.includes(searchValue) ||
+        rol.includes(searchValue);
+
+      const matchesStatus =
+        statusFilter === "todos" ||
+        (statusFilter === "activos" && activo) ||
+        (statusFilter === "inactivos" && !activo);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [rows, search, statusFilter]);
+
+  // ==========================================================
+  // COLUMNAS BODEGAS
+  // ==========================================================
+
+  const columns = useMemo(
+    () => [
+      {
+        field: "id",
+        headerName: "Folio",
+        width: 90,
       },
-    },
-    { field: "bodega_nombre", headerName: "Bodega", flex: 1 },
-    {
-      field: "activo",
-      headerName: "Activo",
-      flex: 1,
-      renderCell: (params) => {
-        return params.value === 1 ? "Sí" : "No";
+      {
+        field: "Nombre",
+        headerName: "Nombre",
+        flex: 1.4,
+        minWidth: 170,
+        valueGetter: (value, row) => row?.Nombre ?? row?.nombre ?? "",
       },
-    },
-    {
-      field: "actions",
-      headerName: "Acciones",
-      type: "actions",
-      flex: 1,
-      getActions: (params) => [
-        <Tooltip title="Ver detalles">
-          <GridActionsCellItem
-            icon={<EditNoteIcon />}
-            sx={{ color: "green" }}
-            onClick={() => handleOpenModalUpdateUbicaciones(params.row)}
+      {
+        field: "Tipo",
+        headerName: "Tipo",
+        flex: 1,
+        minWidth: 130,
+        valueGetter: (value, row) => row?.Tipo ?? row?.tipo ?? "",
+      },
+      {
+        field: "Neteable",
+        headerName: "Disponible para ventas",
+        flex: 1,
+        minWidth: 170,
+        valueGetter: (value, row) => {
+          const neteable = row?.Neteable ?? row?.neteable;
+
+          return Number(neteable) === 1 ? "Sí" : "No";
+        },
+      },
+      {
+        field: "activo",
+        headerName: "Estatus",
+        flex: 0.8,
+        minWidth: 110,
+
+        renderCell: (params) => (
+          <Chip
+            label={Number(params.value) === 1 ? "Activo" : "Inactivo"}
+            color={Number(params.value) === 1 ? "success" : "error"}
+            variant="outlined"
+            size="small"
           />
-        </Tooltip>,
-      ],
-    },
-  ];
+        ),
+      },
+      {
+        field: "rol_descripcion",
+        headerName: "Rol",
+        flex: 1,
+        minWidth: 140,
+      },
+      {
+        field: "actions",
+        headerName: "Acciones",
+        type: "actions",
+        width: 120,
+
+        getActions: (params) => [
+          <Tooltip key={`editar-${params.row.id}`} title="Editar bodega" arrow>
+            <GridActionsCellItem
+              icon={<EditNoteIcon />}
+              label="Editar bodega"
+              onClick={() => handleOpenEditBodega(params.row)}
+              showInMenu={false}
+              sx={{
+                color: "#1976d2",
+
+                "&:hover": {
+                  color: "#1565c0",
+                  backgroundColor: "rgba(25, 118, 210, 0.08)",
+                },
+              }}
+            />
+          </Tooltip>,
+
+          <Tooltip
+            key={`ubicaciones-${params.row.id}`}
+            title="Ver ubicaciones"
+            arrow
+          >
+            <GridActionsCellItem
+              icon={<LocationOnOutlinedIcon />}
+              label="Ver ubicaciones"
+              onClick={() => handleOpenUbicacionesModal(params.row)}
+              showInMenu={false}
+              sx={{
+                color: "#ed6c02",
+
+                "&:hover": {
+                  color: "#e65100",
+                  backgroundColor: "rgba(237, 108, 2, 0.08)",
+                },
+              }}
+            />
+          </Tooltip>,
+        ],
+      },
+    ],
+    [],
+  );
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
 
   return (
     <div className="contenido">
-      <div className="encabezado">
-        <h1>Bodegas</h1>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "500px",
-          width: "auto",
-          margin: "30px",
-          marginTop: "-30px",
-        }}
-      >
-        {/* Contenedor flex para el TextField y el Button */}
+      <PageHeader
+        title="Bodegas"
+        subtitle="Administra las bodegas y sus ubicaciones dentro de APHELIOS."
+      />
+
+      <PageToolbarCard>
         <div
           style={{
             display: "flex",
-            alignItems: "center", // Para alinear ambos elementos a la misma altura
-            marginBottom: "10px", // Espacio entre el formulario y el DataGrid
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+            width: "100%",
           }}
         >
-          {/* TextField alineado a la izquierda */}
           <TextField
-            id="outlined-basic"
             label="Buscar bodega"
-            variant="outlined"
-            style={{
-              maxWidth: "300px", // Ajusta el tamaño del TextField según sea necesario
-              marginRight: "auto", // Para que el TextField ocupe todo el espacio posible
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.large,
             }}
           />
-          {/* Botón alineado a la derecha */}
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleOpenModalPost}
-            style={{
-              marginLeft: "auto", // Empuja el botón hacia la derecha
+
+          <FormControl
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.medium,
             }}
           >
-            Agregar Bodega
+            <InputLabel id="bodegas-estatus-label">Estatus</InputLabel>
+
+            <Select
+              labelId="bodegas-estatus-label"
+              label="Estatus"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="todos">Todos</MenuItem>
+
+              <MenuItem value="activos">Activos</MenuItem>
+
+              <MenuItem value="inactivos">Inactivos</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button
+            variant="contained"
+            startIcon={<AddBusinessOutlinedIcon />}
+            onClick={handleOpenCreateBodega}
+            sx={{
+              ...toolbarButtonSx,
+              ml: "auto",
+            }}
+          >
+            Agregar bodega
           </Button>
         </div>
-        {/* DataGrid */}
-        <DataGrid
-          rows={rows}
+      </PageToolbarCard>
+
+      <div
+        style={{
+          marginLeft: "30px",
+          marginRight: "30px",
+        }}
+      >
+        <AppDataGrid
+          rows={filteredRows}
           columns={columns}
-          pageSize={5}
           loading={loading}
-          disableColumnResize={false}
-          showCellVerticalBorder
-          showColumnVerticalBorder
           getRowId={(row) => row.id}
-          experimentalFeatures={{ newEditingApi: true }}
-          columnVisibilityModel={{
+          exportFileName="bodegas"
+          initialColumnVisibilityModel={{
             id: false,
-            rol_id: false,
-            Neteable: false,
-            activo: false,
           }}
         />
       </div>
-      {/* Modal para editar bodega */}
-      <Dialog open={openModal} onClose={handleCloseModal}>
-        <DialogTitle>Editar Bodega</DialogTitle>
-        <DialogContent>
-          <TextField
-            label={"Nombre"}
-            fullWidth
-            margin="normal"
-            value={bodegaData.Nombre}
-            onChange={(e) =>
-              setBodegaData({ ...bodegaData, Nombre: e.target.value })
-            }
-          />
-          <TextField
-            label={"Tipo"}
-            fullWidth
-            margin="normal"
-            value={bodegaData.Tipo}
-            onChange={(e) =>
-              setBodegaData({ ...bodegaData, Tipo: e.target.value })
-            }
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Neteable"}</InputLabel>
-            <Select value={bodegaData.Neteable} onChange={handleChangeNeteable}>
-              <MenuItem value={1}>Disponible para ventas</MenuItem>
-              <MenuItem value={0}>No disponible</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Rol"}</InputLabel>
-            <Select
-              value={bodegaData.rol_id}
-              onChange={(e) => {
-                const selectedRol = e.target.value;
-                const descripcion = getRolDescripcion(selectedRol);
-                setBodegaData({
-                  ...bodegaData,
-                  rol_id: selectedRol,
-                  rol_descripcion: descripcion,
-                });
-              }}
-            >
-              <MenuItem value="">
-                <em>Seleccionar rol</em>
-              </MenuItem>
-              {roles.map((role) => (
-                <MenuItem key={role.id} value={role.id}>
-                  {role.descripcion}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Estatus"}</InputLabel>
-            <Select value={bodegaData.activo} onChange={handleChangeActivo}>
-              <MenuItem value={1}>Activo</MenuItem>
-              <MenuItem value={0}>Inactivo</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModal} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={handleSaveChanges} color="primary">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Modal para crear bodega */}
-      <Dialog open={openModalPost} onClose={handleCloseModalPost}>
-        <DialogTitle>Crear Bodega</DialogTitle>
-        <DialogContent>
-          <TextField
-            label={"Nombre"}
-            fullWidth
-            margin="normal"
-            value={newBodegaData.Nombre}
-            onChange={(e) =>
-              setNewBodegaData({ ...newBodegaData, Nombre: e.target.value })
-            }
-          />
-          <TextField
-            label={"Tipo"}
-            fullWidth
-            margin="normal"
-            value={newBodegaData.Tipo}
-            onChange={(e) =>
-              setNewBodegaData({ ...newBodegaData, Tipo: e.target.value })
-            }
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Disponible para ventas"}</InputLabel>
-            <Select
-              value={newBodegaData.Neteable}
-              onChange={(e) =>
-                setNewBodegaData({ ...newBodegaData, Neteable: e.target.value })
-              }
-            >
-              <MenuItem value={1}>Disponible para ventas</MenuItem>
-              <MenuItem value={0}>No disponible</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Rol"}</InputLabel>
-            <Select
-              value={newBodegaData.rol_id} // El valor de 'rol_id' debe coincidir con los valores de los roles
-              onChange={(e) => {
-                const selectedRol = e.target.value;
-                const descripcion = getRolDescripcion(selectedRol);
-                setNewBodegaData({
-                  ...newBodegaData,
-                  rol_id: selectedRol,
-                  rol_descripcion: descripcion, // Aquí puedes también almacenar la descripción si lo necesitas
-                });
-              }}
-            >
-              <MenuItem value="">
-                <em>Seleccionar rol</em>
-              </MenuItem>
-              {roles.length > 0 ? (
-                roles.map((role) => (
-                  <MenuItem key={role.id} value={role.id}>
-                    {role.descripcion}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem value="" disabled>
-                  No hay roles disponibles
-                </MenuItem>
-              )}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModalPost} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={addBodega} color="primary">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Ventana Modal Para Consultar Ubicaciones Por bodega*/}
-      <Modal
-        id="modal-consultaUbi"
-        open={openModalUbicaciones}
-        onClose={handleCloseModalUbicaciones}
-      >
-        <Box sx={modalStyle}>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "500px",
-              width: "auto",
-              margin: "30px",
-            }}
-          >
-            {/* Contenedor flex para el TextField y el Button */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center", // Para alinear ambos elementos a la misma altura
-                marginBottom: "10px", // Espacio entre el formulario y el DataGrid
-              }}
-            >
-              <TextField
-                label="Buscador..."
-                color="primary"
-                focused
-                sx={{ width: "20rem", marginBottom: "10px" }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {/* Botón alineado a la derecha */}
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleOpenModalPostUbicacion}
-                style={{
-                  marginLeft: "auto", // Empuja el botón hacia la derecha
-                }}
-              >
-                Agregar Ubicación
-              </Button>
-            </div>
-            {/* DataGrid */}
-            <ThemeProvider theme={theme}>
-              <DataGrid
-                style={{
-                  fontFamily: "Montserrat",
-                  fontWeight: "bold",
-                  width: 1300,
-                  height: 500,
-                }}
-                rows={filteredUbicaciones}
-                columns={columnsUbicaciones}
-                pageSize={5}
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                getRowId={(row) => row.id}
-                columnVisibilityModel={columnVisibilityModelProducts}
-                onColumnVisibilityModelChange={(newModel) =>
-                  setColumnVisibilityModelProducts(newModel)
-                }
-                experimentalFeatures={{ newEditingApi: true }}
-                density="compact" // Establece el tamaño de las filas en compacto por defecto
-                slots={{ toolbar: CustomToolbar }}
-              />
-            </ThemeProvider>
-            <Button
-              onClick={handleCloseModalUbicaciones}
-              variant="contained"
-              color="primary"
-              sx={{
-                marginTop: "10px",
-                marginLeft: "93%",
-              }}
-            >
-              Cerrar
-            </Button>
-          </div>
-        </Box>
-      </Modal>
-      {/* Modal para crear ubicación en una bodega */}
-      <Dialog
-        open={openModalUbicacionesPost}
-        onClose={handleCloseModalPostUbicaciones}
-      >
-        <DialogTitle>Crear Ubicación</DialogTitle>
-        <DialogContent>
-          <TextField
-            label={"Descripción"}
-            fullWidth
-            margin="normal"
-            value={newUbicacionData.descripcion}
-            onChange={(e) =>
-              setNewUbicacionData({
-                ...newUbicacionData,
-                descripcion: e.target.value,
-              })
-            }
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Disponible para ventas"}</InputLabel>
-            <Select
-              value={newUbicacionData.disponible}
-              onChange={(e) =>
-                setNewUbicacionData({
-                  ...newUbicacionData,
-                  disponible: e.target.value,
-                })
-              }
-            >
-              <MenuItem value={1}>Disponible para ventas</MenuItem>
-              <MenuItem value={0}>No disponible</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModalPostUbicaciones} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={addUbicación} color="primary">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* Modal para editar ubicación */}
-      <Dialog
-        open={openModalUbicacionesUpdate}
-        onClose={handleCloseModalUpdateUbicaciones}
-      >
-        <DialogTitle>Editar Ubicación</DialogTitle>
-        <DialogContent>
-          <TextField
-            label={"Descripción"}
-            fullWidth
-            margin="normal"
-            value={ubicacionData.descripcion}
-            onChange={(e) =>
-              setUbicacionData({
-                ...ubicacionData,
-                descripcion: e.target.value,
-              })
-            }
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Disponible para ventas"}</InputLabel>
-            <Select
-              value={ubicacionData.disponible}
-              onChange={(e) =>
-                setUbicacionData({
-                  ...ubicacionData,
-                  disponible: e.target.value,
-                })
-              }
-            >
-              <MenuItem value={1}>Disponible para ventas</MenuItem>
-              <MenuItem value={0}>No disponible</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>{"Estatus"}</InputLabel>
-            <Select
-              value={ubicacionData.activo}
-              onChange={(e) =>
-                setUbicacionData({ ...ubicacionData, activo: e.target.value })
-              }
-            >
-              <MenuItem value={1}>Activo</MenuItem>
-              <MenuItem value={0}>Inactivo</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseModalUpdateUbicaciones} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={handleSaveChangesUbicacion} color="primary">
-            Guardar
-          </Button>
-        </DialogActions>
-      </Dialog>
+
+      {/* ========================= */}
+      {/* CREAR / EDITAR BODEGA */}
+      {/* ========================= */}
+
+      <BodegaModal
+        open={openBodegaModal}
+        mode={bodegaModalMode}
+        data={selectedBodega}
+        roles={roles}
+        loading={savingBodega}
+        onClose={handleCloseBodegaModal}
+        onSave={handleSaveBodega}
+      />
+
+      {/* ========================= */}
+      {/* LISTADO UBICACIONES */}
+      {/* ========================= */}
+
+      <UbicacionesModal
+        open={openUbicacionesModal}
+        bodega={selectedBodega}
+        rows={rowsUbicaciones}
+        loading={loadingUbicaciones}
+        onClose={handleCloseUbicacionesModal}
+        onCreate={handleOpenCreateUbicacion}
+        onEdit={handleOpenEditUbicacion}
+      />
+
+      {/* ========================= */}
+      {/* CREAR / EDITAR UBICACION */}
+      {/* ========================= */}
+
+      <UbicacionModal
+        open={openUbicacionModal}
+        mode={ubicacionModalMode}
+        data={selectedUbicacion}
+        loading={savingUbicacion}
+        onClose={handleCloseUbicacionModal}
+        onSave={handleSaveUbicacion}
+      />
     </div>
   );
 };
