@@ -11,6 +11,7 @@ import Home from "../components/pages/Menu/Home";
 import Configuracion from "../components/pages/Menu/Configuracion";
 import Inventario from "../components/pages/Menu/Inventario";
 import Marketing from "../components/pages/Marketing/Marketing";
+import PlanTrabajo from "../components/pages/PlanTrabajo/PlanTrabajo";
 
 // ==============================
 // CONFIGURACIÓN
@@ -125,6 +126,8 @@ const Rutas = () => {
     "Coordinador comercial",
   ];
 
+  const rolesAdministracion = ["administrador"];
+
   return (
     <>
       <Header />
@@ -139,6 +142,20 @@ const Rutas = () => {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+    PLAN DE TRABAJO
+    Solo administrador
+====================================================== */}
+
+        <Route
+          path="/planTrabajo"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <PlanTrabajo />
             </ProtectedRoute>
           }
         />
@@ -190,12 +207,7 @@ const Rutas = () => {
         <Route
           path="/conteociclico"
           element={
-            <ProtectedRoute
-              allowedRoles={[
-                "administrador",
-                "Almacenista",
-              ]}
-            >
+            <ProtectedRoute allowedRoles={["administrador", "Almacenista"]}>
               <ConteoCiclico />
             </ProtectedRoute>
           }
@@ -222,9 +234,7 @@ const Rutas = () => {
         <Route
           path="/nuevos-excedentes"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesInventarioEspecial}
-            >
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
               <Excedentes />
             </ProtectedRoute>
           }
@@ -233,9 +243,7 @@ const Rutas = () => {
         <Route
           path="/stock-componentes"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesInventarioEspecial}
-            >
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
               <StockComponentes />
             </ProtectedRoute>
           }
@@ -298,9 +306,7 @@ const Rutas = () => {
         <Route
           path="/envios"
           element={
-            <ProtectedRoute
-              excludedRoles={rolesExcluidosEnvios}
-            >
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
               <Envios />
             </ProtectedRoute>
           }
@@ -309,9 +315,7 @@ const Rutas = () => {
         <Route
           path="/empaque/:envioId/detalle"
           element={
-            <ProtectedRoute
-              excludedRoles={rolesExcluidosEnvios}
-            >
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
               <EnvioDetalle />
             </ProtectedRoute>
           }
@@ -320,9 +324,7 @@ const Rutas = () => {
         <Route
           path="/empaqueCajaAbierta/envio/:envioId/caja/:cajaId/visual/:visualIdCaja"
           element={
-            <ProtectedRoute
-              excludedRoles={rolesExcluidosEnvios}
-            >
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
               <EmpaqueCajaAbierta />
             </ProtectedRoute>
           }
@@ -331,9 +333,7 @@ const Rutas = () => {
         <Route
           path="/empaque/envio/:envioId/caja/:cajaId/visual/:visualIdCaja"
           element={
-            <ProtectedRoute
-              excludedRoles={rolesExcluidosEnvios}
-            >
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
               <Empaque />
             </ProtectedRoute>
           }
@@ -342,9 +342,7 @@ const Rutas = () => {
         <Route
           path="/resumenEnvio/envio/:envioId"
           element={
-            <ProtectedRoute
-              excludedRoles={rolesExcluidosEnvios}
-            >
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
               <ResumenEnvio />
             </ProtectedRoute>
           }
@@ -353,9 +351,7 @@ const Rutas = () => {
         <Route
           path="/envios/detalle/:envioId/progresoEmpaque"
           element={
-            <ProtectedRoute
-              excludedRoles={rolesExcluidosEnvios}
-            >
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
               <EnviosProgresoEmpaque />
             </ProtectedRoute>
           }
@@ -392,9 +388,7 @@ const Rutas = () => {
         <Route
           path="/pedidos"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <VistaPedidos />
             </ProtectedRoute>
           }
@@ -403,9 +397,7 @@ const Rutas = () => {
         <Route
           path="/cargaFacturas"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <CargaFacturas />
             </ProtectedRoute>
           }
@@ -414,9 +406,7 @@ const Rutas = () => {
         <Route
           path="/facturas"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <Facturas />
             </ProtectedRoute>
           }
@@ -425,9 +415,7 @@ const Rutas = () => {
         <Route
           path="/detalleFacturas/factura/:facturaId"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <DetalleFactura />
             </ProtectedRoute>
           }
@@ -468,9 +456,7 @@ const Rutas = () => {
         <Route
           path="/performanceComercial"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesPerformance}
-            >
+            <ProtectedRoute allowedRoles={rolesPerformance}>
               <PerformanceComercial />
             </ProtectedRoute>
           }
@@ -511,9 +497,7 @@ const Rutas = () => {
         <Route
           path="/analisisVentas"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <AnalisisVentas />
             </ProtectedRoute>
           }
@@ -522,9 +506,7 @@ const Rutas = () => {
         <Route
           path="/chartpronostico"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <ChartPronostico />
             </ProtectedRoute>
           }
@@ -533,9 +515,7 @@ const Rutas = () => {
         <Route
           path="/graficas"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <Graficas />
             </ProtectedRoute>
           }
@@ -545,9 +525,7 @@ const Rutas = () => {
         <Route
           path="/reCharts"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <ReCharts />
             </ProtectedRoute>
           }
@@ -560,9 +538,7 @@ const Rutas = () => {
         <Route
           path="/transacciones"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesInventarioEspecial}
-            >
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
               <Transacciones />
             </ProtectedRoute>
           }
@@ -571,9 +547,7 @@ const Rutas = () => {
         <Route
           path="/usuarios"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesPlaneacion}
-            >
+            <ProtectedRoute allowedRoles={rolesPlaneacion}>
               <Usuarios />
             </ProtectedRoute>
           }
@@ -582,9 +556,7 @@ const Rutas = () => {
         <Route
           path="/proveedores"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesPlaneacion}
-            >
+            <ProtectedRoute allowedRoles={rolesPlaneacion}>
               <Proveedores />
             </ProtectedRoute>
           }
@@ -593,9 +565,7 @@ const Rutas = () => {
         <Route
           path="/bodegas"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesInventarioEspecial}
-            >
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
               <Bodegas />
             </ProtectedRoute>
           }
@@ -604,9 +574,7 @@ const Rutas = () => {
         <Route
           path="/ordenes-retiro"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesPlaneacion}
-            >
+            <ProtectedRoute allowedRoles={rolesPlaneacion}>
               <OrdenRetiro />
             </ProtectedRoute>
           }
@@ -620,9 +588,7 @@ const Rutas = () => {
         <Route
           path="/ventas-me"
           element={
-            <ProtectedRoute
-              allowedRoles={rolesInventarioEspecial}
-            >
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
               <VentasME />
             </ProtectedRoute>
           }
@@ -637,9 +603,7 @@ const Rutas = () => {
         <Route
           path="/ventas"
           element={
-            <ProtectedRoute
-              allowedRoles={["administrador"]}
-            >
+            <ProtectedRoute allowedRoles={["administrador"]}>
               <Ventas />
             </ProtectedRoute>
           }
@@ -693,8 +657,7 @@ const Rutas = () => {
               <h1>Acceso no autorizado</h1>
 
               <p>
-                Tu usuario no cuenta con permisos para acceder
-                a este módulo.
+                Tu usuario no cuenta con permisos para acceder a este módulo.
               </p>
             </div>
           }
@@ -720,9 +683,7 @@ const Rutas = () => {
             >
               <h1>Página no encontrada</h1>
 
-              <p>
-                La ruta que intentas abrir no existe.
-              </p>
+              <p>La ruta que intentas abrir no existe.</p>
             </div>
           }
         />

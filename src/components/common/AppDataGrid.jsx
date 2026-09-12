@@ -40,6 +40,8 @@ const AppDataGrid = ({
       sx={{
         width: "100%",
         height,
+        minWidth: 0,
+        minHeight: 0,
       }}
     >
       <DataGrid
@@ -75,17 +77,17 @@ const AppDataGrid = ({
         }
         disableRowSelectionOnClick
         sx={{
+          width: "100%",
+          height: "100%",
+
           border: "none",
-          fontFamily: "Montserrat, sans-serif",
 
           "& .MuiDataGrid-columnHeaderTitle": {
-            fontFamily: "Montserrat, sans-serif",
             fontWeight: 500,
             fontSize: "1.05rem",
           },
 
           "& .MuiDataGrid-cell": {
-            fontFamily: "Montserrat, sans-serif",
             fontSize: "0.95rem",
             display: "flex",
             alignItems: "center",
@@ -98,23 +100,10 @@ const AppDataGrid = ({
           "& .MuiDataGrid-footerContainer": {
             minHeight: 52,
             borderTop: `1px solid ${DATA_GRID_CONFIG.colors.border}`,
-            fontFamily: "Montserrat, sans-serif",
-          },
-
-          "& .MuiTablePagination-root": {
-            fontFamily: "Montserrat, sans-serif",
           },
 
           "& .MuiTablePagination-toolbar": {
             minHeight: "52px",
-          },
-
-          "& .MuiTablePagination-selectLabel": {
-            fontFamily: "Montserrat, sans-serif",
-          },
-
-          "& .MuiTablePagination-displayedRows": {
-            fontFamily: "Montserrat, sans-serif",
           },
 
           ...sx,

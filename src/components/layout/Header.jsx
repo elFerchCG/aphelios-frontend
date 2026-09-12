@@ -18,6 +18,7 @@ import {
 } from "react-router-dom";
 
 import SidebarNavigation from "../navigation/SidebarNavigation";
+import NotificationBell from "../global/NotificationBell";
 
 import {
   navigationConfig,
@@ -167,6 +168,16 @@ const Header = () => {
         {/* DERECHA */}
 
         <div className="header-right">
+          {/* =====================================================
+              NOTIFICACIONES
+          ===================================================== */}
+
+          <NotificationBell />
+
+          {/* =====================================================
+              PERFIL
+          ===================================================== */}
+
           <button
             type="button"
             className={`profile-button ${

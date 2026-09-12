@@ -41,11 +41,19 @@ import NewReleasesOutlinedIcon from "@mui/icons-material/NewReleasesOutlined";
 
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 
+import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+
 export const navigationConfig = [
   {
     label: "Inicio",
     icon: HomeOutlinedIcon,
     path: "/home",
+  },
+  {
+    label: "Plan de Trabajo",
+    icon: TaskAltOutlinedIcon,
+    path: "/planTrabajo",
+    roles: ["administrador"],
   },
   {
     label: "Envíos",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import {
   Box,
@@ -11,17 +11,13 @@ import {
   MenuItem,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
+import { useLocation } from "react-router-dom";
 import HistorialKaizenModal from "./HistorialKaizenModal";
 import EditarResponsablesKaizenModal from "./EditarResponsablesKaizenModal";
 import CerrarKaizenModal from "./CerrarKaizenModal";
-import {
-  swalSuccess,
-  swalError,
-  swalWarning,
-} from "../../../helpers/sweetAlert";
-import Swal from "sweetalert2";
 
 const KaizenSeguimiento = () => {
+  const location = useLocation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +39,29 @@ const KaizenSeguimiento = () => {
   const [proveedorId, setProveedorId] = useState("");
   const [usuariosAsignables, setUsuariosAsignables] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+
+  useEffect(() => {
+    const filtrosNotificacion = location.state;
+
+    if (!filtrosNotificacion) {
+      return;
+    }
+
+    if (filtrosNotificacion.estatus) {
+      setEstatusFiltro(filtrosNotificacion.estatus);
+    }
+
+    if (filtrosNotificacion.busqueda) {
+      setBusqueda(filtrosNotificacion.busqueda);
+    }
+
+    // Limpiamos otros filtros para evitar
+    // que interfieran con la notificación
+    setFechaInicio("");
+    setFechaFin("");
+    setResponsableId("");
+    setProveedorId("");
+  }, [location.state]);
 
   const token = localStorage.getItem("token");
 
@@ -93,7 +112,7 @@ const KaizenSeguimiento = () => {
     }
   };
 
-  const obtenerUsuariosAsignables = async () => {
+  const obtenerUsuariosAsignables = useCallback(async () => {
     try {
       const resp = await axios.get(`${apiUrl}/kaizen/usuariosAsignables`, {
         headers: {
@@ -107,9 +126,9 @@ const KaizenSeguimiento = () => {
     } catch (error) {
       console.error("Error al obtener usuarios asignables:", error);
     }
-  };
+  }, [apiUrl, token]);
 
-  const obtenerProveedores = async () => {
+  const obtenerProveedores = useCallback(async () => {
     try {
       const resp = await axios.get(`${apiUrl}/proveedores`, {
         headers: {
@@ -118,17 +137,16 @@ const KaizenSeguimiento = () => {
       });
 
       const data = Array.isArray(resp.data) ? resp.data : resp.data.data || [];
+
       setProveedores(data);
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
     }
-  };
+  }, [apiUrl, token]);
 
   const usuarioLocal = obtenerUsuarioLocal();
 
   const rolDescripcion = usuarioLocal?.rol_descripcion;
-
-  const esMarketing = usuarioLocal?.rol_descripcion === "Marketing";
 
   const puedeAdministrarKaizen =
     rolDescripcion === "administrador" ||
@@ -156,7 +174,7 @@ const KaizenSeguimiento = () => {
     });
   };
 
-  const obtenerSeguimiento = async () => {
+  const obtenerSeguimiento = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -187,206 +205,9 @@ const KaizenSeguimiento = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const cerrarKaizensSeleccionados = async (producto) => {
-    try {
-      const token = localStorage.getItem("token");
-
-      const respHistorial = await axios.get(
-        `${apiUrl}/kaizen/historial/${producto.producto_id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!respHistorial.data.ok) return;
-
-      const kaizens = Array.isArray(respHistorial.data.data?.kaizens)
-        ? respHistorial.data.data.kaizens
-        : [];
-
-      const accionesActivas = kaizens.filter(
-        (item) => item.estatus === "activo",
-      );
-
-      if (accionesActivas.length === 0) {
-        swalWarning(
-          "Sin acciones activas",
-          "Este producto no tiene acciones activas.",
-        );
-        return;
-      }
-
-      const html = `
-  <div style="text-align:left; display:flex; flex-direction:column; gap:10px;">
-    ${accionesActivas
-      .map(
-        (item) => `
-          <label
-            style="
-              display:flex;
-              gap:10px;
-              align-items:flex-start;
-              padding:12px;
-              border:1px solid #e0e0e0;
-              border-radius:10px;
-              background:#fafafa;
-              cursor:pointer;
-            "
-          >
-            <input
-              type="checkbox"
-              class="kaizen-check"
-              value="${item.id}"
-              style="margin-top:4px;"
-            />
-
-            <div>
-              <div style="font-weight:700; color:#222;">
-                Razón ${item.razon_codigo}: ${item.razon_descripcion}
-              </div>
-
-              <div style="font-size:13px; color:#555; margin-top:4px;">
-                ${item.acciones_mejora}
-              </div>
-
-              <div style="font-size:12px; color:#777; margin-top:6px;">
-                Seguimiento: ${formatoFecha(item.fecha_seguimiento)}
-              </div>
-            </div>
-          </label>
-        `,
-      )
-      .join("")}
-  </div>
-`;
-
-      const confirmacion = await Swal.fire({
-        icon: "warning",
-        title: "Selecciona acciones a cerrar",
-        html,
-        width: 620,
-        showCancelButton: true,
-        confirmButtonText: "Cerrar seleccionadas",
-        cancelButtonText: "Cancelar",
-        confirmButtonColor: "#1976d2",
-        cancelButtonColor: "#757575",
-        customClass: {
-          container: "mi-swal",
-        },
-        preConfirm: () => {
-          const seleccionados = Array.from(
-            document.querySelectorAll(".kaizen-check:checked"),
-          ).map((input) => Number(input.value));
-
-          if (seleccionados.length === 0) {
-            Swal.showValidationMessage("Selecciona al menos una acción");
-            return false;
-          }
-
-          return seleccionados;
-        },
-      });
-
-      if (!confirmacion.isConfirmed) return;
-
-      const kaizenIds = confirmacion.value;
-
-      const resp = await axios.patch(
-        `${apiUrl}/kaizen/cerrarSeleccionados`,
-        {
-          kaizenIds,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (resp.data.ok) {
-        swalSuccess(
-          "Acciones cerradas",
-          resp.data.message || "Acciones cerradas correctamente",
-        );
-
-        obtenerSeguimiento();
-      }
-    } catch (error) {
-      console.error("Error al cerrar acciones seleccionadas:", error);
-
-      swalError(
-        "Error",
-        error.response?.data?.message ||
-          "Error al cerrar acciones seleccionadas",
-      );
-    }
-  };
-
-  const cerrarTodosKaizens = async (producto) => {
-    try {
-      const confirmacion = await Swal.fire({
-        icon: "warning",
-        title: "¿Cerrar todos los Kaizens?",
-        text: "Se cerrarán todas las acciones activas de este producto.",
-        showCancelButton: true,
-        confirmButtonText: "Sí, cerrar todos",
-        cancelButtonText: "Cancelar",
-        customClass: {
-          container: "mi-swal",
-        },
-      });
-
-      if (!confirmacion.isConfirmed) return;
-
-      const token = localStorage.getItem("token");
-
-      const resp = await axios.patch(
-        `${apiUrl}/kaizen/producto/${producto.producto_id}/cerrarTodos`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (resp.data.ok) {
-        swalSuccess(
-          "Kaizens cerrados",
-          resp.data.message || "Acciones cerradas correctamente",
-        );
-
-        obtenerSeguimiento();
-      }
-    } catch (error) {
-      console.error("Error al cerrar todos los Kaizens:", error);
-
-      swalError(
-        "Error",
-        error.response?.data?.message || "Error al cerrar los Kaizens",
-      );
-    }
-  };
-
-  useEffect(() => {
-    obtenerProveedores();
-
-    if (puedeAdministrarKaizen) {
-      obtenerUsuariosAsignables();
-    }
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      obtenerSeguimiento();
-    }, 500);
-
-    return () => clearTimeout(timeout);
   }, [
+    apiUrl,
+    token,
     estatusFiltro,
     fechaInicio,
     fechaFin,
@@ -396,18 +217,36 @@ const KaizenSeguimiento = () => {
   ]);
 
   useEffect(() => {
+    obtenerProveedores();
+
+    if (puedeAdministrarKaizen) {
+      obtenerUsuariosAsignables();
+    }
+  }, [obtenerProveedores, obtenerUsuariosAsignables, puedeAdministrarKaizen]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      obtenerSeguimiento();
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [obtenerSeguimiento]);
+
+  useEffect(() => {
     const actualizarSeguimiento = () => {
       obtenerSeguimiento();
     };
 
     window.addEventListener("kaizenActualizado", actualizarSeguimiento);
+
     window.addEventListener("focus", actualizarSeguimiento);
 
     return () => {
       window.removeEventListener("kaizenActualizado", actualizarSeguimiento);
+
       window.removeEventListener("focus", actualizarSeguimiento);
     };
-  }, []);
+  }, [obtenerSeguimiento]);
 
   const columnasBase = [
     {
@@ -564,48 +403,6 @@ const KaizenSeguimiento = () => {
           Ver
         </Button>
       ),
-    },
-  ];
-
-  const columnasAdmin = [
-    {
-      field: "responsablesAccion",
-      headerName: "Responsables",
-      width: 160,
-      align: "center",
-      headerAlign: "center",
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => (
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => abrirResponsables(params.row)}
-        >
-          Editar
-        </Button>
-      ),
-    },
-    {
-      field: "cerrar",
-      headerName: "Cerrar",
-      width: 160,
-      align: "center",
-      headerAlign: "center",
-      sortable: false,
-      filterable: false,
-      renderCell: (params) =>
-        puedeAdministrarKaizen ? (
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            disabled={params.row.estatus === "cerrado"}
-            onClick={() => abrirCerrarKaizen(params.row)}
-          >
-            Cerrar
-          </Button>
-        ) : null,
     },
   ];
 
