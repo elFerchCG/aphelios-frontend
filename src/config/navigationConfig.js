@@ -69,13 +69,13 @@ export const navigationConfig = [
         label: "Componentes",
         icon: CategoryOutlinedIcon,
         path: "/componentes",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Marketing"],
       },
       {
         label: "Billetes",
         icon: AccountTreeOutlinedIcon,
         path: "/billetes",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Marketing"],
       },
       {
         label: "Publicaciones",
