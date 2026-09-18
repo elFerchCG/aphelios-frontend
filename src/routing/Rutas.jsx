@@ -167,7 +167,7 @@ const Rutas = () => {
         <Route
           path="/componentes"
           element={
-            <ProtectedRoute allowedRoles={rolesPlaneacion}>
+            <ProtectedRoute allowedRoles={rolesMarketing}>
               <Componentes />
             </ProtectedRoute>
           }
@@ -176,7 +176,7 @@ const Rutas = () => {
         <Route
           path="/billetes"
           element={
-            <ProtectedRoute allowedRoles={rolesPlaneacion}>
+            <ProtectedRoute allowedRoles={rolesMarketing}>
               <Billetes />
             </ProtectedRoute>
           }
