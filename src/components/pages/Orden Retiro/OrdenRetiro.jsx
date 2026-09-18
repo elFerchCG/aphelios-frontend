@@ -235,11 +235,6 @@ const OrdenRetiro = () => {
 
         return matchesSearch && matchesStatus;
       })
-      .map((row) => ({
-        ...row,
-
-        _gridId: [row.orden_bodega_id, row.orden_id, row.producto_id].join("-"),
-      }));
   }, [ordenes, search, statusFilter]);
 
   // ==========================================================
@@ -474,7 +469,7 @@ const OrdenRetiro = () => {
           rows={filteredOrdenes}
           columns={columns}
           loading={loading}
-          getRowId={(row) => row._gridId}
+          getRowId={(row) => row.orden_id}
           checkboxSelection
           disableRowSelectionOnClick
           rowSelectionModel={selectedOrdenes}
