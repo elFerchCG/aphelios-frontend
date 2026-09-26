@@ -50,6 +50,11 @@ export const navigationConfig = [
     path: "/home",
   },
   {
+    label: "Productos de aphelios",
+    icon: HomeOutlinedIcon,
+    path: "/productosAphelios",
+  },
+  {
     label: "Plan de Trabajo",
     icon: TaskAltOutlinedIcon,
     path: "/planTrabajo",
@@ -291,6 +296,12 @@ export const navigationConfig = [
         icon: ExitToAppOutlinedIcon,
         path: "/ordenes-retiro",
         roles: ["administrador", "Planeador"],
+      },
+            {
+        label: "Cuentas Ecommerce",
+        icon: StorefrontOutlinedIcon,
+        path: "/cuentasEcommerce",
+        roles: ["administrador"],
       },
     ],
   },

@@ -85,6 +85,16 @@ import ChartPronostico from "../components/pages/Analisi Ventas/ChartPronostico"
 import Graficas from "../components/pages/Graficas/DashboardAphelios";
 
 // ==============================
+// Productos
+// ==============================
+import ProductosAphelios from "../components/pages/ProductosAphelios/ProductosAphelios";
+
+// ==============================
+// Cuentas Ecommerce
+// ==============================
+import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
+
+// ==============================
 // OTROS
 // ==============================
 import BarraLateral from "../components/layout/BarraLateral";
@@ -142,6 +152,29 @@ const Rutas = () => {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/productosAphelios"
+          element={
+            <ProtectedRoute allowedRoles={rolesPlaneacion}>
+              <ProductosAphelios />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+    CuentasE commerce
+    Solo administrador
+====================================================== */}
+
+        <Route
+          path="/cuentasEcommerce"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <CuentasEcommerce />
             </ProtectedRoute>
           }
         />
