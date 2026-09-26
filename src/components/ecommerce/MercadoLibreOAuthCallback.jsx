@@ -13,75 +13,65 @@ const MercadoLibreOAuthCallback = () => {
 
   useEffect(() => {
     const procesarCallback = async () => {
-      // =====================================================
-      // 1. LEER PARÁMETROS DE LA URL
-      // =====================================================
-
       const params = new URLSearchParams(window.location.search);
 
       const code = params.get("code");
       const state = params.get("state");
-
-      console.log("🟡 OAuth callback detectado");
-      console.log("Tiene code:", Boolean(code));
-      console.log("Tiene state:", Boolean(state));
-
       const oauthError = params.get("error");
       const oauthErrorDescription = params.get("error_description");
 
       // =====================================================
-      // 2. NO ES UN CALLBACK DE MERCADO LIBRE
+      // NO ES CALLBACK DE MERCADO LIBRE
       // =====================================================
 
       if (!code && !state && !oauthError) {
         return;
       }
 
+      console.log("🟡 OAuth callback de Mercado Libre detectado", {
+        tieneCode: Boolean(code),
+        tieneState: Boolean(state),
+        tieneError: Boolean(oauthError),
+      });
+
+      // Evitar doble ejecución por React StrictMode
       if (procesandoRef.current) {
         return;
       }
 
       procesandoRef.current = true;
 
-      // =====================================================
-      // 3. MERCADO LIBRE DEVOLVIÓ UN ERROR
-      // =====================================================
-
-      if (oauthError) {
-        await Swal.fire({
-          icon: "error",
-          title: "Mercado Libre",
-          text:
-            oauthErrorDescription ||
-            "Mercado Libre no pudo autorizar la cuenta.",
-        });
-
-        limpiarParametrosOAuth();
-        return;
-      }
-
-      // =====================================================
-      // 4. VALIDAR CODE Y STATE
-      // =====================================================
-
-      if (!code || !state) {
-        await Swal.fire({
-          icon: "error",
-          title: "Autorización incompleta",
-          text: "Mercado Libre no devolvió todos los datos necesarios.",
-        });
-
-        limpiarParametrosOAuth();
-        return;
-      }
-
       try {
         // =====================================================
-        // 5. ENVIAR CODE + STATE AL BACKEND
+        // MERCADO LIBRE DEVOLVIÓ ERROR / CANCELACIÓN
         // =====================================================
 
-        console.log("🟠 Enviando callback OAuth al backend...");
-        console.log("URL:", `${apiUrl}/mercadoLibre/oauth/callback`);
+        if (oauthError) {
+          throw new Error(
+            oauthErrorDescription ||
+              "Mercado Libre rechazó o canceló la autorización.",
+          );
+        }
+
+        // =====================================================
+        // VALIDAR RESPUESTA
+        // =====================================================
+
+        if (!code) {
+          throw new Error(
+            "Mercado Libre no devolvió el código de autorización.",
+          );
+        }
+
+        if (!state) {
+          throw new Error(
+            "Mercado Libre no devolvió el state de autorización.",
+          );
+        }
+
+        // =====================================================
+        // ENVIAR CODE + STATE AL BACKEND
+        // =====================================================
 
         const response = await axios.post(
           `${apiUrl}/mercadoLibre/oauth/callback`,
@@ -91,39 +81,55 @@ const MercadoLibreOAuthCallback = () => {
           },
         );
 
+        console.log("🟢 OAuth Mercado Libre completado", {
+          ok: response.data?.ok,
+          cuentaMlId: response.data?.cuenta?.cuentaMlId,
+          sellerId: response.data?.cuenta?.sellerId,
+          tieneRefreshToken:
+            response.data?.cuenta?.tieneRefreshToken,
+        });
+
         // =====================================================
-        // 6. CUENTA CONECTADA
+        // LIMPIAR URL
+        // =====================================================
+
+        limpiarParametrosOAuth();
+
+        // =====================================================
+        // ÉXITO
         // =====================================================
 
         await Swal.fire({
           icon: "success",
-          title: "Cuenta conectada",
+          title: "Cuenta vinculada",
           text:
             response.data?.message ||
-            "La cuenta de Mercado Libre fue conectada correctamente.",
+            "La cuenta de Mercado Libre fue autorizada correctamente.",
+          confirmButtonText: "Aceptar",
         });
-
-        // =====================================================
-        // 7. LIMPIAR CODE Y STATE DE LA URL
-        // =====================================================
-
-        limpiarParametrosOAuth();
       } catch (error) {
-        console.error("Error procesando OAuth de Mercado Libre:", error);
+        console.error(
+          "❌ Error procesando OAuth de Mercado Libre:",
+          error,
+        );
+
+        // Quitamos code/state aunque haya ocurrido un error.
+        // Así no intentamos reutilizar el mismo authorization code
+        // al refrescar la página.
+        limpiarParametrosOAuth();
 
         const mensaje =
           error.response?.data?.message ||
           error.response?.data?.error ||
           error.message ||
-          "No se pudo conectar la cuenta de Mercado Libre.";
+          "No se pudo autorizar la cuenta de Mercado Libre.";
 
         await Swal.fire({
           icon: "error",
-          title: "Error conectando Mercado Libre",
+          title: "No se pudo vincular la cuenta",
           text: mensaje,
+          confirmButtonText: "Aceptar",
         });
-
-        limpiarParametrosOAuth();
       }
     };
 

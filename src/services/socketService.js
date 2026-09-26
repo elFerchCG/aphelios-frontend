@@ -3,49 +3,39 @@ import { io } from "socket.io-client";
 let socket = null;
 
 // Componentes esperando a que exista el socket.
-const socketSubscribers =
-  new Set();
+const socketSubscribers = new Set();
 
 const getApiUrl = () => {
-  return process.env
-    .REACT_APP_API_URL_LOCAL;
+  return process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : process.env.REACT_APP_API_URL_LOCAL;
 };
 
 // ============================================================
 // AVISAR QUE YA EXISTE SOCKET
 // ============================================================
 
-const notificarSocketDisponible =
-  () => {
-    if (!socket) {
-      return;
-    }
+const notificarSocketDisponible = () => {
+  if (!socket) {
+    return;
+  }
 
-    socketSubscribers.forEach(
-      (callback) => {
-        try {
-          callback(socket);
-        } catch (error) {
-          console.error(
-            "[Socket.IO] Error notificando socket:",
-            error
-          );
-        }
-      }
-    );
-  };
+  socketSubscribers.forEach((callback) => {
+    try {
+      callback(socket);
+    } catch (error) {
+      console.error("[Socket.IO] Error notificando socket:", error);
+    }
+  });
+};
 
 // ============================================================
 // CONECTAR
 // ============================================================
 
-export const conectarSocket = (
-  token
-) => {
+export const conectarSocket = (token) => {
   if (!token) {
-    console.warn(
-      "[Socket.IO] No se puede conectar sin token."
-    );
+    console.warn("[Socket.IO] No se puede conectar sin token.");
 
     return null;
   }
@@ -75,34 +65,25 @@ export const conectarSocket = (
   // CREAR SOCKET
   // ==========================================================
 
-  const socketUrl =
-    getApiUrl();
+  const socketUrl = getApiUrl();
 
-  socket = io(
-    socketUrl,
-    {
-      auth: {
-        token,
-      },
+  socket = io(socketUrl, {
+    auth: {
+      token,
+    },
 
-      transports: [
-        "websocket",
-      ],
+    transports: ["websocket"],
 
-      autoConnect: true,
+    autoConnect: true,
 
-      reconnection: true,
+    reconnection: true,
 
-      reconnectionAttempts:
-        Infinity,
+    reconnectionAttempts: Infinity,
 
-      reconnectionDelay:
-        1000,
+    reconnectionDelay: 1000,
 
-      reconnectionDelayMax:
-        5000,
-    }
-  );
+    reconnectionDelayMax: 5000,
+  });
 
   // ==========================================================
   // AVISAR INMEDIATAMENTE
@@ -117,44 +98,24 @@ export const conectarSocket = (
   // EVENTOS GENERALES
   // ==========================================================
 
-  socket.on(
-    "connect",
-    () => {
-      console.log(
-        `[Socket.IO] Conectado: ${socket.id}`
-      );
-    }
-  );
+  socket.on("connect", () => {
+    console.log(`[Socket.IO] Conectado: ${socket.id}`);
+  });
 
-  socket.on(
-    "chat:ready",
-    (data) => {
-      // console.log(
-      //   "[Socket.IO] Chat listo:",
-      //   data
-      // );
-    }
-  );
+  socket.on("chat:ready", (data) => {
+    // console.log(
+    //   "[Socket.IO] Chat listo:",
+    //   data
+    // );
+  });
 
-  socket.on(
-    "connect_error",
-    (error) => {
-      console.error(
-        "[Socket.IO] Error de conexión:",
-        error.message
-      );
-    }
-  );
+  socket.on("connect_error", (error) => {
+    console.error("[Socket.IO] Error de conexión:", error.message);
+  });
 
-  socket.on(
-    "disconnect",
-    (reason) => {
-      console.log(
-        "[Socket.IO] Desconectado:",
-        reason
-      );
-    }
-  );
+  socket.on("disconnect", (reason) => {
+    console.log("[Socket.IO] Desconectado:", reason);
+  });
 
   return socket;
 };
@@ -163,19 +124,12 @@ export const conectarSocket = (
 // SUSCRIBIRSE A DISPONIBILIDAD DEL SOCKET
 // ============================================================
 
-export const onSocketDisponible = (
-  callback
-) => {
-  if (
-    typeof callback !==
-    "function"
-  ) {
+export const onSocketDisponible = (callback) => {
+  if (typeof callback !== "function") {
     return () => {};
   }
 
-  socketSubscribers.add(
-    callback
-  );
+  socketSubscribers.add(callback);
 
   // Si el socket ya existe,
   // ejecutamos inmediatamente.
@@ -185,9 +139,7 @@ export const onSocketDisponible = (
 
   // Cleanup para React.
   return () => {
-    socketSubscribers.delete(
-      callback
-    );
+    socketSubscribers.delete(callback);
   };
 };
 
@@ -195,18 +147,17 @@ export const onSocketDisponible = (
 // DESCONECTAR
 // ============================================================
 
-export const desconectarSocket =
-  () => {
-    if (!socket) {
-      return;
-    }
+export const desconectarSocket = () => {
+  if (!socket) {
+    return;
+  }
 
-    socket.removeAllListeners();
+  socket.removeAllListeners();
 
-    socket.disconnect();
+  socket.disconnect();
 
-    socket = null;
-  };
+  socket = null;
+};
 
 // ============================================================
 // OBTENER SOCKET ACTUAL
