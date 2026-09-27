@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import Login from "./components/login/Login";
 import useAuthStore from "./store/authStore";
 import MercadoLibreOAuthCallback from "./components/ecommerce/MercadoLibreOAuthCallback";
+import AvisosGlobales from "./components/avisos/AvisosGlobales";
 
 import { ProcessProvider } from "../src/components/loaders/ProcessContext";
 
@@ -117,6 +118,7 @@ const AppWrapper = () => {
 
   return (
     <ProcessProvider>
+      <AvisosGlobales />
       <Rutas />
     </ProcessProvider>
   );

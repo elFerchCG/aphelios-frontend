@@ -12,6 +12,10 @@ import ConversationHeader from "./components/window/ConversationHeader";
 import MessageList from "./components/window/MessageList";
 import MessageInput from "./components/window/MessageInput";
 
+// ============================================================
+// COMPONENTE
+// ============================================================
+
 const ChatWindow = ({
   conversacion,
   onBack,
@@ -37,6 +41,7 @@ const ChatWindow = ({
   // ============================================================
 
   const [mensajes, setMensajes] = useState([]);
+
   const [loading, setLoading] = useState(true);
 
   const [nuevoMensaje, setNuevoMensaje] = useState("");
@@ -72,6 +77,10 @@ const ChatWindow = ({
   // OBTENER MENSAJES
   // ============================================================
 
+  // ============================================================
+  // OBTENER MENSAJES
+  // ============================================================
+
   const obtenerMensajes = useCallback(async () => {
     if (!token || !conversacionId) {
       return;
@@ -90,6 +99,23 @@ const ChatWindow = ({
       );
 
       const data = response.data?.mensajes || response.data || [];
+
+      // ========================================================
+      // DEBUG TEMPORAL - REVISAR CAMPO "leido"
+      // ========================================================
+
+      // console.log("🔥 MENSAJES DEL BACKEND:", data);
+
+      // console.table(
+      //   Array.isArray(data)
+      //     ? data.map((mensaje) => ({
+      //         id: mensaje.id,
+      //         usuario_id: mensaje.usuario_id,
+      //         mensaje: mensaje.mensaje,
+      //         leido: mensaje.leido,
+      //       }))
+      //     : [],
+      // );
 
       setMensajes(Array.isArray(data) ? data : []);
 
@@ -125,15 +151,15 @@ const ChatWindow = ({
         },
       );
 
-      // ========================================================
+      // ======================================================
       // ACTUALIZAR CONTADOR GLOBAL
-      // ========================================================
+      // ======================================================
 
       window.dispatchEvent(new CustomEvent("chat:no-leidos:actualizar"));
 
-      // ========================================================
+      // ======================================================
       // ACTUALIZAR CHAT PANEL
-      // ========================================================
+      // ======================================================
 
       if (onLeido) {
         onLeido(conversacionId);
@@ -235,10 +261,71 @@ const ChatWindow = ({
     };
 
     // ==========================================================
-    // LISTENER
+    // CONVERSACIÓN LEÍDA
+    // ==========================================================
+
+    const handleConversacionLeida = (data) => {
+      if (Number(data?.conversacionId) !== conversacionId) {
+        return;
+      }
+
+      const usuarioQueLeyó = Number(data?.usuarioId);
+
+      const ultimoMensajeLeidoId = Number(data?.ultimoMensajeLeidoId);
+
+      if (!usuarioQueLeyó || !ultimoMensajeLeidoId) {
+        return;
+      }
+
+      // ========================================================
+      // IGNORAR MI PROPIA CONFIRMACIÓN DE LECTURA
+      // ========================================================
+
+      if (usuarioQueLeyó === usuarioActualId) {
+        return;
+      }
+
+      // ========================================================
+      // MARCAR MIS MENSAJES COMO LEÍDOS
+      //
+      // Solo modificamos:
+      //
+      // 1. Mensajes enviados por mí.
+      // 2. Mensajes cuyo ID sea menor o igual al último
+      //    mensaje leído por el otro usuario.
+      // ========================================================
+
+      setMensajes((mensajesActuales) =>
+        mensajesActuales.map((mensaje) => {
+          const esMio = Number(mensaje.usuario_id) === usuarioActualId;
+
+          const estaDentroDeLoLeido =
+            Number(mensaje.id) <= ultimoMensajeLeidoId;
+
+          if (!esMio || !estaDentroDeLoLeido) {
+            return mensaje;
+          }
+
+          // Ya estaba leído.
+          if (Number(mensaje.leido) === 1 || mensaje.leido === true) {
+            return mensaje;
+          }
+
+          return {
+            ...mensaje,
+            leido: 1,
+          };
+        }),
+      );
+    };
+
+    // ==========================================================
+    // LISTENERS
     // ==========================================================
 
     socket.on("chat:mensaje:nuevo", handleNuevoMensaje);
+
+    socket.on("chat:conversacion:leida", handleConversacionLeida);
 
     // ==========================================================
     // CLEANUP
@@ -246,6 +333,8 @@ const ChatWindow = ({
 
     return () => {
       socket.off("chat:mensaje:nuevo", handleNuevoMensaje);
+
+      socket.off("chat:conversacion:leida", handleConversacionLeida);
     };
   }, [conversacionId, usuarioActualId, marcarComoLeida, scrollAlFinal]);
 
@@ -330,6 +419,18 @@ const ChatWindow = ({
   };
 
   // ============================================================
+  // USUARIO DE LA CONVERSACIÓN DIRECTA
+  // ============================================================
+
+  const otroUsuario =
+    conversacion?.tipo === "directa"
+      ? usuarios?.find(
+          (usuario) =>
+            Number(usuario.id_usuario) === Number(conversacion.otro_usuario_id),
+        ) || null
+      : null;
+
+  // ============================================================
   // RENDER
   // ============================================================
 
@@ -337,8 +438,11 @@ const ChatWindow = ({
     <Box
       sx={{
         height: "100%",
+
         display: "flex",
+
         flexDirection: "column",
+
         backgroundColor: "#f7f9fb",
       }}
     >
@@ -363,6 +467,7 @@ const ChatWindow = ({
 
           <ConversationHeader
             conversacion={conversacion}
+            otroUsuario={otroUsuario}
             onBack={onBack}
             onClose={onClose}
             onOpenInfo={handleOpenGroupInfo}
@@ -378,6 +483,7 @@ const ChatWindow = ({
             usuarioActualId={usuarioActualId}
             usuarioActual={user}
             mensajesEndRef={mensajesEndRef}
+            tipoConversacion={conversacion?.tipo}
           />
 
           {/* =================================================

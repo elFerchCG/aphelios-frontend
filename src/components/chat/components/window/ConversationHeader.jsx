@@ -1,10 +1,4 @@
-import {
-  Avatar,
-  Box,
-  Divider,
-  IconButton,
-  Typography,
-} from "@mui/material";
+import { Avatar, Box, Divider, IconButton, Typography } from "@mui/material";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close";
@@ -19,6 +13,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 const ConversationHeader = ({
   conversacion,
+  otroUsuario,
   onBack,
   onClose,
   onOpenInfo,
@@ -75,8 +70,7 @@ const ConversationHeader = ({
   // ¿PUEDE MOSTRAR INFORMACIÓN?
   // ============================================================
 
-  const puedeVerInfo =
-    conversacion?.tipo === "grupo";
+  const puedeVerInfo = conversacion?.tipo === "grupo";
 
   // ============================================================
   // RENDER
@@ -101,10 +95,7 @@ const ConversationHeader = ({
             REGRESAR
         ==================================================== */}
 
-        <IconButton
-          onClick={onBack}
-          aria-label="Regresar"
-        >
+        <IconButton onClick={onBack} aria-label="Regresar">
           <ArrowBackIcon />
         </IconButton>
 
@@ -136,8 +127,7 @@ const ConversationHeader = ({
           <Typography
             noWrap
             sx={{
-              fontFamily:
-                "Montserrat, sans-serif",
+              fontFamily: "Montserrat, sans-serif",
 
               fontWeight: 800,
 
@@ -149,12 +139,42 @@ const ConversationHeader = ({
             {obtenerNombreConversacion()}
           </Typography>
 
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            {obtenerTipoConversacion()}
-          </Typography>
+          {conversacion?.tipo === "directa" ? (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.6,
+                mt: 0.1,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  backgroundColor: otroUsuario?.conectado
+                    ? "#2e7d32"
+                    : "#9e9e9e",
+                  flexShrink: 0,
+                }}
+              />
+
+              <Typography
+                variant="caption"
+                sx={{
+                  color: otroUsuario?.conectado ? "#2e7d32" : "text.secondary",
+                  fontWeight: otroUsuario?.conectado ? 600 : 400,
+                }}
+              >
+                {otroUsuario?.conectado ? "En línea" : "Desconectado"}
+              </Typography>
+            </Box>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              {obtenerTipoConversacion()}
+            </Typography>
+          )}
         </Box>
 
         {/* ====================================================
@@ -175,10 +195,7 @@ const ConversationHeader = ({
             CERRAR
         ==================================================== */}
 
-        <IconButton
-          onClick={onClose}
-          aria-label="Cerrar chat"
-        >
+        <IconButton onClick={onClose} aria-label="Cerrar chat">
           <CloseIcon />
         </IconButton>
       </Box>

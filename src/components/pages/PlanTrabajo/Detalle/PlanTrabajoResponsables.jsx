@@ -1,4 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import axios from "axios";
 
@@ -15,7 +20,6 @@ import {
 
 import PersonAddAlt1OutlinedIcon from "@mui/icons-material/PersonAddAlt1Outlined";
 import PersonRemoveOutlinedIcon from "@mui/icons-material/PersonRemoveOutlined";
-import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined";
 
 import { modalPrimaryButtonSx } from "../../../common/modalStyles";
 
@@ -30,8 +34,8 @@ const PlanTrabajoResponsables = ({
   tareaId,
   responsables = [],
   usuarioActualId,
+  esCreador = false,
   procesandoAsignacion,
-  onAsignarme,
   onDesasignarme,
   onUpdated,
 }) => {
@@ -50,15 +54,24 @@ const PlanTrabajoResponsables = ({
   // STATES
   // =========================================================
 
-  const [mostrarAsignacion, setMostrarAsignacion] = useState(false);
+  const [mostrarAsignacion, setMostrarAsignacion] =
+    useState(false);
 
-  const [administradores, setAdministradores] = useState([]);
+  const [administradores, setAdministradores] =
+    useState([]);
 
-  const [seleccionados, setSeleccionados] = useState([]);
+  const [seleccionados, setSeleccionados] =
+    useState([]);
 
-  const [loadingAdministradores, setLoadingAdministradores] = useState(false);
+  const [
+    loadingAdministradores,
+    setLoadingAdministradores,
+  ] = useState(false);
 
-  const [guardandoResponsables, setGuardandoResponsables] = useState(false);
+  const [
+    guardandoResponsables,
+    setGuardandoResponsables,
+  ] = useState(false);
 
   // =========================================================
   // ¿ESTOY ASIGNADO?
@@ -67,7 +80,8 @@ const PlanTrabajoResponsables = ({
   const estoyAsignado = useMemo(() => {
     return responsables.some(
       (responsable) =>
-        Number(responsable.usuario_id) === Number(usuarioActualId),
+        Number(responsable.usuario_id) ===
+        Number(usuarioActualId),
     );
   }, [responsables, usuarioActualId]);
 
@@ -77,7 +91,9 @@ const PlanTrabajoResponsables = ({
 
   const idsAsignados = useMemo(() => {
     return new Set(
-      responsables.map((responsable) => Number(responsable.usuario_id)),
+      responsables.map((responsable) =>
+        Number(responsable.usuario_id),
+      ),
     );
   }, [responsables]);
 
@@ -85,39 +101,44 @@ const PlanTrabajoResponsables = ({
   // OBTENER ADMINISTRADORES
   // =========================================================
 
-  const obtenerAdministradores = useCallback(async () => {
-    try {
-      setLoadingAdministradores(true);
+  const obtenerAdministradores =
+    useCallback(async () => {
+      try {
+        setLoadingAdministradores(true);
 
-      const response = await axios.get(
-        `${apiUrl}/planTrabajo/administradores`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const response = await axios.get(
+          `${apiUrl}/planTrabajo/administradores`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        },
-      );
+        );
 
-      const data =
-        response.data?.administradores || response.data?.usuarios || [];
+        const data =
+          response.data?.administradores ||
+          response.data?.usuarios ||
+          [];
 
-      setAdministradores(data);
-    } catch (error) {
-      handleApiError(error, {
-        defaultMessage: "No se pudieron obtener los administradores.",
-        warningTitle: "No se pudieron cargar los administradores",
-      });
-    } finally {
-      setLoadingAdministradores(false);
-    }
-  }, [apiUrl, token]);
+        setAdministradores(data);
+      } catch (error) {
+        handleApiError(error, {
+          defaultMessage:
+            "No se pudieron obtener los administradores.",
+          warningTitle:
+            "No se pudieron cargar los administradores",
+        });
+      } finally {
+        setLoadingAdministradores(false);
+      }
+    }, [apiUrl, token]);
 
   // =========================================================
   // CARGAR ADMINISTRADORES AL ABRIR ASIGNACIÓN
   // =========================================================
 
   useEffect(() => {
-    if (!mostrarAsignacion) {
+    if (!esCreador || !mostrarAsignacion) {
       return;
     }
 
@@ -126,7 +147,25 @@ const PlanTrabajoResponsables = ({
     }
 
     obtenerAdministradores();
-  }, [mostrarAsignacion, administradores.length, obtenerAdministradores]);
+  }, [
+    esCreador,
+    mostrarAsignacion,
+    administradores.length,
+    obtenerAdministradores,
+  ]);
+
+  // =========================================================
+  // CERRAR PANEL SI DEJA DE SER CREADOR
+  // =========================================================
+
+  useEffect(() => {
+    if (esCreador) {
+      return;
+    }
+
+    setMostrarAsignacion(false);
+    setSeleccionados([]);
+  }, [esCreador]);
 
   // =========================================================
   // OPCIONES DISPONIBLES
@@ -149,6 +188,12 @@ const PlanTrabajoResponsables = ({
   // =========================================================
 
   const handleAsignarResponsables = async () => {
+    // Protección de frontend.
+    // El backend también valida que sea el creador.
+    if (!esCreador) {
+      return;
+    }
+
     if (seleccionados.length === 0) {
       return;
     }
@@ -158,9 +203,21 @@ const PlanTrabajoResponsables = ({
 
       const usuarioIds = seleccionados
         .map((usuario) =>
-          Number(usuario.id_usuario ?? usuario.usuario_id ?? usuario.id),
+          Number(
+            usuario.id_usuario ??
+              usuario.usuario_id ??
+              usuario.id,
+          ),
         )
-        .filter((id) => Number.isInteger(id) && id > 0);
+        .filter(
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0,
+        );
+
+      if (usuarioIds.length === 0) {
+        return;
+      }
 
       await axios.post(
         `${apiUrl}/planTrabajo/tareas/${tareaId}/responsables`,
@@ -187,8 +244,10 @@ const PlanTrabajoResponsables = ({
       }
     } catch (error) {
       handleApiError(error, {
-        defaultMessage: "No se pudieron asignar los responsables.",
-        warningTitle: "No se pudieron asignar los responsables",
+        defaultMessage:
+          "No se pudieron asignar los responsables.",
+        warningTitle:
+          "No se pudieron asignar los responsables",
       });
     } finally {
       setGuardandoResponsables(false);
@@ -252,32 +311,39 @@ const PlanTrabajoResponsables = ({
             justifyContent: "flex-end",
           }}
         >
-          <Button
-            variant="outlined"
-            startIcon={<PersonAddAlt1OutlinedIcon />}
-            onClick={() => setMostrarAsignacion((prev) => !prev)}
-            disabled={guardandoResponsables}
-          >
-            Asignar responsables
-          </Button>
+          {/* SOLO EL CREADOR PUEDE ASIGNAR RESPONSABLES */}
 
-          {estoyAsignado ? (
+          {esCreador && (
             <Button
               variant="outlined"
-              startIcon={<PersonRemoveOutlinedIcon />}
+              startIcon={
+                <PersonAddAlt1OutlinedIcon />
+              }
+              onClick={() =>
+                setMostrarAsignacion(
+                  (prev) => !prev,
+                )
+              }
+              disabled={guardandoResponsables}
+            >
+              Asignar responsables
+            </Button>
+          )}
+
+          {/* SOLO UN RESPONSABLE PUEDE DEJAR LA TAREA */}
+
+          {estoyAsignado && (
+            <Button
+              variant="outlined"
+              startIcon={
+                <PersonRemoveOutlinedIcon />
+              }
               onClick={onDesasignarme}
               disabled={procesandoAsignacion}
             >
-              {procesandoAsignacion ? "Procesando..." : "Dejar tarea"}
-            </Button>
-          ) : (
-            <Button
-              variant="outlined"
-              startIcon={<PersonAddOutlinedIcon />}
-              onClick={onAsignarme}
-              disabled={procesandoAsignacion}
-            >
-              {procesandoAsignacion ? "Procesando..." : "Asignarme"}
+              {procesandoAsignacion
+                ? "Procesando..."
+                : "Dejar tarea"}
             </Button>
           )}
         </Box>
@@ -303,7 +369,8 @@ const PlanTrabajoResponsables = ({
               fontStyle: "italic",
             }}
           >
-            Esta tarea todavía no tiene responsables asignados.
+            Esta tarea todavía no tiene responsables
+            asignados.
           </Typography>
         ) : (
           responsables.map((responsable) => (
@@ -318,9 +385,15 @@ const PlanTrabajoResponsables = ({
 
       {/* =====================================================
           PANEL ASIGNAR RESPONSABLES
+          SOLO DISPONIBLE PARA EL CREADOR
       ====================================================== */}
 
-      <Collapse in={mostrarAsignacion}>
+      <Collapse
+        in={
+          esCreador &&
+          mostrarAsignacion
+        }
+      >
         <Box
           sx={{
             mt: 2.5,
@@ -349,14 +422,24 @@ const PlanTrabajoResponsables = ({
             }}
             loading={loadingAdministradores}
             disableCloseOnSelect
-            getOptionLabel={(option) => option.nombre || "Administrador"}
-            isOptionEqualToValue={(option, value) => {
+            getOptionLabel={(option) =>
+              option.nombre ||
+              "Administrador"
+            }
+            isOptionEqualToValue={(
+              option,
+              value,
+            ) => {
               const optionId = Number(
-                option.id_usuario ?? option.usuario_id ?? option.id,
+                option.id_usuario ??
+                  option.usuario_id ??
+                  option.id,
               );
 
               const valueId = Number(
-                value.id_usuario ?? value.usuario_id ?? value.id,
+                value.id_usuario ??
+                  value.usuario_id ??
+                  value.id,
               );
 
               return optionId === valueId;
@@ -375,10 +458,15 @@ const PlanTrabajoResponsables = ({
                   endAdornment: (
                     <>
                       {loadingAdministradores ? (
-                        <CircularProgress size={20} />
+                        <CircularProgress
+                          size={20}
+                        />
                       ) : null}
 
-                      {params.InputProps.endAdornment}
+                      {
+                        params.InputProps
+                          .endAdornment
+                      }
                     </>
                   ),
                 }}
@@ -396,19 +484,30 @@ const PlanTrabajoResponsables = ({
           >
             <Button
               variant="text"
-              onClick={handleCancelarAsignacion}
-              disabled={guardandoResponsables}
+              onClick={
+                handleCancelarAsignacion
+              }
+              disabled={
+                guardandoResponsables
+              }
             >
               Cancelar
             </Button>
 
             <Button
               variant="contained"
-              onClick={handleAsignarResponsables}
-              disabled={guardandoResponsables || seleccionados.length === 0}
+              onClick={
+                handleAsignarResponsables
+              }
+              disabled={
+                guardandoResponsables ||
+                seleccionados.length === 0
+              }
               sx={modalPrimaryButtonSx}
             >
-              {guardandoResponsables ? "Asignando..." : "Asignar"}
+              {guardandoResponsables
+                ? "Asignando..."
+                : "Asignar"}
             </Button>
           </Box>
         </Box>

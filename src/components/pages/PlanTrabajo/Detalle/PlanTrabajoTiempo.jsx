@@ -59,6 +59,7 @@ const obtenerFechaInicioMs = (fecha) => {
 const PlanTrabajoTiempo = ({
   tarea,
   usuarioActualId,
+  puedeInteractuar = false,
   procesandoTiempo,
   onIniciar,
   onDetener,
@@ -209,6 +210,7 @@ const PlanTrabajoTiempo = ({
             onClick={onIniciar}
             disabled={
               procesandoTiempo ||
+              !puedeInteractuar ||
               tarea.estatus === "finalizada" ||
               tarea.estatus === "cancelada"
             }
@@ -216,7 +218,7 @@ const PlanTrabajoTiempo = ({
           >
             {procesandoTiempo ? "Iniciando..." : "Iniciar tiempo"}
           </Button>
-        ) : cronometroEsMio ? (
+        ) : puedeInteractuar && cronometroEsMio ? (
           <Button
             variant="outlined"
             startIcon={<StopCircleOutlinedIcon />}

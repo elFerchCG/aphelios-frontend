@@ -9,16 +9,140 @@ import {
 const useChatSocket = ({
   obtenerConversaciones,
   setUsuarios,
+
+  conversaciones = [],
+  chatSilenciado = false,
+
+  usuarioId,
+  conversacionSeleccionadaId,
 }) => {
   useEffect(() => {
     let socketActual = null;
 
     // ============================================================
+    // REPRODUCIR SONIDO
+    // ============================================================
+
+    const reproducirSonidoNotificacion = () => {
+      try {
+        const audio = new Audio(
+          "/sounds/notification.mp3",
+        );
+
+        audio.volume = 0.45;
+
+        audio.play().catch(() => {
+          // El navegador puede bloquear el audio
+          // hasta que exista interacción del usuario.
+        });
+      } catch (error) {
+        console.error(
+          "[Chat] Error reproduciendo sonido:",
+          error,
+        );
+      }
+    };
+
+    // ============================================================
     // NUEVO MENSAJE
     // ============================================================
 
-    const handleNuevoMensaje = () => {
+    const handleNuevoMensaje = (data) => {
+      // Siempre actualizamos la lista.
       obtenerConversaciones();
+
+      const conversacionId = Number(
+        data?.conversacionId,
+      );
+
+      const mensaje = data?.mensaje;
+
+      // ==========================================================
+      // VALIDAR EVENTO
+      // ==========================================================
+
+      if (
+        !conversacionId ||
+        !mensaje
+      ) {
+        return;
+      }
+
+      // ==========================================================
+      // NO SONAR PARA MENSAJES DEL SISTEMA
+      // ==========================================================
+
+      if (
+        mensaje.tipo ===
+        "sistema"
+      ) {
+        return;
+      }
+
+      // ==========================================================
+      // NO SONAR PARA MIS PROPIOS MENSAJES
+      // ==========================================================
+
+      if (
+        Number(
+          mensaje.usuario_id,
+        ) ===
+        Number(usuarioId)
+      ) {
+        return;
+      }
+
+      // ==========================================================
+      // SILENCIO GLOBAL
+      // ==========================================================
+
+      if (chatSilenciado) {
+        return;
+      }
+
+      // ==========================================================
+      // NO SONAR SI ESTOY VIENDO ESA CONVERSACIÓN
+      // ==========================================================
+
+      if (
+        Number(
+          conversacionSeleccionadaId,
+        ) ===
+        conversacionId
+      ) {
+        return;
+      }
+
+      // ==========================================================
+      // BUSCAR CONVERSACIÓN
+      // ==========================================================
+
+      const conversacion =
+        conversaciones.find(
+          (item) =>
+            Number(item.id) ===
+            conversacionId,
+        );
+
+      // ==========================================================
+      // VERIFICAR SI ESA CONVERSACIÓN ESTÁ SILENCIADA
+      // ==========================================================
+
+      const estaSilenciada =
+        Number(
+          conversacion?.silenciado,
+        ) === 1 ||
+        conversacion?.silenciado === true;
+
+      if (estaSilenciada) {
+        return;
+      }
+
+      // ==========================================================
+      // REPRODUCIR NOTIFICACIÓN
+      // ==========================================================
+
+      reproducirSonidoNotificacion();
     };
 
     // ============================================================
@@ -100,7 +224,8 @@ const useChatSocket = ({
     // ============================================================
 
     const handlePresencia = ({
-      usuarioId,
+      usuarioId:
+        usuarioPresenciaId,
       conectado,
     }) => {
       setUsuarios(
@@ -110,7 +235,9 @@ const useChatSocket = ({
               Number(
                 usuario.id_usuario,
               ) ===
-              Number(usuarioId)
+              Number(
+                usuarioPresenciaId,
+              )
                 ? {
                     ...usuario,
 
@@ -265,6 +392,10 @@ const useChatSocket = ({
   }, [
     obtenerConversaciones,
     setUsuarios,
+    conversaciones,
+    chatSilenciado,
+    usuarioId,
+    conversacionSeleccionadaId,
   ]);
 };
 

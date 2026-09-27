@@ -16,6 +16,7 @@ const MessageList = ({
   usuarioActualId,
   usuarioActual,
   mensajesEndRef,
+  tipoConversacion,
 }) => {
   return (
     <Box
@@ -102,6 +103,7 @@ const MessageList = ({
             mensaje={mensaje}
             usuarioActualId={usuarioActualId}
             usuarioActual={usuarioActual}
+            tipoConversacion={tipoConversacion}
           />
         ))
       )}

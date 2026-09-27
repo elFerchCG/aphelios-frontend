@@ -101,6 +101,31 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
   const [tabActual, setTabActual] = useState(0);
 
   // =========================================================
+  // PERMISOS DE LA TAREA
+  // =========================================================
+
+  const esCreador = useMemo(() => {
+    if (!tarea || !usuarioActualId) {
+      return false;
+    }
+
+    return Number(tarea.creado_por) === Number(usuarioActualId);
+  }, [tarea, usuarioActualId]);
+
+  const estaAsignado = useMemo(() => {
+    if (!tarea || !usuarioActualId) {
+      return false;
+    }
+
+    return (tarea.responsables || []).some(
+      (responsable) =>
+        Number(responsable.usuario_id) === Number(usuarioActualId),
+    );
+  }, [tarea, usuarioActualId]);
+
+  const puedeInteractuar = esCreador || estaAsignado;
+
+  // =========================================================
   // OBTENER DETALLE
   // =========================================================
 
@@ -208,36 +233,36 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
   // ASIGNARME
   // =========================================================
 
-  const handleAsignarme = async () => {
-    if (!tareaId) {
-      return;
-    }
+  // const handleAsignarme = async () => {
+  //   if (!tareaId) {
+  //     return;
+  //   }
 
-    try {
-      setProcesandoAsignacion(true);
+  //   try {
+  //     setProcesandoAsignacion(true);
 
-      await axios.post(
-        `${apiUrl}/planTrabajo/tareas/${tareaId}/asignarme`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+  //     await axios.post(
+  //       `${apiUrl}/planTrabajo/tareas/${tareaId}/asignarme`,
+  //       {},
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       },
+  //     );
 
-      swalSuccess("Tarea asignada", "Ahora eres responsable de esta tarea.");
+  //     swalSuccess("Tarea asignada", "Ahora eres responsable de esta tarea.");
 
-      await refrescarTodo();
-    } catch (error) {
-      handleApiError(error, {
-        defaultMessage: "No fue posible asignarte a la tarea.",
-        warningTitle: "No se pudo asignar la tarea",
-      });
-    } finally {
-      setProcesandoAsignacion(false);
-    }
-  };
+  //     await refrescarTodo();
+  //   } catch (error) {
+  //     handleApiError(error, {
+  //       defaultMessage: "No fue posible asignarte a la tarea.",
+  //       warningTitle: "No se pudo asignar la tarea",
+  //     });
+  //   } finally {
+  //     setProcesandoAsignacion(false);
+  //   }
+  // };
 
   // =========================================================
   // DESASIGNARME
@@ -469,6 +494,7 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
 
                 <PlanTrabajoDetalleResumen
                   tarea={tarea}
+                  puedeInteractuar={puedeInteractuar}
                   cambiandoEstatus={cambiandoEstatus}
                   onCambiarEstatus={handleCambiarEstatus}
                 />
@@ -480,6 +506,7 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
                 <PlanTrabajoTiempo
                   tarea={tarea}
                   usuarioActualId={usuarioActualId}
+                  puedeInteractuar={puedeInteractuar}
                   procesandoTiempo={procesandoTiempo}
                   onIniciar={handleIniciarTiempo}
                   onDetener={handleDetenerTiempo}
@@ -493,8 +520,9 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
                   tareaId={tareaId}
                   responsables={tarea.responsables || []}
                   usuarioActualId={usuarioActualId}
+                  esCreador={esCreador}
+                  estaAsignado={estaAsignado}
                   procesandoAsignacion={procesandoAsignacion}
-                  onAsignarme={handleAsignarme}
                   onDesasignarme={handleDesasignarme}
                   onUpdated={refrescarTodo}
                 />
@@ -534,6 +562,7 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
                 <PlanTrabajoNotas
                   tareaId={tareaId}
                   notasIniciales={tarea.notas || ""}
+                  puedeInteractuar={puedeInteractuar}
                   onUpdated={refrescarTodo}
                 />
 
@@ -562,6 +591,7 @@ const PlanTrabajoDetalleModal = ({ open, onClose, tareaId, onUpdated }) => {
                 <PlanTrabajoComentarios
                   tareaId={tareaId}
                   usuarioActualId={usuarioActualId}
+                  puedeInteractuar={puedeInteractuar}
                 />
               </Box>
             )}

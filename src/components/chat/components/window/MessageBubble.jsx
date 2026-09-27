@@ -4,6 +4,9 @@ import {
   Typography,
 } from "@mui/material";
 
+import DoneIcon from "@mui/icons-material/Done";
+import DoneAllIcon from "@mui/icons-material/DoneAll";
+
 // ============================================================
 // COMPONENTE
 // ============================================================
@@ -12,6 +15,7 @@ const MessageBubble = ({
   mensaje,
   usuarioActualId,
   usuarioActual,
+  tipoConversacion,
 }) => {
   // ============================================================
   // TIPO DE MENSAJE
@@ -23,6 +27,13 @@ const MessageBubble = ({
 
   const esSistema =
     mensaje?.tipo === "sistema";
+
+  const esConversacionDirecta =
+    tipoConversacion === "directa";
+
+  const fueLeido =
+    Number(mensaje?.leido) === 1 ||
+    mensaje?.leido === true;
 
   // ============================================================
   // INICIALES
@@ -291,29 +302,87 @@ const MessageBubble = ({
             </Typography>
 
             {/* ================================================
-                HORA
+                HORA + ESTADO DE LECTURA
             ================================================ */}
 
-            <Typography
-              variant="caption"
+            <Box
               sx={{
-                display: "block",
+                display: "flex",
 
-                textAlign: "right",
+                alignItems: "center",
+
+                justifyContent: "flex-end",
+
+                gap: 0.35,
 
                 mt: 0.45,
 
-                color: "#607d8b",
-
-                fontSize: 10,
-
-                lineHeight: 1.2,
+                minHeight: 14,
               }}
             >
-              {formatearHora(
-                mensaje.fecha_creacion,
-              )}
-            </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#607d8b",
+
+                  fontSize: 10,
+
+                  lineHeight: 1.2,
+                }}
+              >
+                {formatearHora(
+                  mensaje.fecha_creacion,
+                )}
+              </Typography>
+
+              {/* ==============================================
+                  CHECK DE LECTURA
+                  
+                  ✓  = enviado
+                  ✓✓ = leído
+                  
+                  Solo aplica a mensajes propios
+                  en conversaciones directas.
+              ============================================== */}
+
+              {esMio &&
+                esConversacionDirecta && (
+                  <Box
+                    title={
+                      fueLeido
+                        ? "Leído"
+                        : "Enviado"
+                    }
+                    sx={{
+                      height: 14,
+
+                      display: "flex",
+
+                      alignItems: "center",
+
+                      justifyContent: "center",
+
+                      color: fueLeido
+                        ? "#2389dc"
+                        : "#78909c",
+                    }}
+                  >
+                    {fueLeido ? (
+                      <DoneAllIcon
+                        sx={{
+                          fontSize: 16,
+                        }}
+                      />
+                    ) : (
+                      <DoneIcon
+                        sx={{
+                          fontSize: 15,
+                        }}
+                      />
+                    )}
+                  </Box>
+                )}
+            </Box>
           </Box>
         </Box>
       </Box>

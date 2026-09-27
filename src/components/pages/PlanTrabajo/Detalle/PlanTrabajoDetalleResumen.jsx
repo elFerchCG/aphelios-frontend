@@ -48,8 +48,7 @@ const formatearFecha = (fecha) => {
 
   const valor = String(fecha).slice(0, 10);
 
-  const [anio, mes, dia] =
-    valor.split("-");
+  const [anio, mes, dia] = valor.split("-");
 
   if (!anio || !mes || !dia) {
     return "-";
@@ -59,20 +58,15 @@ const formatearFecha = (fecha) => {
 };
 
 const formatearTiempo = (segundos) => {
-  const total =
-    Number(segundos) || 0;
+  const total = Number(segundos) || 0;
 
   if (total <= 0) {
     return "0 min";
   }
 
-  const horas =
-    Math.floor(total / 3600);
+  const horas = Math.floor(total / 3600);
 
-  const minutos =
-    Math.floor(
-      (total % 3600) / 60,
-    );
+  const minutos = Math.floor((total % 3600) / 60);
 
   if (horas > 0) {
     return `${horas} h ${minutos} min`;
@@ -87,6 +81,7 @@ const formatearTiempo = (segundos) => {
 
 const PlanTrabajoDetalleResumen = ({
   tarea,
+  puedeInteractuar = false,
   cambiandoEstatus,
   onCambiarEstatus,
 }) => {
@@ -142,54 +137,29 @@ const PlanTrabajoDetalleResumen = ({
             minWidth: 170,
           }}
         >
-          <InputLabel>
-            Estatus
-          </InputLabel>
+          <InputLabel>Estatus</InputLabel>
 
           <Select
-            value={
-              tarea.estatus ||
-              "pendiente"
-            }
+            value={tarea.estatus || "pendiente"}
             label="Estatus"
-            onChange={(event) =>
-              onCambiarEstatus(
-                event.target.value,
-              )
-            }
-            disabled={
-              cambiandoEstatus
-            }
+            onChange={(event) => onCambiarEstatus(event.target.value)}
+            disabled={cambiandoEstatus || !puedeInteractuar}
           >
-            <MenuItem value="pendiente">
-              Pendiente
-            </MenuItem>
+            <MenuItem value="pendiente">Pendiente</MenuItem>
 
-            <MenuItem value="en_proceso">
-              En proceso
-            </MenuItem>
+            <MenuItem value="en_proceso">En proceso</MenuItem>
 
-            <MenuItem value="bloqueada">
-              Bloqueada
-            </MenuItem>
+            <MenuItem value="bloqueada">Bloqueada</MenuItem>
 
-            <MenuItem value="finalizada">
-              Finalizada
-            </MenuItem>
+            <MenuItem value="finalizada">Finalizada</MenuItem>
 
-            <MenuItem value="cancelada">
-              Cancelada
-            </MenuItem>
+            <MenuItem value="cancelada">Cancelada</MenuItem>
           </Select>
         </FormControl>
 
         <Chip
-          label={`Prioridad: ${obtenerTextoPrioridad(
-            tarea.prioridad,
-          )}`}
-          color={obtenerColorPrioridad(
-            tarea.prioridad,
-          )}
+          label={`Prioridad: ${obtenerTextoPrioridad(tarea.prioridad)}`}
+          color={obtenerColorPrioridad(tarea.prioridad)}
           size="small"
           variant="outlined"
         />
@@ -210,54 +180,32 @@ const PlanTrabajoDetalleResumen = ({
         }}
       >
         <Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+          <Typography variant="caption" color="text.secondary">
             Fecha objetivo
           </Typography>
 
-          <Typography
-            variant="body2"
-            fontWeight={600}
-          >
-            {formatearFecha(
-              tarea.fecha_objetivo,
-            )}
+          <Typography variant="body2" fontWeight={600}>
+            {formatearFecha(tarea.fecha_objetivo)}
           </Typography>
         </Box>
 
         <Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+          <Typography variant="caption" color="text.secondary">
             Orden
           </Typography>
 
-          <Typography
-            variant="body2"
-            fontWeight={600}
-          >
+          <Typography variant="body2" fontWeight={600}>
             {tarea.orden ?? "-"}
           </Typography>
         </Box>
 
         <Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+          <Typography variant="caption" color="text.secondary">
             Tiempo trabajado
           </Typography>
 
-          <Typography
-            variant="body2"
-            fontWeight={600}
-          >
-            {formatearTiempo(
-              tarea.tiempo_total_segundos,
-            )}
+          <Typography variant="body2" fontWeight={600}>
+            {formatearTiempo(tarea.tiempo_total_segundos)}
           </Typography>
         </Box>
       </Box>

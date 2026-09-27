@@ -1,6 +1,11 @@
 import { Drawer } from "@mui/material";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import axios from "axios";
 
@@ -45,7 +50,13 @@ const ChatPanel = ({ open, onClose }) => {
   // ============================================================
 
   const esAdministrador =
-    (user?.rol_descripcion || user?.rol || "").trim().toLowerCase() ===
+    (
+      user?.rol_descripcion ||
+      user?.rol ||
+      ""
+    )
+      .trim()
+      .toLowerCase() ===
     "administrador";
 
   // ============================================================
@@ -57,14 +68,182 @@ const ChatPanel = ({ open, onClose }) => {
     loading,
     obtenerConversaciones,
     marcarConversacionLeida,
+    toggleAnclada,
+    toggleSilenciada,
   } = useChatConversations(token);
 
   // ============================================================
   // USUARIOS
   // ============================================================
 
-  const { usuarios, setUsuarios, loadingUsuarios, obtenerUsuarios } =
-    useChatUsers(token);
+  const {
+    usuarios,
+    setUsuarios,
+    loadingUsuarios,
+    obtenerUsuarios,
+  } = useChatUsers(token);
+
+  // ============================================================
+  // ESTADOS DEL PANEL
+  // ============================================================
+
+  const [
+    creandoConversacion,
+    setCreandoConversacion,
+  ] = useState(false);
+
+  const [
+    busqueda,
+    setBusqueda,
+  ] = useState("");
+
+  const [
+    busquedaUsuario,
+    setBusquedaUsuario,
+  ] = useState("");
+
+  const [
+    conversacionSeleccionada,
+    setConversacionSeleccionada,
+  ] = useState(null);
+
+  // conversaciones | usuarios | crearGrupo
+  const [
+    vista,
+    setVista,
+  ] = useState("conversaciones");
+
+  // ============================================================
+  // ESTADOS PARA CREAR GRUPO
+  // ============================================================
+
+  const [
+    nombreGrupo,
+    setNombreGrupo,
+  ] = useState("");
+
+  const [
+    busquedaGrupo,
+    setBusquedaGrupo,
+  ] = useState("");
+
+  const [
+    participantesGrupo,
+    setParticipantesGrupo,
+  ] = useState([]);
+
+  const [
+    creandoGrupo,
+    setCreandoGrupo,
+  ] = useState(false);
+
+  // ============================================================
+  // PREFERENCIAS DE SONIDO
+  // ============================================================
+
+  const [
+    chatSilenciado,
+    setChatSilenciado,
+  ] = useState(false);
+
+  const [
+    loadingPreferencias,
+    setLoadingPreferencias,
+  ] = useState(false);
+
+  // ============================================================
+  // OBTENER PREFERENCIAS DEL CHAT
+  // ============================================================
+
+  const obtenerPreferenciasChat =
+    useCallback(async () => {
+      if (!token) {
+        return;
+      }
+
+      try {
+        setLoadingPreferencias(true);
+
+        const response =
+          await axios.get(
+            `${apiUrl}/chat/preferencias`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          );
+
+        setChatSilenciado(
+          Boolean(
+            response.data
+              ?.chat_silenciado,
+          ),
+        );
+      } catch (error) {
+        console.error(
+          "Error obteniendo preferencias del chat:",
+          error,
+        );
+      } finally {
+        setLoadingPreferencias(false);
+      }
+    }, [
+      apiUrl,
+      token,
+    ]);
+
+  // ============================================================
+  // SILENCIAR / ACTIVAR TODO EL CHAT
+  // ============================================================
+
+  const toggleSilencioGlobal =
+    async () => {
+      if (
+        loadingPreferencias ||
+        !token
+      ) {
+        return;
+      }
+
+      const nuevoEstado =
+        !chatSilenciado;
+
+      try {
+        setLoadingPreferencias(true);
+
+        const response =
+          await axios.patch(
+            `${apiUrl}/chat/preferencias/silenciar`,
+            {
+              silenciado:
+                nuevoEstado,
+            },
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          );
+
+        setChatSilenciado(
+          Boolean(
+            response.data
+              ?.chat_silenciado ??
+              nuevoEstado,
+          ),
+        );
+      } catch (error) {
+        console.error(
+          "Error actualizando silencio global:",
+          error,
+        );
+      } finally {
+        setLoadingPreferencias(false);
+      }
+    };
 
   // ============================================================
   // SOCKET.IO
@@ -73,38 +252,20 @@ const ChatPanel = ({ open, onClose }) => {
   useChatSocket({
     obtenerConversaciones,
     setUsuarios,
+
+    conversaciones,
+    chatSilenciado,
+
+    usuarioId:
+      user?.id ??
+      user?.id_usuario,
+
+    conversacionSeleccionadaId:
+      conversacionSeleccionada?.id,
   });
 
   // ============================================================
-  // ESTADOS DEL PANEL
-  // ============================================================
-
-  const [creandoConversacion, setCreandoConversacion] = useState(false);
-
-  const [busqueda, setBusqueda] = useState("");
-
-  const [busquedaUsuario, setBusquedaUsuario] = useState("");
-
-  const [conversacionSeleccionada, setConversacionSeleccionada] =
-    useState(null);
-
-  // conversaciones | usuarios | crearGrupo
-  const [vista, setVista] = useState("conversaciones");
-
-  // ============================================================
-  // ESTADOS PARA CREAR GRUPO
-  // ============================================================
-
-  const [nombreGrupo, setNombreGrupo] = useState("");
-
-  const [busquedaGrupo, setBusquedaGrupo] = useState("");
-
-  const [participantesGrupo, setParticipantesGrupo] = useState([]);
-
-  const [creandoGrupo, setCreandoGrupo] = useState(false);
-
-  // ============================================================
-  // CARGAR CONVERSACIONES AL ABRIR
+  // CARGAR DATOS AL ABRIR
   // ============================================================
 
   useEffect(() => {
@@ -113,347 +274,543 @@ const ChatPanel = ({ open, onClose }) => {
     }
 
     obtenerConversaciones();
-  }, [open, obtenerConversaciones]);
+    obtenerUsuarios();
+    obtenerPreferenciasChat();
+  }, [
+    open,
+    obtenerConversaciones,
+    obtenerUsuarios,
+    obtenerPreferenciasChat,
+  ]);
 
   // ============================================================
   // NOMBRE DE CONVERSACIÓN
   // ============================================================
 
-  const obtenerNombreConversacion = (conversacion) => {
-    if (conversacion.tipo === "directa") {
+  const obtenerNombreConversacion = (
+    conversacion,
+  ) => {
+    if (
+      conversacion.tipo ===
+      "directa"
+    ) {
       return (
-        conversacion.otro_usuario_nombre ||
+        conversacion
+          .otro_usuario_nombre ||
         conversacion.nombre ||
         "Conversación directa"
       );
     }
 
-    return conversacion.nombre || "Conversación";
+    return (
+      conversacion.nombre ||
+      "Conversación"
+    );
   };
 
   // ============================================================
   // FILTRAR CONVERSACIONES
   // ============================================================
 
-  const conversacionesFiltradas = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
+  const conversacionesFiltradas =
+    useMemo(() => {
+      const texto =
+        busqueda
+          .trim()
+          .toLowerCase();
 
-    if (!texto) {
-      return conversaciones;
-    }
+      if (!texto) {
+        return conversaciones;
+      }
 
-    return conversaciones.filter((conversacion) => {
-      const nombre = obtenerNombreConversacion(conversacion).toLowerCase();
+      return conversaciones.filter(
+        (conversacion) => {
+          const nombre =
+            obtenerNombreConversacion(
+              conversacion,
+            ).toLowerCase();
 
-      const ultimoMensaje = (conversacion.ultimo_mensaje || "").toLowerCase();
+          const ultimoMensaje =
+            (
+              conversacion
+                .ultimo_mensaje ||
+              ""
+            ).toLowerCase();
 
-      return nombre.includes(texto) || ultimoMensaje.includes(texto);
-    });
-  }, [conversaciones, busqueda]);
+          return (
+            nombre.includes(texto) ||
+            ultimoMensaje.includes(
+              texto,
+            )
+          );
+        },
+      );
+    }, [
+      conversaciones,
+      busqueda,
+    ]);
 
   // ============================================================
   // FILTRAR USUARIOS
   // ============================================================
 
-  const usuariosFiltrados = useMemo(() => {
-    const texto = busquedaUsuario.trim().toLowerCase();
+  const usuariosFiltrados =
+    useMemo(() => {
+      const texto =
+        busquedaUsuario
+          .trim()
+          .toLowerCase();
 
-    const lista = !texto
-      ? usuarios
-      : usuarios.filter((usuario) => {
-          const nombre = (usuario.nombre || "").toLowerCase();
+      const lista =
+        !texto
+          ? usuarios
+          : usuarios.filter(
+              (usuario) => {
+                const nombre =
+                  (
+                    usuario.nombre ||
+                    ""
+                  ).toLowerCase();
 
-          const rol = (usuario.rol_descripcion || "").toLowerCase();
+                const rol =
+                  (
+                    usuario
+                      .rol_descripcion ||
+                    ""
+                  ).toLowerCase();
 
-          return nombre.includes(texto) || rol.includes(texto);
-        });
+                return (
+                  nombre.includes(
+                    texto,
+                  ) ||
+                  rol.includes(texto)
+                );
+              },
+            );
 
-    // ========================================================
-    // USUARIOS ONLINE PRIMERO
-    // ========================================================
+      // ========================================================
+      // USUARIOS ONLINE PRIMERO
+      // ========================================================
 
-    return [...lista].sort((a, b) => {
-      if (Boolean(a.conectado) !== Boolean(b.conectado)) {
-        return a.conectado ? -1 : 1;
-      }
+      return [...lista].sort(
+        (a, b) => {
+          if (
+            Boolean(a.conectado) !==
+            Boolean(b.conectado)
+          ) {
+            return a.conectado
+              ? -1
+              : 1;
+          }
 
-      return (a.nombre || "").localeCompare(b.nombre || "", "es", {
-        sensitivity: "base",
-      });
-    });
-  }, [usuarios, busquedaUsuario]);
+          return (
+            a.nombre || ""
+          ).localeCompare(
+            b.nombre || "",
+            "es",
+            {
+              sensitivity: "base",
+            },
+          );
+        },
+      );
+    }, [
+      usuarios,
+      busquedaUsuario,
+    ]);
 
   // ============================================================
   // FILTRAR USUARIOS PARA GRUPO
   // ============================================================
 
-  const usuariosGrupoFiltrados = useMemo(() => {
-    const texto = busquedaGrupo.trim().toLowerCase();
+  const usuariosGrupoFiltrados =
+    useMemo(() => {
+      const texto =
+        busquedaGrupo
+          .trim()
+          .toLowerCase();
 
-    const lista = !texto
-      ? usuarios
-      : usuarios.filter((usuario) => {
-          const nombre = (usuario.nombre || "").toLowerCase();
+      const lista =
+        !texto
+          ? usuarios
+          : usuarios.filter(
+              (usuario) => {
+                const nombre =
+                  (
+                    usuario.nombre ||
+                    ""
+                  ).toLowerCase();
 
-          const rol = (usuario.rol_descripcion || "").toLowerCase();
+                const rol =
+                  (
+                    usuario
+                      .rol_descripcion ||
+                    ""
+                  ).toLowerCase();
 
-          return nombre.includes(texto) || rol.includes(texto);
-        });
+                return (
+                  nombre.includes(
+                    texto,
+                  ) ||
+                  rol.includes(texto)
+                );
+              },
+            );
 
-    return [...lista].sort((a, b) => {
-      if (Boolean(a.conectado) !== Boolean(b.conectado)) {
-        return a.conectado ? -1 : 1;
-      }
+      return [...lista].sort(
+        (a, b) => {
+          if (
+            Boolean(a.conectado) !==
+            Boolean(b.conectado)
+          ) {
+            return a.conectado
+              ? -1
+              : 1;
+          }
 
-      return (a.nombre || "").localeCompare(b.nombre || "", "es", {
-        sensitivity: "base",
-      });
-    });
-  }, [usuarios, busquedaGrupo]);
+          return (
+            a.nombre || ""
+          ).localeCompare(
+            b.nombre || "",
+            "es",
+            {
+              sensitivity: "base",
+            },
+          );
+        },
+      );
+    }, [
+      usuarios,
+      busquedaGrupo,
+    ]);
 
   // ============================================================
   // ABRIR CONVERSACIÓN
   // ============================================================
 
-  const handleAbrirConversacion = (conversacion) => {
-    setConversacionSeleccionada(conversacion);
+  const handleAbrirConversacion = (
+    conversacion,
+  ) => {
+    setConversacionSeleccionada(
+      conversacion,
+    );
   };
 
   // ============================================================
   // NUEVO CHAT
   // ============================================================
 
-  const handleNuevoChat = async () => {
-    setBusquedaUsuario("");
+  const handleNuevoChat =
+    async () => {
+      setBusquedaUsuario("");
 
-    setVista("usuarios");
+      setVista("usuarios");
 
-    await obtenerUsuarios();
-  };
+      await obtenerUsuarios();
+    };
 
   // ============================================================
   // SELECCIONAR USUARIO
   // ============================================================
 
-  const handleSeleccionarUsuario = async (usuario) => {
-    if (creandoConversacion) {
-      return;
-    }
-
-    try {
-      setCreandoConversacion(true);
-
-      // ======================================================
-      // CREAR U OBTENER CONVERSACIÓN DIRECTA
-      // ======================================================
-
-      await axios.post(
-        `${apiUrl}/chat/conversaciones/directa`,
-        {
-          usuarioDestinoId: usuario.id_usuario,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      // ======================================================
-      // RECARGAR CONVERSACIONES
-      // ======================================================
-
-      const lista = await obtenerConversaciones();
-
-      // ======================================================
-      // ENCONTRAR CONVERSACIÓN DIRECTA
-      // ======================================================
-
-      const conversacion = lista.find(
-        (item) =>
-          item.tipo === "directa" &&
-          Number(item.otro_usuario_id) === Number(usuario.id_usuario),
-      );
-
-      if (!conversacion) {
-        console.error("No se encontró la conversación directa recién creada.");
-
+  const handleSeleccionarUsuario =
+    async (usuario) => {
+      if (creandoConversacion) {
         return;
       }
 
-      // ======================================================
-      // ABRIR CONVERSACIÓN
-      // ======================================================
+      try {
+        setCreandoConversacion(
+          true,
+        );
 
-      setVista("conversaciones");
+        // ======================================================
+        // CREAR U OBTENER CONVERSACIÓN DIRECTA
+        // ======================================================
 
-      setBusquedaUsuario("");
+        await axios.post(
+          `${apiUrl}/chat/conversaciones/directa`,
+          {
+            usuarioDestinoId:
+              usuario.id_usuario,
+          },
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          },
+        );
 
-      setConversacionSeleccionada(conversacion);
-    } catch (error) {
-      console.error("Error abriendo conversación directa:", error);
-    } finally {
-      setCreandoConversacion(false);
-    }
-  };
+        // ======================================================
+        // RECARGAR CONVERSACIONES
+        // ======================================================
+
+        const lista =
+          await obtenerConversaciones();
+
+        // ======================================================
+        // ENCONTRAR CONVERSACIÓN DIRECTA
+        // ======================================================
+
+        const conversacion =
+          lista.find(
+            (item) =>
+              item.tipo ===
+                "directa" &&
+              Number(
+                item.otro_usuario_id,
+              ) ===
+                Number(
+                  usuario.id_usuario,
+                ),
+          );
+
+        if (!conversacion) {
+          console.error(
+            "No se encontró la conversación directa recién creada.",
+          );
+
+          return;
+        }
+
+        // ======================================================
+        // ABRIR CONVERSACIÓN
+        // ======================================================
+
+        setVista(
+          "conversaciones",
+        );
+
+        setBusquedaUsuario("");
+
+        setConversacionSeleccionada(
+          conversacion,
+        );
+      } catch (error) {
+        console.error(
+          "Error abriendo conversación directa:",
+          error,
+        );
+      } finally {
+        setCreandoConversacion(
+          false,
+        );
+      }
+    };
 
   // ============================================================
   // NUEVO GRUPO
   // ============================================================
 
-  const handleNuevoGrupo = async () => {
-    if (!esAdministrador) {
-      return;
-    }
-
-    setNombreGrupo("");
-    setBusquedaGrupo("");
-    setParticipantesGrupo([]);
-
-    setVista("crearGrupo");
-
-    await obtenerUsuarios();
-  };
-
-  // ============================================================
-  // SELECCIONAR / QUITAR PARTICIPANTE
-  // ============================================================
-
-  const handleToggleParticipanteGrupo = (usuarioId) => {
-    const id = Number(usuarioId);
-
-    setParticipantesGrupo((actuales) => {
-      const existe = actuales.some((item) => Number(item) === id);
-
-      if (existe) {
-        return actuales.filter((item) => Number(item) !== id);
-      }
-
-      return [...actuales, id];
-    });
-  };
-
-  // ============================================================
-  // CREAR GRUPO
-  // ============================================================
-
-  const handleCrearGrupo = async () => {
-    if (!esAdministrador) {
-      return;
-    }
-
-    if (creandoGrupo) {
-      return;
-    }
-
-    const nombre = nombreGrupo.trim();
-
-    if (!nombre || participantesGrupo.length === 0) {
-      return;
-    }
-
-    try {
-      setCreandoGrupo(true);
-
-      // ======================================================
-      // CREAR GRUPO
-      // ======================================================
-
-      const response = await axios.post(
-        `${apiUrl}/chat/conversaciones/grupo`,
-        {
-          nombre,
-          participantes: participantesGrupo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const conversacionId = response.data?.conversacion?.id;
-
-      // ======================================================
-      // RECARGAR CONVERSACIONES
-      // ======================================================
-
-      const lista = await obtenerConversaciones();
-
-      // ======================================================
-      // ENCONTRAR EL GRUPO CREADO
-      // ======================================================
-
-      const conversacion = lista.find(
-        (item) => Number(item.id) === Number(conversacionId),
-      );
-
-      if (!conversacion) {
-        console.error(
-          "El grupo fue creado, pero no se encontró en la lista de conversaciones.",
-        );
-
-        setVista("conversaciones");
-
+  const handleNuevoGrupo =
+    async () => {
+      if (!esAdministrador) {
         return;
       }
-
-      // ======================================================
-      // LIMPIAR
-      // ======================================================
 
       setNombreGrupo("");
       setBusquedaGrupo("");
       setParticipantesGrupo([]);
 
-      setVista("conversaciones");
+      setVista("crearGrupo");
 
-      // ======================================================
-      // ABRIR GRUPO
-      // ======================================================
+      await obtenerUsuarios();
+    };
 
-      setConversacionSeleccionada(conversacion);
-    } catch (error) {
-      console.error("Error creando grupo:", error);
-    } finally {
-      setCreandoGrupo(false);
-    }
-  };
+  // ============================================================
+  // SELECCIONAR / QUITAR PARTICIPANTE
+  // ============================================================
+
+  const handleToggleParticipanteGrupo =
+    (usuarioId) => {
+      const id =
+        Number(usuarioId);
+
+      setParticipantesGrupo(
+        (actuales) => {
+          const existe =
+            actuales.some(
+              (item) =>
+                Number(item) === id,
+            );
+
+          if (existe) {
+            return actuales.filter(
+              (item) =>
+                Number(item) !== id,
+            );
+          }
+
+          return [
+            ...actuales,
+            id,
+          ];
+        },
+      );
+    };
+
+  // ============================================================
+  // CREAR GRUPO
+  // ============================================================
+
+  const handleCrearGrupo =
+    async () => {
+      if (!esAdministrador) {
+        return;
+      }
+
+      if (creandoGrupo) {
+        return;
+      }
+
+      const nombre =
+        nombreGrupo.trim();
+
+      if (
+        !nombre ||
+        participantesGrupo.length ===
+          0
+      ) {
+        return;
+      }
+
+      try {
+        setCreandoGrupo(true);
+
+        // ======================================================
+        // CREAR GRUPO
+        // ======================================================
+
+        const response =
+          await axios.post(
+            `${apiUrl}/chat/conversaciones/grupo`,
+            {
+              nombre,
+              participantes:
+                participantesGrupo,
+            },
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          );
+
+        const conversacionId =
+          response.data
+            ?.conversacion?.id;
+
+        // ======================================================
+        // RECARGAR CONVERSACIONES
+        // ======================================================
+
+        const lista =
+          await obtenerConversaciones();
+
+        // ======================================================
+        // ENCONTRAR EL GRUPO CREADO
+        // ======================================================
+
+        const conversacion =
+          lista.find(
+            (item) =>
+              Number(item.id) ===
+              Number(
+                conversacionId,
+              ),
+          );
+
+        if (!conversacion) {
+          console.error(
+            "El grupo fue creado, pero no se encontró en la lista de conversaciones.",
+          );
+
+          setVista(
+            "conversaciones",
+          );
+
+          return;
+        }
+
+        // ======================================================
+        // LIMPIAR
+        // ======================================================
+
+        setNombreGrupo("");
+        setBusquedaGrupo("");
+        setParticipantesGrupo(
+          [],
+        );
+
+        setVista(
+          "conversaciones",
+        );
+
+        // ======================================================
+        // ABRIR GRUPO
+        // ======================================================
+
+        setConversacionSeleccionada(
+          conversacion,
+        );
+      } catch (error) {
+        console.error(
+          "Error creando grupo:",
+          error,
+        );
+      } finally {
+        setCreandoGrupo(false);
+      }
+    };
 
   // ============================================================
   // REGRESAR DESDE USUARIOS
   // ============================================================
 
-  const handleRegresarConversaciones = () => {
-    setVista("conversaciones");
+  const handleRegresarConversaciones =
+    () => {
+      setVista(
+        "conversaciones",
+      );
 
-    setBusquedaUsuario("");
-  };
+      setBusquedaUsuario("");
+    };
 
   // ============================================================
   // REGRESAR DESDE CREAR GRUPO
   // ============================================================
 
-  const handleRegresarGrupo = () => {
-    if (creandoGrupo) {
-      return;
-    }
+  const handleRegresarGrupo =
+    () => {
+      if (creandoGrupo) {
+        return;
+      }
 
-    setVista("conversaciones");
+      setVista(
+        "conversaciones",
+      );
 
-    setNombreGrupo("");
-    setBusquedaGrupo("");
-    setParticipantesGrupo([]);
-  };
+      setNombreGrupo("");
+      setBusquedaGrupo("");
+      setParticipantesGrupo(
+        [],
+      );
+    };
 
   // ============================================================
   // REGRESAR DESDE CHAT WINDOW
   // ============================================================
 
   const handleRegresar = () => {
-    setConversacionSeleccionada(null);
+    setConversacionSeleccionada(
+      null,
+    );
 
-    setVista("conversaciones");
+    setVista(
+      "conversaciones",
+    );
 
     obtenerConversaciones();
   };
@@ -463,9 +820,13 @@ const ChatPanel = ({ open, onClose }) => {
   // ============================================================
 
   const handleClose = () => {
-    setConversacionSeleccionada(null);
+    setConversacionSeleccionada(
+      null,
+    );
 
-    setVista("conversaciones");
+    setVista(
+      "conversaciones",
+    );
 
     setBusqueda("");
     setBusquedaUsuario("");
@@ -497,7 +858,8 @@ const ChatPanel = ({ open, onClose }) => {
 
           display: "flex",
 
-          flexDirection: "column",
+          flexDirection:
+            "column",
         },
       }}
     >
@@ -507,13 +869,27 @@ const ChatPanel = ({ open, onClose }) => {
 
       {conversacionSeleccionada ? (
         <ChatWindow
-          conversacion={conversacionSeleccionada}
-          onBack={handleRegresar}
-          onClose={handleClose}
-          onLeido={marcarConversacionLeida}
-          usuarios={usuarios}
-          loadingUsuarios={loadingUsuarios}
-          obtenerUsuarios={obtenerUsuarios}
+          conversacion={
+            conversacionSeleccionada
+          }
+          onBack={
+            handleRegresar
+          }
+          onClose={
+            handleClose
+          }
+          onLeido={
+            marcarConversacionLeida
+          }
+          usuarios={
+            usuarios
+          }
+          loadingUsuarios={
+            loadingUsuarios
+          }
+          obtenerUsuarios={
+            obtenerUsuarios
+          }
         />
       ) : vista === "usuarios" ? (
         /* ====================================================
@@ -521,33 +897,74 @@ const ChatPanel = ({ open, onClose }) => {
         ==================================================== */
 
         <UserList
-          usuarios={usuariosFiltrados}
-          loading={loadingUsuarios}
-          busqueda={busquedaUsuario}
-          onBusquedaChange={setBusquedaUsuario}
-          onBack={handleRegresarConversaciones}
-          onClose={handleClose}
-          onSelect={handleSeleccionarUsuario}
-          disabled={creandoConversacion}
+          usuarios={
+            usuariosFiltrados
+          }
+          loading={
+            loadingUsuarios
+          }
+          busqueda={
+            busquedaUsuario
+          }
+          onBusquedaChange={
+            setBusquedaUsuario
+          }
+          onBack={
+            handleRegresarConversaciones
+          }
+          onClose={
+            handleClose
+          }
+          onSelect={
+            handleSeleccionarUsuario
+          }
+          disabled={
+            creandoConversacion
+          }
         />
-      ) : vista === "crearGrupo" ? (
+      ) : vista ===
+        "crearGrupo" ? (
         /* ====================================================
            NUEVO GRUPO
         ==================================================== */
 
         <CreateGroup
-          usuarios={usuariosGrupoFiltrados}
-          loading={loadingUsuarios}
-          creando={creandoGrupo}
-          nombre={nombreGrupo}
-          onNombreChange={setNombreGrupo}
-          busqueda={busquedaGrupo}
-          onBusquedaChange={setBusquedaGrupo}
-          seleccionados={participantesGrupo}
-          onToggleUsuario={handleToggleParticipanteGrupo}
-          onBack={handleRegresarGrupo}
-          onClose={handleClose}
-          onCreate={handleCrearGrupo}
+          usuarios={
+            usuariosGrupoFiltrados
+          }
+          loading={
+            loadingUsuarios
+          }
+          creando={
+            creandoGrupo
+          }
+          nombre={
+            nombreGrupo
+          }
+          onNombreChange={
+            setNombreGrupo
+          }
+          busqueda={
+            busquedaGrupo
+          }
+          onBusquedaChange={
+            setBusquedaGrupo
+          }
+          seleccionados={
+            participantesGrupo
+          }
+          onToggleUsuario={
+            handleToggleParticipanteGrupo
+          }
+          onBack={
+            handleRegresarGrupo
+          }
+          onClose={
+            handleClose
+          }
+          onCreate={
+            handleCrearGrupo
+          }
         />
       ) : (
         /* ====================================================
@@ -555,22 +972,66 @@ const ChatPanel = ({ open, onClose }) => {
         ==================================================== */
 
         <>
-          <ChatHeader onClose={handleClose} />
+          <ChatHeader
+            onClose={
+              handleClose
+            }
 
-          <ChatSearch value={busqueda} onChange={setBusqueda} />
+            chatSilenciado={
+              chatSilenciado
+            }
+
+            loadingPreferencias={
+              loadingPreferencias
+            }
+
+            onToggleSilencio={
+              toggleSilencioGlobal
+            }
+          />
+
+          <ChatSearch
+            value={
+              busqueda
+            }
+            onChange={
+              setBusqueda
+            }
+          />
 
           <ChatActions
-            onNuevoChat={handleNuevoChat}
-            onNuevoGrupo={handleNuevoGrupo}
-            puedeCrearGrupos={esAdministrador}
+            onNuevoChat={
+              handleNuevoChat
+            }
+            onNuevoGrupo={
+              handleNuevoGrupo
+            }
+            puedeCrearGrupos={
+              esAdministrador
+            }
           />
 
           <ChatNotice />
 
           <ConversationList
-            conversaciones={conversacionesFiltradas}
-            loading={loading}
-            onOpen={handleAbrirConversacion}
+            conversaciones={
+              conversacionesFiltradas
+            }
+            usuarios={
+              usuarios
+            }
+            loading={
+              loading
+            }
+            onOpen={
+              handleAbrirConversacion
+            }
+            onToggleAnclada={
+              toggleAnclada
+            }
+            onToggleSilenciada={
+              toggleSilenciada
+            }
           />
         </>
       )}
