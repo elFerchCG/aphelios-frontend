@@ -95,6 +95,7 @@ const PlanTrabajo = () => {
   const [estatus, setEstatus] = useState("todos");
   const [prioridad, setPrioridad] = useState("todos");
   const [responsableId, setResponsableId] = useState(usuarioActualId);
+  const [creadoPorId, setCreadoPorId] = useState("");
 
   const [modalTareaOpen, setModalTareaOpen] = useState(false);
 
@@ -161,6 +162,14 @@ const PlanTrabajo = () => {
         params.responsableId = responsableId;
       }
 
+      // =====================================================
+      // FILTRO CREADO POR
+      // =====================================================
+
+      if (creadoPorId) {
+        params.creadoPorId = creadoPorId;
+      }
+
       const response = await axios.get(`${apiUrl}/planTrabajo/tareas`, {
         params,
         headers: {
@@ -176,7 +185,7 @@ const PlanTrabajo = () => {
     } finally {
       setLoading(false);
     }
-  }, [apiUrl, token, busqueda, estatus, prioridad, responsableId]);
+  }, [apiUrl, token, busqueda, estatus, prioridad, responsableId, creadoPorId]);
 
   // =========================================================
   // EFFECTS
@@ -651,6 +660,30 @@ const PlanTrabajo = () => {
               value={responsableId}
               label="Responsable"
               onChange={(event) => setResponsableId(event.target.value)}
+            >
+              <MenuItem value="">Todos</MenuItem>
+
+              {administradores.map((admin) => (
+                <MenuItem key={admin.id_usuario} value={admin.id_usuario}>
+                  {admin.nombre}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl
+            sx={{
+              ...toolbarFieldSx,
+              width: fieldWidths.medium,
+              maxWidth: "100%",
+            }}
+          >
+            <InputLabel>Creado por</InputLabel>
+
+            <Select
+              value={creadoPorId}
+              label="Creado por"
+              onChange={(event) => setCreadoPorId(event.target.value)}
             >
               <MenuItem value="">Todos</MenuItem>
 

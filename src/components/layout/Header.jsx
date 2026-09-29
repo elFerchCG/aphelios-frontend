@@ -1,28 +1,18 @@
-import React, {
-  useState,
-} from "react";
+import React, { useState } from "react";
 
-import {
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-} from "@mui/material";
+import { Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
 
 import LogoutIcon from "@mui/icons-material/Logout";
 import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
 
-import {
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import SidebarNavigation from "../navigation/SidebarNavigation";
 import NotificationBell from "../global/NotificationBell";
+import ChatButton from "../chat/ChatButton";
+import ChatPanel from "../chat/ChatPanel";
 
-import {
-  navigationConfig,
-} from "../../config/navigationConfig";
+import { navigationConfig } from "../../config/navigationConfig";
 
 import "../../estilos/header.css";
 
@@ -39,48 +29,29 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const {
-    token,
-    user,
-    logout,
-  } = useAuthStore();
+  const { token, user, logout } = useAuthStore();
 
-  const [
-    menuOpen,
-    setMenuOpen,
-  ] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const [
-    anchorUser,
-    setAnchorUser,
-  ] = useState(null);
+  const [anchorUser, setAnchorUser] = useState(null);
 
-  const [
-    avatarModalOpen,
-    setAvatarModalOpen,
-  ] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
 
-  const openUserMenu =
-    Boolean(anchorUser);
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const openUserMenu = Boolean(anchorUser);
 
   // =====================================================
   // AVATAR
   // =====================================================
 
-  const avatarImage =
-    useUserAvatar(
-      user,
-      token,
-    );
+  const avatarImage = useUserAvatar(user, token);
 
   // =====================================================
   // HEADER OCULTO
   // =====================================================
 
-  if (
-    !token ||
-    location.pathname === "/login"
-  ) {
+  if (!token || location.pathname === "/login") {
     return null;
   }
 
@@ -100,30 +71,24 @@ const Header = () => {
   // MENÚ USUARIO
   // =====================================================
 
-  const handleOpenUserMenu = (
-    event,
-  ) => {
+  const handleOpenUserMenu = (event) => {
     if (openUserMenu) {
       setAnchorUser(null);
       return;
     }
 
-    setAnchorUser(
-      event.currentTarget,
-    );
+    setAnchorUser(event.currentTarget);
   };
 
-  const handleCloseUserMenu =
-    () => {
-      setAnchorUser(null);
-    };
+  const handleCloseUserMenu = () => {
+    setAnchorUser(null);
+  };
 
-  const handleOpenAvatarSelector =
-    () => {
-      setAnchorUser(null);
+  const handleOpenAvatarSelector = () => {
+    setAnchorUser(null);
 
-      setAvatarModalOpen(true);
-    };
+    setAvatarModalOpen(true);
+  };
 
   // =====================================================
   // SIDEBAR
@@ -146,9 +111,7 @@ const Header = () => {
           <button
             type="button"
             className="sidebar-toggle"
-            onClick={() =>
-              setMenuOpen(true)
-            }
+            onClick={() => setMenuOpen(true)}
             aria-label="Abrir menú"
           >
             ☰
@@ -158,16 +121,22 @@ const Header = () => {
         {/* CENTRO */}
 
         <div className="header-center">
-          <img
-            src={logo}
-            alt="Aphelios"
-            className="logo"
-          />
+          <img src={logo} alt="Aphelios" className="logo" />
         </div>
 
         {/* DERECHA */}
 
         <div className="header-right">
+          {/* =====================================================
+      CHAT
+  ===================================================== */}
+
+          <ChatButton
+            onClick={() => {
+              setChatOpen(true);
+            }}
+          />
+
           {/* =====================================================
               NOTIFICACIONES
           ===================================================== */}
@@ -180,14 +149,8 @@ const Header = () => {
 
           <button
             type="button"
-            className={`profile-button ${
-              openUserMenu
-                ? "open"
-                : ""
-            }`}
-            onClick={
-              handleOpenUserMenu
-            }
+            className={`profile-button ${openUserMenu ? "open" : ""}`}
+            onClick={handleOpenUserMenu}
             aria-label="Menú de usuario"
           >
             {avatarImage ? (
@@ -197,11 +160,7 @@ const Header = () => {
                 className="profile-avatar-image"
               />
             ) : (
-              <img
-                src={sesion}
-                alt="Usuario"
-                className="profile-icon"
-              />
+              <img src={sesion} alt="Usuario" className="profile-icon" />
             )}
           </button>
 
@@ -212,9 +171,7 @@ const Header = () => {
           <Menu
             anchorEl={anchorUser}
             open={openUserMenu}
-            onClose={
-              handleCloseUserMenu
-            }
+            onClose={handleCloseUserMenu}
             anchorOrigin={{
               vertical: "bottom",
               horizontal: "right",
@@ -237,14 +194,11 @@ const Header = () => {
                   borderRadius: "16px",
                   overflow: "hidden",
 
-                  border:
-                    "1px solid rgba(0,0,0,0.06)",
+                  border: "1px solid rgba(0,0,0,0.06)",
 
-                  boxShadow:
-                    "0px 12px 35px rgba(0,0,0,0.22)",
+                  boxShadow: "0px 12px 35px rgba(0,0,0,0.22)",
 
-                  backgroundColor:
-                    "#ffffff",
+                  backgroundColor: "#ffffff",
                 },
               },
             }}
@@ -255,23 +209,13 @@ const Header = () => {
 
             <div className="profile-menu-user">
               <div className="profile-menu-avatar">
-                <img
-                  src={
-                    avatarImage ||
-                    sesion
-                  }
-                  alt="Avatar del usuario"
-                />
+                <img src={avatarImage || sesion} alt="Avatar del usuario" />
               </div>
 
               <div className="profile-menu-info">
-                <span className="profile-menu-label">
-                  Sesión iniciada como
-                </span>
+                <span className="profile-menu-label">Sesión iniciada como</span>
 
-                <span className="profile-menu-name">
-                  {user?.nombre}
-                </span>
+                <span className="profile-menu-name">{user?.nombre}</span>
               </div>
             </div>
 
@@ -282,21 +226,17 @@ const Header = () => {
             ===================================================== */}
 
             <MenuItem
-              onClick={
-                handleOpenAvatarSelector
-              }
+              onClick={handleOpenAvatarSelector}
               sx={{
                 py: 1.4,
                 px: 2,
 
-                fontFamily:
-                  "Montserrat, sans-serif",
+                fontFamily: "Montserrat, sans-serif",
 
                 fontWeight: 700,
 
                 "&:hover": {
-                  backgroundColor:
-                    "#f5f7fa",
+                  backgroundColor: "#f5f7fa",
                 },
               }}
             >
@@ -304,8 +244,7 @@ const Header = () => {
                 <FaceRetouchingNaturalIcon
                   fontSize="small"
                   sx={{
-                    color:
-                      "#2196f3",
+                    color: "#2196f3",
                   }}
                 />
               </ListItemIcon>
@@ -313,14 +252,12 @@ const Header = () => {
               <ListItemText
                 primary="Cambiar avatar"
                 primaryTypographyProps={{
-                  fontFamily:
-                    "Montserrat, sans-serif",
+                  fontFamily: "Montserrat, sans-serif",
 
                   fontWeight: 700,
                   fontSize: 14,
 
-                  color:
-                    "#0f2744",
+                  color: "#0f2744",
                 }}
               />
             </MenuItem>
@@ -332,21 +269,17 @@ const Header = () => {
             ===================================================== */}
 
             <MenuItem
-              onClick={
-                handleLogout
-              }
+              onClick={handleLogout}
               sx={{
                 py: 1.4,
                 px: 2,
 
-                fontFamily:
-                  "Montserrat, sans-serif",
+                fontFamily: "Montserrat, sans-serif",
 
                 fontWeight: 700,
 
                 "&:hover": {
-                  backgroundColor:
-                    "#f5f7fa",
+                  backgroundColor: "#f5f7fa",
                 },
               }}
             >
@@ -354,8 +287,7 @@ const Header = () => {
                 <LogoutIcon
                   fontSize="small"
                   sx={{
-                    color:
-                      "#d32f2f",
+                    color: "#d32f2f",
                   }}
                 />
               </ListItemIcon>
@@ -363,14 +295,12 @@ const Header = () => {
               <ListItemText
                 primary="Cerrar sesión"
                 primaryTypographyProps={{
-                  fontFamily:
-                    "Montserrat, sans-serif",
+                  fontFamily: "Montserrat, sans-serif",
 
                   fontWeight: 700,
                   fontSize: 14,
 
-                  color:
-                    "#d32f2f",
+                  color: "#d32f2f",
                 }}
               />
             </MenuItem>
@@ -383,12 +313,7 @@ const Header = () => {
       ===================================================== */}
 
       {openUserMenu && (
-        <div
-          className="profile-backdrop"
-          onClick={
-            handleCloseUserMenu
-          }
-        />
+        <div className="profile-backdrop" onClick={handleCloseUserMenu} />
       )}
 
       {/* =====================================================
@@ -396,11 +321,7 @@ const Header = () => {
       ===================================================== */}
 
       <div
-        className={`sidebar-backdrop ${
-          menuOpen
-            ? "open"
-            : ""
-        }`}
+        className={`sidebar-backdrop ${menuOpen ? "open" : ""}`}
         onClick={closeSidebar}
       />
 
@@ -408,22 +329,14 @@ const Header = () => {
           SIDEBAR
       ===================================================== */}
 
-      <aside
-        className={`sidebar ${
-          menuOpen
-            ? "open"
-            : ""
-        }`}
-      >
+      <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
         <div className="sidebar-header">
           <span>Menú</span>
 
           <button
             type="button"
             className="sidebar-close"
-            onClick={
-              closeSidebar
-            }
+            onClick={closeSidebar}
             aria-label="Cerrar menú"
           >
             ✕
@@ -431,15 +344,9 @@ const Header = () => {
         </div>
 
         <SidebarNavigation
-          items={
-            navigationConfig
-          }
-          userRole={
-            user?.rol_descripcion
-          }
-          onNavigate={
-            closeSidebar
-          }
+          items={navigationConfig}
+          userRole={user?.rol_descripcion}
+          onNavigate={closeSidebar}
         />
       </aside>
 
@@ -448,14 +355,15 @@ const Header = () => {
       ===================================================== */}
 
       <AvatarSelectorModal
-        open={
-          avatarModalOpen
-        }
-        onClose={() =>
-          setAvatarModalOpen(
-            false,
-          )
-        }
+        open={avatarModalOpen}
+        onClose={() => setAvatarModalOpen(false)}
+      />
+
+      <ChatPanel
+        open={chatOpen}
+        onClose={() => {
+          setChatOpen(false);
+        }}
       />
     </>
   );

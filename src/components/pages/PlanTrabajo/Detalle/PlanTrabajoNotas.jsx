@@ -2,12 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import axios from "axios";
 
-import {
-  Box,
-  Button,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Box, Button, TextField, Typography } from "@mui/material";
 
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 
@@ -23,6 +18,7 @@ import { handleApiError } from "../../../../helpers/apiErrorHandler";
 const PlanTrabajoNotas = ({
   tareaId,
   notasIniciales = "",
+  puedeInteractuar = false,
   onUpdated,
 }) => {
   // =========================================================
@@ -42,9 +38,7 @@ const PlanTrabajoNotas = ({
 
   const [notas, setNotas] = useState(notasIniciales || "");
 
-  const [notasOriginales, setNotasOriginales] = useState(
-    notasIniciales || "",
-  );
+  const [notasOriginales, setNotasOriginales] = useState(notasIniciales || "");
 
   const [guardando, setGuardando] = useState(false);
 
@@ -72,7 +66,7 @@ const PlanTrabajoNotas = ({
   // =========================================================
 
   const handleGuardar = async () => {
-    if (!tareaId) {
+    if (!tareaId || !puedeInteractuar) {
       return;
     }
 
@@ -114,10 +108,8 @@ const PlanTrabajoNotas = ({
       }
     } catch (error) {
       handleApiError(error, {
-        defaultMessage:
-          "No se pudieron actualizar las notas.",
-        warningTitle:
-          "No se pudieron guardar las notas",
+        defaultMessage: "No se pudieron actualizar las notas.",
+        warningTitle: "No se pudieron guardar las notas",
       });
     } finally {
       setGuardando(false);
@@ -155,8 +147,8 @@ const PlanTrabajoNotas = ({
           mb: 2,
         }}
       >
-        Agrega apuntes, pendientes o información interna relacionada
-        con esta tarea.
+        Agrega apuntes, pendientes o información interna relacionada con esta
+        tarea.
       </Typography>
 
       <TextField
@@ -174,42 +166,39 @@ const PlanTrabajoNotas = ({
         inputProps={{
           maxLength: 5000,
         }}
-        disabled={guardando}
+        disabled={guardando || !puedeInteractuar}
       />
 
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 1,
-          mt: 1.5,
-        }}
-      >
-        {hayCambios && (
-          <Button
-            variant="text"
-            onClick={handleCancelar}
-            disabled={guardando}
-          >
-            Cancelar
-          </Button>
-        )}
-
-        <Button
-          variant="contained"
-          startIcon={<SaveOutlinedIcon />}
-          onClick={handleGuardar}
-          disabled={
-            guardando ||
-            !hayCambios
-          }
-          sx={modalPrimaryButtonSx}
+      {puedeInteractuar && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 1,
+            mt: 1.5,
+          }}
         >
-          {guardando
-            ? "Guardando..."
-            : "Guardar cambios"}
-        </Button>
-      </Box>
+          {hayCambios && (
+            <Button
+              variant="text"
+              onClick={handleCancelar}
+              disabled={guardando}
+            >
+              Cancelar
+            </Button>
+          )}
+
+          <Button
+            variant="contained"
+            startIcon={<SaveOutlinedIcon />}
+            onClick={handleGuardar}
+            disabled={guardando || !hayCambios}
+            sx={modalPrimaryButtonSx}
+          >
+            {guardando ? "Guardando..." : "Guardar cambios"}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 };

@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -60,6 +61,10 @@ const TIPO_REMOCION_PLAN_TRABAJO =
   "responsable_removido";
 
 const NotificationBell = () => {
+  // =====================================================
+  // API
+  // =====================================================
+
   const apiUrl =
     process.env.NODE_ENV === "production"
       ? process.env.REACT_APP_API_URL
@@ -67,7 +72,12 @@ const NotificationBell = () => {
 
   const token = localStorage.getItem("token");
 
-  const [anchorEl, setAnchorEl] = useState(null);
+  // =====================================================
+  // ESTADOS
+  // =====================================================
+
+  const [anchorEl, setAnchorEl] =
+    useState(null);
 
   const [notificaciones, setNotificaciones] =
     useState([]);
@@ -75,10 +85,34 @@ const NotificationBell = () => {
   const [totalNoLeidas, setTotalNoLeidas] =
     useState(0);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
   const [moduloActivo, setModuloActivo] =
     useState(null);
+
+  // =====================================================
+  // ATENCIÓN DE LA CAMPANA
+  // =====================================================
+  //
+  // false:
+  // hay algo que el usuario todavía no ha revisado
+  // y la campana debe llamar su atención.
+  //
+  // true:
+  // el usuario ya abrió la campana.
+  //
+  // =====================================================
+
+  const [
+    avisoCampanaAtendido,
+    setAvisoCampanaAtendido,
+  ] = useState(false);
+
+  // Nos permite detectar cuándo aumenta
+  // el número de notificaciones.
+  const totalAnteriorRef =
+    useRef(null);
 
   const navigate = useNavigate();
 
@@ -88,18 +122,19 @@ const NotificationBell = () => {
   // MÓDULOS DISPONIBLES
   // =====================================================
 
-  const modulosDisponibles = useMemo(() => {
-    return [
-      ...new Set(
-        notificaciones
-          .map(
-            (notificacion) =>
-              notificacion.modulo,
-          )
-          .filter(Boolean),
-      ),
-    ];
-  }, [notificaciones]);
+  const modulosDisponibles =
+    useMemo(() => {
+      return [
+        ...new Set(
+          notificaciones
+            .map(
+              (notificacion) =>
+                notificacion.modulo,
+            )
+            .filter(Boolean),
+        ),
+      ];
+    }, [notificaciones]);
 
   const tieneMultiplesModulos =
     modulosDisponibles.length > 1;
@@ -109,43 +144,59 @@ const NotificationBell = () => {
   // =====================================================
 
   useEffect(() => {
-    if (modulosDisponibles.length === 0) {
+    if (
+      modulosDisponibles.length === 0
+    ) {
       setModuloActivo(null);
       return;
     }
 
     if (
       !moduloActivo ||
-      !modulosDisponibles.includes(moduloActivo)
+      !modulosDisponibles.includes(
+        moduloActivo,
+      )
     ) {
-      setModuloActivo(modulosDisponibles[0]);
+      setModuloActivo(
+        modulosDisponibles[0],
+      );
     }
-  }, [modulosDisponibles, moduloActivo]);
+  }, [
+    modulosDisponibles,
+    moduloActivo,
+  ]);
 
   // =====================================================
   // NOTIFICACIONES VISIBLES
   // =====================================================
 
-  const notificacionesVisibles = useMemo(() => {
-    if (!tieneMultiplesModulos || !moduloActivo) {
-      return notificaciones;
-    }
+  const notificacionesVisibles =
+    useMemo(() => {
+      if (
+        !tieneMultiplesModulos ||
+        !moduloActivo
+      ) {
+        return notificaciones;
+      }
 
-    return notificaciones.filter(
-      (notificacion) =>
-        notificacion.modulo === moduloActivo,
-    );
-  }, [
-    notificaciones,
-    tieneMultiplesModulos,
-    moduloActivo,
-  ]);
+      return notificaciones.filter(
+        (notificacion) =>
+          notificacion.modulo ===
+          moduloActivo,
+      );
+    }, [
+      notificaciones,
+      tieneMultiplesModulos,
+      moduloActivo,
+    ]);
 
   // =====================================================
   // TOTAL NO LEÍDAS POR MÓDULO
   // =====================================================
 
-  const obtenerNoLeidasModulo = (modulo) => {
+  const obtenerNoLeidasModulo = (
+    modulo,
+  ) => {
     return notificaciones.filter(
       (notificacion) =>
         notificacion.modulo === modulo &&
@@ -157,13 +208,18 @@ const NotificationBell = () => {
   // NOMBRE AMIGABLE DEL MÓDULO
   // =====================================================
 
-  const obtenerNombreModulo = (modulo) => {
+  const obtenerNombreModulo = (
+    modulo,
+  ) => {
     return (
-      CONFIGURACION_MODULOS[modulo]?.label ||
+      CONFIGURACION_MODULOS[modulo]
+        ?.label ||
       modulo
         ?.replaceAll("_", " ")
-        .replace(/\b\w/g, (letra) =>
-          letra.toUpperCase(),
+        .replace(
+          /\b\w/g,
+          (letra) =>
+            letra.toUpperCase(),
         ) ||
       "Notificaciones"
     );
@@ -176,18 +232,85 @@ const NotificationBell = () => {
   const obtenerTotalNoLeidas =
     useCallback(async () => {
       try {
-        const resp = await axios.get(
-          `${apiUrl}/notificaciones/no-leidas/count`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
+        const resp =
+          await axios.get(
+            `${apiUrl}/notificaciones/no-leidas/count`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             },
-          },
-        );
+          );
 
         if (resp.data?.ok) {
+          const nuevoTotal =
+            Number(
+              resp.data?.total || 0,
+            );
+
+          // =============================================
+          // PRIMERA CARGA
+          // =============================================
+          //
+          // Si ya existen notificaciones pendientes
+          // al entrar a Aphelios, queremos llamar
+          // la atención del usuario.
+          // =============================================
+
+          if (
+            totalAnteriorRef.current ===
+            null
+          ) {
+            totalAnteriorRef.current =
+              nuevoTotal;
+
+            setTotalNoLeidas(
+              nuevoTotal,
+            );
+
+            if (nuevoTotal > 0) {
+              setAvisoCampanaAtendido(
+                false,
+              );
+            }
+
+            return;
+          }
+
+          // =============================================
+          // LLEGÓ UNA NUEVA NOTIFICACIÓN
+          // =============================================
+          //
+          // Si el usuario ya había abierto la campana
+          // pero después aumenta el contador,
+          // volvemos a llamar su atención.
+          // =============================================
+
+          if (
+            nuevoTotal >
+            totalAnteriorRef.current
+          ) {
+            setAvisoCampanaAtendido(
+              false,
+            );
+          }
+
+          // =============================================
+          // YA NO HAY PENDIENTES
+          // =============================================
+
+          if (nuevoTotal <= 0) {
+            setAvisoCampanaAtendido(
+              false,
+            );
+          }
+
+          totalAnteriorRef.current =
+            nuevoTotal;
+
           setTotalNoLeidas(
-            Number(resp.data?.total || 0),
+            nuevoTotal,
           );
         }
       } catch (error) {
@@ -196,7 +319,10 @@ const NotificationBell = () => {
           error,
         );
       }
-    }, [apiUrl, token]);
+    }, [
+      apiUrl,
+      token,
+    ]);
 
   // =====================================================
   // OBTENER NOTIFICACIONES
@@ -207,18 +333,21 @@ const NotificationBell = () => {
       setLoading(true);
 
       try {
-        const resp = await axios.get(
-          `${apiUrl}/notificaciones`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
+        const resp =
+          await axios.get(
+            `${apiUrl}/notificaciones`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             },
-          },
-        );
+          );
 
         if (resp.data?.ok) {
           setNotificaciones(
-            resp.data?.notificaciones || [],
+            resp.data?.notificaciones ||
+              [],
           );
         }
       } catch (error) {
@@ -229,14 +358,31 @@ const NotificationBell = () => {
       } finally {
         setLoading(false);
       }
-    }, [apiUrl, token]);
+    }, [
+      apiUrl,
+      token,
+    ]);
 
   // =====================================================
   // ABRIR CAMPANA
   // =====================================================
 
-  const handleOpen = async (event) => {
-    setAnchorEl(event.currentTarget);
+  const handleOpen = async (
+    event,
+  ) => {
+    // El usuario ya atendió visualmente
+    // el aviso.
+    //
+    // IMPORTANTE:
+    // esto NO marca las notificaciones
+    // como leídas.
+    setAvisoCampanaAtendido(
+      true,
+    );
+
+    setAnchorEl(
+      event.currentTarget,
+    );
 
     await obtenerNotificaciones();
   };
@@ -261,31 +407,52 @@ const NotificationBell = () => {
       // MARCAR COMO LEÍDA
       // ==========================================
 
-      if (!Number(notificacion.leida)) {
+      if (
+        !Number(
+          notificacion.leida,
+        )
+      ) {
         await axios.patch(
           `${apiUrl}/notificaciones/${notificacion.id}/leida`,
           {},
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization:
+                `Bearer ${token}`,
             },
           },
         );
 
-        setNotificaciones((prev) =>
-          prev.map((item) =>
-            Number(item.id) ===
-            Number(notificacion.id)
-              ? {
-                  ...item,
-                  leida: 1,
-                }
-              : item,
-          ),
+        setNotificaciones(
+          (prev) =>
+            prev.map((item) =>
+              Number(item.id) ===
+              Number(
+                notificacion.id,
+              )
+                ? {
+                    ...item,
+                    leida: 1,
+                  }
+                : item,
+            ),
         );
 
-        setTotalNoLeidas((prev) =>
-          Math.max(0, prev - 1),
+        setTotalNoLeidas(
+          (prev) => {
+            const nuevoTotal =
+              Math.max(
+                0,
+                prev - 1,
+              );
+
+            // Mantener sincronizado
+            // el valor anterior.
+            totalAnteriorRef.current =
+              nuevoTotal;
+
+            return nuevoTotal;
+          },
         );
       }
 
@@ -294,7 +461,8 @@ const NotificationBell = () => {
       // =================================================
 
       if (
-        notificacion.modulo === "kaizen" &&
+        notificacion.modulo ===
+          "kaizen" &&
         notificacion.referencia_tipo ===
           "kaizen"
       ) {
@@ -306,23 +474,26 @@ const NotificationBell = () => {
 
         handleClose();
 
-        navigate("/kaizenSeguimiento", {
-          state: {
-            busqueda:
-              notificacion.referencia_sku ||
-              "",
+        navigate(
+          "/kaizenSeguimiento",
+          {
+            state: {
+              busqueda:
+                notificacion.referencia_sku ||
+                "",
 
-            estatus: esCierre
-              ? "cerrado"
-              : "activo",
+              estatus: esCierre
+                ? "cerrado"
+                : "activo",
 
-            kaizenId:
-              notificacion.referencia_id,
+              kaizenId:
+                notificacion.referencia_id,
 
-            productoId:
-              notificacion.referencia_producto_id,
+              productoId:
+                notificacion.referencia_producto_id,
+            },
           },
-        });
+        );
 
         return;
       }
@@ -363,14 +534,18 @@ const NotificationBell = () => {
 
         handleClose();
 
-        navigate("/planTrabajo", {
-          state: {
-            tareaId: Number(
-              notificacion.referencia_id,
-            ),
-            abrirTarea: true,
+        navigate(
+          "/planTrabajo",
+          {
+            state: {
+              tareaId: Number(
+                notificacion.referencia_id,
+              ),
+
+              abrirTarea: true,
+            },
           },
-        });
+        );
 
         return;
       }
@@ -389,25 +564,36 @@ const NotificationBell = () => {
   const marcarTodasComoLeidas =
     async () => {
       try {
-        const resp = await axios.patch(
-          `${apiUrl}/notificaciones/marcar-todas-leidas`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
+        const resp =
+          await axios.patch(
+            `${apiUrl}/notificaciones/marcar-todas-leidas`,
+            {},
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             },
-          },
-        );
-
-        if (resp.data?.ok) {
-          setNotificaciones((prev) =>
-            prev.map((item) => ({
-              ...item,
-              leida: 1,
-            })),
           );
 
+        if (resp.data?.ok) {
+          setNotificaciones(
+            (prev) =>
+              prev.map((item) => ({
+                ...item,
+                leida: 1,
+              })),
+          );
+
+          // Sincronizar contador y ref.
+          totalAnteriorRef.current =
+            0;
+
           setTotalNoLeidas(0);
+
+          setAvisoCampanaAtendido(
+            false,
+          );
         }
       } catch (error) {
         handleApiError(error, {
@@ -424,14 +610,27 @@ const NotificationBell = () => {
   useEffect(() => {
     obtenerTotalNoLeidas();
 
-    const interval = setInterval(() => {
-      obtenerTotalNoLeidas();
-    }, 30000);
+    const interval =
+      setInterval(() => {
+        obtenerTotalNoLeidas();
+      }, 30000);
 
     return () => {
       clearInterval(interval);
     };
   }, [obtenerTotalNoLeidas]);
+
+  // =====================================================
+  // ¿DEBE LLAMAR LA ATENCIÓN?
+  // =====================================================
+
+  const debeAnimarCampana =
+    totalNoLeidas > 0 &&
+    !avisoCampanaAtendido;
+
+  // =====================================================
+  // RENDER
+  // =====================================================
 
   return (
     <>
@@ -446,21 +645,82 @@ const NotificationBell = () => {
         sx={{
           width: 44,
           height: 44,
-          borderRadius: "12px",
+
+          borderRadius:
+            "12px",
+
           color: "#0f2744",
-          transition: "all 0.2s ease",
+
+          transition:
+            "background-color 0.2s ease",
 
           "&:hover": {
             backgroundColor:
               "rgba(255,255,255,0.20)",
           },
+
+          // ===============================================
+          // ANIMACIÓN DE ATENCIÓN
+          //
+          // La campana permanece quieta durante
+          // buena parte del ciclo y después hace
+          // un pequeño ring.
+          // ===============================================
+
+          "@keyframes notificationAttention":
+            {
+              "0%": {
+                transform:
+                  "rotate(0deg)",
+              },
+
+              "68%": {
+                transform:
+                  "rotate(0deg)",
+              },
+
+              "74%": {
+                transform:
+                  "rotate(14deg)",
+              },
+
+              "80%": {
+                transform:
+                  "rotate(-12deg)",
+              },
+
+              "86%": {
+                transform:
+                  "rotate(10deg)",
+              },
+
+              "91%": {
+                transform:
+                  "rotate(-7deg)",
+              },
+
+              "95%": {
+                transform:
+                  "rotate(4deg)",
+              },
+
+              "100%": {
+                transform:
+                  "rotate(0deg)",
+              },
+            },
         }}
       >
         <Badge
-          badgeContent={totalNoLeidas}
+          badgeContent={
+            totalNoLeidas
+          }
           color="error"
           max={99}
           overlap="circular"
+          invisible={
+            totalNoLeidas <= 0
+          }
           anchorOrigin={{
             vertical: "top",
             horizontal: "right",
@@ -469,6 +729,16 @@ const NotificationBell = () => {
           <NotificationsNoneIcon
             sx={{
               fontSize: 28,
+
+              animation:
+                debeAnimarCampana
+                  ? "notificationAttention 2.8s ease-in-out infinite"
+                  : "none",
+
+              // La campana parece colgar
+              // desde la parte superior.
+              transformOrigin:
+                "50% 10%",
             }}
           />
         </Badge>
@@ -493,9 +763,14 @@ const NotificationBell = () => {
         PaperProps={{
           sx: {
             width: 420,
-            maxWidth: "calc(100vw - 24px)",
+
+            maxWidth:
+              "calc(100vw - 24px)",
+
             maxHeight: 600,
+
             borderRadius: 2.5,
+
             overflow: "hidden",
           },
         }}
@@ -508,9 +783,13 @@ const NotificationBell = () => {
           sx={{
             px: 2,
             py: 1.5,
+
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+
+            justifyContent:
+              "space-between",
+
             gap: 2,
           }}
         >
@@ -522,24 +801,28 @@ const NotificationBell = () => {
               Notificaciones
             </Typography>
 
-            {totalNoLeidas > 0 && (
+            {totalNoLeidas >
+              0 && (
               <Typography
                 variant="caption"
                 color="text.secondary"
               >
-                {totalNoLeidas} sin leer
+                {totalNoLeidas} sin
+                leer
               </Typography>
             )}
           </Box>
 
-          {totalNoLeidas > 0 && (
+          {totalNoLeidas >
+            0 && (
             <Button
               size="small"
               onClick={
                 marcarTodasComoLeidas
               }
               sx={{
-                textTransform: "none",
+                textTransform:
+                  "none",
               }}
             >
               Marcar todas
@@ -556,8 +839,13 @@ const NotificationBell = () => {
         {tieneMultiplesModulos && (
           <>
             <Tabs
-              value={moduloActivo}
-              onChange={(_, nuevoModulo) =>
+              value={
+                moduloActivo
+              }
+              onChange={(
+                _,
+                nuevoModulo,
+              ) =>
                 setModuloActivo(
                   nuevoModulo,
                 )
@@ -573,17 +861,25 @@ const NotificationBell = () => {
                     px: 1,
                   },
 
-                "& .MuiTab-root": {
-                  minHeight: 48,
-                  textTransform: "none",
-                  fontSize: "0.83rem",
-                  fontWeight: 600,
-                  px: 1.5,
-                },
+                "& .MuiTab-root":
+                  {
+                    minHeight: 48,
 
-                "& .Mui-selected": {
-                  fontWeight: 700,
-                },
+                    textTransform:
+                      "none",
+
+                    fontSize:
+                      "0.83rem",
+
+                    fontWeight: 600,
+
+                    px: 1.5,
+                  },
+
+                "& .Mui-selected":
+                  {
+                    fontWeight: 700,
+                  },
               }}
             >
               {modulosDisponibles.map(
@@ -602,8 +898,10 @@ const NotificationBell = () => {
                           sx={{
                             display:
                               "flex",
+
                             alignItems:
                               "center",
+
                             gap: 0.75,
                           }}
                         >
@@ -613,7 +911,8 @@ const NotificationBell = () => {
                             )}
                           </span>
 
-                          {noLeidas > 0 && (
+                          {noLeidas >
+                            0 && (
                             <Chip
                               label={
                                 noLeidas >
@@ -623,15 +922,21 @@ const NotificationBell = () => {
                               }
                               size="small"
                               sx={{
-                                height: 20,
-                                minWidth: 20,
+                                height:
+                                  20,
+
+                                minWidth:
+                                  20,
 
                                 "& .MuiChip-label":
                                   {
                                     px: 0.7,
+
                                     fontSize:
                                       "0.7rem",
-                                    fontWeight: 700,
+
+                                    fontWeight:
+                                      700,
                                   },
                               }}
                             />
@@ -656,11 +961,16 @@ const NotificationBell = () => {
           <Box
             sx={{
               display: "flex",
-              justifyContent: "center",
+
+              justifyContent:
+                "center",
+
               py: 4,
             }}
           >
-            <CircularProgress size={24} />
+            <CircularProgress
+              size={24}
+            />
           </Box>
         ) : notificacionesVisibles.length ===
           0 ? (
@@ -668,13 +978,17 @@ const NotificationBell = () => {
             sx={{
               px: 3,
               py: 5,
-              textAlign: "center",
+
+              textAlign:
+                "center",
             }}
           >
             <NotificationsNoneIcon
               sx={{
                 fontSize: 38,
+
                 opacity: 0.4,
+
                 mb: 1,
               }}
             />
@@ -700,24 +1014,33 @@ const NotificationBell = () => {
                   ? 430
                   : 480,
 
-              overflowY: "auto",
+              overflowY:
+                "auto",
 
-              "&::-webkit-scrollbar": {
-                width: 6,
-              },
+              "&::-webkit-scrollbar":
+                {
+                  width: 6,
+                },
 
               "&::-webkit-scrollbar-thumb":
                 {
                   backgroundColor:
                     "rgba(0,0,0,0.18)",
-                  borderRadius: 10,
+
+                  borderRadius:
+                    10,
                 },
             }}
           >
             {notificacionesVisibles.map(
-              (notificacion, index) => (
+              (
+                notificacion,
+                index,
+              ) => (
                 <React.Fragment
-                  key={notificacion.id}
+                  key={
+                    notificacion.id
+                  }
                 >
                   <ListItemButton
                     onClick={() =>
@@ -728,6 +1051,7 @@ const NotificationBell = () => {
                     sx={{
                       alignItems:
                         "flex-start",
+
                       px: 2,
                       py: 1.5,
 
@@ -759,10 +1083,14 @@ const NotificationBell = () => {
 
                       <Box
                         sx={{
-                          display: "flex",
+                          display:
+                            "flex",
+
                           justifyContent:
                             "space-between",
+
                           gap: 1,
+
                           alignItems:
                             "flex-start",
                         }}
@@ -789,11 +1117,15 @@ const NotificationBell = () => {
                             sx={{
                               width: 8,
                               height: 8,
+
                               borderRadius:
                                 "50%",
+
                               bgcolor:
                                 "primary.main",
+
                               mt: 0.6,
+
                               flexShrink: 0,
                             }}
                           />
@@ -809,7 +1141,9 @@ const NotificationBell = () => {
                         color="text.secondary"
                         sx={{
                           mt: 0.5,
-                          lineHeight: 1.45,
+
+                          lineHeight:
+                            1.45,
                         }}
                       >
                         {
@@ -825,7 +1159,9 @@ const NotificationBell = () => {
                         variant="caption"
                         color="text.disabled"
                         sx={{
-                          display: "block",
+                          display:
+                            "block",
+
                           mt: 0.75,
                         }}
                       >
@@ -840,7 +1176,9 @@ const NotificationBell = () => {
 
                   {index <
                     notificacionesVisibles.length -
-                      1 && <Divider />}
+                      1 && (
+                    <Divider />
+                  )}
                 </React.Fragment>
               ),
             )}

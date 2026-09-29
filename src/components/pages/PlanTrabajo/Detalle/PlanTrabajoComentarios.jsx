@@ -50,10 +50,7 @@ const formatearFechaHora = (fecha) => {
 };
 
 const obtenerIniciales = (nombre = "") => {
-  const partes = nombre
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
 
   if (partes.length === 0) {
     return "?";
@@ -73,6 +70,7 @@ const obtenerIniciales = (nombre = "") => {
 const PlanTrabajoComentarios = ({
   tareaId,
   usuarioActualId,
+  puedeInteractuar = false,
 }) => {
   // =========================================================
   // CONFIG
@@ -136,31 +134,21 @@ const PlanTrabajoComentarios = ({
           },
         );
 
-        const nuevosComentarios =
-          response.data?.comentarios || [];
+        const nuevosComentarios = response.data?.comentarios || [];
 
         if (acumular) {
-          setComentarios((prev) => [
-            ...prev,
-            ...nuevosComentarios,
-          ]);
+          setComentarios((prev) => [...prev, ...nuevosComentarios]);
         } else {
           setComentarios(nuevosComentarios);
         }
 
-        setOffset(
-          nuevoOffset + nuevosComentarios.length,
-        );
+        setOffset(nuevoOffset + nuevosComentarios.length);
 
-        setHasMore(
-          Boolean(response.data?.hasMore),
-        );
+        setHasMore(Boolean(response.data?.hasMore));
       } catch (error) {
         handleApiError(error, {
-          defaultMessage:
-            "No se pudieron obtener las actualizaciones.",
-          warningTitle:
-            "No se pudo cargar la actividad",
+          defaultMessage: "No se pudieron obtener las actualizaciones.",
+          warningTitle: "No se pudo cargar la actividad",
         });
       } finally {
         setLoading(false);
@@ -191,9 +179,7 @@ const PlanTrabajoComentarios = ({
   // =========================================================
 
   const comentarioError =
-    submitted && !comentario.trim()
-      ? "La actualización es obligatoria."
-      : "";
+    submitted && !comentario.trim() ? "La actualización es obligatoria." : "";
 
   // =========================================================
   // CAMBIO DE COMENTARIO
@@ -208,6 +194,9 @@ const PlanTrabajoComentarios = ({
   // =========================================================
 
   const handleGuardarComentario = async () => {
+    if (!puedeInteractuar) {
+      return;
+    }
     setSubmitted(true);
 
     const texto = comentario.trim();
@@ -254,10 +243,8 @@ const PlanTrabajoComentarios = ({
       await obtenerComentarios(0, false);
     } catch (error) {
       handleApiError(error, {
-        defaultMessage:
-          "No se pudo publicar la actualización.",
-        warningTitle:
-          "No se pudo registrar la actividad",
+        defaultMessage: "No se pudo publicar la actualización.",
+        warningTitle: "No se pudo registrar la actividad",
       });
     } finally {
       setGuardando(false);
@@ -300,8 +287,8 @@ const PlanTrabajoComentarios = ({
             mt: 0.5,
           }}
         >
-          Registra avances, bloqueos o información relevante
-          para los responsables de esta tarea.
+          Registra avances, bloqueos o información relevante para los
+          responsables de esta tarea.
         </Typography>
       </Box>
 
@@ -309,50 +296,48 @@ const PlanTrabajoComentarios = ({
           NUEVA ACTUALIZACIÓN
       ====================================================== */}
 
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          multiline
-          minRows={3}
-          maxRows={8}
-          label="Nueva actualización"
-          placeholder="¿Qué avance, bloqueo o pendiente quieres registrar?"
-          value={comentario}
-          onChange={handleComentarioChange}
-          error={Boolean(comentarioError)}
-          helperText={
-            comentarioError ||
-            `${comentario.length}/2000`
-          }
-          inputProps={{
-            maxLength: 2000,
-          }}
-          disabled={guardando}
-        />
+      {puedeInteractuar && (
+        <>
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              maxRows={8}
+              label="Nueva actualización"
+              placeholder="¿Qué avance, bloqueo o pendiente quieres registrar?"
+              value={comentario}
+              onChange={handleComentarioChange}
+              error={Boolean(comentarioError)}
+              helperText={comentarioError || `${comentario.length}/2000`}
+              inputProps={{
+                maxLength: 2000,
+              }}
+              disabled={guardando}
+            />
 
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "flex-end",
-            mt: 1.5,
-          }}
-        >
-          <Button
-            variant="contained"
-            startIcon={<SendOutlinedIcon />}
-            onClick={handleGuardarComentario}
-            disabled={
-              guardando ||
-              !comentario.trim()
-            }
-            sx={modalPrimaryButtonSx}
-          >
-            {guardando
-              ? "Publicando..."
-              : "Publicar actualización"}
-          </Button>
-        </Box>
-      </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "flex-end",
+                mt: 1.5,
+              }}
+            >
+              <Button
+                variant="contained"
+                startIcon={<SendOutlinedIcon />}
+                onClick={handleGuardarComentario}
+                disabled={guardando || !comentario.trim()}
+                sx={modalPrimaryButtonSx}
+              >
+                {guardando ? "Publicando..." : "Publicar actualización"}
+              </Button>
+            </Box>
+          </Box>
+
+          <Divider sx={{ mb: 3 }} />
+        </>
+      )}
 
       <Divider sx={{ mb: 3 }} />
 
@@ -377,10 +362,7 @@ const PlanTrabajoComentarios = ({
             textAlign: "center",
           }}
         >
-          <Typography
-            variant="body2"
-            color="text.secondary"
-          >
+          <Typography variant="body2" color="text.secondary">
             Todavía no hay actividad registrada en esta tarea.
           </Typography>
         </Box>
@@ -394,13 +376,9 @@ const PlanTrabajoComentarios = ({
         >
           {comentarios.map((item) => {
             const nombre =
-              item.usuario_nombre ||
-              item.nombre_usuario ||
-              "Usuario";
+              item.usuario_nombre || item.nombre_usuario || "Usuario";
 
-            const esMio =
-              Number(item.usuario_id) ===
-              Number(usuarioActualId);
+            const esMio = Number(item.usuario_id) === Number(usuarioActualId);
 
             return (
               <Box
@@ -410,9 +388,7 @@ const PlanTrabajoComentarios = ({
 
                   display: "flex",
 
-                  justifyContent: esMio
-                    ? "flex-start"
-                    : "flex-end",
+                  justifyContent: esMio ? "flex-start" : "flex-end",
                 }}
               >
                 {/* ==========================================
@@ -455,8 +431,7 @@ const PlanTrabajoComentarios = ({
 
                         backgroundColor: "#e3f2fd",
 
-                        borderRadius:
-                          "4px 14px 14px 14px",
+                        borderRadius: "4px 14px 14px 14px",
 
                         px: 2,
                         py: 1.4,
@@ -475,11 +450,9 @@ const PlanTrabajoComentarios = ({
                           width: 0,
                           height: 0,
 
-                          borderTop:
-                            "10px solid #e3f2fd",
+                          borderTop: "10px solid #e3f2fd",
 
-                          borderLeft:
-                            "10px solid transparent",
+                          borderLeft: "10px solid transparent",
                         },
                       }}
                     >
@@ -505,8 +478,7 @@ const PlanTrabajoComentarios = ({
 
                           color: "#37474f",
 
-                          overflowWrap:
-                            "anywhere",
+                          overflowWrap: "anywhere",
 
                           wordBreak: "break-word",
 
@@ -527,9 +499,7 @@ const PlanTrabajoComentarios = ({
                           mt: 0.75,
                         }}
                       >
-                        {formatearFechaHora(
-                          item.fecha_creacion,
-                        )}
+                        {formatearFechaHora(item.fecha_creacion)}
                       </Typography>
                     </Box>
                   </Box>
@@ -560,8 +530,7 @@ const PlanTrabajoComentarios = ({
 
                         backgroundColor: "#f5f5f5",
 
-                        borderRadius:
-                          "14px 4px 14px 14px",
+                        borderRadius: "14px 4px 14px 14px",
 
                         px: 2,
                         py: 1.4,
@@ -580,11 +549,9 @@ const PlanTrabajoComentarios = ({
                           width: 0,
                           height: 0,
 
-                          borderTop:
-                            "10px solid #f5f5f5",
+                          borderTop: "10px solid #f5f5f5",
 
-                          borderRight:
-                            "10px solid transparent",
+                          borderRight: "10px solid transparent",
                         },
                       }}
                     >
@@ -610,8 +577,7 @@ const PlanTrabajoComentarios = ({
 
                           color: "#37474f",
 
-                          overflowWrap:
-                            "anywhere",
+                          overflowWrap: "anywhere",
 
                           wordBreak: "break-word",
 
@@ -632,9 +598,7 @@ const PlanTrabajoComentarios = ({
                           mt: 0.75,
                         }}
                       >
-                        {formatearFechaHora(
-                          item.fecha_creacion,
-                        )}
+                        {formatearFechaHora(item.fecha_creacion)}
                       </Typography>
                     </Box>
 
@@ -679,9 +643,7 @@ const PlanTrabajoComentarios = ({
                 onClick={handleCargarAnteriores}
                 disabled={loadingMore}
               >
-                {loadingMore
-                  ? "Cargando..."
-                  : "Cargar anteriores"}
+                {loadingMore ? "Cargando..." : "Cargar anteriores"}
               </Button>
             </Box>
           )}

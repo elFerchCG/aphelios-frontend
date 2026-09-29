@@ -21,6 +21,7 @@ import Usuarios from "../components/pages/Usuarios/Usuarios";
 import Transacciones from "../components/pages/Inventarios/Transacciones/Transacciones";
 import Bodegas from "../components/pages/Inventarios/Bodegas/Bodegas";
 import OrdenRetiro from "../components/pages/Orden Retiro/OrdenRetiro";
+import AvisosAdmin from "../components/admin/avisos/AvisosAdmin";
 
 // ==============================
 // INVENTARIO
@@ -86,6 +87,16 @@ import ChartPronostico from "../components/pages/Analisi Ventas/ChartPronostico"
 import Graficas from "../components/pages/Graficas/DashboardAphelios";
 
 // ==============================
+// Productos
+// ==============================
+import ProductosAphelios from "../components/pages/ProductosAphelios/ProductosAphelios";
+
+// ==============================
+// Cuentas Ecommerce
+// ==============================
+import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
+
+// ==============================
 // OTROS
 // ==============================
 import BarraLateral from "../components/layout/BarraLateral";
@@ -143,6 +154,29 @@ const Rutas = () => {
           element={
             <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/productosAphelios"
+          element={
+            <ProtectedRoute allowedRoles={rolesPlaneacion}>
+              <ProductosAphelios />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+    CuentasE commerce
+    Solo administrador
+====================================================== */}
+
+        <Route
+          path="/cuentasEcommerce"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <CuentasEcommerce />
             </ProtectedRoute>
           }
         />
@@ -546,6 +580,15 @@ const Rutas = () => {
         {/* =====================================================
             CONFIGURACIÓN
         ====================================================== */}
+
+        <Route
+          path="/avisos"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <AvisosAdmin />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/transacciones"

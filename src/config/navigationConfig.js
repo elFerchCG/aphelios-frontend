@@ -44,11 +44,19 @@ import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 
+import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
+
 export const navigationConfig = [
   {
     label: "Inicio",
     icon: HomeOutlinedIcon,
     path: "/home",
+  },
+  {
+    label: "Productos de aphelios",
+    icon: Inventory2OutlinedIcon,
+    path: "/productosAphelios",
+    roles: ["administrador"],
   },
   {
     label: "Plan de Trabajo",
@@ -275,6 +283,18 @@ export const navigationConfig = [
     icon: SettingsOutlinedIcon,
     roles: ["administrador", "Planeador", "Almacenista"],
     children: [
+      {
+        label: "Avisos",
+        icon: NotificationsActiveOutlinedIcon,
+        path: "/avisos",
+        roles: ["administrador"],
+      },
+      {
+        label: "Cuentas Ecommerce",
+        icon: StorefrontOutlinedIcon,
+        path: "/cuentasEcommerce",
+        roles: ["administrador"],
+      },
       {
         label: "Tipos de Movimientos",
         icon: SyncAltOutlinedIcon,
