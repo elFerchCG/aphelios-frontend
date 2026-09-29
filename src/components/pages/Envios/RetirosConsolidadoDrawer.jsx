@@ -17,42 +17,46 @@ import {
     Pagination,
     TextField,
     InputAdornment,
+    LinearProgress,
     Button
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SortIcon from "@mui/icons-material/Sort";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import FolderCopyOutlinedIcon from "@mui/icons-material/FolderCopyOutlined";
+import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
+import ViewAgendaOutlinedIcon from "@mui/icons-material/ViewAgendaOutlined";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import dayjs from "dayjs";
 
 import ProductoRow from "./ProductoRow";
 import { palette, tono } from "./consolidadoPalette";
 import { obtenerEstadoProducto, ESTADOS_PRODUCTO, ORDEN_ESTATUS_PRODUCTO } from "./estadoProducto";
-import { ResumenConsolidado, calcularResumen, ToneChip, textoBusqueda } from "./consolidadoUI";
+import { ResumenTile, ResumenConsolidado, calcularResumen, textoBusqueda } from "./consolidadoUI";
 
-// Consolidado de Producción por PROFORMA. Mismo diseño que
-// RetirosConsolidadoDrawer (encabezado, resumen, buscador y filtros).
-// El endpoint y las props de siempre no cambian; folioInternoEnvio es
-// opcional y solo se usa para el subtítulo.
+// Consolidado de las órdenes de RETIRO de un envío (equivalente al
+// ConsolidadoDrawer de proformas). Carga TODOS los retiros del envío una
+// sola vez y permite verlos todos juntos o uno por uno con el selector de
+// "Orden de retiro", sin volver a consultar el backend.
 
-const ESTATUS_PROFORMA = {
-    pendiente: { label: "Pendiente", tone: "neutral" },
-    activa: { label: "Activa", tone: "warning" },
-    finalizada: { label: "Finalizada", tone: "success" }
+const ESTATUS_RETIRO = {
+    abierto: { label: "Abierto", tone: "neutral" },
+    confirmado: { label: "Confirmado", tone: "warning" },
+    procesado: { label: "Procesado", tone: "success" },
+    cancelado: { label: "Cancelado", tone: "neutral" }
 };
 
-const getEstatusProforma = (estatus) =>
-    ESTATUS_PROFORMA[estatus] || { label: estatus || "—", tone: "neutral" };
+const getEstatusRetiro = (estatus) =>
+    ESTATUS_RETIRO[estatus] || { label: estatus || "—", tone: "neutral" };
 
-export default function ConsolidadoDrawer({
+export default function RetirosConsolidadoDrawer({
     open,
     onClose,
     envioId,
-    proforma,
-    folioInternoEnvio
+    folioInternoEnvio,
+    retiroInicial = "todas"
 }) {
 
     const apiUrl =
@@ -60,86 +64,104 @@ export default function ConsolidadoDrawer({
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
 
+    const [retiros, setRetiros] = useState([]);
     const [productos, setProductos] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    const [retiroSel, setRetiroSel] = useState("todas");
     const [filtroEstatus, setFiltroEstatus] = useState([]);
     const [busqueda, setBusqueda] = useState("");
     const [ordenarPorUrgencia, setOrdenarPorUrgencia] = useState(true);
+    const [agruparPorRetiro, setAgruparPorRetiro] = useState(true);
     const [pagina, setPagina] = useState(1);
     const [porPagina, setPorPagina] = useState(25);
 
-    const proformaId = proforma?.proforma_id;
-
     const cargar = useCallback(async () => {
-        if (!proformaId) return;
         setLoading(true);
         setError(null);
         try {
             const { data } = await axios.get(
-                `${apiUrl}/empaque/proformas/${proformaId}/envios/${envioId}/consolidado`
+                `${apiUrl}/empaque/envios/${envioId}/retiros/consolidado`,
+                { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
             );
+            setRetiros(data.retiros || []);
             setProductos(data.data || []);
         } catch (err) {
             console.error(err);
+            setRetiros([]);
             setProductos([]);
-            setError(err.response?.data?.message || "No se pudo cargar el consolidado de la proforma.");
+            setError(err.response?.data?.message || "No se pudo cargar el consolidado de retiros.");
         } finally {
             setLoading(false);
         }
-    }, [apiUrl, envioId, proformaId]);
+    }, [apiUrl, envioId]);
 
+    // Al abrir: posiciona el selector en el retiro con el que se abrió
+    // (o "todas") y recarga los datos.
     useEffect(() => {
-        if (!open || !proformaId) return;
+        if (!open || !envioId) return;
+        setRetiroSel(retiroInicial == null ? "todas" : String(retiroInicial));
         setFiltroEstatus([]);
         setBusqueda("");
         setPagina(1);
         cargar();
-    }, [open, proformaId, cargar]);
+    }, [open, envioId, retiroInicial, cargar]);
 
     // ------------------------------------------------------------
     // Derivados
     // ------------------------------------------------------------
 
-    // Cada producto trae ya resuelto su _estado (mismo cálculo que usa
-    // ProductoRow) para filtrar/ordenar/contar sin duplicar la lógica.
     const productosConEstado = useMemo(
         () => productos.map((p) => ({ ...p, _estado: obtenerEstadoProducto(p), _texto: textoBusqueda(p) })),
         [productos]
     );
 
+    // Productos del retiro seleccionado (antes de filtros de estatus/búsqueda)
+    const productosRetiro = useMemo(
+        () => retiroSel === "todas"
+            ? productosConEstado
+            : productosConEstado.filter((p) => String(p.orden_bodega_id) === retiroSel),
+        [productosConEstado, retiroSel]
+    );
+
     const conteoPorEstatus = useMemo(() => {
         const mapa = {};
-        productosConEstado.forEach((p) => {
+        productosRetiro.forEach((p) => {
             mapa[p._estado.status] = (mapa[p._estado.status] || 0) + 1;
         });
         return mapa;
-    }, [productosConEstado]);
+    }, [productosRetiro]);
 
-    const resumen = useMemo(() => calcularResumen(productosConEstado), [productosConEstado]);
+    const resumen = useMemo(() => calcularResumen(productosRetiro), [productosRetiro]);
+
+    const retiroActual = retiroSel === "todas"
+        ? null
+        : retiros.find((r) => String(r.orden_bodega_id) === retiroSel) || null;
+
+    const agrupar = retiroSel === "todas" && agruparPorRetiro;
 
     const productosFiltrados = useMemo(() => {
         const q = busqueda.trim().toLowerCase();
 
-        let lista = productosConEstado.filter((p) =>
+        let lista = productosRetiro.filter((p) =>
             (filtroEstatus.length === 0 || filtroEstatus.includes(p._estado.status)) &&
             (!q || p._texto.includes(q))
         );
 
-        if (ordenarPorUrgencia) {
-            lista = [...lista].sort(
-                (a, b) =>
-                    ORDEN_ESTATUS_PRODUCTO.indexOf(a._estado.status) -
-                    ORDEN_ESTATUS_PRODUCTO.indexOf(b._estado.status)
-            );
-        }
+        const urgencia = (p) => ORDEN_ESTATUS_PRODUCTO.indexOf(p._estado.status);
+
+        lista = [...lista].sort((a, b) => {
+            if (agrupar && a.orden_bodega_id !== b.orden_bodega_id) {
+                return a.orden_bodega_id - b.orden_bodega_id;
+            }
+            if (ordenarPorUrgencia) return urgencia(a) - urgencia(b);
+            return 0;
+        });
 
         return lista;
-    }, [productosConEstado, filtroEstatus, busqueda, ordenarPorUrgencia]);
+    }, [productosRetiro, filtroEstatus, busqueda, ordenarPorUrgencia, agrupar]);
 
-    // Si el filtro deja menos páginas de las que había, regresamos a la
-    // última página válida en vez de mostrar una página vacía.
     const totalPaginas = Math.max(1, Math.ceil(productosFiltrados.length / porPagina));
 
     useEffect(() => {
@@ -154,6 +176,16 @@ export default function ConsolidadoDrawer({
     const rangoInicio = productosFiltrados.length === 0 ? 0 : (pagina - 1) * porPagina + 1;
     const rangoFin = Math.min(pagina * porPagina, productosFiltrados.length);
 
+    const retiroPorId = useMemo(() => {
+        const m = new Map();
+        retiros.forEach((r) => m.set(r.orden_bodega_id, r));
+        return m;
+    }, [retiros]);
+
+    // ------------------------------------------------------------
+    // Handlers
+    // ------------------------------------------------------------
+
     const resetPagina = () => setPagina(1);
 
     const handleChangeFiltroEstatus = (event) => {
@@ -162,7 +194,84 @@ export default function ConsolidadoDrawer({
         resetPagina();
     };
 
-    const estProforma = proforma?.estatus ? getEstatusProforma(proforma.estatus) : null;
+    // ------------------------------------------------------------
+    // Render
+    // ------------------------------------------------------------
+
+    const renderEncabezadoGrupo = (retiroId) => {
+        const r = retiroPorId.get(retiroId);
+        const est = getEstatusRetiro(r?.estatus);
+        const pct = r && r.total_a_enviar > 0
+            ? Math.min(100, Math.round((r.total_empacado / r.total_a_enviar) * 100))
+            : 0;
+        return (
+            <Box
+                key={`grupo-${retiroId}`}
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 1.5,
+                    px: 1.5,
+                    py: 1,
+                    mb: 1.5,
+                    mt: 1,
+                    borderRadius: 2,
+                    bgcolor: palette.surface,
+                    border: `1px solid ${palette.border}`,
+                    borderLeft: `4px solid ${palette.primary.border}`
+                }}
+            >
+                <AssignmentReturnOutlinedIcon sx={{ color: palette.primary.text }} />
+                <Typography variant="subtitle2" fontWeight={700}>
+                    Retiro #{retiroId}
+                </Typography>
+                {r?.descripcion && (
+                    <Typography variant="body2" sx={{ color: palette.textSecondary }} noWrap>
+                        {r.descripcion}
+                    </Typography>
+                )}
+                <Chip
+                    size="small"
+                    label={est.label}
+                    sx={{
+                        bgcolor: tono(est.tone).bg,
+                        color: tono(est.tone).text,
+                        border: `1px solid ${tono(est.tone).border}`,
+                        fontWeight: 600
+                    }}
+                />
+                <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1, minWidth: 200 }}>
+                    <LinearProgress
+                        variant="determinate"
+                        value={pct}
+                        color={pct >= 100 ? "success" : "primary"}
+                        sx={{ height: 6, borderRadius: 4, flex: 1 }}
+                    />
+                    <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {r ? `${Math.round(r.total_empacado)}/${Math.round(r.total_a_enviar)} · ${pct}%` : ""}
+                    </Typography>
+                </Box>
+            </Box>
+        );
+    };
+
+    const renderListado = () => {
+        const elementos = [];
+        let retiroAnterior = null;
+        productosPagina.forEach((producto) => {
+            if (agrupar && producto.orden_bodega_id !== retiroAnterior) {
+                elementos.push(renderEncabezadoGrupo(producto.orden_bodega_id));
+                retiroAnterior = producto.orden_bodega_id;
+            }
+            elementos.push(
+                <ProductoRow key={producto.orden_id} producto={producto} modo="retiro" />
+            );
+        });
+        return elementos;
+    };
+
+    const estRetiroActual = retiroActual ? getEstatusRetiro(retiroActual.estatus) : null;
 
     return (
         <Drawer
@@ -191,13 +300,9 @@ export default function ConsolidadoDrawer({
                     }}
                 >
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
-                        <Typography variant="h6" fontWeight={700} sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                            <FolderCopyOutlinedIcon color="primary" />
-                            Consolidado de Producción
-                            {proformaId != null && (
-                                <ToneChip label={`Proforma #${proformaId}`} tone="primary" sx={{ fontWeight: 700 }} />
-                            )}
-                            {estProforma && <ToneChip label={estProforma.label} tone={estProforma.tone} />}
+                        <Typography variant="h6" fontWeight={700} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <AssignmentReturnOutlinedIcon color="primary" />
+                            Consolidado de Retiros
                         </Typography>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <Tooltip title="Vuelve a consultar el consolidado." arrow>
@@ -221,15 +326,69 @@ export default function ConsolidadoDrawer({
                     </Box>
 
                     <Typography variant="body2" color="text.secondary">
-                        Proforma #{proformaId} • Envío {folioInternoEnvio || `#${envioId}`}
+                        Envío {folioInternoEnvio || `#${envioId}`} • {retiros.length} orden(es) de retiro
+                        {retiroActual && ` • Retiro #${retiroActual.orden_bodega_id}`}
+                        {retiroActual?.fecha_orden && ` • ${dayjs(retiroActual.fecha_orden).format("DD/MM/YYYY")}`}
                     </Typography>
 
-                    {/* Resumen */}
+                    {/* Selector de retiro */}
+                    <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5, mt: 1.5 }}>
+                        <FormControl size="small" sx={{ minWidth: 320 }}>
+                            <InputLabel id="retiro-consolidado-label">Orden de retiro</InputLabel>
+                            <Select
+                                labelId="retiro-consolidado-label"
+                                label="Orden de retiro"
+                                value={retiroSel}
+                                onChange={(e) => {
+                                    setRetiroSel(e.target.value);
+                                    setFiltroEstatus([]);
+                                    resetPagina();
+                                }}
+                            >
+                                <MenuItem value="todas">
+                                    <ListItemText
+                                        primary="Todas las órdenes de retiro"
+                                        secondary={`${productos.length} orden(es) de producción`}
+                                    />
+                                </MenuItem>
+                                {retiros.map((r) => (
+                                    <MenuItem key={r.orden_bodega_id} value={String(r.orden_bodega_id)}>
+                                        <ListItemText
+                                            primary={`Retiro #${r.orden_bodega_id}${r.descripcion ? ` · ${r.descripcion}` : ""}`}
+                                            secondary={`${getEstatusRetiro(r.estatus).label} · ${r.total_ordenes} OP · ${Math.round(r.total_empacado)}/${Math.round(r.total_a_enviar)} empacado`}
+                                        />
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        {estRetiroActual && (
+                            <Chip
+                                size="small"
+                                label={estRetiroActual.label}
+                                sx={{
+                                    bgcolor: tono(estRetiroActual.tone).bg,
+                                    color: tono(estRetiroActual.tone).text,
+                                    border: `1px solid ${tono(estRetiroActual.tone).border}`,
+                                    fontWeight: 600
+                                }}
+                            />
+                        )}
+                    </Box>
+
+                    {/* Resumen de la selección */}
                     <ResumenConsolidado
                         aEnviar={resumen.aEnviar}
                         empacado={resumen.empacado}
                         pendiente={resumen.pendiente}
                         pct={resumen.pct}
+                        extra={
+                            <ResumenTile
+                                label="Órdenes de retiro"
+                                value={retiroSel === "todas" ? retiros.length : 1}
+                                tone="neutral"
+                            />
+                        }
                     />
 
                     {/* Filtros */}
@@ -253,9 +412,9 @@ export default function ConsolidadoDrawer({
                         />
 
                         <FormControl size="small" sx={{ minWidth: 260 }}>
-                            <InputLabel id="filtro-estatus-consolidado-label">Filtrar por estatus</InputLabel>
+                            <InputLabel id="filtro-estatus-retiros-label">Filtrar por estatus</InputLabel>
                             <Select
-                                labelId="filtro-estatus-consolidado-label"
+                                labelId="filtro-estatus-retiros-label"
                                 multiple
                                 value={filtroEstatus}
                                 onChange={handleChangeFiltroEstatus}
@@ -286,7 +445,7 @@ export default function ConsolidadoDrawer({
                                         <Checkbox checked={filtroEstatus.indexOf(info.value) > -1} />
                                         <ListItemText
                                             primary={info.label}
-                                            secondary={`${conteoPorEstatus[info.value] || 0} producto(s)`}
+                                            secondary={`${conteoPorEstatus[info.value] || 0} orden(es)`}
                                         />
                                     </MenuItem>
                                 ))}
@@ -309,10 +468,28 @@ export default function ConsolidadoDrawer({
                             </ToggleButton>
                         </Tooltip>
 
+                        {retiroSel === "todas" && (
+                            <Tooltip title="Agrupa las órdenes de producción bajo su orden de retiro">
+                                <ToggleButton
+                                    size="small"
+                                    value="agrupar"
+                                    selected={agruparPorRetiro}
+                                    onChange={() => {
+                                        setAgruparPorRetiro((prev) => !prev);
+                                        resetPagina();
+                                    }}
+                                    sx={{ textTransform: "none", gap: 0.5 }}
+                                >
+                                    <ViewAgendaOutlinedIcon fontSize="small" />
+                                    Agrupar por retiro
+                                </ToggleButton>
+                            </Tooltip>
+                        )}
+
                         <FormControl size="small" sx={{ minWidth: 130 }}>
-                            <InputLabel id="por-pagina-consolidado-label">Por página</InputLabel>
+                            <InputLabel id="por-pagina-retiros-label">Por página</InputLabel>
                             <Select
-                                labelId="por-pagina-consolidado-label"
+                                labelId="por-pagina-retiros-label"
                                 label="Por página"
                                 value={porPagina}
                                 onChange={(e) => {
@@ -327,7 +504,7 @@ export default function ConsolidadoDrawer({
 
                         <Typography variant="caption" sx={{ color: palette.textSecondary }}>
                             Mostrando {rangoInicio}–{rangoFin} de {productosFiltrados.length}
-                            {productosFiltrados.length !== productos.length && ` (filtrado de ${productos.length})`}
+                            {productosFiltrados.length !== productosRetiro.length && ` (filtrado de ${productosRetiro.length})`}
                         </Typography>
                     </Box>
                 </Box>
@@ -346,17 +523,12 @@ export default function ConsolidadoDrawer({
                         <Box display="flex" justifyContent="center" mt={5}>
                             <Typography variant="body2" color="text.secondary">
                                 {productos.length === 0
-                                    ? "Esta proforma no tiene productos en este envío."
-                                    : "No hay productos con los filtros seleccionados."}
+                                    ? "Este envío no tiene órdenes de retiro."
+                                    : "No hay órdenes de producción con los filtros seleccionados."}
                             </Typography>
                         </Box>
                     ) : (
-                        productosPagina.map((producto) => (
-                            <ProductoRow
-                                key={producto.producto_id}
-                                producto={producto}
-                            />
-                        ))
+                        renderListado()
                     )}
                 </Box>
 

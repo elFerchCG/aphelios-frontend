@@ -58,6 +58,7 @@ import CargaFacturas from "../components/pages/Facturas/CargaFacturas";
 import Facturas from "../components/pages/Facturas/Facturas";
 import DetalleFactura from "../components/pages/Facturas/DetalleFactura";
 import VistaPedidos from "../components/pages/Pedidos/Pedidos";
+import RecepcionPedidos from "../components/pages/RecepcionPedidos/RecepcionPedidos";
 
 // ==============================
 // MRP
@@ -227,6 +228,17 @@ const Rutas = () => {
           element={
             <ProtectedRoute>
               <Existencias />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Recepción de pedidos: administrador, Planeador y Almacenista.
+            Lo que cada uno puede modificar lo valida el backend. */}
+        <Route
+          path="/recepcion-pedidos"
+          element={
+            <ProtectedRoute allowedRoles={["administrador", "Planeador", "Almacenista"]}>
+              <RecepcionPedidos />
             </ProtectedRoute>
           }
         />

@@ -353,11 +353,33 @@ export default function ProcesosPage({ onResumeJob }) {
                         </TableCell>
 
                         <TableCell>
-                          <Chip
-                            size="small"
-                            label={a.tipo}
-                            color={a.tipo === "RETIRO" ? "warning" : "success"}
-                          />
+                          <Stack direction="row" spacing={0.5} alignItems="center">
+                            <Chip
+                              size="small"
+                              label={a.tipo}
+                              color={a.tipo === "RETIRO" ? "warning" : "success"}
+                            />
+                            {Number(a.simulacion) === 1 && (
+                              <Tooltip
+                                arrow
+                                title="Simulación: el pedido se revirtió, este Excel es solo de consulta."
+                              >
+                                <Chip
+                                  size="small"
+                                  label="SIMULACIÓN"
+                                  variant="outlined"
+                                  color="warning"
+                                  sx={{ fontWeight: 700 }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Stack>
+                          {a.ventas_desde && a.ventas_hasta && (
+                            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.5 }}>
+                              Ventas: {a.ventas_desde.split("-").reverse().join("/")} al{" "}
+                              {a.ventas_hasta.split("-").reverse().join("/")}
+                            </Typography>
+                          )}
                         </TableCell>
 
                         <TableCell>{a.nombre_archivo}</TableCell>

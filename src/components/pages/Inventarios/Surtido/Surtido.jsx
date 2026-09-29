@@ -38,6 +38,135 @@ const getCurrentDateTime = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+// ============================================================
+// Kits vs piezas
+//
+// En Surtido se cuentan PIEZAS de cada componente (cantidad_contada,
+// cantidad_surtida, cantidad_a_enviar del detalle), pero la orden se arma y
+// se envía en KITS/PRODUCTOS (cantidad_producto_a_producir =
+// orden_produccion.cantidad_parcial, cantidad_producto_a_enviar). Estas
+// funciones convierten piezas -> kits con cantidad_por_unidad (billetes.cantidad).
+// Viven fuera del componente porque modoSoloLectura se calcula al inicio
+// del render, antes de que se declaren los helpers internos.
+// ============================================================
+const piezasPorKit = (c) => Number(c?.cantidad_por_unidad) || 1;
+const kitsDePiezas = (piezas, c) => Math.floor((Number(piezas) || 0) / piezasPorKit(c));
+
+// Estado de la orden en KITS (mismo criterio que el backend:
+// helpers/ordenProduccionHelpers.js -> calcularEstadoKitsOrden).
+const calcularKitsOrden = (lista, resumen) => {
+    if (!lista || lista.length === 0 || !resumen) return null;
+    const kitsTotales = Number(resumen.cantidad_producto_a_producir) || 0;
+    const kitsImpresos = Math.min(...lista.map((c) => kitsDePiezas(c.cantidad_surtida, c)));
+    return {
+        kitsTotales,
+        kitsImpresos,
+        kitsPendientes: Math.max(kitsTotales - kitsImpresos, 0),
+    };
+};
+
+// Celda "piezas" con su equivalente en kits debajo (solo cuando el
+// componente lleva más de 1 pieza por kit; si es 1, piezas = kits).
+const CeldaPiezasKits = ({ piezas, row }) => {
+    const pzas = Math.round(Number(piezas) || 0);
+    const porKit = piezasPorKit(row);
+    if (porKit <= 1) return pzas;
+    const kits = kitsDePiezas(pzas, row);
+    return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.15, width: '100%' }}>
+            <span>{pzas} pzas</span>
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.1 }}>
+                = {kits} {kits === 1 ? 'kit' : 'kits'}
+            </Typography>
+        </Box>
+    );
+};
+
+// Columna "Por kit": cuántas piezas del componente lleva 1 kit/producto.
+const columnaPorKit = {
+    field: "cantidad_por_unidad",
+    headerName: "Por kit",
+    width: 90,
+    type: "number",
+    headerAlign: "center",
+    align: "center",
+    valueGetter: (value, row) => piezasPorKit(row),
+    renderCell: (params) => {
+        const porKit = piezasPorKit(params.row);
+        return (
+            <Tooltip title={`1 kit/producto lleva ${porKit} pieza(s) de este componente`}>
+                <Chip size="small" color={porKit > 1 ? "secondary" : "default"} label={`x${porKit}`} />
+            </Tooltip>
+        );
+    }
+};
+
+const KpiResumen = ({ label, value, color, detalle, tooltip }) => {
+    const contenido = (
+        <Box>
+            <Typography variant="caption" color="text.secondary">
+                {label}
+            </Typography>
+            <Typography fontWeight="bold" color={color}>
+                {value}
+            </Typography>
+            {detalle && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                    {detalle}
+                </Typography>
+            )}
+        </Box>
+    );
+    return tooltip ? <Tooltip title={tooltip} arrow>{contenido}</Tooltip> : contenido;
+};
+
+// Resumen de la orden a nivel KIT/PRODUCTO: cuántos armar, cuántos enviar,
+// qué pasa con la diferencia y cuántas etiquetas van.
+const ResumenArmadoKPIs = ({ resumen, kits }) => {
+    const unidad = (n) => resumen.esKit
+        ? `${n} ${n === 1 ? 'Kit' : 'Kits'}`
+        : `${n} ${n === 1 ? 'Producto' : 'Productos'}`;
+    const armar = Math.round(Number(resumen.cantidad_producto_a_producir) || 0);
+    const enviar = Math.round(Number(resumen.cantidad_producto_a_enviar) || 0);
+    const diferencia = Math.max(armar - enviar, 0);
+    const esFull = resumen.logistic_type === 'fulfillment';
+
+    return (
+        <>
+            <KpiResumen
+                label="Armar"
+                value={unidad(armar)}
+                color="success.main"
+                tooltip="Lo que alcanza a armarse con lo facturado + lo cubierto con stock de componentes."
+            />
+            <KpiResumen
+                label="Enviar"
+                value={unidad(enviar)}
+                color="primary"
+            />
+            <KpiResumen
+                label="Diferencia"
+                value={diferencia > 0 ? unidad(diferencia) : "Sin diferencia"}
+                color={diferencia > 0 ? "warning.main" : "text.secondary"}
+                detalle={diferencia > 0 ? (esFull ? "→ a Excedentes" : "→ guardar en stock ME") : null}
+                tooltip={diferencia > 0
+                    ? (esFull
+                        ? "Se arman pero no se envían: se quedan en la localidad de Excedentes."
+                        : "Se arman pero no se envían: se guardan como stock de Mercado Envíos.")
+                    : undefined}
+            />
+            {kits && (
+                <KpiResumen
+                    label="Etiquetas"
+                    value={`${kits.kitsImpresos} de ${kits.kitsTotales}`}
+                    color={kits.kitsPendientes > 0 ? "warning.main" : "success.main"}
+                    detalle={kits.kitsPendientes > 0 ? `${kits.kitsPendientes} pendiente(s)` : "Completas"}
+                />
+            )}
+        </>
+    );
+};
+
 const Surtido = () => {
     const [data, setData] = useState([]);
     const [componentes, setComponentes] = useState([]);
@@ -127,38 +256,42 @@ const Surtido = () => {
         </GridToolbarContainer>
     );
 
-    // 1. Evalúa UN componente: ¿ya no requiere más acción?
-    const cumpleComponente = (c, resumen) => {
+    // 1. ¿Ya se contó todo lo que hay que contar de este componente?
+    //    Tope = lo facturado + lo cubierto con stock interno de
+    //    componentes (si no hay ninguno de los dos, lo que se va a enviar).
+    const conteoCompletoComponente = (c) => {
         const facturada = Number(c.cantidad_facturada) || 0;
+        const cubierta = Number(c.cantidad_cubierta_excedente) || 0;
         const aEnviar = Number(c.cantidad_a_enviar) || 0;
-        const surtida = Number(c.cantidad_surtida) || 0;
         const contada = Number(c.cantidad_contada) || 0;
 
-        const topeConteo = facturada > 0 ? facturada : aEnviar;
+        const disponible = facturada + cubierta;
+        const topeConteo = disponible > 0 ? disponible : aEnviar;
 
         if (topeConteo <= 0) return false;
-
-        // En un KIT, el tope real de etiquetas es el cuello de botella
-        // del kit completo (cantidad_producto_a_producir), no la factura
-        // individual del componente. En SIMPLE, coincide con topeConteo.
-        const topeEtiquetas = resumen?.esKit
-            ? (Number(resumen.cantidad_producto_a_producir) || topeConteo)
-            : topeConteo;
-
-        const etiquetasCompletas = surtida >= topeEtiquetas;
-        const conteoCompleto = contada >= topeConteo;
-
-        return etiquetasCompletas && conteoCompleto;
+        return contada >= topeConteo;
     };
 
-    // 2. Evalúa TODOS los componentes de la orden
+    // 2. La orden está completa cuando ya se imprimieron TODAS las
+    //    etiquetas que alcanzan a armarse (en KITS, igual que el backend)
+    //    y se contó todo lo de cada componente.
+    //    Antes se comparaba cantidad_surtida (PIEZAS del componente) contra
+    //    cantidad_producto_a_producir (KITS): con 2+ piezas por kit la orden
+    //    se marcaba completa a la mitad (p. ej. 10 pzas = 5 kits vs 10 kits).
     const calcularModoSoloLectura = (lista, resumen) => {
-        if (!lista || lista.length === 0) return false;
-        return lista.every((c) => cumpleComponente(c, resumen));
+        const kits = calcularKitsOrden(lista, resumen);
+        if (!kits || kits.kitsTotales <= 0) return false;
+        return kits.kitsImpresos >= kits.kitsTotales && lista.every(conteoCompletoComponente);
     };
 
     const modoSoloLectura = useMemo(
         () => calcularModoSoloLectura(componentes, resumenOrden),
+        [componentes, resumenOrden]
+    );
+
+    // Kits armados/impresos para el resumen de las modales.
+    const kitsOrden = useMemo(
+        () => calcularKitsOrden(componentes, resumenOrden),
         [componentes, resumenOrden]
     );
 
@@ -1293,6 +1426,7 @@ const Surtido = () => {
         { field: "orden_id", headerName: "Folio orden", flex: 1 },
         { field: "sku", headerName: "SKU Componente", flex: 2 },
         { field: "descripcion", headerName: "Descripción", flex: 1 },
+        columnaPorKit,
         {
             field: "cantidad_facturada",
             headerName: "Factura",
@@ -1305,7 +1439,8 @@ const Surtido = () => {
             headerName: "Enviar",
             flex: 1,
             type: "number",
-            valueFormatter: (value) => Math.round(Number(value ?? 0))
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
+            renderCell: (params) => <CeldaPiezasKits piezas={params.value} row={params.row} />
         },
         {
             field: "cantidad_contada",
@@ -1323,7 +1458,8 @@ const Surtido = () => {
             headerName: "Procesado",
             flex: 1,
             type: "number",
-            valueFormatter: (value) => Math.round(Number(value ?? 0))
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
+            renderCell: (params) => <CeldaPiezasKits piezas={params.value} row={params.row} />
         },
         {
             field: "cantidad_cubierta_excedente",
@@ -1485,17 +1621,29 @@ const Surtido = () => {
 
                 }
 
+                // Mostrar el sobrante también en kits: es lo que el
+                // usuario entiende (kits que se arman y no se envían).
+                const porKit = piezasPorKit(params.row);
+                const kitsExcedente = kitsDePiezas(excedente, params.row);
+
                 return (
 
-                    <Chip
+                    <Tooltip
+                        arrow
+                        title={porKit > 1
+                            ? `${excedente} pzas sobrantes de este componente = ${kitsExcedente} kit(s) que se arman y van a Excedentes`
+                            : `${excedente} producto(s) que se arman y van a Excedentes`}
+                    >
+                        <Chip
 
-                        size="small"
+                            size="small"
 
-                        color="warning"
+                            color="warning"
 
-                        label={`+${excedente}`}
+                            label={porKit > 1 ? `+${excedente} pzas · ${kitsExcedente} kits` : `+${excedente}`}
 
-                    />
+                        />
+                    </Tooltip>
 
                 );
 
@@ -1508,6 +1656,7 @@ const Surtido = () => {
         { field: "orden_id", headerName: "Folio orden", flex: 1 },
         { field: "sku", headerName: "SKU Componente", flex: 1 },
         { field: "descripcion", headerName: "Descripción", flex: 2 },
+        columnaPorKit,
         {
             field: "cantidad_facturada",
             headerName: "Factura",
@@ -1520,7 +1669,8 @@ const Surtido = () => {
             headerName: "Enviar",
             flex: 1,
             type: "number",
-            valueFormatter: (value) => Math.round(Number(value ?? 0))
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
+            renderCell: (params) => <CeldaPiezasKits piezas={params.value} row={params.row} />
         },
         {
             field: "cantidad_contada",
@@ -1538,7 +1688,8 @@ const Surtido = () => {
             headerName: "Etiquetas",
             flex: 1,
             type: "number",
-            valueFormatter: (value) => Math.round(Number(value ?? 0))
+            valueFormatter: (value) => Math.round(Number(value ?? 0)),
+            renderCell: (params) => <CeldaPiezasKits piezas={params.value} row={params.row} />
         },
         {
             field: "cantidad_cubierta_excedente",
@@ -1932,7 +2083,7 @@ const Surtido = () => {
                                 <Box
                                     sx={{
                                         display: "grid",
-                                        gridTemplateColumns: "560px 1fr",
+                                        gridTemplateColumns: { xs: "1fr", lg: "auto 1fr" },
                                         gap: 3,
                                         alignItems: "start"
                                     }}
@@ -1942,7 +2093,10 @@ const Surtido = () => {
 
                                     <Stack
                                         direction="row"
-                                        spacing={5}
+                                        useFlexGap
+                                        flexWrap="wrap"
+                                        columnGap={4}
+                                        rowGap={2}
                                         alignItems="flex-start"
                                     >
 
@@ -1983,53 +2137,7 @@ const Surtido = () => {
 
                                         </Box>
 
-                                        <Box>
-
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Productos a enviar
-                                            </Typography>
-
-                                            <Typography
-                                                fontWeight="bold"
-                                                color="primary"
-                                            >
-
-                                                {
-                                                    resumenOrden.esKit
-                                                        ? `${resumenOrden.cantidad_producto_a_enviar} Kits`
-                                                        : `${resumenOrden.cantidad_producto_a_enviar} Productos`
-                                                }
-
-                                            </Typography>
-
-                                        </Box>
-
-                                        <Box>
-
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Productos a producir
-                                            </Typography>
-
-                                            <Typography
-                                                fontWeight="bold"
-                                                color="success.main"
-                                            >
-
-                                                {
-                                                    resumenOrden.esKit
-                                                        ? `${resumenOrden.cantidad_producto_a_producir} Kits`
-                                                        : `${resumenOrden.cantidad_producto_a_producir} Productos`
-                                                }
-
-                                            </Typography>
-
-                                        </Box>
+                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} />
 
                                     </Stack>
 
@@ -2491,7 +2599,7 @@ const Surtido = () => {
                                 <Box
                                     sx={{
                                         display: "grid",
-                                        gridTemplateColumns: "560px 1fr",
+                                        gridTemplateColumns: { xs: "1fr", lg: "auto 1fr" },
                                         gap: 3,
                                         alignItems: "start"
                                     }}
@@ -2501,7 +2609,10 @@ const Surtido = () => {
 
                                     <Stack
                                         direction="row"
-                                        spacing={5}
+                                        useFlexGap
+                                        flexWrap="wrap"
+                                        columnGap={4}
+                                        rowGap={2}
                                         alignItems="flex-start"
                                     >
 
@@ -2542,53 +2653,7 @@ const Surtido = () => {
 
                                         </Box>
 
-                                        <Box>
-
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Productos a enviar
-                                            </Typography>
-
-                                            <Typography
-                                                fontWeight="bold"
-                                                color="primary"
-                                            >
-
-                                                {
-                                                    resumenOrden.esKit
-                                                        ? `${resumenOrden.cantidad_producto_a_enviar} Kits`
-                                                        : `${resumenOrden.cantidad_producto_a_enviar} Productos`
-                                                }
-
-                                            </Typography>
-
-                                        </Box>
-
-                                        <Box>
-
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Productos a producir
-                                            </Typography>
-
-                                            <Typography
-                                                fontWeight="bold"
-                                                color="success.main"
-                                            >
-
-                                                {
-                                                    resumenOrden.esKit
-                                                        ? `${resumenOrden.cantidad_producto_a_producir} Kits`
-                                                        : `${resumenOrden.cantidad_producto_a_producir} Productos`
-                                                }
-
-                                            </Typography>
-
-                                        </Box>
+                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} />
 
                                     </Stack>
 

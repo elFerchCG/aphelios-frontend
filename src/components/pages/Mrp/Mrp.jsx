@@ -25,6 +25,24 @@ import { DataGrid, GridToolbarContainer } from "@mui/x-data-grid";
 import FullScreenLoader from "../../../components/loaders/FullScreenLoader";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import GenerarPedidoDialog from "./GenerarPedidoDialog";
+
+// Texto del loader según la fase que reporta el backend (MRP/pedidoProveedor.js).
+const FASES_PEDIDO = {
+  CERRAR_SIN_BACKORDER: "Cerrando pendientes sin backorder",
+  EN_CAMINO: "Actualizando existencias en camino",
+  TENDENCIA: "Calculando tendencia de ventas",
+  CALCULOS: "Calculando productos del proveedor",
+  RESURTIDO: "Calculando resurtido de colchón",
+  ORDENES_PRODUCCION: "Generando órdenes de producción",
+  COMPONENTES: "Asignando componentes",
+  COMPRAS: "Generando pedido y órdenes de compra",
+  DOCUMENTOS: "Generando Excel de la orden de compra",
+};
+
+const getAuthHeaders = () => ({
+  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+});
 
 const apiUrl =
   process.env.NODE_ENV === "production"
@@ -43,6 +61,7 @@ const MrpSimple = () => {
   const [rowSelectionModel, setRowSelectionModel] = useState([]);
   const [mlInfo, setMlInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dialogPedidoOpen, setDialogPedidoOpen] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
 
   const [loaderOpen, setLoaderOpen] = useState(false);
@@ -102,6 +121,23 @@ const MrpSimple = () => {
       })
       : "—";
 
+  // Último retiro general: el retiro ya no se genera con el pedido; debe
+  // correrse antes (desde "Órdenes de retiro") para que lo retirado cuente
+  // como envío pendiente en el cálculo del pedido.
+  const [ultimoRetiro, setUltimoRetiro] = useState(null);
+
+  const fetchUltimoRetiro = async () => {
+    try {
+      const { data } = await axios.get(`${apiUrl}/mrp/retiro-general/ejecuciones`, {
+        ...getAuthHeaders(),
+        params: { limit: 1 },
+      });
+      setUltimoRetiro(data?.data?.[0] || null);
+    } catch (e) {
+      setUltimoRetiro(null);
+    }
+  };
+
   const fetchMlInfo = async () => {
     try {
       const { data } = await axios.get(`${apiUrl}/mrp/ml/lastUpdate`);
@@ -160,6 +196,11 @@ const MrpSimple = () => {
     if (!mlInfo?.ok || !mlInfo?.max) return false;
     return isSameLocalDay(mlInfo.max, new Date());
   }, [mlInfo]);
+
+  useEffect(() => {
+    fetchUltimoRetiro();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancel = false;
@@ -266,41 +307,66 @@ const MrpSimple = () => {
     );
   };
 
+  // Abre el diálogo donde se elige la ventana de ventas y si es simulación.
   const generarPedidos = async () => {
     if (!proveedorId) {
       await Swal.fire("Atención", "Selecciona un proveedor primero.", "warning");
       return;
     }
+    setDialogPedidoOpen(true);
+  };
 
-    const confirm = await Swal.fire({
-      title: "¿Generar pedidos?",
-      text: `Proveedor: ${proveedorSel?.razon_social || proveedorId} · Backorder: ${proveedorSel?.backorder ? "Sí" : "No"
-        }`,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Sí, generar",
-      cancelButtonText: "Cancelar",
-    });
+  const descargarArchivoMRP = async (archivoId) => {
+    try {
+      const { data } = await axios.get(
+        `${apiUrl}/mrp/descargarArchivoMRP/${archivoId}/descargar`,
+        getAuthHeaders()
+      );
+      if (!data?.ok || !data?.url) throw new Error(data?.message || "Sin URL de descarga");
+      window.open(data.url, "_blank");
+    } catch (e) {
+      await Swal.fire("Error", "No se pudo descargar el archivo.", "error");
+    }
+  };
 
-    if (!confirm.isConfirmed) return;
+  // config = { modo_ventas, ventas_desde, ventas_hasta, simulacion, descripcion }
+  const ejecutarPedido = async (config) => {
+    setDialogPedidoOpen(false);
+    const esSimulacion = !!config?.simulacion;
+    const prefijo = esSimulacion ? "Simulación · " : "";
 
     setSubmitting(true);
 
     try {
       openLoader("Preparando generación de pedidos…", 0);
 
-      if (!proveedorSel?.backorder) {
-        setLoaderText("Cerrando pendientes sin backorder…");
-        await axios.post(`${apiUrl}/mrp/cerrarPorProveedorSinBackorder`, {
-          proveedor_id: Number(proveedorId),
-        });
+      // Aviso temprano si ya hay otro proceso del MRP corriendo.
+      const { data: estadoActual } = await axios.get(
+        `${apiUrl}/mrp/ejecuciones/activa`,
+        getAuthHeaders()
+      );
+      if (estadoActual?.activa) {
+        closeLoader();
+        await Swal.fire("Proceso en curso", estadoActual.message, "warning");
+        return;
       }
 
-      setLoaderText("Iniciando MRP…");
-      const { data } = await axios.post(`${apiUrl}/mrp/iniciar`, {
-        proveedor_id: Number(proveedorId),
-        back_order: !!proveedorSel?.backorder,
-      });
+      // El cierre de pendientes sin backorder ya NO se llama desde aquí: lo
+      // hace el backend dentro de la misma transacción del pedido, así que
+      // si algo falla también se revierte.
+      setLoaderText(esSimulacion ? "Iniciando simulación…" : "Iniciando MRP…");
+      const { data } = await axios.post(
+        `${apiUrl}/mrp/iniciar`,
+        {
+          proveedor_id: Number(proveedorId),
+          back_order: !!proveedorSel?.backorder,
+          modo_ventas: config?.modo_ventas,
+          ventas_desde: config?.ventas_desde || null,
+          ventas_hasta: config?.ventas_hasta || null,
+          simulacion: esSimulacion,
+        },
+        getAuthHeaders()
+      );
 
       const mrpId = data.mrpEjecucionId;
 
@@ -313,21 +379,57 @@ const MrpSimple = () => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
         try {
-          const res = await axios.get(`${apiUrl}/mrp/estado/${mrpId}`);
+          const res = await axios.get(`${apiUrl}/mrp/estado/${mrpId}`, getAuthHeaders());
 
           if (!res.data) continue;
 
-          const { estado, progreso, mensaje_error } = res.data;
+          const { estado, progreso, mensaje_error, fase_actual, revertido } = res.data;
+          let resumen = res.data.resumen;
+          if (typeof resumen === "string") {
+            try {
+              resumen = JSON.parse(resumen);
+            } catch (e) {
+              resumen = null;
+            }
+          }
           erroresConsecutivos = 0; // Reiniciar contador de errores de red
 
           // Actualizamos estado visual
           setLoaderPct(progreso || 0);
-          setLoaderText(`Procesando... (${progreso || 0}%)`);
+          setLoaderText(
+            `${prefijo}${FASES_PEDIDO[fase_actual] || "Procesando"}… (${progreso || 0}%)`
+          );
 
-          if (estado === "COMPLETADO") {
+          if (esSimulacion && (estado === "COMPLETADO" || estado === "SIN_PEDIDO")) {
+            // Simulación: no cambió nada en la BD, solo hay (o no) un Excel en S3.
+            enProceso = false;
+            closeLoader();
+            const archivoId = resumen?.archivoId;
+            const r = await Swal.fire({
+              icon: archivoId ? "success" : "info",
+              title: "Simulación terminada",
+              html:
+                `${mensaje_error || ""}` +
+                (config?.descripcion ? `<br/><br/><small>${config.descripcion}</small>` : "") +
+                (archivoId
+                  ? "<br/><br/><small>También puedes descargarlo después en Procesos → Archivos MRP.</small>"
+                  : ""),
+              showCancelButton: !!archivoId,
+              confirmButtonText: archivoId ? "Descargar Excel" : "Aceptar",
+              cancelButtonText: "Cerrar",
+            });
+            if (archivoId && r.isConfirmed) {
+              await descargarArchivoMRP(archivoId);
+            }
+          } else if (estado === "COMPLETADO") {
             enProceso = false;
             closeLoader();
             await Swal.fire("Listo", "MRP finalizado correctamente", "success");
+            await cargarMrpDelProveedor();
+          } else if (estado === "COMPLETADO_CON_ADVERTENCIAS") {
+            enProceso = false;
+            closeLoader();
+            await Swal.fire("Pedido generado con advertencias", mensaje_error || "", "warning");
             await cargarMrpDelProveedor();
           } else if (estado === "SIN_PEDIDO") {
             enProceso = false;
@@ -341,7 +443,13 @@ const MrpSimple = () => {
           } else if (estado === "ERROR") {
             enProceso = false;
             closeLoader();
-            await Swal.fire("Error", mensaje_error || "Ocurrió un error en el MRP", "error");
+            await Swal.fire({
+              icon: "error",
+              title: Number(revertido) === 1
+                ? `${esSimulacion ? "Simulación con error" : "Error"} — se revirtió todo`
+                : "Error",
+              text: mensaje_error || "Ocurrió un error en el MRP",
+            });
           }
         } catch (pollError) {
           console.error("Error polling MRP:", pollError);
@@ -1413,6 +1521,27 @@ const MrpSimple = () => {
                   {backorderActivo &&
                     " y cerrar las órdenes que desees (Paso 2)."}
                 </Alert>
+                <Alert
+                  severity={
+                    ultimoRetiro && isSameLocalDay(ultimoRetiro.finalizado_en || ultimoRetiro.iniciado_en, new Date())
+                      ? "info"
+                      : "warning"
+                  }
+                  variant="outlined"
+                  action={
+                    <Button color="inherit" size="small" onClick={() => navigate("/ordenes-retiro")}>
+                      Ir a retiros
+                    </Button>
+                  }
+                >
+                  La orden de retiro ya no se genera con el pedido. Genera primero el{" "}
+                  <strong>retiro general</strong> para que lo retirado se descuente como envío pendiente.
+                  <br />
+                  Último retiro general:{" "}
+                  {ultimoRetiro
+                    ? `${fmtDT(ultimoRetiro.finalizado_en || ultimoRetiro.iniciado_en)}${ultimoRetiro.estado && ultimoRetiro.estado !== "COMPLETADO" ? ` (${ultimoRetiro.estado})` : ""}`
+                    : "sin registros"}
+                </Alert>
                 <Typography variant="body2" color="text.secondary">
                   {backorderActivo
                     ? "Tras cerrar las órdenes que elijas (opcional), se actualizará el stock y podrás generar nuevas órdenes."
@@ -1510,6 +1639,15 @@ const MrpSimple = () => {
           />
         )}
       </Box>
+
+      <GenerarPedidoDialog
+        open={dialogPedidoOpen}
+        onClose={() => setDialogPedidoOpen(false)}
+        onConfirm={ejecutarPedido}
+        apiUrl={apiUrl}
+        proveedor={proveedorSel?.razon_social}
+        backorder={!!proveedorSel?.backorder}
+      />
 
       <FullScreenLoader
         open={loaderOpen}

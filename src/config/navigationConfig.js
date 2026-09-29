@@ -42,6 +42,7 @@ import NewReleasesOutlinedIcon from "@mui/icons-material/NewReleasesOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 
 export const navigationConfig = [
   {
@@ -110,6 +111,12 @@ export const navigationConfig = [
         path: "/existencias",
       },
       {
+        label: "Recepción de pedidos",
+        icon: AssignmentTurnedInOutlinedIcon,
+        path: "/recepcion-pedidos",
+        roles: ["administrador", "Planeador", "Almacenista"],
+      },
+      {
         label: "Excedentes",
         icon: MoveToInboxOutlinedIcon,
         path: "/nuevos-excedentes",
@@ -132,6 +139,12 @@ export const navigationConfig = [
         label: "MRP manual",
         icon: PrecisionManufacturingOutlinedIcon,
         path: "/mrp",
+        roles: ["administrador", "Planeador"],
+      },
+      {
+        label: "Órdenes de retiro",
+        icon: ExitToAppOutlinedIcon,
+        path: "/ordenes-retiro",
         roles: ["administrador", "Planeador"],
       },
       {
@@ -285,12 +298,6 @@ export const navigationConfig = [
         icon: WarehouseOutlinedIcon,
         path: "/bodegas",
         roles: ["administrador", "Planeador", "Almacenista"],
-      },
-      {
-        label: "Órdenes retiro",
-        icon: ExitToAppOutlinedIcon,
-        path: "/ordenes-retiro",
-        roles: ["administrador", "Planeador"],
       },
     ],
   },

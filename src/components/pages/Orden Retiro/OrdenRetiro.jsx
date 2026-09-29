@@ -29,6 +29,7 @@ import { swalSuccess } from "../../../helpers/sweetAlert";
 import { handleApiError } from "../../../helpers/apiErrorHandler";
 
 import AsignarEnvioModal from "./components/AsignarEnvioModal";
+import RetiroGeneralPanel from "./components/RetiroGeneralPanel";
 
 const OrdenRetiro = () => {
   const apiUrl =
@@ -392,8 +393,10 @@ const OrdenRetiro = () => {
     <div className="contenido">
       <PageHeader
         title="Órdenes de retiro por excedente"
-        subtitle="Consulta y asigna órdenes de retiro pendientes a un envío."
+        subtitle="Genera el retiro general de excedentes y asigna las órdenes de retiro pendientes a un envío."
       />
+
+      <RetiroGeneralPanel onFinalizado={fetchOrdenes} />
 
       <PageToolbarCard>
         <div

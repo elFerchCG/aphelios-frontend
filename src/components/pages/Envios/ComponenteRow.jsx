@@ -17,7 +17,13 @@ import TableStockExcedente from "./TableStockExcedente";
 import SoftChip from "./SoftChip";
 import { palette } from "./consolidadoPalette";
 
-export default function ComponenteRow({ componente }) {
+// modo "retiro": sin columna de Facturado ni sub-tabla de facturas (las OP
+// de retiro no tienen factura); solo se puede expandir si trae stock de
+// excedentes. El modo "proforma" (default) queda igual que antes.
+export default function ComponenteRow({ componente, modo = "proforma" }) {
+
+    const esRetiro = modo === "retiro";
+    const puedeExpandir = !esRetiro || (componente.stock_excedente || []).length > 0;
 
     const [open, setOpen] = useState(false);
 
@@ -39,18 +45,20 @@ export default function ComponenteRow({ componente }) {
 
                 <TableCell width={44}>
 
-                    <IconButton
-                        size="small"
-                        onClick={() => setOpen(!open)}
-                    >
+                    {puedeExpandir && (
+                        <IconButton
+                            size="small"
+                            onClick={() => setOpen(!open)}
+                        >
 
-                        {
-                            open
-                                ? <KeyboardArrowDownIcon />
-                                : <KeyboardArrowRightIcon />
-                        }
+                            {
+                                open
+                                    ? <KeyboardArrowDownIcon />
+                                    : <KeyboardArrowRightIcon />
+                            }
 
-                    </IconButton>
+                        </IconButton>
+                    )}
 
                 </TableCell>
 
@@ -94,14 +102,16 @@ export default function ComponenteRow({ componente }) {
 
                 </TableCell>
 
-                <TableCell align="center">
+                {!esRetiro && (
+                    <TableCell align="center">
 
-                    <SoftChip
-                        label={componente.componente_cantidad_facturada}
-                        tone="primary"
-                    />
+                        <SoftChip
+                            label={componente.componente_cantidad_facturada}
+                            tone="primary"
+                        />
 
-                </TableCell>
+                    </TableCell>
+                )}
 
                 <TableCell align="center">
 
@@ -159,7 +169,7 @@ export default function ComponenteRow({ componente }) {
             <TableRow>
 
                 <TableCell
-                    colSpan={10}
+                    colSpan={esRetiro ? 9 : 10}
                     sx={{
                         paddingBottom: 0,
                         paddingTop: 0,
@@ -184,27 +194,31 @@ export default function ComponenteRow({ componente }) {
                             }}
                         >
 
-                            <Typography
+                            {!esRetiro && (
+                                <>
+                                    <Typography
 
-                                variant="subtitle2"
+                                        variant="subtitle2"
 
-                                fontWeight={700}
+                                        fontWeight={700}
 
-                                mb={1}
+                                        mb={1}
 
-                                sx={{ color: palette.textPrimary }}
+                                        sx={{ color: palette.textPrimary }}
 
-                            >
+                                    >
 
-                                Líneas de factura que abastecen este componente
+                                        Líneas de factura que abastecen este componente
 
-                            </Typography>
+                                    </Typography>
 
-                            <TableFacturas
+                                    <TableFacturas
 
-                                facturas={componente.facturas}
+                                        facturas={componente.facturas}
 
-                            />
+                                    />
+                                </>
+                            )}
 
                             {
 
