@@ -46,6 +46,11 @@ import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurned
 
 import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
 
+// [MULTICUENTA-ML]
+import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
+import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
+// [/MULTICUENTA-ML]
+
 export const navigationConfig = [
   {
     label: "Inicio",
@@ -136,6 +141,14 @@ export const navigationConfig = [
         path: "/stock-componentes",
         roles: ["administrador", "Planeador", "Almacenista"],
       },
+      // [MULTICUENTA-ML]
+      {
+        label: "Colecta subcuenta",
+        icon: AssignmentReturnOutlinedIcon,
+        path: "/colecta-subcuenta",
+        roles: ["administrador", "Planeador", "Almacenista"],
+      },
+      // [/MULTICUENTA-ML]
     ],
   },
   {
@@ -295,6 +308,14 @@ export const navigationConfig = [
         path: "/cuentasEcommerce",
         roles: ["administrador"],
       },
+      // [MULTICUENTA-ML]
+      {
+        label: "Stock compartido",
+        icon: CloudSyncOutlinedIcon,
+        path: "/stock-compartido",
+        roles: ["administrador"],
+      },
+      // [/MULTICUENTA-ML]
       {
         label: "Tipos de Movimientos",
         icon: SyncAltOutlinedIcon,

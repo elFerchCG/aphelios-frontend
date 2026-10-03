@@ -192,7 +192,8 @@ const VentasME = () => {
                 total: 0,
                 ready_to_print: 0,
                 listo_para_recolectar: 0,
-                recolectado: 0
+                recolectado: 0,
+                recolectado_sin_procesar: 0
             },
 
             manana: {
@@ -203,6 +204,20 @@ const VentasME = () => {
         };
 
         for (const shipment of shipments) {
+
+            // 🔥 Recolectados pendientes de orden de bodega:
+            // se cuentan SIEMPRE (sin importar el estatus actual de ML
+            // ni si falta la fecha), para que nunca "desaparezcan".
+            if (shipment.mostrar_en_recolectados === true) {
+
+                resumen.hoy.recolectado++;
+
+                if (shipment.pendiente_procesar_bodega === true) {
+                    resumen.hoy.recolectado_sin_procesar++;
+                }
+
+                continue;
+            }
 
             // 🔥 Ignorar estados NO operativos de colecta
             if (
@@ -240,9 +255,6 @@ const VentasME = () => {
                     'etiqueta_impresa'
                 ) {
                     resumen.hoy.listo_para_recolectar++;
-                }
-                if (shipment.mostrar_en_recolectados === true) {
-                    resumen.hoy.recolectado++;
                 }
 
             }
@@ -361,13 +373,16 @@ const VentasME = () => {
 
         if (filtroFecha === 'hoy') {
 
-            // 🔥 Recolectados:
-            // SOLO HOY
+            // 🔥 Recolectados: hoy + días anteriores sin procesar.
+            // Si no trae fecha de colecta, igual se muestra (antes
+            // se ocultaba y el envío "desaparecía").
             if (
                 filtroEstado === 'recolectado' || filtroEstado === 'en_camino' || filtroEstado === 'entregado'
             ) {
 
                 coincideFecha =
+                    !shipment.expected_date ||
+                    shipment.pendiente_procesar_bodega === true ||
                     esHoyOAtrasado(
                         shipment.expected_date
                     );
@@ -446,7 +461,20 @@ const VentasME = () => {
         return 'Imprimir etiqueta';
     };
 
-    const obtenerTextoEstado = (estado_operativo) => {
+    const obtenerTextoEstado = (shipment) => {
+
+        const estado_operativo = shipment.estado_operativo;
+
+        // 🔥 Recolectado en colecta anterior y sin orden de bodega
+        if (shipment.pendiente_procesar_bodega === true) {
+            return 'Recolectado · Sin procesar en bodega';
+        }
+
+        // Cualquier envío que está en la bandeja de recolectados
+        // (aunque ML ya lo marque entregado / no entregado)
+        if (shipment.mostrar_en_recolectados === true) {
+            return 'Recolectado';
+        }
 
         if (estado_operativo === 'ready_to_print') {
             return 'Listo para imprimir';
@@ -516,7 +544,8 @@ const VentasME = () => {
         pasos.push({
             label: 'Recolectado',
             completed:
-                shipment.estado_operativo ===
+                shipment.mostrar_en_recolectados === true
+                || shipment.estado_operativo ===
                 'recolectado'
                 || shipment.estado_operativo ===
                 'procesado'
@@ -527,7 +556,10 @@ const VentasME = () => {
             label: 'Orden de bodega generada',
             completed:
                 shipment.estado_operativo_interno ===
-                'orden_generada'
+                'orden_generada',
+            // 🔥 Resaltar en naranja el paso que falta
+            current:
+                shipment.pendiente_procesar_bodega === true
         });
 
         return pasos;
@@ -1140,6 +1172,26 @@ const VentasME = () => {
                                 {resumen.hoy.recolectado}
                             </Typography>
                         </Box>
+
+                        {/* 🔥 Recolectados de días anteriores sin procesar */}
+                        {resumen.hoy.recolectado_sin_procesar > 0 && (
+                            <Typography
+                                onClick={() => {
+                                    setFiltroEstado('recolectado');
+                                    setPagina(1);
+                                }}
+                                sx={{
+                                    cursor: 'pointer',
+                                    color: '#f97316',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    px: 1,
+                                    mt: 0.5
+                                }}
+                            >
+                                ⚠️ {resumen.hoy.recolectado_sin_procesar} de colectas anteriores sin procesar en bodega
+                            </Typography>
+                        )}
                     </Box>
                     {filtroEstado === 'recolectado' && resumen.hoy.recolectado > 0 && (
                         <Box
@@ -1506,7 +1558,7 @@ const VentasME = () => {
                                                 color="orangered"
                                             >
                                                 {obtenerTextoEstado(
-                                                    shipment.estado_operativo
+                                                    shipment
                                                 )}
                                             </Typography>
 
@@ -1608,8 +1660,40 @@ const VentasME = () => {
 
                             </Box>
 
-                            {/* ALERTA DE DEMORA */}
-                            {estaDemorado && (
+                            {/* 🔥 ALERTA: RECOLECTADO SIN PROCESAR EN BODEGA */}
+                            {shipment.pendiente_procesar_bodega === true && (
+
+                                <Box
+                                    ml={4}
+                                    mt={1}
+                                    mb={1}
+                                >
+
+                                    <Typography
+                                        sx={{
+                                            color: '#f97316',
+                                            fontWeight: 700,
+                                            fontSize: '0.95rem'
+                                        }}
+                                    >
+                                        Recolectado hace {Math.max(diasRetraso, 1)} día{Math.max(diasRetraso, 1) > 1 ? 's' : ''}, pero SIN procesar con orden de bodega.
+                                    </Typography>
+
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: '#6b7280'
+                                        }}
+                                    >
+                                        Mercado Libre ya se llevó el paquete, pero el stock en existencias todavía no se ha descontado. Procésalo con "Generar y procesar orden" para ajustar el inventario.
+                                    </Typography>
+
+                                </Box>
+
+                            )}
+
+                            {/* ALERTA DE DEMORA (solo si NO ha sido recolectado) */}
+                            {estaDemorado && shipment.mostrar_en_recolectados !== true && (
 
                                 <Box
                                     ml={4}

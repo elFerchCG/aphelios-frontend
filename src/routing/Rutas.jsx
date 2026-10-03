@@ -96,6 +96,11 @@ import ProductosAphelios from "../components/pages/ProductosAphelios/ProductosAp
 // ==============================
 import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
 
+// [MULTICUENTA-ML]
+import StockCompartido from "../components/multicuentaML/StockCompartido";
+import ColectaSubcuenta from "../components/multicuentaML/ColectaSubcuenta";
+// [/MULTICUENTA-ML]
+
 // ==============================
 // OTROS
 // ==============================
@@ -648,6 +653,27 @@ const Rutas = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* [MULTICUENTA-ML] Stock compartido (administrador) y colecta de
+            subcuentas (administrador + Planeador + Almacenista) */}
+        <Route
+          path="/stock-compartido"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <StockCompartido />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/colecta-subcuenta"
+          element={
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
+              <ColectaSubcuenta />
+            </ProtectedRoute>
+          }
+        />
+        {/* [/MULTICUENTA-ML] */}
 
         {/* =====================================================
             OTRAS RUTAS ANTIGUAS

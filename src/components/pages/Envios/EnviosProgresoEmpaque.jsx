@@ -44,9 +44,11 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import IconButton from '@mui/material/IconButton';
 import FacturaDrawer from './FacturaDrawer';
 import ProformaAccordion from "./ProformaAccordion";
+import RevisionMrpProformaDialog from "./RevisionMrpProformaDialog";
 import ConsolidadoDrawer from './ConsolidadoDrawer';
 import RetirosConsolidadoDrawer from './RetirosConsolidadoDrawer';
 import EnvioKpis, { calcularContenidoEnvio } from './EnvioKpis';
+import { columnaProducto, columnasProductoDetalle, gridCompactoProps } from './tablaCompacta';
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
@@ -165,6 +167,8 @@ const EnviosProgresoEmpaque = () => {
 
     const [openConsolidado, setOpenConsolidado] = useState(false);
     const [proformaSeleccionada, setProformaSeleccionada] = useState(null);
+    // Proforma abierta en "Revisar MRP" (cantidades a enviar vs MRP actual)
+    const [proformaRevisionMrp, setProformaRevisionMrp] = useState(null);
 
     const [openNota, setOpenNota] = useState(false);
     const [notaActual, setNotaActual] = useState("");
@@ -698,10 +702,8 @@ const EnviosProgresoEmpaque = () => {
     const ordenesCols = [
         { field: "id", headerName: "#Orden Producción", flex: 1 },
         { field: "producto_id", headerName: "#Producto", flex: 1 },
-        { field: "mlm", headerName: "MLM", flex: 1 },
-        { field: "title", headerName: "Titulo", flex: 1.5, minWidth: 220 },
-        { field: "inventory_id", headerName: "ML", flex: 1 },
-        { field: "sku", headerName: "SKU", flex: 1 },
+        columnaProducto,
+        ...columnasProductoDetalle,
         {
             field: "logistic_type",
             headerName: "Logistica",
@@ -885,10 +887,8 @@ const EnviosProgresoEmpaque = () => {
             )
         },
         { field: "producto_id", headerName: "#Producto", flex: 1 },
-        { field: "mlm", headerName: "MLM", flex: 1 },
-        { field: "title", headerName: "Titulo", flex: 1.5, minWidth: 220 },
-        { field: "inventory_id", headerName: "ML", flex: 1 },
-        { field: "sku", headerName: "SKU", flex: 1 },
+        columnaProducto,
+        ...columnasProductoDetalle,
         {
             field: "logistic_type",
             headerName: "Logistica",
@@ -1131,6 +1131,11 @@ const EnviosProgresoEmpaque = () => {
         id: false,
         producto_id: false,
         permitir_full: false,
+        // Ya van dentro de la columna "Producto"
+        mlm: false,
+        sku: false,
+        inventory_id: false,
+        catalog_id: false,
     };
 
     const columnasOcultasDetalles = {
@@ -1469,6 +1474,7 @@ const EnviosProgresoEmpaque = () => {
 
     // Props comunes de las tablas principales del dashboard.
     const gridComunProps = {
+        ...gridCompactoProps,
         loading,
         height: GRID_HEIGHT,
         pageSize: GRID_PAGE_SIZE,
@@ -1568,11 +1574,22 @@ const EnviosProgresoEmpaque = () => {
                                 onVerConsolidado={handleVerConsolidado}
                                 onHabilitarProforma={handleHabilitarProforma}
                                 onFinalizarProforma={handleFinalizarProforma}
+                                onRevisarMrp={setProformaRevisionMrp}
                             />
                         ))}
                     </Box>
                 )}
             </SectionCard>
+
+            <RevisionMrpProformaDialog
+                open={Boolean(proformaRevisionMrp)}
+                onClose={() => setProformaRevisionMrp(null)}
+                apiUrl={apiUrl}
+                envioId={envioId}
+                proforma={proformaRevisionMrp}
+                puedeEditar={Boolean(puedeEditarColumna)}
+                onAplicado={handleActualizarTodo}
+            />
 
             <FacturaDrawer
                 open={drawerOpen}
@@ -1771,6 +1788,7 @@ const EnviosProgresoEmpaque = () => {
                             columns={detalleCols}
                             getRowId={(row) => row.id}
                             loading={loadingDetalle}
+                            {...gridCompactoProps}
                             height={340}
                             pageSize={GRID_PAGE_SIZE}
                             pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
@@ -1912,6 +1930,7 @@ const EnviosProgresoEmpaque = () => {
                             columns={cajasCols}
                             getRowId={(row) => row.id}
                             loading={loadingCajas}
+                            {...gridCompactoProps}
                             height={420}
                             pageSize={GRID_PAGE_SIZE}
                             pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
@@ -2009,4 +2028,4 @@ const EnviosProgresoEmpaque = () => {
     );
 }
 
-export default EnviosProgresoEmpaque
+export default EnviosProgresoEmpaque
