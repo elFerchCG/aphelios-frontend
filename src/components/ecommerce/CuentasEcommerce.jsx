@@ -30,9 +30,12 @@ import AppDataGrid from "../common/AppDataGrid";
 
 import { toolbarButtonSx } from "../common/formStyles";
 
-// =====================================================
-// API
-// =====================================================
+import ConectarMercadoLibreModal from "./ConectarMercadoLibreModal";
+
+// [MULTICUENTA-ML]
+import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
+import PublicarEnCuentaDialog from "../multicuentaML/PublicarEnCuentaDialog";
+// [/MULTICUENTA-ML]
 
 const apiUrl =
   process.env.NODE_ENV === "production"
@@ -53,6 +56,10 @@ const CuentasEcommerce = () => {
 
   const [openMercadoLibre, setOpenMercadoLibre] =
     useState(false);
+
+  // [MULTICUENTA-ML]
+  const [openPublicar, setOpenPublicar] = useState(false);
+  // [/MULTICUENTA-ML]
 
   // ---------------------------------------------------
   // SINCRONIZACIÓN MERCADO LIBRE
@@ -410,6 +417,17 @@ const CuentasEcommerce = () => {
           >
             Conectar Mercado Libre
           </Button>
+
+          {/* [MULTICUENTA-ML] */}
+          <Button
+            variant="outlined"
+            startIcon={<PublishOutlinedIcon />}
+            sx={toolbarButtonSx}
+            onClick={() => setOpenPublicar(true)}
+          >
+            Publicar en otra cuenta
+          </Button>
+          {/* [/MULTICUENTA-ML] */}
         </div>
       </PageToolbarCard>
 
@@ -451,6 +469,13 @@ const CuentasEcommerce = () => {
           obtenerCuentas
         }
       />
+
+        {/* [MULTICUENTA-ML] */}
+        <PublicarEnCuentaDialog
+          open={openPublicar}
+          onClose={() => setOpenPublicar(false)}
+        />
+        {/* [/MULTICUENTA-ML] */}
 
       {/* =================================================
           MODAL SINCRONIZACIÓN

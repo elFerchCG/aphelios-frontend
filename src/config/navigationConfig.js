@@ -42,12 +42,18 @@ import NewReleasesOutlinedIcon from "@mui/icons-material/NewReleasesOutlined";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import AssignmentTurnedInOutlinedIcon from "@mui/icons-material/AssignmentTurnedInOutlined";
 
 import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
 
 import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
 import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
 import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
+
+// [MULTICUENTA-ML]
+import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
+import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
+// [/MULTICUENTA-ML]
 
 export const navigationConfig = [
   {
@@ -122,6 +128,12 @@ export const navigationConfig = [
         path: "/existencias",
       },
       {
+        label: "Recepción de pedidos",
+        icon: AssignmentTurnedInOutlinedIcon,
+        path: "/recepcion-pedidos",
+        roles: ["administrador", "Planeador", "Almacenista"],
+      },
+      {
         label: "Excedentes",
         icon: MoveToInboxOutlinedIcon,
         path: "/nuevos-excedentes",
@@ -133,6 +145,14 @@ export const navigationConfig = [
         path: "/stock-componentes",
         roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
+      // [MULTICUENTA-ML]
+      {
+        label: "Colecta subcuenta",
+        icon: AssignmentReturnOutlinedIcon,
+        path: "/colecta-subcuenta",
+        roles: ["administrador", "Planeador", "Almacenista"],
+      },
+      // [/MULTICUENTA-ML]
     ],
   },
   {
@@ -145,6 +165,12 @@ export const navigationConfig = [
         icon: PrecisionManufacturingOutlinedIcon,
         path: "/mrp",
         roles: ["administrador", "Planeador", "Desarrollador"],
+      },
+      {
+        label: "Órdenes de retiro",
+        icon: ExitToAppOutlinedIcon,
+        path: "/ordenes-retiro",
+        roles: ["administrador", "Planeador"],
       },
       {
         label: "Procesos",
@@ -312,6 +338,14 @@ export const navigationConfig = [
         path: "/cuentasEcommerce",
         roles: ["administrador", "Desarrollador"],
       },
+      // [MULTICUENTA-ML]
+      {
+        label: "Stock compartido",
+        icon: CloudSyncOutlinedIcon,
+        path: "/stock-compartido",
+        roles: ["administrador"],
+      },
+      // [/MULTICUENTA-ML]
       {
         label: "Tipos de Movimientos",
         icon: SyncAltOutlinedIcon,
@@ -335,12 +369,6 @@ export const navigationConfig = [
         icon: WarehouseOutlinedIcon,
         path: "/bodegas",
         roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
-      },
-      {
-        label: "Órdenes retiro",
-        icon: ExitToAppOutlinedIcon,
-        path: "/ordenes-retiro",
-        roles: ["administrador", "Planeador", "Desarrollador"],
       },
     ],
   },

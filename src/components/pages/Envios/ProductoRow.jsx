@@ -20,6 +20,8 @@ import Tooltip from "@mui/material/Tooltip";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 
 import ComponenteRow from "./ComponenteRow";
 import { palette, tono } from "./consolidadoPalette";
@@ -89,7 +91,12 @@ const ESTADO_ICONO = {
 
 };
 
-export default function ProductoRow({ producto }) {
+// modo: "proforma" (default, consolidado de proformas: con facturas) o
+// "retiro" (consolidado de retiros: sin facturas, con orden de retiro y
+// ubicaciones de salida). El modo proforma queda idéntico a como estaba.
+export default function ProductoRow({ producto, modo = "proforma" }) {
+
+    const esRetiro = modo === "retiro";
 
     const [open, setOpen] = useState(false);
 
@@ -162,6 +169,23 @@ export default function ProductoRow({ producto }) {
                             "& .MuiChip-icon": { color: tono(estado.tone).text }
                         }}
                     />
+
+                    {esRetiro && producto.orden_bodega_id != null && (
+                        <Tooltip title={producto.orden_bodega_descripcion || ""}>
+                            <Chip
+                                icon={<AssignmentReturnOutlinedIcon sx={{ fontSize: 15 }} />}
+                                label={`Retiro #${producto.orden_bodega_id}`}
+                                size="small"
+                                sx={{
+                                    bgcolor: palette.primary.bg,
+                                    color: palette.primary.text,
+                                    border: `1px solid ${palette.primary.border}`,
+                                    fontWeight: 700,
+                                    "& .MuiChip-icon": { color: palette.primary.text }
+                                }}
+                            />
+                        </Tooltip>
+                    )}
 
                     <Box sx={{ minWidth: 56 }}>
                         <Typography variant="caption" sx={{ color: palette.textSecondary, fontWeight: 600, display: "block" }}>
@@ -280,6 +304,41 @@ export default function ProductoRow({ producto }) {
                     }}
                 >
 
+                    {esRetiro && (
+                        <Box sx={{ mb: 2 }}>
+                            <Typography
+                                variant="subtitle2"
+                                fontWeight={700}
+                                mb={1}
+                                sx={{ color: palette.textPrimary }}
+                            >
+                                Ubicaciones de salida ({(producto.ubicaciones || []).length})
+                            </Typography>
+                            {(producto.ubicaciones || []).length === 0 ? (
+                                <Typography variant="body2" sx={{ color: palette.textDisabled }}>
+                                    La orden de retiro no tiene líneas registradas para este producto.
+                                </Typography>
+                            ) : (
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                                    {producto.ubicaciones.map((u) => (
+                                        <Chip
+                                            key={`${u.localidad_id}-${u.localidad}`}
+                                            icon={<PlaceOutlinedIcon sx={{ fontSize: 16 }} />}
+                                            label={`${u.localidad}: ${u.cantidad} pza(s)`}
+                                            size="small"
+                                            sx={{
+                                                bgcolor: palette.surface,
+                                                border: `1px solid ${palette.border}`,
+                                                fontWeight: 600,
+                                                "& .MuiChip-icon": { color: palette.textSecondary }
+                                            }}
+                                        />
+                                    ))}
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+
                     <Typography
                         variant="subtitle2"
                         fontWeight={700}
@@ -336,7 +395,7 @@ export default function ProductoRow({ producto }) {
 
                                     <TableCell>Descripción</TableCell>
 
-                                    <TableCell align="center">Facturado</TableCell>
+                                    {!esRetiro && <TableCell align="center">Facturado</TableCell>}
 
                                     <TableCell align="center">Enviar</TableCell>
 
@@ -359,6 +418,7 @@ export default function ProductoRow({ producto }) {
                                         <ComponenteRow
                                             key={componente.op_detalle_id}
                                             componente={componente}
+                                            modo={modo}
                                         />
 
                                     ))

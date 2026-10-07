@@ -39,6 +39,8 @@ import {
     Tab,
     Checkbox,
     Tooltip,
+    ToggleButton,
+    ToggleButtonGroup,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -50,6 +52,8 @@ import {
     Close as CloseIcon,
     ArrowForward as ArrowForwardIcon,
     PlaylistAddCheck as PlaylistAddCheckIcon,
+    Block as BlockIcon,
+    ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 
 // ---------------------------------------------------------------------------
@@ -175,6 +179,56 @@ async function postGenerarOrden(payload) {
     return data;
 }
 
+// Cancela total o parcialmente un excedente 'sin_procesar'. Requiere token:
+// descuenta existencias con una orden de bodega de salida.
+async function postCancelarExcedente(movimientoId, payload, token) {
+    const res = await fetch(`${apiUrl}/inventario/existencias/movimientos-excedentes/${movimientoId}/cancelar`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            throw new Error(data?.message && typeof data.message === 'string'
+                ? data.message
+                : 'No tienes permisos para cancelar excedentes (administrador o almacenista supervisor).');
+        }
+        const errores = data?.message?.errores || [];
+        const detalles = data?.message?.detalles || [];
+        const extra = [...errores.map((e) => e.mensaje), ...detalles].filter(Boolean).join(' · ');
+        throw new Error(
+            `${data?.message?.messageText || data?.error || 'Error al cancelar el excedente'}${extra ? `: ${extra}` : ''}`
+        );
+    }
+    return data;
+}
+
+// ---------------------------------------------------------------------------
+// Cancelación de excedentes
+// ---------------------------------------------------------------------------
+const MOTIVOS_CANCELACION = [
+    { value: 'conteo_erroneo', label: 'Conteo erróneo / sobre-conteo' },
+    { value: 'no_llego', label: 'No llegó físicamente' },
+    { value: 'merma_danado', label: 'Merma o producto dañado' },
+    { value: 'error_captura', label: 'Error de captura' },
+    { value: 'otro', label: 'Otro (especificar)' },
+];
+
+const etiquetaMotivo = (valor) =>
+    MOTIVOS_CANCELACION.find((m) => m.value === valor)?.label || valor || '—';
+
+// Solo se cancela lo que sigue sin procesar y nunca se reubicó
+const esCancelable = (row) =>
+    Boolean(row) &&
+    row.localidad_destino_id == null &&
+    row.bodega_destino_id == null &&
+    row.orden_id == null &&
+    row.linea_orden_id == null;
+
 // ---------------------------------------------------------------------------
 // Componentes auxiliares
 // ---------------------------------------------------------------------------
@@ -271,6 +325,18 @@ export default function ExcedentesMonitor() {
     const [rowsPerPageMov, setRowsPerPageMov] = useState(10);
     const [orderByMov, setOrderByMov] = useState('fecha');
     const [orderMov, setOrderMov] = useState('desc');
+
+    // ---- Cancelación de excedentes ----
+    const [cancelTarget, setCancelTarget] = useState(null);
+    const [cancelTipo, setCancelTipo] = useState('total'); // 'total' | 'parcial'
+    const [cancelCantidad, setCancelCantidad] = useState('');
+    const [cancelMotivo, setCancelMotivo] = useState('');
+    const [cancelComentario, setCancelComentario] = useState('');
+    const [cancelErrors, setCancelErrors] = useState({});
+    const [cancelando, setCancelando] = useState(false);
+
+    // ---- Auditoría (detalle de un cancelado) ----
+    const [auditTarget, setAuditTarget] = useState(null);
 
     const [snack, setSnack] = useState({ open: false, severity: 'success', message: '' });
 
@@ -459,6 +525,77 @@ export default function ExcedentesMonitor() {
         }
     };
 
+    // ---- Cancelación ---------------------------------------------------------
+    const abrirCancelacion = (row) => {
+        setCancelTarget(row);
+        setCancelTipo('total');
+        setCancelCantidad(String(Number(row.existencia_actual) || ''));
+        setCancelMotivo('');
+        setCancelComentario('');
+        setCancelErrors({});
+    };
+
+    const cerrarCancelacion = () => {
+        if (cancelando) return;
+        setCancelTarget(null);
+    };
+
+    const cantidadACancelar = cancelTarget
+        ? cancelTipo === 'total'
+            ? Number(cancelTarget.existencia_actual) || 0
+            : Number(cancelCantidad) || 0
+        : 0;
+
+    const validarCancelacion = () => {
+        const errs = {};
+        const total = Number(cancelTarget?.existencia_actual) || 0;
+
+        if (cancelTipo === 'parcial') {
+            const n = Number(cancelCantidad);
+            if (!cancelCantidad || !Number.isInteger(n) || n <= 0) {
+                errs.cantidad = 'Ingresa una cantidad entera mayor a 0';
+            } else if (n > total) {
+                errs.cantidad = `No puede exceder el excedente (${fmtNum(total)})`;
+            } else if (n === total) {
+                errs.cantidad = 'Es el total del excedente: usa "Cancelar todo"';
+            }
+        }
+        if (!cancelMotivo) errs.motivo = 'Selecciona un motivo';
+        if (cancelMotivo === 'otro' && !cancelComentario.trim()) {
+            errs.comentario = 'Describe el motivo de la cancelación';
+        }
+        setCancelErrors(errs);
+        return Object.keys(errs).length === 0;
+    };
+
+    const confirmarCancelacion = async () => {
+        if (!validarCancelacion()) return;
+        setCancelando(true);
+        try {
+            const resultado = await postCancelarExcedente(
+                cancelTarget.movimiento_id,
+                {
+                    cantidad: cantidadACancelar,
+                    motivo: cancelMotivo,
+                    comentario: cancelComentario.trim() || null,
+                },
+                token
+            );
+            setSnack({
+                open: true,
+                severity: 'success',
+                message: `${resultado.message}. Orden de salida #${resultado.data.orden_id}.`,
+            });
+            setCancelando(false);
+            setCancelTarget(null);
+            await cargarInicial();
+            if (activeTab === 1) await cargarMovimientos();
+        } catch (e) {
+            setSnack({ open: true, severity: 'error', message: e.message });
+            setCancelando(false);
+        }
+    };
+
     const filterOptions = createFilterOptions({
         limit: 5,
         matchFrom: 'any',
@@ -598,7 +735,12 @@ export default function ExcedentesMonitor() {
                     String(m.title || '').toLowerCase().includes(q) ||
                     String(m.sku || '').toLowerCase().includes(q) ||
                     String(m.mlm || '').toLowerCase().includes(q) ||
+                    String(m.ml || '').toLowerCase().includes(q) || // inventory_id (ML)
                     String(m.usuario || '').toLowerCase().includes(q) ||
+                    String(m.cancelado_por || '').toLowerCase().includes(q) ||
+                    (m.motivo_cancelacion ? etiquetaMotivo(m.motivo_cancelacion) : '').toLowerCase().includes(q) ||
+                    String(m.comentario_cancelacion || '').toLowerCase().includes(q) ||
+                    String(m.orden_id || '').toLowerCase().includes(q) ||
                     String(m.origen_nombre || '').toLowerCase().includes(q) ||
                     String(m.destino_nombre || '').toLowerCase().includes(q) ||
                     String(m.folio_interno || '').toLowerCase().includes(q) ||
@@ -606,9 +748,18 @@ export default function ExcedentesMonitor() {
                     String(m.proforma_titulo || '').toLowerCase().includes(q)
             );
         }
+        // 'fecha' no es un campo real: en cancelados ordena por fecha de
+        // cancelación y en el resto por fecha del movimiento.
+        const valorOrden = (m) => {
+            if (orderByMov === 'fecha') {
+                const f = m.fecha_cancelacion || m.fecha_movimiento;
+                return f ? new Date(f).getTime() : 0;
+            }
+            return m[orderByMov];
+        };
         data.sort((a, b) => {
-            let av = a[orderByMov];
-            let bv = b[orderByMov];
+            let av = valorOrden(a);
+            let bv = valorOrden(b);
             if (typeof av === 'string') {
                 return orderMov === 'asc' ? av.localeCompare(bv || '') : (bv || '').localeCompare(av);
             }
@@ -621,6 +772,35 @@ export default function ExcedentesMonitor() {
         () => movimientosFiltrados.slice(pageMov * rowsPerPageMov, pageMov * rowsPerPageMov + rowsPerPageMov),
         [movimientosFiltrados, pageMov, rowsPerPageMov]
     );
+
+    // ---- Resumen de auditoría (sub-tab "Cancelados") -------------------------
+    // Se calcula sobre lo filtrado por el buscador, así se puede auditar por
+    // usuario, motivo, producto, envío, etc.
+    const resumenCancelados = useMemo(() => {
+        if (estatusFiltro !== 'cancelado') return null;
+        const conAuditoria = movimientosFiltrados.filter((m) => m.motivo_cancelacion);
+        const unidades = movimientosFiltrados.reduce((acc, m) => acc + (Number(m.cantidad) || 0), 0);
+        const parciales = conAuditoria.filter((m) => m.movimiento_origen_id).length;
+
+        const porMotivo = {};
+        const porUsuario = {};
+        for (const m of conAuditoria) {
+            porMotivo[m.motivo_cancelacion] = (porMotivo[m.motivo_cancelacion] || 0) + (Number(m.cantidad) || 0);
+            const u = m.cancelado_por || '—';
+            porUsuario[u] = (porUsuario[u] || 0) + (Number(m.cantidad) || 0);
+        }
+        const ordenar = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+
+        return {
+            registros: movimientosFiltrados.length,
+            unidades,
+            parciales,
+            totales: conAuditoria.length - parciales,
+            sinAuditoria: movimientosFiltrados.length - conAuditoria.length,
+            porMotivo: ordenar(porMotivo),
+            porUsuario: ordenar(porUsuario),
+        };
+    }, [estatusFiltro, movimientosFiltrados]);
 
     // ---- Selección masiva "por hoja" (página actual de la tabla) --------------
     // Solo entran los movimientos seleccionables de la página visible (mismo
@@ -899,24 +1079,52 @@ export default function ExcedentesMonitor() {
                                                     </Tooltip>
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    <Tooltip
-                                                        title={sinConfirmar ? 'Aún no hay excedente confirmado físicamente para reubicar' : ''}
-                                                        disableHoverListener={!sinConfirmar}
-                                                    >
-                                                        <span>
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                disableElevation
-                                                                disabled={sinConfirmar}
-                                                                startIcon={<SwapHorizIcon />}
-                                                                onClick={() => abrirMovimiento(row)}
-                                                                sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.amber, '&:hover': { bgcolor: '#2E7D5B' } }}
-                                                            >
-                                                                Mover
-                                                            </Button>
-                                                        </span>
-                                                    </Tooltip>
+                                                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                        <Tooltip
+                                                            title={sinConfirmar ? 'Aún no hay excedente confirmado físicamente para reubicar' : ''}
+                                                            disableHoverListener={!sinConfirmar}
+                                                        >
+                                                            <span>
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="contained"
+                                                                    disableElevation
+                                                                    disabled={sinConfirmar}
+                                                                    startIcon={<SwapHorizIcon />}
+                                                                    onClick={() => abrirMovimiento(row)}
+                                                                    sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.amber, '&:hover': { bgcolor: '#2E7D5B' } }}
+                                                                >
+                                                                    Mover
+                                                                </Button>
+                                                            </span>
+                                                        </Tooltip>
+                                                        <Tooltip
+                                                            title={
+                                                                esCancelable(row)
+                                                                    ? 'Cancelar todo o parte de este excedente (se descuenta de existencias)'
+                                                                    : 'Ya tiene destino u orden de bodega: no se puede cancelar'
+                                                            }
+                                                        >
+                                                            <span>
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    disabled={!esCancelable(row)}
+                                                                    startIcon={<BlockIcon />}
+                                                                    onClick={() => abrirCancelacion(row)}
+                                                                    sx={{
+                                                                        textTransform: 'none',
+                                                                        fontWeight: 600,
+                                                                        color: tokens.danger,
+                                                                        borderColor: tokens.dangerBg,
+                                                                        '&:hover': { borderColor: tokens.danger, bgcolor: tokens.dangerBg },
+                                                                    }}
+                                                                >
+                                                                    Cancelar
+                                                                </Button>
+                                                            </span>
+                                                        </Tooltip>
+                                                    </Stack>
                                                 </TableCell>
                                             </TableRow>
                                         );
@@ -959,7 +1167,11 @@ export default function ExcedentesMonitor() {
 
                         <TextField
                             size="small"
-                            placeholder="Buscar por Título, SKU, MLM, ID, Usuario, Envío o Proforma..."
+                            placeholder={
+                                estatusFiltro === 'cancelado'
+                                    ? 'Buscar por Título, SKU, ML, MLM, Usuario, Motivo, Envío, Proforma u Orden...'
+                                    : 'Buscar por Título, SKU, ML (inventory_id), MLM, ID, Usuario, Envío o Proforma...'
+                            }
                             value={searchMov}
                             onChange={handleSearchMovChange}
                             sx={{ minWidth: 280, flex: 1, bgcolor: tokens.surface }}
@@ -1002,6 +1214,73 @@ export default function ExcedentesMonitor() {
                             </Stack>
                         )}
                     </Box>
+
+                    {/* Resumen de auditoría de cancelaciones */}
+                    {resumenCancelados && !loadingMovimientos && resumenCancelados.registros > 0 && (
+                        <Box sx={{ px: 2, pb: 2 }}>
+                            <Paper
+                                variant="outlined"
+                                sx={{ p: 1.75, borderRadius: 2, borderColor: tokens.line, bgcolor: tokens.canvas }}
+                            >
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} divider={<Divider orientation="vertical" flexItem />}>
+                                    <Box>
+                                        <Typography variant="caption" sx={{ color: tokens.slateLight, fontWeight: 700, textTransform: 'uppercase' }}>
+                                            {searchMov ? 'Cancelado (filtrado)' : 'Total cancelado'}
+                                        </Typography>
+                                        <Typography variant="h6" sx={{ fontWeight: 700, color: tokens.danger, lineHeight: 1.3 }}>
+                                            {fmtNum(resumenCancelados.unidades)} u.
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: tokens.slate }}>
+                                            {fmtNum(resumenCancelados.registros)} registros · {fmtNum(resumenCancelados.totales)} totales · {fmtNum(resumenCancelados.parciales)} parciales
+                                        </Typography>
+                                        {resumenCancelados.sinAuditoria > 0 && (
+                                            <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                                {fmtNum(resumenCancelados.sinAuditoria)} anteriores sin datos de auditoría
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="caption" sx={{ color: tokens.slateLight, fontWeight: 700, textTransform: 'uppercase' }}>
+                                            Por motivo
+                                        </Typography>
+                                        <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', rowGap: 0.75, mt: 0.5 }}>
+                                            {resumenCancelados.porMotivo.length === 0 && (
+                                                <Typography variant="body2" sx={{ color: tokens.slateLight }}>—</Typography>
+                                            )}
+                                            {resumenCancelados.porMotivo.map(([motivo, unidades]) => (
+                                                <Chip
+                                                    key={motivo}
+                                                    size="small"
+                                                    label={`${etiquetaMotivo(motivo)}: ${fmtNum(unidades)}`}
+                                                    onClick={() => { setSearchMov(etiquetaMotivo(motivo)); setPageMov(0); }}
+                                                    sx={{ bgcolor: tokens.surface, border: `1px solid ${tokens.line}`, fontWeight: 600, fontSize: 12 }}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    </Box>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="caption" sx={{ color: tokens.slateLight, fontWeight: 700, textTransform: 'uppercase' }}>
+                                            Por usuario
+                                        </Typography>
+                                        <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', rowGap: 0.75, mt: 0.5 }}>
+                                            {resumenCancelados.porUsuario.length === 0 && (
+                                                <Typography variant="body2" sx={{ color: tokens.slateLight }}>—</Typography>
+                                            )}
+                                            {resumenCancelados.porUsuario.map(([usuario, unidades]) => (
+                                                <Chip
+                                                    key={usuario}
+                                                    size="small"
+                                                    label={`${usuario}: ${fmtNum(unidades)}`}
+                                                    onClick={() => { setSearchMov(usuario === '—' ? '' : usuario); setPageMov(0); }}
+                                                    sx={{ bgcolor: tokens.surface, border: `1px solid ${tokens.line}`, fontWeight: 600, fontSize: 12 }}
+                                                />
+                                            ))}
+                                        </Stack>
+                                    </Box>
+                                </Stack>
+                            </Paper>
+                        </Box>
+                    )}
 
                     <Divider sx={{ borderColor: tokens.line }} />
 
@@ -1172,7 +1451,11 @@ export default function ExcedentesMonitor() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <Typography variant="body2" sx={{ fontWeight: 500, color: tokens.slate }}>
-                                                        {mov.localidad_origen_descripcion || 'N/A'} → {mov.localidad_destino_descripcion || 'N/A'}
+                                                        {mov.localidad_origen_descripcion || 'N/A'} →{' '}
+                                                        {mov.localidad_destino_descripcion ||
+                                                            (mov.estatus === 'cancelado' && mov.motivo_cancelacion
+                                                                ? 'Salida por cancelación'
+                                                                : 'N/A')}
                                                     </Typography>
                                                     <Typography variant="caption" sx={{ color: tokens.slateLight }}>
 
@@ -1181,19 +1464,45 @@ export default function ExcedentesMonitor() {
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.ink }}>
-                                                        {fmtNum(mov.cantidad)}
+                                                    <Typography
+                                                        variant="subtitle2"
+                                                        sx={{ fontWeight: 700, color: mov.estatus === 'cancelado' ? tokens.danger : tokens.ink }}
+                                                    >
+                                                        {mov.estatus === 'cancelado' ? '−' : ''}{fmtNum(mov.cantidad)}
                                                     </Typography>
+                                                    {mov.estatus === 'cancelado' && mov.cantidad_previa_cancelacion != null && (
+                                                        <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                                            {Number(mov.cantidad) === Number(mov.cantidad_previa_cancelacion)
+                                                                ? 'Total'
+                                                                : `Parcial, de ${fmtNum(mov.cantidad_previa_cancelacion)}`}
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {mov.estatus === 'cancelado' && mov.cancelado_por ? (
+                                                        <>
+                                                            <Typography variant="body2" sx={{ color: tokens.ink, fontWeight: 600 }}>
+                                                                {mov.cancelado_por}
+                                                            </Typography>
+                                                            <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                                                Generó: {mov.usuario || '—'}
+                                                            </Typography>
+                                                        </>
+                                                    ) : (
+                                                        <Typography variant="body2" sx={{ color: tokens.slate }}>
+                                                            {mov.usuario}
+                                                        </Typography>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Typography variant="body2" sx={{ color: tokens.slate }}>
-                                                        {mov.usuario}
+                                                        {fmtDateTime(mov.fecha_cancelacion || mov.fecha_movimiento)}
                                                     </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="body2" sx={{ color: tokens.slate }}>
-                                                        {fmtDateTime(mov.fecha_movimiento)}
-                                                    </Typography>
+                                                    {mov.fecha_cancelacion && (
+                                                        <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                                            Excedente del {fmtDateTime(mov.fecha_movimiento)}
+                                                        </Typography>
+                                                    )}
 
                                                     {(mov.folio_interno || mov.envio_id) && (
                                                         <Typography
@@ -1225,6 +1534,30 @@ export default function ExcedentesMonitor() {
                                                         label={mov.orden_id ? `${chip.label} (#${mov.orden_id})` : chip.label}
                                                         sx={{ bgcolor: chip.bg, color: chip.fg, fontWeight: 600, fontSize: 12 }}
                                                     />
+                                                    {mov.estatus === 'cancelado' && (
+                                                        <Box sx={{ mt: 0.5 }}>
+                                                            <Typography
+                                                                variant="caption"
+                                                                title={mov.comentario_cancelacion || ''}
+                                                                sx={{ color: tokens.slate, display: 'block', maxWidth: 220 }}
+                                                                noWrap
+                                                            >
+                                                                {mov.motivo_cancelacion
+                                                                    ? etiquetaMotivo(mov.motivo_cancelacion)
+                                                                    : 'Sin datos de auditoría'}
+                                                            </Typography>
+                                                            {mov.motivo_cancelacion && (
+                                                                <Button
+                                                                    size="small"
+                                                                    startIcon={<ReceiptLongIcon sx={{ fontSize: 16 }} />}
+                                                                    onClick={() => setAuditTarget(mov)}
+                                                                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: 12, p: 0, minWidth: 0, color: tokens.slate }}
+                                                                >
+                                                                    Ver auditoría
+                                                                </Button>
+                                                            )}
+                                                        </Box>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         );
@@ -1417,6 +1750,216 @@ export default function ExcedentesMonitor() {
                         sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.amber, '&:hover': { bgcolor: '#2E7D5B' } }}
                     >
                         {generando ? 'Generando...' : 'Confirmar y generar orden'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Modal Cancelar Excedente */}
+            <Dialog open={Boolean(cancelTarget)} onClose={cerrarCancelacion} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18 }}>
+                        Cancelar excedente
+                    </Typography>
+                    <IconButton size="small" onClick={cerrarCancelacion} disabled={cancelando}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ pt: 2.5 }}>
+                    {cancelTarget && (
+                        <Stack spacing={2.25}>
+                            {/* Producto */}
+                            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: tokens.line, bgcolor: tokens.canvas }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.ink }} noWrap title={cancelTarget.title}>
+                                    {cancelTarget.title || 'Sin título'}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                    SKU: {cancelTarget.sku || 'N/A'} · ML: {cancelTarget.ml || 'N/A'} · Excedente #{cancelTarget.movimiento_id}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: tokens.slateLight, display: 'block' }}>
+                                    Envío: {cancelTarget.folio_interno || cancelTarget.envio_id || '—'} · Proforma: {cancelTarget.proforma_titulo || '—'}
+                                </Typography>
+                                <Stack direction="row" spacing={3} sx={{ mt: 1 }}>
+                                    <Box>
+                                        <Typography variant="caption" sx={{ color: tokens.slateLight }}>Excedente</Typography>
+                                        <Typography sx={{ fontWeight: 700, color: tokens.ink }}>{fmtNum(cancelTarget.existencia_actual)}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="caption" sx={{ color: tokens.slateLight }}>Confirmado físicamente</Typography>
+                                        <Typography sx={{ fontWeight: 700, color: tokens.success }}>{fmtNum(getDisponible(cancelTarget))}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="caption" sx={{ color: tokens.slateLight }}>Ubicación</Typography>
+                                        <Typography sx={{ fontWeight: 600, color: tokens.slate }}>{cancelTarget.localidad_descripcion}</Typography>
+                                    </Box>
+                                </Stack>
+                            </Paper>
+
+                            {/* Total / parcial */}
+                            <ToggleButtonGroup
+                                exclusive
+                                fullWidth
+                                size="small"
+                                value={cancelTipo}
+                                onChange={(_, v) => {
+                                    if (!v) return;
+                                    setCancelTipo(v);
+                                    setCancelErrors({});
+                                    if (v === 'parcial') setCancelCantidad('');
+                                }}
+                                disabled={cancelando}
+                            >
+                                <ToggleButton value="total" sx={{ textTransform: 'none', fontWeight: 600 }}>
+                                    Cancelar todo ({fmtNum(cancelTarget.existencia_actual)})
+                                </ToggleButton>
+                                <ToggleButton
+                                    value="parcial"
+                                    disabled={Number(cancelTarget.existencia_actual) <= 1}
+                                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                                >
+                                    Cancelar una cantidad
+                                </ToggleButton>
+                            </ToggleButtonGroup>
+
+                            {cancelTipo === 'parcial' && (
+                                <TextField
+                                    label="Cantidad a cancelar"
+                                    type="number"
+                                    size="small"
+                                    value={cancelCantidad}
+                                    onChange={(e) => setCancelCantidad(e.target.value)}
+                                    inputProps={{ min: 1, max: Number(cancelTarget.existencia_actual) - 1, step: 1 }}
+                                    error={Boolean(cancelErrors.cantidad)}
+                                    helperText={
+                                        cancelErrors.cantidad ||
+                                        (Number(cancelCantidad) > 0 && Number(cancelCantidad) < Number(cancelTarget.existencia_actual)
+                                            ? `Quedarán ${fmtNum(Number(cancelTarget.existencia_actual) - Number(cancelCantidad))} en el excedente`
+                                            : `Máximo ${fmtNum(Number(cancelTarget.existencia_actual) - 1)}`)
+                                    }
+                                    disabled={cancelando}
+                                    fullWidth
+                                />
+                            )}
+
+                            <FormControl size="small" fullWidth error={Boolean(cancelErrors.motivo)} disabled={cancelando}>
+                                <InputLabel>Motivo *</InputLabel>
+                                <Select
+                                    label="Motivo *"
+                                    value={cancelMotivo}
+                                    onChange={(e) => setCancelMotivo(e.target.value)}
+                                >
+                                    {MOTIVOS_CANCELACION.map((m) => (
+                                        <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                                    ))}
+                                </Select>
+                                {cancelErrors.motivo && <FormHelperText>{cancelErrors.motivo}</FormHelperText>}
+                            </FormControl>
+
+                            <TextField
+                                label={cancelMotivo === 'otro' ? 'Comentario *' : 'Comentario (opcional)'}
+                                multiline
+                                minRows={2}
+                                size="small"
+                                value={cancelComentario}
+                                onChange={(e) => setCancelComentario(e.target.value.slice(0, 500))}
+                                error={Boolean(cancelErrors.comentario)}
+                                helperText={cancelErrors.comentario || `${cancelComentario.length}/500 — queda en el historial de auditoría`}
+                                disabled={cancelando}
+                                fullWidth
+                            />
+
+                            <Alert severity="warning" variant="outlined" sx={{ borderRadius: 2 }}>
+                                Se descontarán <b>{fmtNum(cantidadACancelar)}</b> unidades de existencias en{' '}
+                                <b>{cancelTarget.localidad_descripcion}</b> con una orden de bodega de salida
+                                ("Cancelación de excedentes"). Esta acción no se puede deshacer; quedará registrada con
+                                tu usuario en <b>Movimientos → Cancelados</b>.
+                            </Alert>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={cerrarCancelacion} disabled={cancelando} sx={{ textTransform: 'none', fontWeight: 600, color: tokens.slate }}>
+                        Volver
+                    </Button>
+                    <Button
+                        variant="contained"
+                        disableElevation
+                        onClick={confirmarCancelacion}
+                        disabled={cancelando}
+                        startIcon={cancelando ? <CircularProgress size={16} color="inherit" /> : <BlockIcon />}
+                        sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.danger, '&:hover': { bgcolor: '#962D22' } }}
+                    >
+                        {cancelando ? 'Cancelando...' : `Cancelar ${fmtNum(cantidadACancelar)} unidades`}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Modal Auditoría de cancelación */}
+            <Dialog open={Boolean(auditTarget)} onClose={() => setAuditTarget(null)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 18 }}>
+                        Auditoría de cancelación
+                    </Typography>
+                    <IconButton size="small" onClick={() => setAuditTarget(null)}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ pt: 2.5 }}>
+                    {auditTarget && (() => {
+                        const previa = Number(auditTarget.cantidad_previa_cancelacion);
+                        const cancelada = Number(auditTarget.cantidad);
+                        const esParcial = Boolean(auditTarget.movimiento_origen_id);
+                        const filas = [
+                            ['Producto', auditTarget.title || '—'],
+                            ['SKU / ML', `${auditTarget.sku || 'N/A'} / ${auditTarget.ml || 'N/A'}`],
+                            ['Producto ID / MLM', `${auditTarget.producto_id} / ${auditTarget.mlm || 'N/A'}`],
+                            ['Envío', auditTarget.folio_interno || auditTarget.envio_id || '—'],
+                            ['Proforma', auditTarget.proforma_titulo || '—'],
+                            ['Orden de producción', auditTarget.orden_produccion_id ? `#${auditTarget.orden_produccion_id}` : '—'],
+                            null,
+                            ['Tipo', esParcial ? 'Cancelación parcial' : 'Cancelación total'],
+                            ['Cantidad cancelada', `${fmtNum(cancelada)} u.`],
+                            ['Excedente antes de cancelar', Number.isFinite(previa) ? `${fmtNum(previa)} u.` : '—'],
+                            ['Quedó en el excedente', Number.isFinite(previa) ? `${fmtNum(Math.max(previa - cancelada, 0))} u.` : '—'],
+                            ['Registro de origen', esParcial ? `Excedente #${auditTarget.movimiento_origen_id}` : `Excedente #${auditTarget.id} (mismo registro)`],
+                            ['Ubicación descontada', auditTarget.localidad_origen_descripcion || '—'],
+                            ['Orden de bodega (salida)', auditTarget.orden_id
+                                ? `#${auditTarget.orden_id}${auditTarget.orden_estatus ? ` · ${auditTarget.orden_estatus}` : ''}`
+                                : '—'],
+                            null,
+                            ['Motivo', etiquetaMotivo(auditTarget.motivo_cancelacion)],
+                            ['Comentario', auditTarget.comentario_cancelacion || '—'],
+                            ['Canceló', auditTarget.cancelado_por || '—'],
+                            ['Fecha de cancelación', fmtDateTime(auditTarget.fecha_cancelacion)],
+                            ['Excedente generado por', `${auditTarget.usuario || '—'} · ${fmtDateTime(auditTarget.fecha_movimiento)}`],
+                        ];
+                        return (
+                            <Stack spacing={1}>
+                                {filas.map((f, i) =>
+                                    f === null ? (
+                                        <Divider key={`d-${i}`} sx={{ borderColor: tokens.line, my: 0.5 }} />
+                                    ) : (
+                                        <Stack key={f[0]} direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start">
+                                            <Typography variant="body2" sx={{ color: tokens.slateLight, flexShrink: 0 }}>
+                                                {f[0]}
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{ color: tokens.ink, fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }}
+                                            >
+                                                {f[1]}
+                                            </Typography>
+                                        </Stack>
+                                    )
+                                )}
+                            </Stack>
+                        );
+                    })()}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setAuditTarget(null)} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                        Cerrar
                     </Button>
                 </DialogActions>
             </Dialog>

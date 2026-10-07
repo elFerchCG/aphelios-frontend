@@ -3,7 +3,15 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
-import { DataGrid, GridEditInputCell } from "@mui/x-data-grid";
+import {
+    GridEditInputCell,
+    GridToolbarColumnsButton,
+    GridToolbarContainer,
+    GridToolbarDensitySelector,
+    GridToolbarExport,
+    GridToolbarFilterButton,
+    GridToolbarQuickFilter,
+} from "@mui/x-data-grid";
 import {
     Box,
     Grid,
@@ -26,27 +34,114 @@ import {
     Select,
     InputLabel,
     FormControl,
-    Alert
+    Alert,
+    Paper,
+    GlobalStyles
 } from "@mui/material";
-import { GridToolbar } from '@mui/x-data-grid';
+import AppDataGrid from '../../common/AppDataGrid';
+import { DATA_GRID_LOCALE_ES } from '../../../config/dataGridLocale';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import IconButton from '@mui/material/IconButton';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import FacturaDrawer from './FacturaDrawer';
 import ProformaAccordion from "./ProformaAccordion";
+import RevisionMrpProformaDialog from "./RevisionMrpProformaDialog";
 import ConsolidadoDrawer from './ConsolidadoDrawer';
+import RetirosConsolidadoDrawer from './RetirosConsolidadoDrawer';
+import EnvioKpis, { calcularContenidoEnvio } from './EnvioKpis';
+import { columnaProducto, columnasProductoDetalle, gridCompactoProps } from './tablaCompacta';
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import NoteAddIcon from "@mui/icons-material/NoteAdd";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import Badge from "@mui/material/Badge";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import FolderCopyOutlinedIcon from "@mui/icons-material/FolderCopyOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionManufacturingOutlined";
+import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
+
+// ============================================================
+// Constantes de layout compartidas por los DataGrids del dashboard
+// ============================================================
+
+// Tablas: se usa el componente estándar AppDataGrid (common/AppDataGrid.jsx,
+// ver "Manual de Componentes Visuales APHELIOS", sección 6). Aquí solo se
+// pasan por props las necesidades propias de esta pantalla:
+//  - altura fija (el scroll queda dentro de la tabla y la página no crece)
+//  - paginado de 100 registros
+//  - mensaje de "sin registros" específico de cada tabla
+const GRID_HEIGHT = 520;
+const GRID_PAGE_SIZE = 100;
+const GRID_PAGE_SIZE_OPTIONS = [100];
+
+const localeSinRegistros = (noRowsLabel) => ({ ...DATA_GRID_LOCALE_ES, noRowsLabel });
+
+// Toolbar estándar (mismo formato que AppDataGridToolbar) + búsqueda rápida,
+// para la tabla de cajas del modal. Definido fuera del componente para que
+// no se vuelva a montar en cada render (perdería el foco del buscador).
+const ToolbarCajasProducto = () => (
+    <GridToolbarContainer sx={{ px: 1.5, py: 1, gap: 0.5 }}>
+        <GridToolbarColumnsButton />
+        <GridToolbarFilterButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport csvOptions={{ fileName: "cajas_producto", utf8WithBom: true }} />
+        <Box sx={{ flex: 1 }} />
+        <GridToolbarQuickFilter debounceMs={500} />
+    </GridToolbarContainer>
+);
+
+// ============================================================
+// Caja de sección (mismo estilo que TransaccionesI.jsx: Paper elevation 2,
+// borderRadius 3, título subtitle1 en negritas con icono outlined primario)
+// ============================================================
+const SectionCard = ({ icon: Icon, title, subtitle, count, actions, children }) => (
+    <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}>
+        <Stack
+            direction="row"
+            flexWrap="wrap"
+            gap={1.5}
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 1.5 }}
+        >
+            <Box sx={{ minWidth: 0 }}>
+                <Typography
+                    variant="subtitle1"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700 }}
+                >
+                    <Icon color="primary" /> {title}
+                    {count != null && (
+                        <Chip
+                            size="small"
+                            label={count}
+                            sx={{ fontWeight: 700, bgcolor: '#e3f2fd', color: 'primary.main', height: 22 }}
+                        />
+                    )}
+                </Typography>
+                {subtitle && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', ml: 4 }}>
+                        {subtitle}
+                    </Typography>
+                )}
+            </Box>
+            {actions && (
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                    {actions}
+                </Stack>
+            )}
+        </Stack>
+        {children}
+    </Paper>
+);
 
 const EnviosProgresoEmpaque = () => {
 
     const { envioId } = useParams();
     const location = useLocation();
 
-    const [descripcionEnvio] = useState(location.state?.descripcionEnvio || '');
-    const [folioInternoEnvio] = useState(location.state?.folioInternoEnvio || '');
+    const [descripcionEnvio, setDescripcionEnvio] = useState(location.state?.descripcionEnvio || '');
+    const [folioInternoEnvio, setFolioInternoEnvio] = useState(location.state?.folioInternoEnvio || '');
 
     const [totalPiezas, setTotalPiezas] = useState(0);
     const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
@@ -72,6 +167,8 @@ const EnviosProgresoEmpaque = () => {
 
     const [openConsolidado, setOpenConsolidado] = useState(false);
     const [proformaSeleccionada, setProformaSeleccionada] = useState(null);
+    // Proforma abierta en "Revisar MRP" (cantidades a enviar vs MRP actual)
+    const [proformaRevisionMrp, setProformaRevisionMrp] = useState(null);
 
     const [openNota, setOpenNota] = useState(false);
     const [notaActual, setNotaActual] = useState("");
@@ -82,6 +179,17 @@ const EnviosProgresoEmpaque = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
 
     const [selectedProforma, setSelectedProforma] = useState('todas');
+
+    // Consolidado de retiros: filtro de la tabla "OP - Retiros" y drawer
+    // (todas las órdenes de retiro o una individual).
+    const [selectedRetiro, setSelectedRetiro] = useState('todas');
+    const [openConsolidadoRetiros, setOpenConsolidadoRetiros] = useState(false);
+    const [retiroConsolidadoInicial, setRetiroConsolidadoInicial] = useState('todas');
+
+    const abrirConsolidadoRetiros = (ordenBodegaId = 'todas') => {
+        setRetiroConsolidadoInicial(ordenBodegaId == null ? 'todas' : String(ordenBodegaId));
+        setOpenConsolidadoRetiros(true);
+    };
 
     const apiUrl =
         process.env.NODE_ENV === 'production'
@@ -108,22 +216,6 @@ const EnviosProgresoEmpaque = () => {
         user.rol_descripcion === 'gerencia'
     );
 
-    const dashboardGridSx = {
-        border: "none",
-        "& .MuiDataGrid-columnHeaders": {
-            backgroundColor: "#f5f7fa",
-            fontWeight: "bold",
-            fontSize: 13,
-        },
-        "& .MuiDataGrid-cell": {
-            borderBottom: "1px solid #eee",
-            fontSize: 13,
-        },
-        "& .MuiDataGrid-row:hover": {
-            backgroundColor: "#f9fafb",
-        },
-    };
-
     const handleCloseModal = () => {
         setOpenModal(false);
         setOrdenSeleccionada(null);
@@ -140,6 +232,13 @@ const EnviosProgresoEmpaque = () => {
             setTotalOrdenRetiro(response.data.totalOrdenRetiro);
             setOrdenesProduccionFacturas(response.data.ordenesProduccionFacturas);
             setOrdenesProduccionRetiros(response.data.ordenesProduccionRetiros);
+            // Si no llegaron por la navegación (p. ej. al recargar la
+            // página), se toman del backend.
+            const envio = response.data.envio;
+            if (envio) {
+                setFolioInternoEnvio((prev) => prev || envio.folio_interno || '');
+                setDescripcionEnvio((prev) => prev || envio.descripcion || '');
+            }
             setLoading(false);
         } catch (error) {
             setLoading(false);
@@ -186,6 +285,14 @@ const EnviosProgresoEmpaque = () => {
         if (selectedProforma === 'todas') return ordenesProduccionFacturas;
         return ordenesProduccionFacturas.filter((row) => row.proforma_id === Number(selectedProforma));
     }, [ordenesProduccionFacturas, selectedProforma]);
+
+    // Filas de "OP - Retiros" filtradas por orden de retiro
+    const ordenesRetirosFiltradas = useMemo(() => {
+        if (selectedRetiro === 'todas') return ordenesProduccionRetiros;
+        return ordenesProduccionRetiros.filter(
+            (row) => String(row.orden_bodega_id) === String(selectedRetiro)
+        );
+    }, [ordenesProduccionRetiros, selectedRetiro]);
 
     const abrirFactura = (factura) => {
 
@@ -595,10 +702,8 @@ const EnviosProgresoEmpaque = () => {
     const ordenesCols = [
         { field: "id", headerName: "#Orden Producción", flex: 1 },
         { field: "producto_id", headerName: "#Producto", flex: 1 },
-        { field: "mlm", headerName: "MLM", flex: 1 },
-        { field: "title", headerName: "Titulo", flex: 1 },
-        { field: "inventory_id", headerName: "ML", flex: 1 },
-        { field: "sku", headerName: "SKU", flex: 1 },
+        columnaProducto,
+        ...columnasProductoDetalle,
         {
             field: "logistic_type",
             headerName: "Logistica",
@@ -626,7 +731,7 @@ const EnviosProgresoEmpaque = () => {
             }
         },
         {
-            field: "cantidad_mrp", headerName: "Cantidad MRP", flex: 1, type: "number",
+            field: "cantidad_mrp", headerName: "Cantidad MRP", flex: 1, minWidth: 140, type: "number",
             valueFormatter: (value) => Math.round(value ?? 0)
         },
         {
@@ -768,11 +873,22 @@ const EnviosProgresoEmpaque = () => {
 
     const ordenesProduccionRetirosCols = [
         { field: "id", headerName: "#Orden Producción", flex: 1 },
+        {
+            field: "orden_bodega_id",
+            headerName: "Retiro",
+            width: 110,
+            renderCell: (params) => (
+                <Chip
+                    size="small"
+                    label={`#${params.value}`}
+                    icon={<AssignmentReturnOutlinedIcon sx={{ fontSize: 16 }} />}
+                    sx={{ fontWeight: 600, bgcolor: '#e3f2fd', color: 'primary.main', '& .MuiChip-icon': { color: 'primary.main' } }}
+                />
+            )
+        },
         { field: "producto_id", headerName: "#Producto", flex: 1 },
-        { field: "mlm", headerName: "MLM", flex: 1 },
-        { field: "title", headerName: "Titulo", flex: 1 },
-        { field: "inventory_id", headerName: "ML", flex: 1 },
-        { field: "sku", headerName: "SKU", flex: 1 },
+        columnaProducto,
+        ...columnasProductoDetalle,
         {
             field: "logistic_type",
             headerName: "Logistica",
@@ -905,8 +1021,11 @@ const EnviosProgresoEmpaque = () => {
         { field: "orden_bodega_id", headerName: "#Orden Bodega", flex: 1 },
         { field: "orden_bodega_descripcion", headerName: "Descripción", flex: 2 },
         {
-            field: "fecha_orden", headerName: "Fecha", flex: 1, valueFormatter: (params) =>
-                dayjs(params.value).format("DD/MM/YYYY"),
+            // En @mui/x-data-grid v7 valueFormatter recibe el valor directo
+            // (no `params`). Antes se usaba params.value → undefined → dayjs()
+            // devolvía la fecha de HOY en todas las filas.
+            field: "fecha_orden", headerName: "Fecha", flex: 1, valueFormatter: (value) =>
+                value ? dayjs(value).format("DD/MM/YYYY") : "",
         },
         { field: "total_a_enviar", headerName: "A Enviar", flex: 1, valueFormatter: (value) => Math.round(Number(value ?? 0)), },
         { field: "total_empacado", headerName: "Empacado", flex: 1, valueFormatter: (value) => Math.round(Number(value ?? 0)), },
@@ -984,29 +1103,46 @@ const EnviosProgresoEmpaque = () => {
                 );
             },
         },
+        {
+            field: "acciones",
+            headerName: "Consolidado",
+            width: 120,
+            sortable: false,
+            filterable: false,
+            disableExport: true,
+            headerAlign: "center",
+            align: "center",
+            renderCell: (params) => (
+                <Tooltip title={`Ver consolidado del retiro #${params.row.orden_bodega_id}`} arrow>
+                    <IconButton
+                        color="primary"
+                        size="small"
+                        onClick={() => abrirConsolidadoRetiros(params.row.orden_bodega_id)}
+                    >
+                        <SummarizeOutlinedIcon />
+                    </IconButton>
+                </Tooltip>
+            )
+        },
     ]
 
-    const [columnVisibilityOrdenesFacturas, setColumnVisibilityModelOrdenesFacturas] = useState({
+    // Columnas ocultas por defecto (AppDataGrid: initialColumnVisibilityModel)
+    const columnasOcultasOrdenes = {
         id: false,
         producto_id: false,
         permitir_full: false,
-    });
+        // Ya van dentro de la columna "Producto"
+        mlm: false,
+        sku: false,
+        inventory_id: false,
+        catalog_id: false,
+    };
 
-    const [columnVisibilityOrdenesRetiros, setColumnVisibilityModelOrdenesRetiros] = useState({
-        id: false,
-        producto_id: false,
-        permitir_full: false,
-    });
-
-    const [columnVisibilityRetiros, setColumnVisibilityModelRetiros] = useState({
-        orden_bodega_id: true,
-    });
-
-    const [columnVisibilityDetalles, setColumnVisibilityDetalles] = useState({
+    const columnasOcultasDetalles = {
         id: false,
         orden_id: false,
         componente_id: false
-    });
+    };
 
     const processRowUpdate = async (newRow, oldRow) => {
         if (newRow.cantidad_a_enviar < 0) {
@@ -1282,17 +1418,6 @@ const EnviosProgresoEmpaque = () => {
 
             await fetchPiezasYFacturas();
 
-            // 6. Si se generó reporte de excedentes, descargarlo (sin abrir pestaña nueva,
-            //    para que no lo bloquee el navegador como pop-up)
-            if (respuesta.data.reporte_excedentes?.url_descarga) {
-                const link = document.createElement('a');
-                link.href = `${apiUrl}${respuesta.data.reporte_excedentes.url_descarga}`;
-                link.setAttribute('download', respuesta.data.reporte_excedentes.nombre_archivo || '');
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-            }
-
         } catch (error) {
             // 1. Extraer el mensaje principal del servidor
             const mensajeServidor = error.response?.data?.message || "No se pudo actualizar la orden";
@@ -1327,209 +1452,209 @@ const EnviosProgresoEmpaque = () => {
         );
     };
 
+    // Recarga todo el dashboard (piezas, órdenes, retiros y agrupaciones).
+    const handleActualizarTodo = () => {
+        fetchPiezasYFacturas();
+        fetchAgrupaciones();
+    };
+
+    // Resumen de lo cargado en el envío (productos, proformas, facturas,
+    // retiros) para la tarjeta "Contenido del envío".
+    const contenidoEnvio = useMemo(() => calcularContenidoEnvio({
+        ordenesFacturas: ordenesProduccionFacturas,
+        ordenesRetiros: ordenesProduccionRetiros,
+        retiros: totalOrdenRetiro,
+        agrupaciones: proformas,
+    }), [ordenesProduccionFacturas, ordenesProduccionRetiros, totalOrdenRetiro, proformas]);
+    // Total "A Enviar" de lo que está visible (respeta el filtro de proforma).
+    const totalAEnviarFiltrado = ordenesFiltradas.reduce(
+        (sum, row) => sum + (Number(row.cantidad_a_enviar) || 0),
+        0
+    );
+
+    // Props comunes de las tablas principales del dashboard.
+    const gridComunProps = {
+        ...gridCompactoProps,
+        loading,
+        height: GRID_HEIGHT,
+        pageSize: GRID_PAGE_SIZE,
+        pageSizeOptions: GRID_PAGE_SIZE_OPTIONS,
+    };
+
     return (
-        <Box p={3}>
-            <Typography variant="h4" fontWeight="bold" mb={2}>
-                Dashboard de Envío
-            </Typography>
+        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* El panel de Columnas/Filtros del DataGrid se renderiza en un
+                Popper propio sin z-index alto (mismo fix que TransaccionesI.jsx). */}
+            <GlobalStyles
+                styles={(theme) => ({
+                    '.MuiDataGrid-panel': { zIndex: theme.zIndex.modal + 100 },
+                })}
+            />
 
-            <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: 2,
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.02)" },
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Envío
-                            </Typography>
-                            <Typography variant="h6">{folioInternoEnvio || `ID: ${envioId}`}</Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: 2,
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.02)" },
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Progreso del envío
-                            </Typography>
-                            <Typography variant="h6">
-                                {totalPiezas > 0
-                                    ? Math.round((totalPiezasEmpacadas / totalPiezas) * 100)
-                                    : 0}
-                                %
-                            </Typography>
-                            <LinearProgress
-                                variant="determinate"
-                                value={
-                                    totalPiezas > 0
-                                        ? (totalPiezasEmpacadas / totalPiezas) * 100
-                                        : 0
-                                }
-                            />
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: 2,
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.02)" },
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Resumen
-                            </Typography>
-                            <Typography>Total piezas: {totalPiezas}</Typography>
-                            <Typography>Empacadas: {totalPiezasEmpacadas}</Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
-
-            <Typography
-                variant="h5"
-                fontWeight="bold"
-                mb={3}
+            {/* ---------- Encabezado ---------- */}
+            <Paper
+                elevation={2}
+                sx={{
+                    p: 1.5,
+                    borderRadius: 3,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}
             >
-
-                Agrupaciones del envío
-
-            </Typography>
-
-            {
-
-                proformas.map((grupo) => (
-
-                    <ProformaAccordion
-                        key={grupo.proforma_id}
-                        envioId={envioId}
-                        folioInternoEnvio={folioInternoEnvio}
-                        grupo={grupo}
-                        puedeEditarColumna={puedeEditarColumna}
-                        onVerFactura={abrirFactura}
-                        onVerConsolidado={handleVerConsolidado}
-                        onHabilitarProforma={handleHabilitarProforma}
-                        onFinalizarProforma={handleFinalizarProforma}
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                    <Typography
+                        variant="subtitle1"
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700, mr: 1 }}
+                    >
+                        <LocalShippingOutlinedIcon color="primary" /> Dashboard de Envío
+                    </Typography>
+                    <Chip
+                        size="small"
+                        label={folioInternoEnvio || `ID: ${envioId}`}
+                        sx={{ fontWeight: 700, bgcolor: '#e3f2fd', color: 'primary.main' }}
                     />
+                    {descripcionEnvio && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap title={descripcionEnvio}>
+                            {descripcionEnvio}
+                        </Typography>
+                    )}
+                </Stack>
 
-                ))
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                    <Tooltip title="Vuelve a consultar los datos del envío." arrow>
+                        <span>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<RefreshIcon />}
+                                onClick={handleActualizarTodo}
+                                disabled={loading}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Actualizar
+                            </Button>
+                        </span>
+                    </Tooltip>
+                </Stack>
+            </Paper>
 
-            }
+            {/* ---------- Indicadores (compartidos con EnvioDetalle.jsx) ---------- */}
+            <EnvioKpis
+                envioId={envioId}
+                folioInternoEnvio={folioInternoEnvio}
+                totalPiezas={totalPiezas}
+                totalPiezasEmpacadas={totalPiezasEmpacadas}
+                contenido={contenidoEnvio}
+            />
+
+            {/* ---------- Agrupaciones ---------- */}
+            <SectionCard
+                icon={FolderCopyOutlinedIcon}
+                title="Agrupaciones del envío"
+                subtitle="Proformas del envío con sus facturas, consolidado y acciones de estatus."
+                count={proformas.length}
+            >
+                {proformas.length === 0 ? (
+                    <Typography variant="body2" sx={{ color: 'text.secondary', py: 2, textAlign: 'center' }}>
+                        Este envío aún no tiene agrupaciones.
+                    </Typography>
+                ) : (
+                    <Box sx={{ '& > .MuiAccordion-root:last-of-type': { mb: 0 } }}>
+                        {proformas.map((grupo) => (
+                            <ProformaAccordion
+                                key={grupo.proforma_id}
+                                envioId={envioId}
+                                folioInternoEnvio={folioInternoEnvio}
+                                grupo={grupo}
+                                puedeEditarColumna={puedeEditarColumna}
+                                onVerFactura={abrirFactura}
+                                onVerConsolidado={handleVerConsolidado}
+                                onHabilitarProforma={handleHabilitarProforma}
+                                onFinalizarProforma={handleFinalizarProforma}
+                                onRevisarMrp={setProformaRevisionMrp}
+                            />
+                        ))}
+                    </Box>
+                )}
+            </SectionCard>
+
+            <RevisionMrpProformaDialog
+                open={Boolean(proformaRevisionMrp)}
+                onClose={() => setProformaRevisionMrp(null)}
+                apiUrl={apiUrl}
+                envioId={envioId}
+                proforma={proformaRevisionMrp}
+                puedeEditar={Boolean(puedeEditarColumna)}
+                onAplicado={handleActualizarTodo}
+            />
 
             <FacturaDrawer
-
                 open={drawerOpen}
-
                 factura={facturaSeleccionada}
-
                 envioId={envioId}
-
                 onClose={cerrarFactura}
-
             />
 
             <ConsolidadoDrawer
                 open={openConsolidado}
                 envioId={envioId}
+                folioInternoEnvio={folioInternoEnvio}
                 proforma={proformaSeleccionada}
                 onClose={cerrarConsolidado}
             />
 
-            {/* SECCIÓN CORREGIDA: Alineación exacta y solución al montado de tablas */}
-            <Box
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: '100%',
-                    mb: 1,
-                    mt: 1
-                }}
+            <RetirosConsolidadoDrawer
+                open={openConsolidadoRetiros}
+                onClose={() => setOpenConsolidadoRetiros(false)}
+                envioId={envioId}
+                folioInternoEnvio={folioInternoEnvio}
+                retiroInicial={retiroConsolidadoInicial}
+            />
+
+            {/* ---------- Órdenes de Producción - Facturas ---------- */}
+            <SectionCard
+                icon={ReceiptLongOutlinedIcon}
+                title="Órdenes de Producción - Facturas"
+                subtitle={`Total a enviar: ${Math.round(totalAEnviarFiltrado)} pieza(s)${selectedProforma !== 'todas' ? ` · Proforma #${selectedProforma}` : ''}`}
+                count={ordenesFiltradas.length}
+                actions={
+                    <FormControl size="small" sx={{ minWidth: 240 }}>
+                        <InputLabel id="proforma-filter-label">Filtrar por Proforma</InputLabel>
+                        <Select
+                            labelId="proforma-filter-label"
+                            value={selectedProforma}
+                            label="Filtrar por Proforma"
+                            onChange={(e) => setSelectedProforma(e.target.value)}
+                        >
+                            <MenuItem value="todas">Todas las Proformas</MenuItem>
+
+                            {proformasDisponibles.map((prof) => (
+                                <MenuItem key={prof.id} value={prof.id}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
+                                        <span>Proforma #{prof.id} ({prof.estatus})</span>
+                                        {prof.tieneCobertura && (
+                                            <Tooltip title="Esta proforma tiene productos con componentes cubiertos con stock interno (existencias_componentes)">
+                                                <Inventory2Icon fontSize="small" sx={{ color: '#f57c00', ml: 'auto' }} />
+                                            </Tooltip>
+                                        )}
+                                    </Box>
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                }
             >
-                {/* Título: ocupa el espacio izquierdo hasta llegar al área de las sumas */}
-                <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" fontWeight="bold">
-                        Ordenes de Producción - Facturas
-                    </Typography>
-                </Box>
-
-                {/* Contenedor del Total: Ajustado con un margen derecho preciso (18%) para centrarse sobre "A Enviar" */}
-                {/* <Box sx={{ mr: '34%', display: 'flex', justifyContent: 'center' }}>
-                    <Box
-                        sx={{
-                            backgroundColor: '#e3f2fd',
-                            border: '1px solid #90caf9',
-                            borderRadius: '4px',
-                            px: 3,
-                            py: 0.5,
-                            minWidth: '110px',
-                            textAlign: 'center',
-                            boxShadow: '0px 1px 3px rgba(0,0,0,0.08)'
-                        }}
-                    >
-                        <Typography variant="caption" display="block" color="text.secondary" fontWeight="bold" sx={{ textTransform: 'uppercase', fontSize: 9, tracking: 0.5 }}>
-                            Total A Enviar
-                        </Typography>
-                        <Typography variant="subtitle1" fontWeight="bold" color="primary.main" style={{ lineHeight: 1.2 }}>
-                            {Math.round(totalCantidadAEnviar)}
-                        </Typography>
-                    </Box>
-                </Box> */}
-            </Box>
-
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 220 }}>
-                    <InputLabel id="proforma-filter-label">Filtrar por Proforma</InputLabel>
-
-                    <Select
-                        labelId="proforma-filter-label"
-                        value={selectedProforma}
-                        label="Filtrar por Proforma"
-                        onChange={(e) => setSelectedProforma(e.target.value)}
-                    >
-                        <MenuItem value="todas">Todas las Proformas</MenuItem>
-
-                        {proformasDisponibles.map((prof) => (
-                            <MenuItem key={prof.id} value={prof.id}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
-                                    <span>Proforma #{prof.id} ({prof.estatus})</span>
-                                    {prof.tieneCobertura && (
-                                        <Tooltip title="Esta proforma tiene productos con componentes cubiertos con stock interno (existencias_componentes)">
-                                            <Inventory2Icon fontSize="small" sx={{ color: '#f57c00', ml: 'auto' }} />
-                                        </Tooltip>
-                                    )}
-                                </Box>
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            </Box>
-
-            {/* Contenedor DataGrid corregido (Eliminado sx redundante para evitar encimado) */}
-            <Box sx={{ height: 400, width: '100%', mb: 10 }}>
-                <DataGrid
+                <AppDataGrid
+                    {...gridComunProps}
                     rows={ordenesFiltradas}
                     columns={ordenesCols}
                     getRowId={(row) => row.id}
+                    exportFileName={`envio_${folioInternoEnvio || envioId}_op_facturas`}
+                    initialColumnVisibilityModel={columnasOcultasOrdenes}
                     experimentalFeatures={{ newEditingApi: true }}
-                    showCellVerticalBorder
-                    showColumnVerticalBorder
                     processRowUpdate={processRowUpdate}
                     isCellEditable={(params) => {
                         if (params.row.estatus === "empacada") return false;
@@ -1538,89 +1663,100 @@ const EnviosProgresoEmpaque = () => {
                         }
                         return true;
                     }}
-                    columnVisibilityModel={columnVisibilityOrdenesFacturas}
-                    onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesFacturas(newModel)}
-                    disableRowSelectionOnClick
-                    hideFooterSelectedRowCount
-                    density="compact"
-                    pageSizeOptions={[10, 25, 50, 100]}
-                    initialState={{
-                        pagination: { paginationModel: { pageSize: 100, page: 0 } }
-                    }}
-                    sx={{ ...dashboardGridSx }}
-                    slots={{ toolbar: GridToolbar }}
-                    loading={loading}
-                    slotProps={{
-                        loadingOverlay: {
-                            variant: 'skeleton',
-                            noRowsVariant: 'skeleton',
-                        },
-                    }}
+                    localeText={localeSinRegistros('No hay órdenes de producción con factura para este envío.')}
                 />
-            </Box>
+            </SectionCard>
 
-            <Typography variant="h6" fontWeight="bold" mb={2} mt={15}>
-                Ordenes de Producción - Retiros
-            </Typography>
-            <DataGrid
-                rows={ordenesProduccionRetiros}
-                columns={ordenesProduccionRetirosCols}
-                getRowId={(row) => row.id}
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                columnVisibilityModel={columnVisibilityOrdenesRetiros}
-                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelOrdenesRetiros(newModel)}
-                disableRowSelectionOnClick
-                hideFooterSelectedRowCount
-                density="compact"
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{
-                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
-                }}
-                sx={{ ...dashboardGridSx }}
-                slots={{ toolbar: GridToolbar }}
-                loading={loading}
-                slotProps={{
-                    loadingOverlay: {
-                        variant: 'skeleton',
-                        noRowsVariant: 'skeleton',
-                    },
-                }}
-            />
+            {/* ---------- Órdenes de Producción - Retiros ---------- */}
+            <SectionCard
+                icon={PrecisionManufacturingOutlinedIcon}
+                title="Órdenes de Producción - Retiros"
+                subtitle={selectedRetiro !== 'todas' ? `Retiro #${selectedRetiro}` : `${totalOrdenRetiro.length} orden(es) de retiro`}
+                count={ordenesRetirosFiltradas.length}
+                actions={
+                    <>
+                        <FormControl size="small" sx={{ minWidth: 240 }}>
+                            <InputLabel id="retiro-filter-label">Filtrar por Retiro</InputLabel>
+                            <Select
+                                labelId="retiro-filter-label"
+                                value={selectedRetiro}
+                                label="Filtrar por Retiro"
+                                onChange={(e) => setSelectedRetiro(e.target.value)}
+                            >
+                                <MenuItem value="todas">Todos los Retiros</MenuItem>
+                                {totalOrdenRetiro.map((r) => (
+                                    <MenuItem key={r.orden_bodega_id} value={String(r.orden_bodega_id)}>
+                                        Retiro #{r.orden_bodega_id}{r.orden_bodega_descripcion ? ` · ${r.orden_bodega_descripcion}` : ''}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Tooltip
+                            title={selectedRetiro === 'todas'
+                                ? 'Consolidado de todas las órdenes de retiro del envío'
+                                : `Consolidado del retiro #${selectedRetiro}`}
+                            arrow
+                        >
+                            <span>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<SummarizeOutlinedIcon />}
+                                    onClick={() => abrirConsolidadoRetiros(selectedRetiro)}
+                                    disabled={totalOrdenRetiro.length === 0}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                                >
+                                    Ver consolidado
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    </>
+                }
+            >
+                <AppDataGrid
+                    {...gridComunProps}
+                    rows={ordenesRetirosFiltradas}
+                    columns={ordenesProduccionRetirosCols}
+                    getRowId={(row) => row.id}
+                    exportFileName={`envio_${folioInternoEnvio || envioId}_op_retiros`}
+                    initialColumnVisibilityModel={columnasOcultasOrdenes}
+                    localeText={localeSinRegistros('No hay órdenes de producción de retiro para este envío.')}
+                />
+            </SectionCard>
 
-            <Typography variant="h6" fontWeight="bold" mb={2}>
-                Retiros
-            </Typography>
-            <DataGrid
-                rows={totalOrdenRetiro}
-                columns={ordenesDeRetiros}
-                getRowId={(row) => row.orden_bodega_id}
-                showCellVerticalBorder
-                showColumnVerticalBorder
-                columnVisibilityModel={columnVisibilityRetiros}
-                onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModelRetiros(newModel)}
-                disableRowSelectionOnClick
-                hideFooterSelectedRowCount
-                density="compact"
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{
-                    pagination: { paginationModel: { pageSize: 100, page: 0 } }
-                }}
-                sx={{
-                    ...dashboardGridSx, flex: 0.4,
-                    minHeight: '200px', // Altura mínima para que no se colapse por completo
-                    maxHeight: '350px', // Altura máxima para garantizar que no tape a la de abajo
-                    mb: 2
-                }}
-                slots={{ toolbar: GridToolbar }}
-                loading={loading}
-                slotProps={{
-                    loadingOverlay: {
-                        variant: 'skeleton',
-                        noRowsVariant: 'skeleton',
-                    },
-                }}
-            />
+            {/* ---------- Retiros ---------- */}
+            <SectionCard
+                icon={AssignmentReturnOutlinedIcon}
+                title="Retiros"
+                subtitle="Órdenes de bodega de retiro asociadas al envío."
+                count={totalOrdenRetiro.length}
+                actions={
+                    <Tooltip title="Consolidado de todas las órdenes de retiro del envío" arrow>
+                        <span>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<SummarizeOutlinedIcon />}
+                                onClick={() => abrirConsolidadoRetiros('todas')}
+                                disabled={totalOrdenRetiro.length === 0}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Consolidado de retiros
+                            </Button>
+                        </span>
+                    </Tooltip>
+                }
+            >
+                <AppDataGrid
+                    {...gridComunProps}
+                    rows={totalOrdenRetiro}
+                    columns={ordenesDeRetiros}
+                    getRowId={(row) => row.orden_bodega_id}
+                    exportFileName={`envio_${folioInternoEnvio || envioId}_retiros`}
+                    localeText={localeSinRegistros('No hay retiros asociados a este envío.')}
+                />
+            </SectionCard>
+
             <Dialog
                 id="modal-detalle-orden"
                 open={openModal}
@@ -1646,37 +1782,21 @@ const EnviosProgresoEmpaque = () => {
                         Componentes de la Orden
                     </Typography>
 
-                    <DataGrid
-                        rows={detalleOrden}
-                        columns={detalleCols}
-                        getRowId={(row) => row.id}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        columnVisibilityModel={columnVisibilityDetalles}
-                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityDetalles(newModel)}
-                        density="compact"
-                        loading={loadingDetalle}
-                        disableRowSelectionOnClick
-                        hideFooterSelectedRowCount
-                        pageSizeOptions={[5, 10, 25]} // Bajamos las opciones visuales para acoplarse al tamaño compacto
-                        initialState={{
-                            pagination: { paginationModel: { pageSize: 5, page: 0 } }
-                        }}
-                        // Forzamos un height máximo de 250px (puedes ajustarlo si necesitas ver más o menos renglones)
-                        sx={{
-                            ...dashboardGridSx,
-                            height: '250px',
-                            maxHeight: '250px',
-                            mb: 2
-                        }}
-                        slots={{ toolbar: GridToolbar }}
-                        slotProps={{
-                            loadingOverlay: {
-                                variant: 'skeleton',
-                                noRowsVariant: 'skeleton',
-                            },
-                        }}
-                    />
+                    <Box sx={{ mb: 2 }}>
+                        <AppDataGrid
+                            rows={detalleOrden}
+                            columns={detalleCols}
+                            getRowId={(row) => row.id}
+                            loading={loadingDetalle}
+                            {...gridCompactoProps}
+                            height={340}
+                            pageSize={GRID_PAGE_SIZE}
+                            pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
+                            exportFileName={`orden_${ordenSeleccionada?.id || ''}_componentes`}
+                            initialColumnVisibilityModel={columnasOcultasDetalles}
+                            localeText={localeSinRegistros('Esta orden no tiene componentes.')}
+                        />
+                    </Box>
 
                     {loadingMaximoArmable && !maximoArmable && (
                         <Typography variant="body2" color="text.secondary" mb={2}>
@@ -1805,33 +1925,17 @@ const EnviosProgresoEmpaque = () => {
                         </Typography>
 
                         {/* TABLA 2: BUSCADOR EN CAJAS */}
-                        <DataGrid
+                        <AppDataGrid
                             rows={cajasProducto}
                             columns={cajasCols}
                             getRowId={(row) => row.id}
-                            showCellVerticalBorder
-                            showColumnVerticalBorder
-                            density="compact"
                             loading={loadingCajas}
-                            disableRowSelectionOnClick
-                            hideFooterSelectedRowCount
-                            autoHeight={false} // Mantener en false para que el scroll pertenezca a la cuadrícula interna del DataGrid
-                            pageSizeOptions={[10, 25, 50]}
-                            initialState={{
-                                pagination: { paginationModel: { pageSize: 25, page: 0 } }
-                            }}
-                            sx={{
-                                ...dashboardGridSx,
-                                flex: 1 // Le dice al DataGrid que se estire hasta el fondo del Box contenedor
-                            }}
-                            slots={{ toolbar: GridToolbar }}
-                            slotProps={{
-                                loadingOverlay: { variant: 'skeleton', noRowsVariant: 'skeleton' },
-                                toolbar: { showQuickFilter: true, quickFilterProps: { debounceMs: 500 } }
-                            }}
-                            localeText={{
-                                noRowsLabel: 'El producto aún no ha sido escaneado en ninguna caja para este envío.'
-                            }}
+                            {...gridCompactoProps}
+                            height={420}
+                            pageSize={GRID_PAGE_SIZE}
+                            pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
+                            toolbar={ToolbarCajasProducto}
+                            localeText={localeSinRegistros('El producto aún no ha sido escaneado en ninguna caja para este envío.')}
                         />
                     </Box>
                 </DialogContent>
@@ -1924,4 +2028,4 @@ const EnviosProgresoEmpaque = () => {
     );
 }
 
-export default EnviosProgresoEmpaque
+export default EnviosProgresoEmpaque

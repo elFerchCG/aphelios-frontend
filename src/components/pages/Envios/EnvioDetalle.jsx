@@ -1,9 +1,9 @@
 import React, { useRef } from 'react'
 import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { DataGrid, GridActionsCellItem, GridToolbarContainer, GridToolbarDensitySelector, GridToolbarExport } from "@mui/x-data-grid";
-import { GridToolbarColumnsButton } from '@mui/x-data-grid';
-import { GridToolbarFilterButton } from '@mui/x-data-grid';
+import { useEffect, useMemo, useState } from "react";
+import { GridActionsCellItem } from "@mui/x-data-grid";
+import AppDataGrid from '../../common/AppDataGrid';
+import { DATA_GRID_LOCALE_ES } from '../../../config/dataGridLocale';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
@@ -14,9 +14,106 @@ import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ListAltIcon from '@mui/icons-material/ListAlt';
-import dayjs from 'dayjs';
-import { Button, TextField, Box, Typography, CircularProgress, Tooltip, Collapse, Paper, Table, TableCell, TableBody, TableRow, TableHead, IconButton, Grid, Card, CardContent, LinearProgress } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined';
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import {
+    Button,
+    Box,
+    Typography,
+    CircularProgress,
+    Tooltip,
+    Paper,
+    IconButton,
+    Chip,
+    Stack,
+    GlobalStyles,
+} from '@mui/material';
+import EnvioKpis, { calcularContenidoEnvio } from './EnvioKpis';
 
+// ============================================================
+// Constantes y piezas de layout (estilo aphelios-ui-style)
+// ============================================================
+
+// Tablas: componente estándar AppDataGrid (common/AppDataGrid.jsx, ver
+// "Manual de Componentes Visuales APHELIOS", sección 6). Por props solo se
+// pasa lo propio de esta pantalla: altura fija (las dos columnas quedan
+// alineadas y el scroll queda dentro), 100 registros por página, alto de
+// fila para los iconos con texto y el mensaje de "sin registros".
+const GRID_HEIGHT = 520;
+const GRID_PAGE_SIZE = 100;
+const GRID_PAGE_SIZE_OPTIONS = [100];
+const ROW_HEIGHT_ACCIONES = 64;
+
+const localeSinRegistros = (noRowsLabel) => ({ ...DATA_GRID_LOCALE_ES, noRowsLabel });
+
+// Estatus de tarima y caja (abierta = en proceso, cerrada = terminada).
+const ESTATUS_EMPAQUE = {
+    abierta: { label: "Abierta", color: "warning" },
+    cerrada: { label: "Cerrada", color: "success" },
+};
+const EstatusChip = ({ value }) => {
+    const info = ESTATUS_EMPAQUE[value] || { label: value || "—", color: "default" };
+    return <Chip size="small" label={info.label} color={info.color} sx={{ fontWeight: 600 }} />;
+};
+
+// Botón de acción con icono + texto debajo (mismo formato que ya se usaba).
+const AccionIcono = ({ icon, texto }) => (
+    <Box display="flex" flexDirection="column" alignItems="center">
+        {icon}
+        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
+            {texto}
+        </Typography>
+    </Box>
+);
+
+const SectionCard = ({ icon: Icon, title, subtitle, count, actions, children }) => (
+    <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3, minWidth: 0 }}>
+        <Stack
+            direction="row"
+            flexWrap="wrap"
+            gap={1.5}
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 1.5 }}
+        >
+            <Box sx={{ minWidth: 0 }}>
+                <Typography
+                    variant="subtitle1"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700 }}
+                >
+                    <Icon color="primary" /> {title}
+                    {count != null && (
+                        <Chip
+                            size="small"
+                            label={count}
+                            sx={{ fontWeight: 700, bgcolor: '#e3f2fd', color: 'primary.main', height: 22 }}
+                        />
+                    )}
+                </Typography>
+                {subtitle && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', ml: 4 }}>
+                        {subtitle}
+                    </Typography>
+                )}
+            </Box>
+            {actions && (
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                    {actions}
+                </Stack>
+            )}
+        </Stack>
+        {children}
+    </Paper>
+);
+
+const ESTATUS_ENVIO = {
+    abierto: { label: "Abierto", color: "warning" },
+    finalizado: { label: "Finalizado", color: "success" },
+};
 
 const EnvioDetalle = () => {
     const apiUrl =
@@ -81,25 +178,17 @@ const EnvioDetalle = () => {
     }, [apiUrl]);
 
 
-    const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-        id: false,
-        estatus: true
-    });
+    // Datos para la tarjeta "Contenido del envío" (mismo cálculo que el
+    // dashboard EnviosProgresoEmpaque.jsx).
+    const [ordenesFacturas, setOrdenesFacturas] = useState([]);
+    const [ordenesRetiros, setOrdenesRetiros] = useState([]);
+    const [retirosEnvio, setRetirosEnvio] = useState([]);
+    const [agrupaciones, setAgrupaciones] = useState(null);
 
-    const CustomToolbar = () => (
-        <GridToolbarContainer>
-            {/* Mantener solo los botones necesarios */}
-            <GridToolbarColumnsButton />  {/* Botón de Columnas */}
-            <GridToolbarFilterButton />   {/* Botón de Filtros */}
-            <GridToolbarDensitySelector />{/* Botón de Densidad */}
-            <GridToolbarExport
-                csvOptions={{
-                    fileName: "exported_data",
-                    utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
-                }}
-            />
-        </GridToolbarContainer>
-    );
+    // Columnas ocultas por defecto (AppDataGrid: initialColumnVisibilityModel)
+    const columnasOcultasTarimas = {
+        id: false,
+    };
 
     useEffect(() => {
         if (envioId && apiUrl) {
@@ -113,6 +202,19 @@ const EnvioDetalle = () => {
             const response = await axios.get(`${apiUrl}/empaque/getPiezasYFacturas/${envioId}`);
             setTotalPiezas(Number(response.data.total_piezas || []));
             setTotalPiezasEmpacadas(Number(response.data.total_piezas_empacadas || []));
+            setOrdenesFacturas(response.data.ordenesProduccionFacturas || []);
+            setOrdenesRetiros(response.data.ordenesProduccionRetiros || []);
+            setRetirosEnvio(response.data.totalOrdenRetiro || []);
+            // Folio, descripción y estatus: si no llegaron por la navegación
+            // (al regresar de una caja con navigate sin state, o al recargar
+            // la página) se toman del backend. Sin esto se mostraba el ID
+            // interno dos veces y el estatus quedaba vacío.
+            const envio = response.data.envio;
+            if (envio) {
+                setFolioInternoEnvio((prev) => prev || envio.folio_interno || '');
+                setDescripcionEnvio((prev) => prev || envio.descripcion || '');
+                setEstatusEnvio((prev) => prev || envio.estatus || '');
+            }
             setLoading(false);
         } catch (error) {
             setLoading(false);
@@ -130,9 +232,22 @@ const EnvioDetalle = () => {
         }
     };
 
+    // Solo alimenta el conteo de proformas/facturas de la tarjeta de
+    // contenido: si falla no se interrumpe al usuario con una alerta.
+    const fetchAgrupaciones = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/envio/${envioId}/agrupaciones`);
+            setAgrupaciones(response.data?.data || []);
+        } catch (error) {
+            console.error("Error al cargar agrupaciones del envío:", error);
+            setAgrupaciones(null);
+        }
+    };
+
     useEffect(() => {
         if (envioId) {
             fetchPiezasYFacturas();
+            fetchAgrupaciones();
         }
     }, [envioId]);
 
@@ -397,76 +512,90 @@ const EnvioDetalle = () => {
 
     const columns = [
         { field: "id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
-        { field: "visual_id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
-        { field: "cajas_ids", headerName: "Cajas", type: "text", flex: 0.5, justifyContent: "center" },
-        { field: "estatus", headerName: "Estatus", type: "text", flex: 0.2 },
+        { field: "visual_id", headerName: "# Tarima", type: "number", flex: 0.25, minWidth: 80, headerAlign: "left", align: "left" },
+        { field: "cajas_ids", headerName: "Cajas", type: "string", flex: 0.5, minWidth: 100 },
+        {
+            field: "estatus",
+            headerName: "Estatus",
+            type: "string",
+            flex: 0.3,
+            minWidth: 100,
+            renderCell: (params) => <EstatusChip value={params.value} />
+        },
         {
             field: "actions",
             headerName: "Acciones",
-            flex: 0.5,
+            flex: 0.6,
+            minWidth: 210,
             type: "actions",
+            // Las acciones y sus condiciones de habilitado son las mismas de
+            // siempre. Se devuelven directamente los GridActionsCellItem (el
+            // grid les inyecta sus props de foco/teclado) con key propia cada
+            // uno, y el Tooltip va dentro del icono. Antes se envolvían en
+            // <Tooltip><></></Tooltip>: el tooltip nunca se mostraba y las 3
+            // acciones compartían la misma key.
             getActions: (params) => [
-                <Tooltip title="Cerrar Tarima" key={`tarimas-${params.row.id}`}>
-                    <>
-                        <GridActionsCellItem
-                            icon={
-                                <Box display="flex" flexDirection="column" alignItems="center">
-                                    <CheckCircleOutlineIcon sx={{ color: params.row.estatus === 'cerrada' || loading ? '#ccc' : 'green', fontSize: "2rem" }} />
-
-                                    <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                        Cerrar
-                                    </Typography>
-                                </Box>
-                            }
-                            label="Cerrar Tarima"
-                            disabled={params.row.estatus === 'cerrada' || loading}
-                            onClick={() => cerrarTarima(envioId, params.row.id)}
-                        />
-                    </>
-                </Tooltip>,
-                <Tooltip title="Reabrir tarima" key={`tarimas-${params.row.id}`}>
-                    <>
-                        <GridActionsCellItem
-                            icon={
-                                <Box display="flex" flexDirection="column" alignItems="center">
-                                    <AutorenewIcon sx={{
-                                        color: estatusEnvio === 'finalizado' || loading
-                                            ? '#ccc'
-                                            : (params.row.estatus === 'cerrada' ? 'orange' : '#ccc'),
-                                        fontSize: "2rem"
-                                    }} />
-                                    <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                        Reabrir
-                                    </Typography>
-                                </Box>
-                            }
-                            label="Reabrir tarima"
-                            disabled={estatusEnvio === 'finalizado' || params.row.estatus === 'abierta' || loading}
-                            onClick={() => reabrirTarima(params.row.id)}
-                        />
-                    </>
-                </Tooltip>,
-                <Tooltip title="Mostrar Cajas" key={`tarimas-${params.row.id}`}>
-                    <>
-                        <GridActionsCellItem
-                            icon={
-                                <Box display="flex" flexDirection="column" alignItems="center">
-                                    {expandedRowId === params.row.id || params.row.estatus === 'abierta' ? (
-                                        <KeyboardArrowDownIcon sx={{ color: "blue", fontSize: "2rem" }} />
-                                    ) : (
-                                        <KeyboardArrowRightIcon sx={{ color: "blue", fontSize: "2rem" }} />
-                                    )}
-                                    <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                        Cajas
-                                    </Typography>
-                                </Box>
-                            }
-                            label='Mostrar Cajas'
-                            disabled={loading}
-                            onClick={() => handleMostrarCajas(params.row.id)}
-                        />
-                    </>
-                </Tooltip>
+                <GridActionsCellItem
+                    key={`cerrar-${params.row.id}`}
+                    icon={
+                        <Tooltip title="Cerrar Tarima" arrow>
+                            <span>
+                                <AccionIcono
+                                    texto="Cerrar"
+                                    icon={<CheckCircleOutlineIcon sx={{ color: params.row.estatus === 'cerrada' || loading ? '#ccc' : 'green', fontSize: "1.8rem" }} />}
+                                />
+                            </span>
+                        </Tooltip>
+                    }
+                    label="Cerrar Tarima"
+                    disabled={params.row.estatus === 'cerrada' || loading}
+                    onClick={() => cerrarTarima(envioId, params.row.id)}
+                />,
+                <GridActionsCellItem
+                    key={`reabrir-${params.row.id}`}
+                    icon={
+                        <Tooltip title="Reabrir tarima" arrow>
+                            <span>
+                                <AccionIcono
+                                    texto="Reabrir"
+                                    icon={
+                                        <AutorenewIcon sx={{
+                                            color: estatusEnvio === 'finalizado' || loading
+                                                ? '#ccc'
+                                                : (params.row.estatus === 'cerrada' ? 'orange' : '#ccc'),
+                                            fontSize: "1.8rem"
+                                        }} />
+                                    }
+                                />
+                            </span>
+                        </Tooltip>
+                    }
+                    label="Reabrir tarima"
+                    disabled={estatusEnvio === 'finalizado' || params.row.estatus === 'abierta' || loading}
+                    onClick={() => reabrirTarima(params.row.id)}
+                />,
+                <GridActionsCellItem
+                    key={`cajas-${params.row.id}`}
+                    icon={
+                        <Tooltip title="Mostrar Cajas" arrow>
+                            <span>
+                                <AccionIcono
+                                    texto="Cajas"
+                                    icon={
+                                        expandedRowId === params.row.id || params.row.estatus === 'abierta' ? (
+                                            <KeyboardArrowDownIcon sx={{ color: "#1976d2", fontSize: "1.8rem" }} />
+                                        ) : (
+                                            <KeyboardArrowRightIcon sx={{ color: "#1976d2", fontSize: "1.8rem" }} />
+                                        )
+                                    }
+                                />
+                            </span>
+                        </Tooltip>
+                    }
+                    label='Mostrar Cajas'
+                    disabled={loading}
+                    onClick={() => handleMostrarCajas(params.row.id)}
+                />
             ]
         }
     ];
@@ -501,257 +630,316 @@ const EnvioDetalle = () => {
 
     const puedeVerBotonCerrarEnvio = user && (user.rol_descripcion === 'administrador');
 
-    return (
-        <Box p={3}>
+    // Recarga todo lo de la pantalla: tarjetas, tarimas y, si hay una
+    // tarima desplegada, sus cajas.
+    const handleActualizar = () => {
+        fetchTarimas();
+        fetchPiezasYFacturas();
+        fetchAgrupaciones();
+        if (expandedRowId) fetchCajas(expandedRowId);
+    };
 
-            <Grid container spacing={2}>
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: 2,
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.02)" },
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Envío
-                            </Typography>
-                            <Typography variant="h6">{folioInternoEnvio || `ID: ${envioId}`}</Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
+    const contenidoEnvio = useMemo(() => calcularContenidoEnvio({
+        ordenesFacturas,
+        ordenesRetiros,
+        retiros: retirosEnvio,
+        agrupaciones,
+    }), [ordenesFacturas, ordenesRetiros, retirosEnvio, agrupaciones]);
 
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: 2,
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.02)" },
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Progreso del envío
-                            </Typography>
-                            <Typography variant="h6">
-                                {totalPiezas > 0
-                                    ? Math.round((totalPiezasEmpacadas / totalPiezas) * 100)
-                                    : 0}
-                                %
-                            </Typography>
-                            <LinearProgress
-                                variant="determinate"
-                                value={
-                                    totalPiezas > 0
-                                        ? (totalPiezasEmpacadas / totalPiezas) * 100
-                                        : 0
-                                }
-                            />
-                        </CardContent>
-                    </Card>
-                </Grid>
+    const tarimaExpandida = tarimas.find((t) => t.id === expandedRowId) || null;
 
-                <Grid item xs={12} md={4}>
-                    <Card
-                        sx={{
-                            borderRadius: 2,
-                            boxShadow: 2,
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.02)" },
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="subtitle2" color="text.secondary">
-                                Resumen
-                            </Typography>
-                            <Typography>Total piezas: {totalPiezas}</Typography>
-                            <Typography>Empacadas: {totalPiezasEmpacadas}</Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+    // Copia antes de ordenar: .sort() sobre el arreglo del estado lo mutaba.
+    const cajasTarimaExpandida = tarimaExpandida
+        ? [...(cajas[tarimaExpandida.id] || [])].sort((a, b) => Number(b.visual_id) - Number(a.visual_id))
+        : [];
 
-            {/* Muestra el CircularProgress mientras cargan los datos */}
-            <Box sx={{ mt: 4 }}>
-                <Box key={tarimas.id} sx={{ display: "flex", flexDirection: "row", gap: 2 }}>
-                    {/* DataGrid a la izquierda */}
-                    <Box
-                        sx={{
-                            width: "40%",
-                            height: 350,
-                            boxShadow: 4,
-                            borderRadius: 4,
-                            p: 2,
-                            border: "3px solid #1e88e5",
-                            fontFamily: "Montserrat",
-                            fontWeight: "bold",
-                            display: "flex",
-                            flexDirection: "column", // 🔑 Asegura que el botón y DataGrid se apilen
-                            overflowX: 'auto',
-                            overflowY: 'auto',
-                        }}
-                    >
-                        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                            <Button
-                                variant="contained"
-                                onClick={abrirTarima}
-                                disabled={tarimas.some(t => t.estatus === 'abierta') || estatusEnvio === 'finalizado' || loading}
-                                sx={{ mb: 1 }}
-                            >
-                                {loading ? "Abriendo..." : "Abrir Nueva Tarima"}
-                            </Button>
-                        </Box>
-                        <DataGrid
-                            rows={tarimas}
-                            rowHeight={55}
-                            columns={columns}
-                            loading={loadingTarimas}
-                            showCellVerticalBorder
-                            showColumnVerticalBorder
-                            getRowId={(row) => row.id}
-                            columnVisibilityModel={columnVisibilityModel}
-                            onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
-                            disableRowSelectionOnClick
-                        />
-                    </Box>
-                    {/* Tabla expandida a la derecha */}
-                    {tarimas.map((tarima) => (
-                        <Collapse
-                            key={tarima.id}
-                            in={expandedRowId === tarima.id}
-                            timeout="auto"
-                            unmountOnExit
-                            sx={{ width: "60%" }}
+    const piezasTarimaExpandida = cajasTarimaExpandida.reduce(
+        (s, c) => s + (Number(c.total_cantidad) || 0),
+        0
+    );
+
+    // Columnas de la tabla de cajas. Las 3 acciones (Registros, Reabrir,
+    // Escanear) llaman a los mismos handlers y con las mismas condiciones
+    // de habilitado que la tabla anterior.
+    const columnasCajas = [
+        { field: "visual_id", headerName: "# Caja", type: "number", flex: 0.4, minWidth: 80, headerAlign: "left", align: "left" },
+        { field: "nombre_usuario", headerName: "Creado Por", flex: 1, minWidth: 130 },
+        {
+            field: "fecha_recepcion",
+            headerName: "Fecha Creación",
+            flex: 0.9,
+            minWidth: 150,
+            valueFormatter: (value) => formatFecha(value),
+        },
+        { field: "total_cantidad", headerName: "Piezas", type: "number", flex: 0.5, minWidth: 80, headerAlign: "center", align: "center" },
+        {
+            field: "estatus",
+            headerName: "Estatus",
+            flex: 0.6,
+            minWidth: 100,
+            renderCell: (params) => <EstatusChip value={params.value} />,
+        },
+        {
+            field: "acciones",
+            headerName: "Acciones",
+            flex: 1.2,
+            minWidth: 240,
+            sortable: false,
+            filterable: false,
+            disableExport: true,
+            headerAlign: "center",
+            align: "center",
+            renderCell: ({ row: caja }) => (
+                <Box display="flex" flexDirection="row" justifyContent="center" gap={1.5} sx={{ width: '100%' }}>
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                        <IconButton
+                            color="primary"
+                            size="small"
+                            onClick={() => handleEntrarCajaCerrada(envioId, caja.id, caja.visual_id)}
+                            disabled={caja.estatus !== 'cerrada' || loading}
                         >
-                            <Paper sx={{
-                                borderRadius: 4,
-                                boxShadow: 4,
-                                border: "3px solid #1e88e5",
-                                backgroundColor: "#f9f9f9",
-                                p: 2,
-                                fontFamily: "Montserrat",
-                                fontWeight: "bold",
-                                maxHeight: 350,     // Altura visible antes del scroll
-                                overflowX: 'auto',  // Scroll horizontal
-                                overflowY: 'auto',  // Scroll vertical si hay muchas filas
-                            }}>
-                                {loadingCajas ? (
-                                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                        <CircularProgress />
-                                    </Box>
-                                ) : (
-                                    <>
-                                        <Box sx={{
-                                            display: "flex",
-                                            flexDirection: "row", // 🔑 Asegura que el botón y DataGrid se apilen
-                                            gap: 1, // Espacio entre botón y tabla
-                                        }}>
-                                            <Typography variant="h6" sx={{ mb: 1 }}>
-                                                Cajas de la tarima #{tarima.visual_id}
-                                            </Typography>
-                                            <Button
-                                                variant="contained"
-                                                onClick={() => abrirCaja(tarima.id, envioId)}
-                                                disabled={tarima.estatus === 'cerrada' || loading}
-                                                sx={{ mb: 1, ml: "auto" }}
-                                            >
-                                                {loading ? "Abriendo..." : "Abrir Nueva Caja"}
-                                            </Button>
-                                        </Box>
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}># Caja</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}># Caja</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Creado Por</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Fecha Creación</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Piezas</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>Estatus</TableCell>
-                                                    <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', textAlign: "center" }}>Acciones</TableCell>
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {(cajas[tarima.id] || [])
-                                                    .sort((a, b) => Number(b.visual_id) - Number(a.visual_id))
-                                                    .map((caja, index) => (
-                                                        <TableRow key={index}>
-                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)', display: 'none' }}>{caja.id}</TableCell>
-                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.visual_id}</TableCell>
-                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.nombre_usuario}</TableCell>
-                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{formatFecha(caja.fecha_recepcion)}</TableCell>
-                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.total_cantidad}</TableCell>
-                                                            <TableCell sx={{ borderRight: '1px solid rgba(224, 224, 224, 1)' }}>{caja.estatus}</TableCell>
-                                                            <TableCell>
-                                                                <Box display="flex" flexDirection="row" justifyContent="center" gap={2}>
-                                                                    <Box display="flex" flexDirection="column" alignItems="center">
-                                                                        <IconButton
-                                                                            color="primary"
-                                                                            onClick={() => handleEntrarCajaCerrada(envioId, caja.id, caja.visual_id)}
-                                                                            disabled={caja.estatus !== 'cerrada' || loading}
-                                                                        >
-                                                                            <ListAltIcon sx={{ fontSize: "2rem" }} />
-                                                                        </IconButton>
-                                                                        <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                                                            Registros
-                                                                        </Typography>
-                                                                    </Box>
-                                                                    <Box display="flex" flexDirection="column" alignItems="center">
-                                                                        <IconButton
-                                                                            onClick={() => revertirCaja(caja.id, tarima.id)}
-                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus !== 'cerrada' || loading}
-                                                                        >
-                                                                            <AutorenewIcon sx={{
-                                                                                color: tarima.estatus === 'cerrada' || loading
-                                                                                    ? 'gray'
-                                                                                    : (caja.estatus === 'cerrada' ? 'orange' : undefined),
-                                                                                fontSize: "2rem"
-                                                                            }}
-                                                                            />
-                                                                        </IconButton>
-                                                                        <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                                                            Reabrir
-                                                                        </Typography>
-                                                                    </Box>
-                                                                    <Box display="flex" flexDirection="column" alignItems="center">
-                                                                        <IconButton
-                                                                            onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
-                                                                            disabled={tarima.estatus === 'cerrada' || caja.estatus === 'cerrada' || loading}
-                                                                        >
-                                                                            <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' && !loading ? "rebeccapurple" : 'gray', fontSize: "2rem" }} />
-                                                                        </IconButton>
-                                                                        <Typography variant='caption' sx={{ fontSize: "0.8rem", fontWeight: "bold" }}>
-                                                                            Escanear
-                                                                        </Typography>
-                                                                    </Box>
-                                                                </Box>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                            </TableBody>
-                                        </Table>
-                                    </>
-                                )}
-                            </Paper>
-                        </Collapse>
-                    ))}
+                            <ListAltIcon sx={{ fontSize: "1.8rem" }} />
+                        </IconButton>
+                        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
+                            Registros
+                        </Typography>
+                    </Box>
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                        <IconButton
+                            size="small"
+                            onClick={() => revertirCaja(caja.id, tarimaExpandida.id)}
+                            disabled={tarimaExpandida.estatus === 'cerrada' || caja.estatus !== 'cerrada' || loading}
+                        >
+                            <AutorenewIcon sx={{
+                                color: tarimaExpandida.estatus === 'cerrada' || loading
+                                    ? 'gray'
+                                    : (caja.estatus === 'cerrada' ? 'orange' : undefined),
+                                fontSize: "1.8rem"
+                            }}
+                            />
+                        </IconButton>
+                        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
+                            Reabrir
+                        </Typography>
+                    </Box>
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                        <IconButton
+                            size="small"
+                            onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
+                            disabled={tarimaExpandida.estatus === 'cerrada' || caja.estatus === 'cerrada' || loading}
+                        >
+                            <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' && !loading ? "rebeccapurple" : 'gray', fontSize: "1.8rem" }} />
+                        </IconButton>
+                        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
+                            Escanear
+                        </Typography>
+                    </Box>
                 </Box>
-                <Box
-                    sx={{ display: "flex", flexDirection: "row" }}
-                >
+            ),
+        },
+    ];
+
+    const tarimasAbiertas = tarimas.filter((t) => t.estatus === 'abierta').length;
+    const estatusEnvioInfo = ESTATUS_ENVIO[estatusEnvio] || (estatusEnvio ? { label: estatusEnvio, color: "default" } : null);
+
+    return (
+        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* El panel de Columnas/Filtros del DataGrid se renderiza en un
+                Popper propio sin z-index alto. */}
+            <GlobalStyles
+                styles={(theme) => ({
+                    '.MuiDataGrid-panel': { zIndex: theme.zIndex.modal + 100 },
+                })}
+            />
+
+            {/* ---------- Encabezado ---------- */}
+            <Paper
+                elevation={2}
+                sx={{
+                    p: 1.5,
+                    borderRadius: 3,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}
+            >
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Typography
+                        variant="subtitle1"
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700, mr: 1 }}
+                    >
+                        <LocalShippingOutlinedIcon color="primary" /> Empaque del Envío
+                    </Typography>
+                    <Chip
+                        size="small"
+                        label={folioInternoEnvio || `ID: ${envioId}`}
+                        sx={{ fontWeight: 700, bgcolor: '#e3f2fd', color: 'primary.main' }}
+                    />
+                    {estatusEnvioInfo && (
+                        <Chip size="small" label={estatusEnvioInfo.label} color={estatusEnvioInfo.color} sx={{ fontWeight: 600 }} />
+                    )}
+                    {descripcionEnvio && (
+                        <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap title={descripcionEnvio}>
+                            {descripcionEnvio}
+                        </Typography>
+                    )}
+                </Stack>
+
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                    <Tooltip title="Vuelve a consultar tarimas, cajas y el avance del envío." arrow>
+                        <span>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<RefreshIcon />}
+                                onClick={handleActualizar}
+                                disabled={loading || loadingTarimas}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Actualizar
+                            </Button>
+                        </span>
+                    </Tooltip>
                     {puedeVerBotonCerrarEnvio && (
+                        <Tooltip title="Cierra el envío y las órdenes asignadas." arrow>
+                            <span>
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<TaskAltOutlinedIcon />}
+                                    onClick={() => cerrarEnvio(envioId)}
+                                    disabled={estatusEnvio === 'finalizado' || loading}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                                >
+                                    Cerrar Envío
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    )}
+                </Stack>
+            </Paper>
+
+            {/* ---------- Indicadores (compartidos con el dashboard) ---------- */}
+            <EnvioKpis
+                envioId={envioId}
+                folioInternoEnvio={folioInternoEnvio}
+                totalPiezas={totalPiezas}
+                totalPiezasEmpacadas={totalPiezasEmpacadas}
+                contenido={contenidoEnvio}
+            />
+
+            {/* ---------- Tarimas | Cajas ---------- */}
+            <Box
+                sx={{
+                    display: 'grid',
+                    gap: 2.5,
+                    gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 5fr) minmax(0, 7fr)' },
+                    alignItems: 'start',
+                }}
+            >
+                <SectionCard
+                    icon={LayersOutlinedIcon}
+                    title="Tarimas"
+                    subtitle={tarimasAbiertas > 0 ? `${tarimasAbiertas} tarima abierta` : 'Sin tarimas abiertas'}
+                    count={tarimas.length}
+                    actions={
                         <Button
                             variant="contained"
-                            onClick={() => cerrarEnvio(envioId)}
-                            disabled={estatusEnvio === 'finalizado' || loading}
-                            sx={{ mt: 2, ml: "auto" }}
+                            size="small"
+                            startIcon={<AddBoxOutlinedIcon />}
+                            onClick={abrirTarima}
+                            disabled={tarimas.some(t => t.estatus === 'abierta') || estatusEnvio === 'finalizado' || loading}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
                         >
-                            Cerrar Envio
+                            {loading ? "Abriendo..." : "Abrir Nueva Tarima"}
                         </Button>
+                    }
+                >
+                    <AppDataGrid
+                        rows={tarimas}
+                        columns={columns}
+                        getRowId={(row) => row.id}
+                        loading={loadingTarimas}
+                        height={GRID_HEIGHT}
+                        rowHeight={ROW_HEIGHT_ACCIONES}
+                        pageSize={GRID_PAGE_SIZE}
+                        pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
+                        exportFileName={`envio_${folioInternoEnvio || envioId}_tarimas`}
+                        initialColumnVisibilityModel={columnasOcultasTarimas}
+                        localeText={localeSinRegistros('Este envío aún no tiene tarimas.')}
+                        getRowClassName={(params) => (params.id === expandedRowId ? 'fila-expandida' : '')}
+                        sx={{
+                            '& .fila-expandida': { backgroundColor: '#e3f2fd' },
+                            '& .fila-expandida:hover': { backgroundColor: '#d6ebfb' },
+                        }}
+                    />
+                </SectionCard>
+
+                <SectionCard
+                    icon={ViewInArOutlinedIcon}
+                    title={tarimaExpandida ? `Cajas de la tarima #${tarimaExpandida.visual_id}` : 'Cajas'}
+                    subtitle={
+                        tarimaExpandida
+                            ? (loadingCajas ? 'Cargando cajas…' : `${piezasTarimaExpandida} pieza(s) en la tarima`)
+                            : 'Selecciona "Cajas" en una tarima para ver su contenido.'
+                    }
+                    count={tarimaExpandida && !loadingCajas ? cajasTarimaExpandida.length : null}
+                    actions={
+                        tarimaExpandida && (
+                            <>
+                                <EstatusChip value={tarimaExpandida.estatus} />
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<AddBoxOutlinedIcon />}
+                                    onClick={() => abrirCaja(tarimaExpandida.id, envioId)}
+                                    disabled={tarimaExpandida.estatus === 'cerrada' || loading}
+                                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                                >
+                                    {loading ? "Abriendo..." : "Abrir Nueva Caja"}
+                                </Button>
+                            </>
+                        )
+                    }
+                >
+                    {!tarimaExpandida ? (
+                        <Box
+                            sx={{
+                                height: GRID_HEIGHT,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 1,
+                                color: 'text.secondary',
+                                px: 2,
+                                textAlign: 'center',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: 2,
+                            }}
+                        >
+                            <ViewInArOutlinedIcon sx={{ fontSize: 40, color: '#bdbdbd' }} />
+                            <Typography variant="body2">
+                                Ninguna tarima seleccionada.
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <AppDataGrid
+                            rows={cajasTarimaExpandida}
+                            columns={columnasCajas}
+                            getRowId={(row) => row.id}
+                            loading={loadingCajas}
+                            height={GRID_HEIGHT}
+                            rowHeight={ROW_HEIGHT_ACCIONES}
+                            pageSize={GRID_PAGE_SIZE}
+                            pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
+                            exportFileName={`envio_${folioInternoEnvio || envioId}_tarima_${tarimaExpandida.visual_id}_cajas`}
+                            localeText={localeSinRegistros('Esta tarima aún no tiene cajas.')}
+                        />
                     )}
-                </Box>
+                </SectionCard>
             </Box>
         </Box>
     )

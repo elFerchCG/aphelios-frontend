@@ -59,6 +59,7 @@ import CargaFacturas from "../components/pages/Facturas/CargaFacturas";
 import Facturas from "../components/pages/Facturas/Facturas";
 import DetalleFactura from "../components/pages/Facturas/DetalleFactura";
 import VistaPedidos from "../components/pages/Pedidos/Pedidos";
+import RecepcionPedidos from "../components/pages/RecepcionPedidos/RecepcionPedidos";
 
 // ==============================
 // MRP
@@ -94,6 +95,11 @@ import ProductosAphelios from "../components/pages/ProductosAphelios/ProductosAp
 // Cuentas Ecommerce
 // ==============================
 import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
+
+// [MULTICUENTA-ML]
+import StockCompartido from "../components/multicuentaML/StockCompartido";
+import ColectaSubcuenta from "../components/multicuentaML/ColectaSubcuenta";
+// [/MULTICUENTA-ML]
 
 // ==============================
 // SOPORTE
@@ -276,6 +282,17 @@ const Rutas = () => {
           element={
             <ProtectedRoute>
               <Existencias />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Recepción de pedidos: administrador, Planeador y Almacenista.
+            Lo que cada uno puede modificar lo valida el backend. */}
+        <Route
+          path="/recepcion-pedidos"
+          element={
+            <ProtectedRoute allowedRoles={["administrador", "Planeador", "Almacenista"]}>
+              <RecepcionPedidos />
             </ProtectedRoute>
           }
         />
@@ -695,6 +712,27 @@ const Rutas = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* [MULTICUENTA-ML] Stock compartido (administrador) y colecta de
+            subcuentas (administrador + Planeador + Almacenista) */}
+        <Route
+          path="/stock-compartido"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <StockCompartido />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/colecta-subcuenta"
+          element={
+            <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
+              <ColectaSubcuenta />
+            </ProtectedRoute>
+          }
+        />
+        {/* [/MULTICUENTA-ML] */}
 
         {/* =====================================================
             OTRAS RUTAS ANTIGUAS

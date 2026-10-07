@@ -16,6 +16,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
+import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 
 import { useNavigate } from "react-router-dom";
 
@@ -30,7 +31,8 @@ export default function ProformaAccordion({
     onVerFactura,
     onVerConsolidado,
     onHabilitarProforma,
-    onFinalizarProforma
+    onFinalizarProforma,
+    onRevisarMrp
 
 }) {
 
@@ -218,7 +220,8 @@ export default function ProformaAccordion({
                     >
                         <Stack
                             direction="row"
-                            spacing={1}
+                            flexWrap="wrap"
+                            gap={1}
                             justifyContent="flex-end"
                         >
                             {/* Botón dinámico Habilitar / Finalizar (sin reversión desde el frontend una vez finalizada) */}
@@ -258,6 +261,21 @@ export default function ProformaAccordion({
                                 Surtir
                             </Button>
 
+                            {/* Revisión de cantidades a enviar contra el MRP actual */}
+                            {onRevisarMrp && (
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<InsightsOutlinedIcon />}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRevisarMrp(grupo);
+                                    }}
+                                >
+                                    Revisar MRP
+                                </Button>
+                            )}
+
                             {/* Botón Consolidado */}
                             <Button
                                 variant="outlined"
@@ -288,4 +306,4 @@ export default function ProformaAccordion({
 
     );
 
-}
+}
