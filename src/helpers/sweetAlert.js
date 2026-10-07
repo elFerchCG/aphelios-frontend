@@ -4,11 +4,7 @@ const customClass = {
   container: "mi-swal",
 };
 
-export const swalSuccess = (
-  title,
-  text,
-  timer = 1800
-) => {
+export const swalSuccess = (title, text, timer = 1800) => {
   return Swal.fire({
     icon: "success",
     title,
@@ -19,10 +15,7 @@ export const swalSuccess = (
   });
 };
 
-export const swalError = (
-  title,
-  text
-) => {
+export const swalError = (title, text) => {
   return Swal.fire({
     icon: "error",
     title,
@@ -31,10 +24,7 @@ export const swalError = (
   });
 };
 
-export const swalWarning = (
-  title,
-  text
-) => {
+export const swalWarning = (title, text) => {
   return Swal.fire({
     icon: "warning",
     title,
@@ -43,14 +33,54 @@ export const swalWarning = (
   });
 };
 
-export const swalInfo = (
-  title,
-  text
-) => {
+export const swalInfo = (title, text) => {
   return Swal.fire({
     icon: "info",
     title,
     text,
     customClass,
+  });
+};
+
+export const swalTextarea = ({
+  title,
+  text,
+  placeholder = "",
+  confirmButtonText = "Confirmar",
+  cancelButtonText = "Cancelar",
+  maxLength = 1000,
+  requiredMessage = "Este campo es obligatorio.",
+}) => {
+  return Swal.fire({
+    icon: "warning",
+    title,
+    text,
+    input: "textarea",
+    inputPlaceholder: placeholder,
+
+    inputAttributes: {
+      maxlength: String(maxLength),
+    },
+
+    showCancelButton: true,
+    confirmButtonText,
+    cancelButtonText,
+    reverseButtons: true,
+
+    customClass,
+
+    inputValidator: (value) => {
+      const valor = value?.trim();
+
+      if (!valor) {
+        return requiredMessage;
+      }
+
+      if (valor.length > maxLength) {
+        return `El texto no puede superar los ${maxLength} caracteres.`;
+      }
+
+      return undefined;
+    },
   });
 };

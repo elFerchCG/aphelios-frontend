@@ -11,6 +11,14 @@ import {
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import AddLinkOutlinedIcon from "@mui/icons-material/AddLinkOutlined";
 import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
+import SyncOutlinedIcon from "@mui/icons-material/SyncOutlined";
+
+// =====================================================
+// MODALES
+// =====================================================
+
+import ConectarMercadoLibreModal from "./ConectarMercadoLibreModal";
+import SincronizacionMercadoLibreModal from "./components/SincronizacionMercadoLibreModal";
 
 // =====================================================
 // COMPONENTES COMUNES APHELIOS
@@ -22,23 +30,60 @@ import AppDataGrid from "../common/AppDataGrid";
 
 import { toolbarButtonSx } from "../common/formStyles";
 
-import ConectarMercadoLibreModal from "./ConectarMercadoLibreModal";
+// =====================================================
+// API
+// =====================================================
 
 const apiUrl =
   process.env.NODE_ENV === "production"
     ? process.env.REACT_APP_API_URL
     : process.env.REACT_APP_API_URL_LOCAL;
 
+// =====================================================
+// COMPONENTE
+// =====================================================
+
 const CuentasEcommerce = () => {
+  // ===================================================
+  // ESTADOS
+  // ===================================================
+
   const [cuentas, setCuentas] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [openMercadoLibre, setOpenMercadoLibre] =
     useState(false);
 
-  // =====================================================
+  // ---------------------------------------------------
+  // SINCRONIZACIÓN MERCADO LIBRE
+  // ---------------------------------------------------
+
+  const [sincronizando, setSincronizando] =
+    useState(false);
+
+  const [
+    openSincronizacion,
+    setOpenSincronizacion,
+  ] = useState(false);
+
+  const [
+    resultadoSincronizacion,
+    setResultadoSincronizacion,
+  ] = useState(null);
+
+  const [
+    errorSincronizacion,
+    setErrorSincronizacion,
+  ] = useState(null);
+
+  const [
+    tiempoTranscurrido,
+    setTiempoTranscurrido,
+  ] = useState(0);
+
+  // ===================================================
   // OBTENER CUENTAS
-  // =====================================================
+  // ===================================================
 
   const obtenerCuentas = async () => {
     try {
@@ -63,13 +108,43 @@ const CuentasEcommerce = () => {
     }
   };
 
+  // ===================================================
+  // CARGA INICIAL
+  // ===================================================
+
   useEffect(() => {
     obtenerCuentas();
   }, []);
 
-  // =====================================================
+  // ===================================================
+  // CRONÓMETRO DE SINCRONIZACIÓN
+  // ===================================================
+
+  useEffect(() => {
+    if (!sincronizando) {
+      return;
+    }
+
+    const inicio = Date.now();
+
+    setTiempoTranscurrido(0);
+
+    const interval = setInterval(() => {
+      const segundos = Math.floor(
+        (Date.now() - inicio) / 1000
+      );
+
+      setTiempoTranscurrido(segundos);
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [sincronizando]);
+
+  // ===================================================
   // AUTORIZAR / REAUTORIZAR MERCADO LIBRE
-  // =====================================================
+  // ===================================================
 
   const autorizarMercadoLibre = (row) => {
     const cuentaMlId =
@@ -83,22 +158,71 @@ const CuentasEcommerce = () => {
       return;
     }
 
-    // ---------------------------------------------------
-    // Navegamos directamente al backend.
-    //
-    // El backend:
-    // 1. obtiene la configuración de la cuenta
-    // 2. genera el state
-    // 3. redirige a Mercado Libre
-    // ---------------------------------------------------
-
     window.location.href =
       `${apiUrl}/mercadoLibre/oauth/autorizar/${cuentaMlId}`;
   };
 
-  // =====================================================
+  // ===================================================
+  // SINCRONIZAR PRODUCTOS MERCADO LIBRE
+  // ===================================================
+
+  const sincronizarProductosMercadoLibre =
+    async () => {
+      if (sincronizando) {
+        return;
+      }
+
+      try {
+        // Limpiamos resultado anterior
+        setResultadoSincronizacion(null);
+        setErrorSincronizacion(null);
+        setTiempoTranscurrido(0);
+
+        // Abrimos modal
+        setOpenSincronizacion(true);
+
+        // Iniciamos loader
+        setSincronizando(true);
+
+        const response =
+          await axios.post(
+            `${apiUrl}/mercadoLibreSync/sincronizarTodo`,
+            {
+              concurrenciaDescubrimiento: 5,
+            }
+          );
+
+        console.log(
+          "Resultado sincronización Mercado Libre:",
+          response.data
+        );
+
+        setResultadoSincronizacion(
+          response.data
+        );
+
+        // Refrescamos cuentas
+        await obtenerCuentas();
+      } catch (error) {
+        console.error(
+          "Error sincronizando Mercado Libre:",
+          error
+        );
+
+        setErrorSincronizacion(
+          error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "Ocurrió un error durante la sincronización."
+        );
+      } finally {
+        setSincronizando(false);
+      }
+    };
+
+  // ===================================================
   // COLUMNAS
-  // =====================================================
+  // ===================================================
 
   const columns = [
     {
@@ -160,9 +284,9 @@ const CuentasEcommerce = () => {
       },
     },
 
-    // ===================================================
+    // =================================================
     // OAUTH
-    // ===================================================
+    // =================================================
 
     {
       field: "oauth",
@@ -177,8 +301,6 @@ const CuentasEcommerce = () => {
       renderCell: (params) => {
         const row = params.row;
 
-        // Por ahora esta acción únicamente aplica
-        // para cuentas de Mercado Libre.
         const esMercadoLibre =
           row?.canal_codigo ===
             "mercado_libre" ||
@@ -208,18 +330,20 @@ const CuentasEcommerce = () => {
     },
   ];
 
-  // =====================================================
+  // ===================================================
   // RENDER
-  // =====================================================
+  // ===================================================
 
   return (
     <>
       {/* =================================================
-          HEADER ESTÁNDAR
+          HEADER
       ================================================= */}
 
       <PageHeader
-        icon={StorefrontOutlinedIcon}
+        icon={
+          StorefrontOutlinedIcon
+        }
         title="Cuentas Ecommerce"
         subtitle="Administra las cuentas conectadas a los diferentes canales de venta."
       />
@@ -233,21 +357,55 @@ const CuentasEcommerce = () => {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "16px",
+            gap: "12px",
             flexWrap: "wrap",
+            justifyContent:
+              "flex-end",
           }}
         >
+          {/* =============================================
+              SINCRONIZAR
+          ============================================= */}
+
+          <Button
+            variant="outlined"
+            startIcon={
+              <SyncOutlinedIcon />
+            }
+            sx={
+              toolbarButtonSx
+            }
+            disabled={
+              sincronizando
+            }
+            onClick={
+              sincronizarProductosMercadoLibre
+            }
+          >
+            {sincronizando
+              ? "Sincronizando..."
+              : "Sincronizar productos"}
+          </Button>
+
+          {/* =============================================
+              CONECTAR CUENTA
+          ============================================= */}
+
           <Button
             variant="contained"
             startIcon={
               <AddLinkOutlinedIcon />
             }
-            sx={{
-              ...toolbarButtonSx,
-              ml: "auto",
-            }}
+            sx={
+              toolbarButtonSx
+            }
+            disabled={
+              sincronizando
+            }
             onClick={() =>
-              setOpenMercadoLibre(true)
+              setOpenMercadoLibre(
+                true
+              )
             }
           >
             Conectar Mercado Libre
@@ -256,7 +414,7 @@ const CuentasEcommerce = () => {
       </PageToolbarCard>
 
       {/* =================================================
-          TABLA ESTÁNDAR
+          TABLA
       ================================================= */}
 
       <div
@@ -269,18 +427,65 @@ const CuentasEcommerce = () => {
           rows={cuentas}
           columns={columns}
           loading={loading}
-          getRowId={(row) => row.id}
+          getRowId={(row) =>
+            row.id
+          }
           exportFileName="cuentas-ecommerce"
         />
-
-        <ConectarMercadoLibreModal
-          open={openMercadoLibre}
-          onClose={() =>
-            setOpenMercadoLibre(false)
-          }
-          onSuccess={obtenerCuentas}
-        />
       </div>
+
+      {/* =================================================
+          MODAL CONECTAR MERCADO LIBRE
+      ================================================= */}
+
+      <ConectarMercadoLibreModal
+        open={
+          openMercadoLibre
+        }
+        onClose={() =>
+          setOpenMercadoLibre(
+            false
+          )
+        }
+        onSuccess={
+          obtenerCuentas
+        }
+      />
+
+      {/* =================================================
+          MODAL SINCRONIZACIÓN
+      ================================================= */}
+
+      <SincronizacionMercadoLibreModal
+        open={
+          openSincronizacion
+        }
+        sincronizando={
+          sincronizando
+        }
+        resultado={
+          resultadoSincronizacion
+        }
+        error={
+          errorSincronizacion
+        }
+        tiempoTranscurrido={
+          tiempoTranscurrido
+        }
+        onClose={() => {
+          setOpenSincronizacion(
+            false
+          );
+
+          setResultadoSincronizacion(
+            null
+          );
+
+          setErrorSincronizacion(
+            null
+          );
+        }}
+      />
     </>
   );
 };

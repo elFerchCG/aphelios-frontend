@@ -45,6 +45,10 @@ import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 
 import NotificationsActiveOutlinedIcon from "@mui/icons-material/NotificationsActiveOutlined";
 
+import SupportAgentOutlinedIcon from "@mui/icons-material/SupportAgentOutlined";
+import ConfirmationNumberOutlinedIcon from "@mui/icons-material/ConfirmationNumberOutlined";
+import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
+
 export const navigationConfig = [
   {
     label: "Inicio",
@@ -55,19 +59,19 @@ export const navigationConfig = [
     label: "Productos de aphelios",
     icon: Inventory2OutlinedIcon,
     path: "/productosAphelios",
-    roles: ["administrador"],
+    roles: ["administrador", "Desarrollador"],
   },
   {
     label: "Plan de Trabajo",
     icon: TaskAltOutlinedIcon,
     path: "/planTrabajo",
-    roles: ["administrador"],
+    roles: ["administrador", "Desarrollador"],
   },
   {
     label: "Envíos",
     icon: LocalShippingOutlinedIcon,
     path: "/envios",
-    excludeRoles: ["Marketing", "Coordinador Comercial", "Lider Marketing"],
+    excludeRoles: ["Marketing", "Coordinador Comercial", "Lider Marketing", "Desarrollador"],
   },
   {
     label: "Publicaciones",
@@ -77,13 +81,13 @@ export const navigationConfig = [
         label: "Componentes",
         icon: CategoryOutlinedIcon,
         path: "/componentes",
-        roles: ["administrador", "Planeador", "Marketing"],
+        roles: ["administrador", "Planeador", "Marketing", "Desarrollador"],
       },
       {
         label: "Billetes",
         icon: AccountTreeOutlinedIcon,
         path: "/billetes",
-        roles: ["administrador", "Planeador", "Marketing"],
+        roles: ["administrador", "Planeador", "Marketing", "Desarrollador"],
       },
       {
         label: "Publicaciones",
@@ -105,7 +109,7 @@ export const navigationConfig = [
         label: "Conteo Cíclico",
         icon: ChecklistOutlinedIcon,
         path: "/conteociclico",
-        roles: ["administrador", "Almacenista"],
+        roles: ["administrador", "Almacenista", "Desarrollador"],
       },
       {
         label: "Transacciones",
@@ -121,39 +125,39 @@ export const navigationConfig = [
         label: "Excedentes",
         icon: MoveToInboxOutlinedIcon,
         path: "/nuevos-excedentes",
-        roles: ["administrador", "Planeador", "Almacenista"],
+        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
       {
         label: "Stock Componentes",
         icon: CategoryOutlinedIcon,
         path: "/stock-componentes",
-        roles: ["administrador", "Planeador", "Almacenista"],
+        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
     ],
   },
   {
     label: "MRP",
     icon: PrecisionManufacturingOutlinedIcon,
-    roles: ["administrador", "Planeador"],
+    roles: ["administrador", "Planeador", "Desarrollador"],
     children: [
       {
         label: "MRP manual",
         icon: PrecisionManufacturingOutlinedIcon,
         path: "/mrp",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Desarrollador"],
       },
       {
         label: "Procesos",
         icon: SettingsSuggestOutlinedIcon,
         path: "/procesos",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Desarrollador"],
       },
     ],
   },
   {
     label: "Compras",
     icon: ShoppingCartOutlinedIcon,
-    roles: ["administrador"],
+    roles: ["administrador", "Desarrollador"],
     children: [
       {
         label: "Pedidos",
@@ -181,6 +185,7 @@ export const navigationConfig = [
       "Coordinador comercial",
       "Lider Marketing",
       "Planeador",
+      "Desarrollador",
     ],
     children: [
       {
@@ -193,6 +198,7 @@ export const navigationConfig = [
           "Marketing",
           "Coordinador comercial",
           "Lider Marketing",
+          "Desarrollador",
         ],
       },
       {
@@ -205,6 +211,7 @@ export const navigationConfig = [
           "Marketing",
           "Coordinador comercial",
           "Lider Marketing",
+          "Desarrollador"
         ],
       },
 
@@ -234,7 +241,7 @@ export const navigationConfig = [
         label: "Performance Comercial",
         icon: QueryStatsOutlinedIcon,
         path: "/performanceComercial",
-        roles: ["administrador", "Lider Marketing", "Coordinador comercial"],
+        roles: ["administrador", "Lider Marketing", "Coordinador comercial", "Desarrollador"],
       },
       {
         label: "Bitácora de Publicaciones",
@@ -246,7 +253,7 @@ export const navigationConfig = [
   {
     label: "Gráficas",
     icon: InsertChartOutlinedIcon,
-    roles: ["administrador"],
+    roles: ["administrador", "Desarrollador"],
     children: [
       {
         label: "Ventas",
@@ -266,51 +273,74 @@ export const navigationConfig = [
     ],
   },
   {
+    label: "Soporte",
+    icon: SupportAgentOutlinedIcon,
+    children: [
+      {
+        label: "Mis Tickets",
+        icon: ConfirmationNumberOutlinedIcon,
+        path: "/soporte",
+      },
+      {
+        label: "Bandeja de Soporte",
+        icon: SupportAgentOutlinedIcon,
+        path: "/soporte/bandeja",
+        roles: ["Desarrollador"],
+      },
+      {
+        label: "Métricas",
+        icon: AnalyticsOutlinedIcon,
+        path: "/soporte/metricas",
+        roles: ["administrador", "Desarrollador"],
+      },
+    ],
+  },
+  {
     label: "Configuración",
     icon: SettingsOutlinedIcon,
-    roles: ["administrador", "Planeador", "Almacenista"],
+    roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
     children: [
       {
         label: "Avisos",
         icon: NotificationsActiveOutlinedIcon,
         path: "/avisos",
-        roles: ["administrador"],
+        roles: ["administrador", "Desarrollador"],
       },
       {
         label: "Cuentas Ecommerce",
         icon: StorefrontOutlinedIcon,
         path: "/cuentasEcommerce",
-        roles: ["administrador"],
+        roles: ["administrador", "Desarrollador"],
       },
       {
         label: "Tipos de Movimientos",
         icon: SyncAltOutlinedIcon,
         path: "/transacciones",
-        roles: ["administrador", "Planeador", "Almacenista"],
+        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
       {
         label: "Usuarios",
         icon: GroupsOutlinedIcon,
         path: "/usuarios",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Desarrollador"],
       },
       {
         label: "Proveedores",
         icon: LocalShippingIcon,
         path: "/proveedores",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Desarrollador"],
       },
       {
         label: "Bodegas",
         icon: WarehouseOutlinedIcon,
         path: "/bodegas",
-        roles: ["administrador", "Planeador", "Almacenista"],
+        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
       {
         label: "Órdenes retiro",
         icon: ExitToAppOutlinedIcon,
         path: "/ordenes-retiro",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Desarrollador"],
       },
     ],
   },

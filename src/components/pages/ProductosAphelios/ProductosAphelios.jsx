@@ -1,189 +1,128 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  Box,
-  Chip,
-  FormControl,
-  InputAdornment,
-  MenuItem,
-  Select,
-  TextField,
-  Tooltip,
-  IconButton,
-} from "@mui/material";
+import React, { useState } from "react";
 
-import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
+import { Box, Chip, IconButton, Tooltip } from "@mui/material";
+
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
-import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
-import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
-
-import axios from "axios";
-
-// =====================================================
-// COMPONENTES COMUNES APHELIOS
-// Ajusta la ruta según dónde esté este módulo
-// =====================================================
 
 import PageHeader from "../../common/PageHeader";
-import PageToolbarCard from "../../common/PageToolbarCard";
 import AppDataGrid from "../../common/AppDataGrid";
+
 import ProductoApheliosDetalleModal from "./components/ProductoApheliosDetalleModal";
 import SeleccionarPublicacionModal from "./components/SeleccionarPublicacionModal";
-import { toolbarFieldSx, fieldWidths } from "../../common/formStyles";
 
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? process.env.REACT_APP_API_URL
-    : process.env.REACT_APP_API_URL_LOCAL;
+import ProductosApheliosToolbar from "./components/ProductosApheliosToolbar";
+import ProductoCell from "./components/ProductoCell";
+import ProductoMetricCell from "./components/ProductoMetricCell";
+import ProductoCuentasCell from "./components/ProductoCuentasCell";
+
+import useProductosAphelios from "./hooks/useProductosAphelios";
+
+import { getItemsMercadoLibre } from "./utils/productosApheliosHelpers";
 
 const ProductosAphelios = () => {
   // =====================================================
-  // ESTADOS
+  // PRODUCTOS / FILTROS / PAGINACIÓN
   // =====================================================
 
-  const [productos, setProductos] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    productos,
+    loading,
+    total,
 
-  const [total, setTotal] = useState(0);
+    paginationModel,
+    setPaginationModel,
 
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 25,
-  });
+    busqueda,
+    setBusqueda,
 
-  const [busqueda, setBusqueda] = useState("");
-  const [busquedaAplicada, setBusquedaAplicada] = useState("");
+    estado,
+    handleEstadoChange,
+  } = useProductosAphelios();
 
-  const [estado, setEstado] = useState("todos");
+  // =====================================================
+  // DETALLE
+  // =====================================================
+
   const [productoSeleccionadoId, setProductoSeleccionadoId] = useState(null);
 
   const [openDetalle, setOpenDetalle] = useState(false);
+
+  // =====================================================
+  // PUBLICACIONES
+  // =====================================================
 
   const [productoPublicaciones, setProductoPublicaciones] = useState(null);
 
   const [openPublicaciones, setOpenPublicaciones] = useState(false);
 
   // =====================================================
-  // OBTENER PRODUCTOS
+  // CLICK IMAGEN
   // =====================================================
 
-  const obtenerProductos = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const token = localStorage.getItem("token");
-
-      const response = await axios.get(`${API_URL}/productosAphelios`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        params: {
-          pagina: paginationModel.page + 1,
-          limite: paginationModel.pageSize,
-          busqueda: busquedaAplicada,
-          estado,
-        },
-      });
-
-      setProductos(response.data.productos || []);
-      setTotal(response.data.paginacion?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener Productos Aphelios:", error);
-
-      setProductos([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    paginationModel.page,
-    paginationModel.pageSize,
-    busquedaAplicada,
-    estado,
-  ]);
-
   const handleClickImagen = (producto) => {
-    const items = producto?.mercado_libre?.items || [];
+    const relaciones = Array.isArray(producto?.mercado_libre)
+      ? producto.mercado_libre
+      : [];
 
-    const itemsConLink = items.filter((item) => item.permalink);
+    const publicaciones = relaciones.flatMap((relacion) =>
+      Array.isArray(relacion?.items)
+        ? relacion.items.filter((item) => item?.permalink)
+        : [],
+    );
 
-    // Sin publicaciones navegables
-    if (itemsConLink.length === 0) {
+    // =====================================================
+    // SIN PUBLICACIONES
+    // =====================================================
+
+    if (publicaciones.length === 0) {
       return;
     }
 
-    // Una sola publicación:
-    // abrir directamente Mercado Libre
-    if (itemsConLink.length === 1) {
-      window.open(itemsConLink[0].permalink, "_blank", "noopener,noreferrer");
+    // =====================================================
+    // UNA SOLA PUBLICACIÓN
+    // =====================================================
+
+    if (publicaciones.length === 1) {
+      window.open(publicaciones[0].permalink, "_blank", "noopener,noreferrer");
 
       return;
     }
 
-    // Varias publicaciones:
-    // mostrar selector
-    setProductoPublicaciones({
-      ...producto,
-      mercado_libre: {
-        ...producto.mercado_libre,
-        items: itemsConLink,
-      },
-    });
+    // =====================================================
+    // VARIAS PUBLICACIONES
+    // Mandamos el producto ORIGINAL.
+    // No alteramos mercado_libre.
+    // =====================================================
 
+    setProductoPublicaciones(producto);
     setOpenPublicaciones(true);
   };
 
   // =====================================================
-  // DEBOUNCE BÚSQUEDA
-  // =====================================================
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setPaginationModel((prev) => ({
-        ...prev,
-        page: 0,
-      }));
-
-      setBusquedaAplicada(busqueda.trim());
-    }, 500);
-
-    return () => clearTimeout(timeout);
-  }, [busqueda]);
-
-  // =====================================================
-  // CARGAR PRODUCTOS
-  // =====================================================
-
-  useEffect(() => {
-    obtenerProductos();
-  }, [obtenerProductos]);
-
-  // =====================================================
-  // CAMBIO DE ESTADO
-  // =====================================================
-
-  const handleEstadoChange = (event) => {
-    setEstado(event.target.value);
-
-    setPaginationModel((prev) => ({
-      ...prev,
-      page: 0,
-    }));
-  };
-
-  // =====================================================
-  // VER PRODUCTO
+  // VER DETALLE
   // =====================================================
 
   const handleVerProducto = (producto) => {
     setProductoSeleccionadoId(producto.id);
+
     setOpenDetalle(true);
   };
 
   const handleCerrarDetalle = () => {
     setOpenDetalle(false);
+
     setProductoSeleccionadoId(null);
+  };
+
+  // =====================================================
+  // CERRAR PUBLICACIONES
+  // =====================================================
+
+  const handleCerrarPublicaciones = () => {
+    setOpenPublicaciones(false);
+
+    setProductoPublicaciones(null);
   };
 
   // =====================================================
@@ -191,101 +130,37 @@ const ProductosAphelios = () => {
   // =====================================================
 
   const columns = [
+    // ===================================================
+    // PRODUCTO
+    // Imagen + SKU + nombre
+    // ===================================================
+
     {
-      field: "imagen",
-      headerName: "Imagen",
-      width: 90,
+      field: "producto",
+      headerName: "Producto",
+
+      minWidth: 480,
+      flex: 1,
+
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
 
-      renderCell: (params) => {
-        const producto = params.row;
-        const ml = producto?.mercado_libre;
-
-        const imagen = ml?.thumbnail_url;
-
-        const itemsConLink = ml?.items?.filter((item) => item.permalink) || [];
-
-        let tooltip = "Sin publicaciones";
-
-        if (itemsConLink.length === 1) {
-          tooltip = "Ver en Mercado Libre";
-        }
-
-        if (itemsConLink.length > 1) {
-          tooltip = `Elegir entre ${itemsConLink.length} publicaciones`;
-        }
-
-        if (!imagen) {
-          return (
-            <Tooltip title="Sin imagen">
-              <Box
-                sx={{
-                  width: 52,
-                  height: 52,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "text.disabled",
-                }}
-              >
-                <ImageOutlinedIcon fontSize="small" />
-              </Box>
-            </Tooltip>
-          );
-        }
-
-        return (
-          <Tooltip title={tooltip} arrow>
-            <Box
-              component="img"
-              src={imagen}
-              alt={producto.nombre || producto.sku}
-              onClick={() => handleClickImagen(producto)}
-              sx={{
-                width: 52,
-                height: 52,
-                objectFit: "contain",
-
-                borderRadius: 1,
-                border: "1px solid",
-                borderColor: "divider",
-
-                cursor: itemsConLink.length > 0 ? "pointer" : "default",
-
-                transition: "transform 0.15s ease, box-shadow 0.15s ease",
-
-                "&:hover": {
-                  transform: itemsConLink.length > 0 ? "scale(1.06)" : "none",
-
-                  boxShadow: itemsConLink.length > 0 ? 2 : "none",
-                },
-              }}
-            />
-          </Tooltip>
-        );
-      },
+      renderCell: (params) => (
+        <ProductoCell producto={params.row} onClickImagen={handleClickImagen} />
+      ),
     },
-    {
-      field: "sku",
-      headerName: "SKU",
-      minWidth: 160,
-      flex: 0.8,
-    },
-    {
-      field: "nombre",
-      headerName: "Producto",
-      minWidth: 300,
-      flex: 2,
-    },
+
+    // ===================================================
+    // COSTO
+    // ===================================================
+
     {
       field: "costo",
       headerName: "Costo",
+
       width: 120,
+
       align: "right",
       headerAlign: "right",
 
@@ -298,91 +173,103 @@ const ProductosAphelios = () => {
         })}`;
       },
     },
+
+    // ===================================================
+    // STOCK ML
+    // ===================================================
+
     {
-      field: "stock",
+      field: "stock_ml_total",
       headerName: "Stock ML",
+
       width: 120,
+
       align: "center",
       headerAlign: "center",
+
       sortable: false,
 
-      valueGetter: (value, row) => row?.mercado_libre?.stock ?? 0,
+      valueGetter: (value, row) => Number(row?.stock_ml_total || 0),
 
       renderCell: (params) => (
-        <Chip
-          size="small"
-          icon={<Inventory2OutlinedIcon />}
-          label={params.value ?? 0}
-          variant="outlined"
-        />
+        <ProductoMetricCell type="stock" value={params.value} />
       ),
     },
+
+    // ===================================================
+    // RELACIONES ML
+    // ===================================================
+
     {
-      field: "user_product_id",
-      headerName: "User Product",
-      width: 175,
+      field: "cantidad_relaciones_ml",
+
+      headerName: "Relaciones ML",
+
+      width: 140,
+
+      align: "center",
+      headerAlign: "center",
+
       sortable: false,
 
-      valueGetter: (value, row) => row?.mercado_libre?.user_product_id || "",
+      valueGetter: (value, row) => Number(row?.cantidad_relaciones_ml || 0),
+
+      renderCell: (params) => (
+        <ProductoMetricCell type="relations" value={params.value} />
+      ),
     },
+
+    // ===================================================
+    // ITEMS
+    // ===================================================
+
     {
-      field: "cantidad_items",
+      field: "items_ml_total",
       headerName: "Items",
+
       width: 100,
+
       align: "center",
       headerAlign: "center",
+
       sortable: false,
 
-      valueGetter: (value, row) => row?.mercado_libre?.cantidad_items ?? 0,
+      valueGetter: (value, row) => Number(row?.items_ml_total || 0),
 
       renderCell: (params) => (
-        <Chip
-          size="small"
-          icon={<StorefrontOutlinedIcon />}
-          label={params.value ?? 0}
-          variant="outlined"
-        />
+        <ProductoMetricCell type="items" value={params.value} />
       ),
     },
+
+    // ===================================================
+    // CUENTAS
+    // ===================================================
+
     {
-      field: "canales",
-      headerName: "Canales",
-      minWidth: 180,
-      flex: 0.7,
+      field: "cuentas_ml",
+      headerName: "Cuentas",
+
+      width: 220,
+
       sortable: false,
       filterable: false,
-      renderCell: (params) => {
-        const tieneMercadoLibre = Boolean(
-          params.row?.mercado_libre?.user_product_id,
-        );
 
-        return (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.7,
-              flexWrap: "wrap",
-            }}
-          >
-            {tieneMercadoLibre && (
-              <Chip
-                icon={<StorefrontOutlinedIcon />}
-                label="Mercado Libre"
-                size="small"
-                variant="outlined"
-              />
-            )}
-          </Box>
-        );
-      },
+      renderCell: (params) => <ProductoCuentasCell producto={params.row} />,
     },
+
+    // ===================================================
+    // ESTADO
+    // ===================================================
+
     {
       field: "estado",
       headerName: "Estado",
+
       width: 120,
+
       align: "center",
       headerAlign: "center",
+
       sortable: false,
 
       valueGetter: (value, row) =>
@@ -397,12 +284,20 @@ const ProductosAphelios = () => {
         />
       ),
     },
+
+    // ===================================================
+    // ACCIONES
+    // ===================================================
+
     {
       field: "acciones",
       headerName: "Acciones",
+
       width: 100,
+
       align: "center",
       headerAlign: "center",
+
       sortable: false,
       filterable: false,
 
@@ -427,7 +322,7 @@ const ProductosAphelios = () => {
   return (
     <>
       {/* =================================================
-          HEADER ESTÁNDAR
+          HEADER
       ================================================= */}
 
       <PageHeader
@@ -437,59 +332,18 @@ const ProductosAphelios = () => {
       />
 
       {/* =================================================
-          TOOLBAR ESTÁNDAR
+          TOOLBAR
       ================================================= */}
 
-      <PageToolbarCard>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            flexWrap: "wrap",
-          }}
-        >
-          {/* BUSCADOR */}
-
-          <TextField
-            label="Buscar producto"
-            placeholder="SKU, nombre, MLMU, MLM o Family"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            sx={{
-              ...toolbarFieldSx,
-              width: fieldWidths.large,
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlinedIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {/* FILTRO ESTADO */}
-
-          <FormControl
-            sx={{
-              ...toolbarFieldSx,
-              width: fieldWidths.medium,
-            }}
-          >
-            <Select value={estado} onChange={handleEstadoChange} displayEmpty>
-              <MenuItem value="todos">Todos</MenuItem>
-
-              <MenuItem value="activos">Activos</MenuItem>
-
-              <MenuItem value="obsoletos">Obsoletos</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </PageToolbarCard>
+      <ProductosApheliosToolbar
+        busqueda={busqueda}
+        onBusquedaChange={setBusqueda}
+        estado={estado}
+        onEstadoChange={handleEstadoChange}
+      />
 
       {/* =================================================
-          DATAGRID ESTÁNDAR
+          DATAGRID
       ================================================= */}
 
       <Box
@@ -502,28 +356,32 @@ const ProductosAphelios = () => {
           columns={columns}
           loading={loading}
           getRowId={(row) => row.id}
-          rowHeight={64}
+          rowHeight={72}
           exportFileName="productos-aphelios"
           rowCount={total}
           paginationMode="server"
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
           pageSizeOptions={[10, 25, 50, 100]}
-          initialColumnVisibilityModel={{
-            producto_id_legacy: false,
-          }}
         />
+
+        {/* =================================================
+            DETALLE
+        ================================================= */}
+
         <ProductoApheliosDetalleModal
           open={openDetalle}
           onClose={handleCerrarDetalle}
           productoId={productoSeleccionadoId}
         />
+
+        {/* =================================================
+            SELECTOR PUBLICACIONES
+        ================================================= */}
+
         <SeleccionarPublicacionModal
           open={openPublicaciones}
-          onClose={() => {
-            setOpenPublicaciones(false);
-            setProductoPublicaciones(null);
-          }}
+          onClose={handleCerrarPublicaciones}
           producto={productoPublicaciones}
         />
       </Box>

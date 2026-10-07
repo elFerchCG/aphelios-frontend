@@ -96,9 +96,16 @@ import ProductosAphelios from "../components/pages/ProductosAphelios/ProductosAp
 import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
 
 // ==============================
+// SOPORTE
+// ==============================
+
+import Soporte from "../components/pages/Soporte/Soporte";
+
+// ==============================
 // OTROS
 // ==============================
 import BarraLateral from "../components/layout/BarraLateral";
+import PaginaEnDesarrollo from "../components/common/PaginaEnDesarrollo";
 
 const Rutas = () => {
   /*
@@ -119,25 +126,33 @@ const Rutas = () => {
     "Lider Marketing",
     "Coordinador comercial",
     "Planeador",
+    "Desarrollador",
   ];
 
   const rolesPerformance = [
     "administrador",
     "Lider Marketing",
     "Coordinador comercial",
+    "Desarrollador",
   ];
 
-  const rolesPlaneacion = ["administrador", "Planeador"];
+  const rolesPlaneacion = ["administrador", "Planeador", "Desarrollador"];
 
-  const rolesInventarioEspecial = ["administrador", "Planeador", "Almacenista"];
+  const rolesInventarioEspecial = [
+    "administrador",
+    "Planeador",
+    "Almacenista",
+    "Desarrollador",
+  ];
 
   const rolesExcluidosEnvios = [
     "Marketing",
     "Lider Marketing",
     "Coordinador comercial",
+    "Desarrollador",
   ];
 
-  const rolesAdministracion = ["administrador"];
+  const rolesAdministracion = ["administrador", "Desarrollador"];
 
   return (
     <>
@@ -561,6 +576,50 @@ const Rutas = () => {
           element={
             <ProtectedRoute allowedRoles={["administrador"]}>
               <ReCharts />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+            Soporte
+        ====================================================== */}
+        <Route
+          path="/soporte"
+          element={
+            <ProtectedRoute>
+              <Soporte />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+    SOPORTE - BANDEJA (EN DESARROLLO)
+===================================================== */}
+
+        <Route
+          path="/soporte/bandeja"
+          element={
+            <ProtectedRoute>
+              <PaginaEnDesarrollo
+                titulo="Bandeja de Soporte"
+                descripcion="Estamos preparando un espacio para gestionar, asignar y dar seguimiento a los tickets de soporte."
+              />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+    SOPORTE - MÉTRICAS (EN DESARROLLO)
+===================================================== */}
+
+        <Route
+          path="/soporte/metricas"
+          element={
+            <ProtectedRoute>
+              <PaginaEnDesarrollo
+                titulo="Métricas de Soporte"
+                descripcion="Próximamente podrás consultar indicadores, estadísticas y reportes sobre la atención de tickets."
+              />
             </ProtectedRoute>
           }
         />
