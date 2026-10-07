@@ -131,7 +131,7 @@ export const navigationConfig = [
         label: "Recepción de pedidos",
         icon: AssignmentTurnedInOutlinedIcon,
         path: "/recepcion-pedidos",
-        roles: ["administrador", "Planeador", "Almacenista"],
+        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
       {
         label: "Excedentes",
@@ -150,7 +150,7 @@ export const navigationConfig = [
         label: "Colecta subcuenta",
         icon: AssignmentReturnOutlinedIcon,
         path: "/colecta-subcuenta",
-        roles: ["administrador", "Planeador", "Almacenista"],
+        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
       // [/MULTICUENTA-ML]
     ],
@@ -170,7 +170,7 @@ export const navigationConfig = [
         label: "Órdenes de retiro",
         icon: ExitToAppOutlinedIcon,
         path: "/ordenes-retiro",
-        roles: ["administrador", "Planeador"],
+        roles: ["administrador", "Planeador", "Desarrollador"],
       },
       {
         label: "Procesos",
@@ -343,7 +343,7 @@ export const navigationConfig = [
         label: "Stock compartido",
         icon: CloudSyncOutlinedIcon,
         path: "/stock-compartido",
-        roles: ["administrador"],
+        roles: ["administrador", "Desarrollador"],
       },
       // [/MULTICUENTA-ML]
       {
