@@ -13,7 +13,7 @@ import InsertEmoticonOutlinedIcon from "@mui/icons-material/InsertEmoticonOutlin
 
 import EmojiPicker from "emoji-picker-react";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // ============================================================
 // COMPONENTE
@@ -33,6 +33,44 @@ const MessageInput = ({
     useState(false);
 
   const inputRef = useRef(null);
+
+  // ============================================================
+  // DEVOLVER FOCUS AL INPUT
+  // ============================================================
+
+  const enfocarInput = () => {
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  };
+
+  // ============================================================
+  // RECUPERAR FOCUS DESPUÉS DE ENVIAR
+  // ============================================================
+
+  useEffect(() => {
+    if (enviando) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [enviando]);
+
+  // ============================================================
+  // CERRAR EMOJIS
+  // ============================================================
+
+  const cerrarEmojis = () => {
+    setMostrarEmojis(false);
+
+    enfocarInput();
+  };
 
   // ============================================================
   // ENTER PARA ENVIAR
@@ -66,10 +104,20 @@ const MessageInput = ({
       return;
     }
 
-    setMostrarEmojis(
-      (estadoActual) =>
-        !estadoActual,
-    );
+    // ----------------------------------------------------------
+    // SI ESTÁ ABIERTO, CERRAR Y REGRESAR AL INPUT
+    // ----------------------------------------------------------
+
+    if (mostrarEmojis) {
+      cerrarEmojis();
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // ABRIR SELECTOR
+    // ----------------------------------------------------------
+
+    setMostrarEmojis(true);
   };
 
   // ============================================================
@@ -113,11 +161,18 @@ const MessageInput = ({
     onChange(nuevoValor);
 
     // ----------------------------------------------------------
-    // REGRESAR EL CURSOR DESPUÉS DEL EMOJI
+    // NUEVA POSICIÓN DEL CURSOR
     // ----------------------------------------------------------
 
     const nuevaPosicion =
       inicio + emoji.length;
+
+    // ----------------------------------------------------------
+    // REGRESAR CURSOR AL INPUT
+    //
+    // NO cerramos el picker para permitir:
+    // 😂😂😂❤️🔥
+    // ----------------------------------------------------------
 
     setTimeout(() => {
       if (!input) {
@@ -134,6 +189,23 @@ const MessageInput = ({
   };
 
   // ============================================================
+  // ENVIAR DESDE BOTÓN
+  // ============================================================
+
+  const handleEnviarClick = () => {
+    if (
+      enviando ||
+      !value.trim()
+    ) {
+      return;
+    }
+
+    setMostrarEmojis(false);
+
+    onSend();
+  };
+
+  // ============================================================
   // RENDER
   // ============================================================
 
@@ -142,9 +214,11 @@ const MessageInput = ({
       <Divider />
 
       <ClickAwayListener
-        onClickAway={() =>
-          setMostrarEmojis(false)
-        }
+        onClickAway={() => {
+          if (mostrarEmojis) {
+            cerrarEmojis();
+          }
+        }}
       >
         <Box
           sx={{
@@ -172,7 +246,9 @@ const MessageInput = ({
                 position: "absolute",
 
                 left: 12,
-                bottom: "calc(100% + 8px)",
+
+                bottom:
+                  "calc(100% + 8px)",
 
                 zIndex: 1500,
 
@@ -182,6 +258,10 @@ const MessageInput = ({
                 borderRadius: 2,
 
                 overflow: "hidden",
+
+                // Evita que se salga del panel
+                maxWidth:
+                  "calc(100vw - 32px)",
               }}
             >
               <EmojiPicker
@@ -203,7 +283,11 @@ const MessageInput = ({
           ================================================== */}
 
           <Tooltip
-            title="Emojis"
+            title={
+              mostrarEmojis
+                ? "Cerrar emojis"
+                : "Emojis"
+            }
             placement="top"
           >
             <span>
@@ -212,14 +296,26 @@ const MessageInput = ({
                   handleToggleEmojis
                 }
                 disabled={enviando}
-                aria-label="Seleccionar emoji"
+                aria-label={
+                  mostrarEmojis
+                    ? "Cerrar selector de emojis"
+                    : "Seleccionar emoji"
+                }
                 sx={{
                   width: 42,
                   height: 42,
 
-                  color: mostrarEmojis
-                    ? "#1565a8"
-                    : "#667085",
+                  flexShrink: 0,
+
+                  color:
+                    mostrarEmojis
+                      ? "#1565a8"
+                      : "#667085",
+
+                  backgroundColor:
+                    mostrarEmojis
+                      ? "#eef4f8"
+                      : "transparent",
 
                   "&:hover": {
                     backgroundColor:
@@ -275,13 +371,9 @@ const MessageInput = ({
           ================================================== */}
 
           <IconButton
-            onClick={() => {
-              setMostrarEmojis(
-                false,
-              );
-
-              onSend();
-            }}
+            onClick={
+              handleEnviarClick
+            }
             disabled={
               enviando ||
               !value.trim()
@@ -290,6 +382,8 @@ const MessageInput = ({
             sx={{
               width: 42,
               height: 42,
+
+              flexShrink: 0,
 
               backgroundColor:
                 "#1565a8",

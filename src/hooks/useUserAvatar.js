@@ -1,117 +1,106 @@
-import {
-  useEffect,
-  useState,
-} from "react";
 
+import { useEffect, useState } from "react";
 import axios from "axios";
 
-import {
-  getAvatarImage,
-} from "../config/avatarConfig";
+import { getAvatarImage } from "../config/avatarConfig";
+
+// ============================================================
+// CONFIGURACIÓN API
+// ============================================================
 
 const apiUrl =
   process.env.NODE_ENV === "production"
     ? process.env.REACT_APP_API_URL
     : process.env.REACT_APP_API_URL_LOCAL;
 
-const useUserAvatar = (
-  user,
-  token,
-) => {
-  const [avatarSrc, setAvatarSrc] =
-    useState(null);
+// ============================================================
+// HOOK - AVATAR DEL USUARIO
+// ============================================================
+
+const useUserAvatar = (user, token) => {
+  const [avatarSrc, setAvatarSrc] = useState(null);
+
+  // ==========================================================
+  // DATOS NECESARIOS DEL USUARIO
+  // ==========================================================
+
+  const avatarKey = user?.avatar_key;
+  const avatarVersion = user?.avatar_version;
+
+  // ==========================================================
+  // CARGAR AVATAR
+  // ==========================================================
 
   useEffect(() => {
     let objectUrl = null;
     let cancelled = false;
 
     const cargarAvatar = async () => {
-      // ==========================================
-      // SIN USUARIO / SIN TOKEN
-      // ==========================================
+      // ======================================================
+      // SIN AVATAR O SIN AUTENTICACIÓN
+      // ======================================================
 
-      if (
-        !user ||
-        !token ||
-        !user?.avatar_key
-      ) {
+      if (!avatarKey || !token) {
         setAvatarSrc(null);
         return;
       }
 
-      // ==========================================
+      // ======================================================
       // AVATAR PREDETERMINADO
-      // ==========================================
+      // ======================================================
 
-      if (
-        user.avatar_key !== "custom"
-      ) {
-        setAvatarSrc(
-          getAvatarImage(
-            user.avatar_key,
-          ),
-        );
-
+      if (avatarKey !== "custom") {
+        setAvatarSrc(getAvatarImage(avatarKey));
         return;
       }
 
-      // ==========================================
+      // ======================================================
       // AVATAR PERSONALIZADO
-      // ==========================================
+      // ======================================================
 
       try {
-        const response =
-          await axios.get(
-            `${apiUrl}/usuarios/avatar`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              responseType:
-                "blob",
+        const response = await axios.get(
+          `${apiUrl}/usuarios/avatar`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
             },
-          );
+            responseType: "blob",
+          },
+        );
 
-        objectUrl =
-          URL.createObjectURL(
-            response.data,
-          );
+        // Evitar crear URLs si el efecto ya fue limpiado.
+        if (cancelled) return;
 
-        if (!cancelled) {
-          setAvatarSrc(
-            objectUrl,
-          );
-        }
+        objectUrl = URL.createObjectURL(response.data);
+
+        setAvatarSrc(objectUrl);
       } catch (error) {
+        if (cancelled) return;
+
         console.error(
-          "Error al cargar avatar personalizado:",
+          "[useUserAvatar] Error al cargar avatar personalizado:",
           error,
         );
 
-        if (!cancelled) {
-          setAvatarSrc(null);
-        }
+        setAvatarSrc(null);
       }
     };
 
     cargarAvatar();
 
+    // ========================================================
+    // LIMPIEZA
+    // ========================================================
+
     return () => {
       cancelled = true;
 
       if (objectUrl) {
-        URL.revokeObjectURL(
-          objectUrl,
-        );
+        URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [
-    user?.avatar_key,
-    user?.avatar_version,
-    token,
-  ]);
+  }, [avatarKey, avatarVersion, token]);
 
   return avatarSrc;
 };

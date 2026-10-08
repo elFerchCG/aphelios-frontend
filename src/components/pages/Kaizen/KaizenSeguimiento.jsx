@@ -150,6 +150,7 @@ const KaizenSeguimiento = () => {
 
   const puedeAdministrarKaizen =
     rolDescripcion === "administrador" ||
+    rolDescripcion === "Desarrollador" ||
     rolDescripcion === "coordinador comercial" ||
     rolDescripcion === "Coordinador Comercial" ||
     rolDescripcion === "Lider Marketing" ||
@@ -157,6 +158,7 @@ const KaizenSeguimiento = () => {
 
   const puedeVerProveedor =
     usuarioLocal?.rol_descripcion === "Marketing" ||
+    usuarioLocal?.rol_descripcion === "Desarrollador" ||
     usuarioLocal?.rol_descripcion === "administrador" ||
     usuarioLocal?.rol_descripcion === "coordinador comercial" ||
     usuarioLocal?.rol_descripcion === "Coordinador Comercial";

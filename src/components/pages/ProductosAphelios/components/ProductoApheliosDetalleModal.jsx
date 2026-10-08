@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import axios from "axios";
+
 import {
   Alert,
-  Avatar,
   Box,
   Button,
   Chip,
@@ -12,268 +18,373 @@ import {
   DialogTitle,
   Divider,
   IconButton,
-  Link,
-  Paper,
+  Stack,
   Tab,
   Tabs,
-  Tooltip,
   Typography,
 } from "@mui/material";
 
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
-import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
-import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 
-import axios from "axios";
+import ProductoDetalleGeneral from "./ProductoApheliosDetalleModal/ProductoDetalleGeneral";
+import ProductoDetalleMercadoLibre from "./ProductoApheliosDetalleModal/ProductoDetalleMercadoLibre";
+import ProductoDetalleStock from "./ProductoApheliosDetalleModal/ProductoDetalleStock";
+import ProductoDetalleAtributos from "./ProductoApheliosDetalleModal/ProductoDetalleAtributos";
 
-import {
-  modalTitleSx,
-  modalContentSx,
-  modalActionsSx,
-  modalSecondaryButtonSx,
-} from "../../../common/modalStyles";
+const apiUrl =
+  process.env.NODE_ENV === "production"
+    ? process.env.REACT_APP_API_URL
+    : process.env.REACT_APP_API_URL_LOCAL;
 
-const API_URL =
-    process.env.NODE_ENV === "production"
-      ? process.env.REACT_APP_API_URL
-      : process.env.REACT_APP_API_URL_LOCAL;
+const ProductoApheliosDetalleModal = ({
+  open,
+  onClose,
+  productoId,
+}) => {
+  // =====================================================
+  // ESTADOS
+  // =====================================================
 
-// =====================================================
-// HELPERS
-// =====================================================
+  const [loading, setLoading] =
+    useState(false);
 
-const formatMoney = (value) => {
-  if (value === null || value === undefined) return "—";
+  const [error, setError] =
+    useState("");
 
-  return Number(value).toLocaleString("es-MX", {
-    style: "currency",
-    currency: "MXN",
-  });
-};
+  const [detalle, setDetalle] =
+    useState(null);
 
-const mostrarValor = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
+  const [tab, setTab] =
+    useState(0);
 
-  return value;
-};
-
-const getStatusColor = (status) => {
-  switch (status) {
-    case "active":
-      return "success";
-
-    case "paused":
-      return "warning";
-
-    case "under_review":
-      return "info";
-
-    case "closed":
-      return "default";
-
-    default:
-      return "default";
-  }
-};
-
-const getStatusLabel = (status) => {
-  switch (status) {
-    case "active":
-      return "Activo";
-
-    case "paused":
-      return "Pausado";
-
-    case "under_review":
-      return "En revisión";
-
-    case "closed":
-      return "Cerrado";
-
-    default:
-      return status || "Sin estado";
-  }
-};
-
-// =====================================================
-// COMPONENTE DE CAMPO
-// =====================================================
-
-const InfoField = ({ label, value }) => (
-  <Box>
-    <Typography
-      variant="caption"
-      color="text.secondary"
-      sx={{ display: "block", mb: 0.3 }}
-    >
-      {label}
-    </Typography>
-
-    <Typography variant="body2" fontWeight={500}>
-      {mostrarValor(value)}
-    </Typography>
-  </Box>
-);
-
-// =====================================================
-// MODAL
-// =====================================================
-
-const ProductoApheliosDetalleModal = ({ open, onClose, productoId }) => {
-  const [loading, setLoading] = useState(false);
-  const [detalle, setDetalle] = useState(null);
-  const [error, setError] = useState("");
-  const [tab, setTab] = useState(0);
+  const [
+    relacionSeleccionadaId,
+    setRelacionSeleccionadaId,
+  ] = useState(null);
 
   // =====================================================
-  // CARGAR DETALLE
+  // OBTENER DETALLE
   // =====================================================
 
   useEffect(() => {
-    if (!open || !productoId) return;
+    if (
+      !open ||
+      !productoId
+    ) {
+      return;
+    }
 
-    const obtenerDetalle = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        setDetalle(null);
-        setTab(0);
+    const obtenerDetalle =
+      async () => {
+        try {
+          setLoading(true);
+          setError("");
+          setDetalle(null);
 
-        const token = localStorage.getItem("token");
+          const token =
+            localStorage.getItem(
+              "token",
+            );
 
-        const response = await axios.get(
-          `${API_URL}/productosAphelios/${productoId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
+          const response =
+            await axios.get(
+              `${apiUrl}/productosAphelios/${productoId}`,
+              {
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              },
+            );
 
-        setDetalle(response.data);
-      } catch (error) {
-        console.error("Error al obtener detalle del producto:", error);
+          const data =
+            response.data;
 
-        setError(
-          error.response?.data?.message ||
-            "No se pudo obtener el detalle del producto.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+          setDetalle(data);
+
+          const relaciones =
+            Array.isArray(
+              data?.mercado_libre,
+            )
+              ? data.mercado_libre
+              : [];
+
+          setRelacionSeleccionadaId(
+            relaciones[0]
+              ?.relacion_id ??
+              null,
+          );
+        } catch (error) {
+          console.error(
+            "Error al obtener Producto Aphelios:",
+            error,
+          );
+
+          setError(
+            error.response?.data
+              ?.message ||
+              "No se pudo cargar el producto.",
+          );
+        } finally {
+          setLoading(false);
+        }
+      };
 
     obtenerDetalle();
-  }, [open, productoId]);
+  }, [
+    open,
+    productoId,
+  ]);
+
+  // =====================================================
+  // RESET
+  // =====================================================
+
+  useEffect(() => {
+    if (!open) {
+      setTab(0);
+      setDetalle(null);
+      setError("");
+
+      setRelacionSeleccionadaId(
+        null,
+      );
+    }
+  }, [open]);
 
   // =====================================================
   // DATOS
   // =====================================================
 
-  const producto = detalle?.producto;
-  const mercadoLibre = detalle?.mercado_libre;
+  const producto =
+    detalle?.producto || null;
 
-  const userProduct = mercadoLibre?.user_product;
-  const familia = mercadoLibre?.familia;
-  const stock = mercadoLibre?.stock;
+  const relaciones =
+    useMemo(() => {
+      return Array.isArray(
+        detalle?.mercado_libre,
+      )
+        ? detalle.mercado_libre
+        : [];
+    }, [detalle]);
 
-  const items = mercadoLibre?.items || [];
-  const atributos = mercadoLibre?.atributos || [];
-  const imagenes = mercadoLibre?.imagenes || [];
+  const relacionSeleccionada =
+    useMemo(() => {
+      if (!relaciones.length) {
+        return null;
+      }
+
+      return (
+        relaciones.find(
+          (relacion) =>
+            String(
+              relacion.relacion_id,
+            ) ===
+            String(
+              relacionSeleccionadaId,
+            ),
+        ) || relaciones[0]
+      );
+    }, [
+      relaciones,
+      relacionSeleccionadaId,
+    ]);
+
+  // =====================================================
+  // CAMBIAR RELACIÓN
+  // =====================================================
+
+  const handleSeleccionarRelacion = (
+    relacion,
+  ) => {
+    setRelacionSeleccionadaId(
+      relacion.relacion_id,
+    );
+  };
 
   // =====================================================
   // RENDER
   // =====================================================
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
-      {/* =================================================
-          HEADER
-      ================================================= */}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="lg"
+      PaperProps={{
+        sx: {
+          minHeight: "72vh",
+          maxHeight: "90vh",
+        },
+      }}
+    >
+      {loading ? (
+        <Box
+          sx={{
+            minHeight: 420,
 
-      <DialogTitle
-        sx={{
-          ...modalTitleSx,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Typography variant="h6" fontWeight={600}>
-            {producto?.sku || "Detalle del producto"}
-          </Typography>
-
-          {producto?.nombre && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.3 }}>
-              {producto.nombre}
-            </Typography>
-          )}
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <CircularProgress />
         </Box>
-      </DialogTitle>
+      ) : error ? (
+        <>
+          <DialogTitle>
+            Producto Aphelios
+          </DialogTitle>
 
-      {/* =================================================
-          CONTENIDO
-      ================================================= */}
+          <DialogContent>
+            <Alert severity="error">
+              {error}
+            </Alert>
+          </DialogContent>
 
-      <DialogContent sx={modalContentSx}>
-        {loading && (
-          <Box
+          <DialogActions>
+            <Button
+              variant="outlined"
+              onClick={onClose}
+            >
+              Cerrar
+            </Button>
+          </DialogActions>
+        </>
+      ) : producto ? (
+        <>
+          {/* ===============================================
+              HEADER
+          =============================================== */}
+
+          <DialogTitle
             sx={{
-              minHeight: 350,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
+              pr: 7,
+              pb: 2,
             }}
           >
-            <CircularProgress />
-          </Box>
-        )}
+            <Typography
+              variant="h5"
+              component="div"
+              sx={{
+                color:
+                  "primary.dark",
 
-        {!loading && error && <Alert severity="error">{error}</Alert>}
+                fontWeight: 700,
+              }}
+            >
+              {producto.sku}
+            </Typography>
 
-        {!loading && !error && detalle && (
-          <>
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{
+                mt: 0.5,
+              }}
+            >
+              {producto.nombre}
+            </Typography>
+
+            <IconButton
+              onClick={onClose}
+              sx={{
+                position:
+                  "absolute",
+
+                right: 16,
+                top: 16,
+              }}
+            >
+              <CloseOutlinedIcon />
+            </IconButton>
+          </DialogTitle>
+
+          <Divider />
+
+          <DialogContent
+            sx={{
+              px: 3,
+              py: 2,
+            }}
+          >
             {/* =============================================
                 RESUMEN
             ============================================= */}
 
-            <Box
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
               sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                flexWrap: "wrap",
-                mt: 2,
                 mb: 2,
               }}
             >
               <Chip
-                label={producto.producto_obsoleto ? "Obsoleto" : "Activo"}
-                color={producto.producto_obsoleto ? "default" : "success"}
+                label={
+                  producto.producto_obsoleto
+                    ? "Obsoleto"
+                    : "Activo"
+                }
+                color={
+                  producto.producto_obsoleto
+                    ? "default"
+                    : "success"
+                }
                 variant="outlined"
                 size="small"
               />
 
               <Chip
-                icon={<Inventory2OutlinedIcon />}
-                label={`Stock ML: ${stock?.total ?? 0}`}
+                icon={
+                  <Inventory2OutlinedIcon />
+                }
+                label={`Stock ML: ${
+                  producto.stock_ml_total ??
+                  0
+                }`}
                 variant="outlined"
                 size="small"
               />
 
               <Chip
-                icon={<StorefrontOutlinedIcon />}
-                label={`${items.length} Item${items.length === 1 ? "" : "s"}`}
+                icon={
+                  <StorefrontOutlinedIcon />
+                }
+                label={`${
+                  producto.items_ml_total ??
+                  0
+                } Items`}
                 variant="outlined"
                 size="small"
               />
-            </Box>
+
+              <Chip
+                icon={
+                  <AccountTreeOutlinedIcon />
+                }
+                label={`${
+                  producto
+                    .cantidad_relaciones_ml ??
+                  relaciones.length
+                } ${
+                  (
+                    producto
+                      .cantidad_relaciones_ml ??
+                    relaciones.length
+                  ) === 1
+                    ? "relación"
+                    : "relaciones"
+                }`}
+                variant="outlined"
+                size="small"
+              />
+            </Stack>
 
             {/* =============================================
                 TABS
@@ -281,612 +392,117 @@ const ProductoApheliosDetalleModal = ({ open, onClose, productoId }) => {
 
             <Tabs
               value={tab}
-              onChange={(_, newValue) => setTab(newValue)}
+              onChange={(
+                event,
+                value,
+              ) =>
+                setTab(value)
+              }
               variant="scrollable"
               scrollButtons="auto"
-              sx={{ mb: 2 }}
+              sx={{
+                borderBottom: 1,
+                borderColor:
+                  "divider",
+                mb: 3,
+              }}
             >
               <Tab label="General" />
+
               <Tab label="Mercado Libre" />
+
               <Tab label="Stock" />
+
               <Tab label="Atributos" />
             </Tabs>
 
-            <Divider sx={{ mb: 3 }} />
-
             {/* =============================================
-                TAB GENERAL
+                GENERAL
             ============================================= */}
 
             {tab === 0 && (
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    sm: "repeat(2, 1fr)",
-                    md: "repeat(3, 1fr)",
-                  },
-                  gap: 3,
-                }}
-              >
-                <InfoField label="SKU" value={producto.sku} />
-
-                <InfoField label="Costo" value={formatMoney(producto.costo)} />
-
-                <InfoField
-                  label="Inventario de seguridad"
-                  value={producto.inv_seguridad}
-                />
-
-                <InfoField
-                  label="Inventario máximo"
-                  value={producto.inv_maximo}
-                />
-
-                <InfoField
-                  label="Costo fijo"
-                  value={formatMoney(producto.costo_fijo)}
-                />
-
-                <InfoField
-                  label="Cantidad excedente"
-                  value={producto.cantidad_excedente}
-                />
-
-                <InfoField
-                  label="ID legacy principal"
-                  value={producto.producto_id_legacy}
-                />
-
-                <InfoField
-                  label="IDs legacy asociados"
-                  value={
-                    producto.legacy_ids?.length
-                      ? producto.legacy_ids.join(", ")
-                      : "—"
-                  }
-                />
-              </Box>
+              <ProductoDetalleGeneral
+                producto={
+                  producto
+                }
+                relaciones={
+                  relaciones
+                }
+              />
             )}
 
             {/* =============================================
-                TAB MERCADO LIBRE
+                MERCADO LIBRE
             ============================================= */}
 
             {tab === 1 && (
-              <Box>
-                {/* =====================================================
-        ENCABEZADO DEL CANAL
-    ====================================================== */}
-
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    p: 2,
-                    mb: 3,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 2,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                      }}
-                    >
-                      <StorefrontOutlinedIcon color="primary" />
-
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          Mercado Libre
-                        </Typography>
-
-                        <Typography variant="body2" color="text.secondary">
-                          Canal de venta vinculado
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Chip
-                      label="Conectado"
-                      color="success"
-                      variant="outlined"
-                      size="small"
-                    />
-                  </Box>
-                </Paper>
-
-                {/* =====================================================
-        USER PRODUCT
-    ====================================================== */}
-
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  User Product
-                </Typography>
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "repeat(2, 1fr)",
-                      md: "repeat(3, 1fr)",
-                    },
-                    gap: 3,
-                    mb: 4,
-                  }}
-                >
-                  <InfoField
-                    label="User Product"
-                    value={userProduct?.user_product_id}
-                  />
-
-                  <InfoField label="Family" value={familia?.family_id} />
-
-                  <InfoField
-                    label="Nombre de familia"
-                    value={familia?.family_name}
-                  />
-
-                  <InfoField label="Domain" value={userProduct?.domain_id} />
-
-                  <InfoField
-                    label="Catalog Product"
-                    value={userProduct?.catalog_product_id}
-                  />
-
-                  <InfoField label="Cantidad de Items" value={items.length} />
-                </Box>
-
-                <Divider sx={{ mb: 3 }} />
-
-                {/* =====================================================
-        CONFIGURACIÓN COMERCIAL
-    ====================================================== */}
-
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  Configuración comercial
-                </Typography>
-
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "repeat(2, 1fr)",
-                      md: "repeat(4, 1fr)",
-                    },
-                    gap: 3,
-                    mb: 4,
-                  }}
-                >
-                  <InfoField
-                    label="Permitir Full"
-                    value={mercadoLibre?.permitir_full ? "Sí" : "No"}
-                  />
-
-                  <InfoField
-                    label="Costo de envío"
-                    value={formatMoney(mercadoLibre?.costo_envio)}
-                  />
-
-                  <InfoField
-                    label="Comisión"
-                    value={
-                      mercadoLibre?.porcentaje_comision !== null &&
-                      mercadoLibre?.porcentaje_comision !== undefined
-                        ? `${mercadoLibre.porcentaje_comision}%`
-                        : "—"
-                    }
-                  />
-
-                  <InfoField
-                    label="Costo publicación"
-                    value={formatMoney(mercadoLibre?.costo_publicacion)}
-                  />
-                </Box>
-
-                <Divider sx={{ mb: 3 }} />
-
-                {/* =====================================================
-        ITEMS
-    ====================================================== */}
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 2,
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Publicaciones
-                  </Typography>
-
-                  <Chip
-                    label={`${items.length} ${
-                      items.length === 1 ? "Item" : "Items"
-                    }`}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Box>
-
-                {items.length === 0 ? (
-                  <Alert severity="info">
-                    Este User Product no tiene publicaciones asociadas
-                    actualmente.
-                  </Alert>
-                ) : (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    {items.map((item) => (
-                      <Paper
-                        key={item.id}
-                        variant="outlined"
-                        sx={{
-                          p: 2,
-                          borderRadius: 2,
-                        }}
-                      >
-                        {/* =============================================
-                CABECERA ITEM
-            ============================================== */}
-
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            gap: 2,
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              gap: 2,
-                              minWidth: 0,
-                            }}
-                          >
-                            {item.thumbnail_url ? (
-                              <Avatar
-                                src={item.thumbnail_url}
-                                variant="rounded"
-                                sx={{
-                                  width: 64,
-                                  height: 64,
-                                }}
-                              />
-                            ) : (
-                              <Avatar
-                                variant="rounded"
-                                sx={{
-                                  width: 64,
-                                  height: 64,
-                                }}
-                              >
-                                <ImageOutlinedIcon />
-                              </Avatar>
-                            )}
-
-                            <Box sx={{ minWidth: 0 }}>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 1,
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <Typography fontWeight={600}>
-                                  {item.item_id}
-                                </Typography>
-
-                                <Chip
-                                  size="small"
-                                  label={getStatusLabel(item.status)}
-                                  color={getStatusColor(item.status)}
-                                  variant="outlined"
-                                />
-                              </Box>
-
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ mt: 0.5 }}
-                              >
-                                {item.title}
-                              </Typography>
-                            </Box>
-                          </Box>
-
-                          {item.permalink && (
-                            <Tooltip title="Abrir en Mercado Libre">
-                              <IconButton
-                                component={Link}
-                                href={item.permalink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                color="primary"
-                              >
-                                <OpenInNewOutlinedIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-
-                        <Divider sx={{ my: 2 }} />
-
-                        {/* =============================================
-                INFORMACIÓN ITEM
-            ============================================== */}
-
-                        <Box
-                          sx={{
-                            display: "grid",
-                            gridTemplateColumns: {
-                              xs: "repeat(2, 1fr)",
-                              md: "repeat(4, 1fr)",
-                            },
-                            gap: 2,
-                          }}
-                        >
-                          <InfoField
-                            label="Precio"
-                            value={formatMoney(item.price)}
-                          />
-
-                          <InfoField
-                            label="Disponibles Item"
-                            value={item.available_quantity}
-                          />
-
-                          <InfoField
-                            label="Vendidos"
-                            value={item.sold_quantity}
-                          />
-
-                          <InfoField
-                            label="Tipo publicación"
-                            value={item.listing_type_id}
-                          />
-
-                          <InfoField
-                            label="Inventory ID"
-                            value={item.inventory_id}
-                          />
-
-                          <InfoField
-                            label="Logística"
-                            value={item.logistic_type}
-                          />
-
-                          <InfoField
-                            label="Envío gratis"
-                            value={item.free_shipping ? "Sí" : "No"}
-                          />
-
-                          <InfoField label="Condición" value={item.condition} />
-                        </Box>
-                      </Paper>
-                    ))}
-                  </Box>
-                )}
-              </Box>
+              <ProductoDetalleMercadoLibre
+                relaciones={
+                  relaciones
+                }
+                relacion={
+                  relacionSeleccionada
+                }
+                onSeleccionarRelacion={
+                  handleSeleccionarRelacion
+                }
+              />
             )}
 
             {/* =============================================
-                TAB STOCK
+                STOCK
             ============================================= */}
 
             {tab === 2 && (
-              <Box>
-                <Alert severity="info" sx={{ mb: 3 }}>
-                  El stock mostrado corresponde al User Product de Mercado Libre
-                  y no a la suma de las publicaciones.
-                </Alert>
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: {
-                      xs: "1fr",
-                      sm: "repeat(2, 1fr)",
-                      md: "repeat(3, 1fr)",
-                    },
-                    gap: 3,
-                    mb: 4,
-                  }}
-                >
-                  <InfoField
-                    label="Stock físico total"
-                    value={stock?.total ?? 0}
-                  />
-
-                  <InfoField label="Stock mode" value={stock?.stock_mode} />
-
-                  <InfoField
-                    label="Última actualización ML"
-                    value={stock?.fecha_actualizacion_ml}
-                  />
-                </Box>
-
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  Ubicaciones
-                </Typography>
-
-                {!stock?.ubicaciones?.length ? (
-                  <Alert severity="info">
-                    No hay ubicaciones de stock registradas.
-                  </Alert>
-                ) : (
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: {
-                        xs: "1fr",
-                        md: "repeat(2, 1fr)",
-                      },
-                      gap: 2,
-                    }}
-                  >
-                    {stock.ubicaciones.map((ubicacion) => (
-                      <Paper
-                        key={ubicacion.id}
-                        variant="outlined"
-                        sx={{ p: 2 }}
-                      >
-                        <Box
-                          sx={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(3, 1fr)",
-                            gap: 2,
-                          }}
-                        >
-                          <InfoField label="Tipo" value={ubicacion.tipo} />
-
-                          <InfoField
-                            label="Disponibilidad"
-                            value={ubicacion.availability_type}
-                          />
-
-                          <InfoField
-                            label="Cantidad"
-                            value={ubicacion.quantity}
-                          />
-                        </Box>
-                      </Paper>
-                    ))}
-                  </Box>
-                )}
-              </Box>
+              <ProductoDetalleStock
+                relaciones={
+                  relaciones
+                }
+                relacion={
+                  relacionSeleccionada
+                }
+                onSeleccionarRelacion={
+                  handleSeleccionarRelacion
+                }
+              />
             )}
 
             {/* =============================================
-                TAB ATRIBUTOS
+                ATRIBUTOS
             ============================================= */}
 
             {tab === 3 && (
-              <Box>
-                {/* IMÁGENES */}
-
-                {imagenes.length > 0 && (
-                  <>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight={600}
-                      sx={{ mb: 2 }}
-                    >
-                      Imágenes
-                    </Typography>
-
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: 1.5,
-                        overflowX: "auto",
-                        pb: 2,
-                        mb: 3,
-                      }}
-                    >
-                      {imagenes.map((imagen) => (
-                        <Box
-                          key={imagen.id}
-                          component="img"
-                          src={imagen.secure_url}
-                          alt={imagen.picture_id || "Producto"}
-                          sx={{
-                            width: 110,
-                            height: 110,
-                            objectFit: "contain",
-                            border: 1,
-                            borderColor: "divider",
-                            borderRadius: 1,
-                            bgcolor: "background.paper",
-                          }}
-                        />
-                      ))}
-                    </Box>
-
-                    <Divider sx={{ mb: 3 }} />
-                  </>
-                )}
-
-                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                  Atributos del User Product
-                </Typography>
-
-                {atributos.length === 0 ? (
-                  <Alert severity="info">No hay atributos registrados.</Alert>
-                ) : (
-                  <Box
-                    sx={{
-                      display: "grid",
-                      gridTemplateColumns: {
-                        xs: "1fr",
-                        sm: "repeat(2, 1fr)",
-                        md: "repeat(3, 1fr)",
-                      },
-                      gap: 2,
-                    }}
-                  >
-                    {atributos.map((atributo) => (
-                      <Paper key={atributo.id} variant="outlined" sx={{ p: 2 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          {atributo.nombre}
-                        </Typography>
-
-                        <Typography
-                          variant="body2"
-                          fontWeight={500}
-                          sx={{ mt: 0.5 }}
-                        >
-                          {atributo.valor_nombre ??
-                            atributo.valor_numerico ??
-                            "—"}
-
-                          {atributo.unidad ? ` ${atributo.unidad}` : ""}
-                        </Typography>
-                      </Paper>
-                    ))}
-                  </Box>
-                )}
-              </Box>
+              <ProductoDetalleAtributos
+                relaciones={
+                  relaciones
+                }
+                relacion={
+                  relacionSeleccionada
+                }
+                onSeleccionarRelacion={
+                  handleSeleccionarRelacion
+                }
+              />
             )}
-          </>
-        )}
-      </DialogContent>
+          </DialogContent>
 
-      {/* =================================================
-          ACCIONES
-      ================================================= */}
+          <Divider />
 
-      <DialogActions sx={modalActionsSx}>
-        <Button
-          variant="outlined"
-          sx={modalSecondaryButtonSx}
-          onClick={onClose}
-        >
-          Cerrar
-        </Button>
-      </DialogActions>
+          <DialogActions
+            sx={{
+              px: 3,
+              py: 2,
+            }}
+          >
+            <Button
+              variant="outlined"
+              onClick={onClose}
+            >
+              Cerrar
+            </Button>
+          </DialogActions>
+        </>
+      ) : null}
     </Dialog>
   );
 };

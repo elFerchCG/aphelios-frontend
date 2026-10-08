@@ -80,10 +80,62 @@ const MessageBubble = ({
       return "";
     }
 
-    return date.toLocaleTimeString("es-MX", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return date.toLocaleTimeString(
+      "es-MX",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+    );
+  };
+
+  // ============================================================
+  // RENDERIZAR TEXTO CON EMOJIS MÁS GRANDES
+  // ============================================================
+
+  const renderizarMensaje = (
+    texto = "",
+  ) => {
+    const partes = texto.split(
+      /(\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?)*)/gu,
+    );
+
+    return partes.map(
+      (parte, index) => {
+        const esEmoji =
+          /\p{Extended_Pictographic}/u.test(
+            parte,
+          );
+
+        // ======================================================
+        // EMOJI
+        // ======================================================
+
+        if (esEmoji) {
+          return (
+            <Box
+              key={index}
+              component="span"
+              sx={{
+                fontSize: "19px",
+
+                lineHeight: 1,
+
+                verticalAlign: "-2px",
+              }}
+            >
+              {parte}
+            </Box>
+          );
+        }
+
+        // ======================================================
+        // TEXTO NORMAL
+        // ======================================================
+
+        return parte;
+      },
+    );
   };
 
   // ============================================================
@@ -95,7 +147,10 @@ const MessageBubble = ({
       <Box
         sx={{
           display: "flex",
-          justifyContent: "center",
+
+          justifyContent:
+            "center",
+
           my: 2,
         }}
       >
@@ -104,10 +159,14 @@ const MessageBubble = ({
           sx={{
             px: 1.5,
             py: 0.7,
+
             borderRadius: 2,
+
             backgroundColor:
               "rgba(15, 39, 68, 0.06)",
+
             color: "#607d8b",
+
             textAlign: "center",
           }}
         >
@@ -125,6 +184,7 @@ const MessageBubble = ({
     <Box
       sx={{
         width: "100%",
+
         display: "flex",
 
         // ======================================================
@@ -203,7 +263,8 @@ const MessageBubble = ({
 
             display: "flex",
 
-            flexDirection: "column",
+            flexDirection:
+              "column",
 
             alignItems:
               esMio
@@ -285,10 +346,13 @@ const MessageBubble = ({
 
             <Typography
               variant="body2"
+              component="div"
               sx={{
-                whiteSpace: "pre-wrap",
+                whiteSpace:
+                  "pre-wrap",
 
-                overflowWrap: "anywhere",
+                overflowWrap:
+                  "anywhere",
 
                 lineHeight: 1.45,
 
@@ -298,7 +362,9 @@ const MessageBubble = ({
                 fontSize: 13.5,
               }}
             >
-              {mensaje.mensaje}
+              {renderizarMensaje(
+                mensaje.mensaje,
+              )}
             </Typography>
 
             {/* ================================================
@@ -311,7 +377,8 @@ const MessageBubble = ({
 
                 alignItems: "center",
 
-                justifyContent: "flex-end",
+                justifyContent:
+                  "flex-end",
 
                 gap: 0.35,
 
@@ -323,7 +390,8 @@ const MessageBubble = ({
               <Typography
                 variant="caption"
                 sx={{
-                  color: "#607d8b",
+                  color:
+                    "#607d8b",
 
                   fontSize: 10,
 
@@ -337,10 +405,10 @@ const MessageBubble = ({
 
               {/* ==============================================
                   CHECK DE LECTURA
-                  
+
                   ✓  = enviado
                   ✓✓ = leído
-                  
+
                   Solo aplica a mensajes propios
                   en conversaciones directas.
               ============================================== */}
@@ -358,13 +426,16 @@ const MessageBubble = ({
 
                       display: "flex",
 
-                      alignItems: "center",
+                      alignItems:
+                        "center",
 
-                      justifyContent: "center",
+                      justifyContent:
+                        "center",
 
-                      color: fueLeido
-                        ? "#2389dc"
-                        : "#78909c",
+                      color:
+                        fueLeido
+                          ? "#2389dc"
+                          : "#78909c",
                     }}
                   >
                     {fueLeido ? (
