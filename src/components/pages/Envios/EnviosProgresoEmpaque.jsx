@@ -216,6 +216,11 @@ const EnviosProgresoEmpaque = () => {
         user.rol_descripcion === 'gerencia'
     );
 
+    // "A Enviar" (OP - Facturas): solo administrador y Planeador.
+    // El backend valida lo mismo (rol + proforma pendiente).
+    const puedeEditarAEnviar = Boolean(user) &&
+        ['administrador', 'planeador'].includes(String(user.rol_descripcion ?? '').trim().toLowerCase());
+
     const handleCloseModal = () => {
         setOpenModal(false);
         setOrdenSeleccionada(null);
@@ -692,12 +697,13 @@ const EnviosProgresoEmpaque = () => {
         }
     ];
 
-    const esFilaEditable = (row) => {
-        if (row.estatus === "empacada") return false;
-        const estatusBloqueados = ['activa', 'finalizada'];
-        if (estatusBloqueados.includes(row.proforma_estatus)) return false;
-        return true;
-    };
+    // "A Enviar" solo se edita con la proforma en 'pendiente' y la orden sin
+    // empacar. proforma_estatus viene como MIN(estatus) de sus proformas,
+    // así que si alguna ya está activa/finalizada deja de ser 'pendiente'.
+    const esFilaEditable = (row) =>
+        row.estatus !== "empacada" && row.proforma_estatus === "pendiente";
+
+    const puedeEditarAEnviarFila = (row) => puedeEditarAEnviar && esFilaEditable(row);
 
     const ordenesCols = [
         { field: "id", headerName: "#Orden Producción", flex: 1 },
@@ -740,14 +746,14 @@ const EnviosProgresoEmpaque = () => {
         },
         {
             field: "cantidad_a_enviar", headerName: "A Enviar", flex: 1, headerAlign: "center", align: "center", type: "number",
-            // ✅ SOLO editable si NO está empacada
-            editable: (params) => puedeEditarColumna && params.row.estatus !== "empacada",
+            // La columna es editable; quién y cuándo lo decide isCellEditable
+            // del grid (puedeEditarAEnviarFila). Una función aquí cuenta como true.
+            editable: true,
 
             valueFormatter: (value) => Math.round(Number(value ?? 0)),
 
-            // ✅ SOLO aplicar estilo editable si NO está empacada
             cellClassName: (params) =>
-                puedeEditarColumna && esFilaEditable(params.row) ? "celdaEditable" : "celdaBloqueada",
+                puedeEditarAEnviarFila(params.row) ? "celdaEditable" : "celdaBloqueada",
 
             renderEditCell: (params) => (
                 <GridEditInputCell
@@ -1145,6 +1151,15 @@ const EnviosProgresoEmpaque = () => {
     };
 
     const processRowUpdate = async (newRow, oldRow) => {
+        if (!puedeEditarAEnviarFila(oldRow)) {
+            Swal.fire(
+                "Sin permiso",
+                "Solo se puede modificar con la proforma pendiente y por administrador o Planeador.",
+                "warning"
+            );
+            return oldRow;
+        }
+
         if (newRow.cantidad_a_enviar < 0) {
             Swal.fire("Valor inválido", "La cantidad no puede ser negativa", "warning");
             return oldRow;
@@ -1177,7 +1192,8 @@ const EnviosProgresoEmpaque = () => {
                 `${apiUrl}/produccion/actualizar/orden/${newRow.id}/cantidad-a-enviar`,
                 {
                     cantidad_a_enviar: newRow.cantidad_a_enviar
-                }
+                },
+                { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
             );
 
             await fetchPiezasYFacturas();
@@ -1659,7 +1675,7 @@ const EnviosProgresoEmpaque = () => {
                     isCellEditable={(params) => {
                         if (params.row.estatus === "empacada") return false;
                         if (params.field === "cantidad_a_enviar") {
-                            return puedeEditarColumna;
+                            return puedeEditarAEnviarFila(params.row);
                         }
                         return true;
                     }}

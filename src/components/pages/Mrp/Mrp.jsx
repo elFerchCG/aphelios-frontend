@@ -31,7 +31,6 @@ import GenerarPedidoDialog from "./GenerarPedidoDialog";
 const FASES_PEDIDO = {
   CERRAR_SIN_BACKORDER: "Cerrando pendientes sin backorder",
   EN_CAMINO: "Actualizando existencias en camino",
-  TENDENCIA: "Calculando tendencia de ventas",
   CALCULOS: "Calculando productos del proveedor",
   RESURTIDO: "Calculando resurtido de colchón",
   ORDENES_PRODUCCION: "Generando órdenes de producción",
@@ -329,7 +328,7 @@ const MrpSimple = () => {
     }
   };
 
-  // config = { modo_ventas, ventas_desde, ventas_hasta, simulacion, descripcion }
+  // config = { simulacion, descripcion }
   const ejecutarPedido = async (config) => {
     setDialogPedidoOpen(false);
     const esSimulacion = !!config?.simulacion;
@@ -360,9 +359,6 @@ const MrpSimple = () => {
         {
           proveedor_id: Number(proveedorId),
           back_order: !!proveedorSel?.backorder,
-          modo_ventas: config?.modo_ventas,
-          ventas_desde: config?.ventas_desde || null,
-          ventas_hasta: config?.ventas_hasta || null,
           simulacion: esSimulacion,
         },
         getAuthHeaders()

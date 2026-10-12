@@ -11,6 +11,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 
 // El Swal de "No se puede contar todavía" se dispara mientras el Modal de
 // asignar (FULL o No-FULL) sigue abierto; el Modal de MUI usa z-index 1300
@@ -101,6 +102,129 @@ const columnaPorKit = {
     }
 };
 
+// ============================================================
+// Logística: ¿a dónde va la orden y qué pasa con lo que sobra?
+//
+//  - logistic_type = 'fulfillment'            -> FULL.
+//  - otra logística con permitir_full = 1     -> hoy está en Mercado
+//    Envíos, pero está habilitada para enviarse a FULL (ME > FULL).
+//  - otra logística con permitir_full = 0     -> Mercado Envíos.
+//
+// Diferencia = lo que se arma (cantidad_parcial) − lo que se envía
+// (cantidad_a_enviar). Si va a FULL esa diferencia es EXCEDENTE; si no,
+// se guarda como stock de Mercado Envíos (ME).
+// ============================================================
+const infoLogistica = (logisticType, permitirFull) => {
+    const esFulfillment = logisticType === 'fulfillment';
+    const habilitadoFull = !esFulfillment && Number(permitirFull) === 1;
+    const vaAFull = esFulfillment || habilitadoFull;
+    return {
+        esFulfillment,
+        habilitadoFull,
+        vaAFull,
+        logisticaActual: esFulfillment ? 'FULL' : 'Mercado Envíos',
+        destinoDiferencia: vaAFull ? 'Excedente' : 'Guardar en ME',
+    };
+};
+
+const LOGISTICA_UI = {
+    full: {
+        label: 'FULL',
+        color: 'success',
+        ayuda: 'La publicación es FULL: esta orden se envía a FULL. Lo que se arme de más se marca como excedente.',
+    },
+    meFull: {
+        label: 'ME > FULL',
+        color: 'info',
+        ayuda: 'La publicación hoy está en Mercado Envíos, pero está habilitada para enviarse a FULL. Lo que se arme de más se marca como excedente.',
+    },
+    me: {
+        label: 'Mercado Envíos',
+        color: 'warning',
+        ayuda: 'La publicación es Mercado Envíos y no está habilitada para FULL. Lo que se arme se guarda en ME (no es excedente).',
+    },
+};
+
+const claveLogistica = (info) => (info.esFulfillment ? 'full' : info.habilitadoFull ? 'meFull' : 'me');
+
+const LogisticaChip = ({ logisticType, permitirFull, size = 'small' }) => {
+    const ui = LOGISTICA_UI[claveLogistica(infoLogistica(logisticType, permitirFull))];
+    return (
+        <Tooltip arrow title={ui.ayuda}>
+            <Chip size={size} color={ui.color} label={ui.label} sx={{ fontWeight: 700 }} />
+        </Tooltip>
+    );
+};
+
+// Leyenda arriba de la tabla de búsqueda por SKU.
+const LeyendaLogistica = () => (
+    <Paper variant="outlined" sx={{ p: 1.5, mb: 2, borderRadius: 2, bgcolor: '#fafafa' }}>
+        <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700, mb: 1 }}>
+            <LocalShippingOutlinedIcon color="primary" fontSize="small" />
+            ¿A dónde va cada orden y qué pasa con lo que sobra?
+        </Typography>
+        <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' } }}>
+            {['full', 'meFull', 'me'].map((k) => (
+                <Stack key={k} direction="row" spacing={1} alignItems="flex-start">
+                    <Chip size="small" color={LOGISTICA_UI[k].color} label={LOGISTICA_UI[k].label} sx={{ fontWeight: 700, flexShrink: 0 }} />
+                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>
+                        {LOGISTICA_UI[k].ayuda}
+                    </Typography>
+                </Stack>
+            ))}
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Fila verde = va a FULL · Fila roja = Mercado Envíos. "Diferencia" = lo que se arma − lo que se envía.
+        </Typography>
+    </Paper>
+);
+
+// Ayuda dentro de los modales de contar/surtir (FULL y Mercado Envíos).
+// permitirFull: el de la publicación; si el backend todavía no lo manda,
+// se usa el del modal (el de FULL solo se abre si va a FULL).
+const AyudaLogisticaOrden = ({ resumen, permitirFull }) => {
+    if (!resumen) return null;
+    const info = infoLogistica(resumen.logistic_type, permitirFull);
+    const ui = LOGISTICA_UI[claveLogistica(info)];
+    const unidad = (n) => resumen.esKit
+        ? `${n} ${n === 1 ? 'kit' : 'kits'}`
+        : `${n} ${n === 1 ? 'producto' : 'productos'}`;
+    const armar = Math.round(Number(resumen.cantidad_producto_a_producir) || 0);
+    const enviar = Math.round(Number(resumen.cantidad_producto_a_enviar) || 0);
+    const diferencia = Math.max(armar - enviar, 0);
+
+    let textoDiferencia;
+    if (diferencia === 0) {
+        textoDiferencia = 'Se envía todo lo que se arma: no hay excedente.';
+    } else if (info.vaAFull) {
+        textoDiferencia = `Se arman ${unidad(armar)} y se envían ${unidad(enviar)}: los ${unidad(diferencia)} restantes se marcan como EXCEDENTE.`;
+    } else if (enviar === 0) {
+        textoDiferencia = `No va a FULL: los ${unidad(armar)} que se arman se guardan en ME (no es excedente).`;
+    } else {
+        textoDiferencia = `Se arman ${unidad(armar)} y se envían ${unidad(enviar)}: los ${unidad(diferencia)} restantes se guardan en ME (no es excedente).`;
+    }
+
+    return (
+        <Alert
+            severity={info.vaAFull ? 'info' : 'warning'}
+            icon={<LocalShippingOutlinedIcon />}
+            sx={{ mb: 2, alignItems: 'flex-start' }}
+        >
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+                <Typography variant="subtitle2" fontWeight="bold">Logística:</Typography>
+                <Chip size="small" color={ui.color} label={ui.label} sx={{ fontWeight: 700 }} />
+                <Typography variant="body2" color="text.secondary">
+                    Logística actual de la publicación: <b>{info.logisticaActual}</b>
+                    {info.habilitadoFull && ' · habilitada para enviarse a FULL'}
+                </Typography>
+            </Stack>
+            <Typography variant="body2">
+                <b>Diferencia:</b> {textoDiferencia}
+            </Typography>
+        </Alert>
+    );
+};
+
 const KpiResumen = ({ label, value, color, detalle, tooltip }) => {
     const contenido = (
         <Box>
@@ -122,14 +246,15 @@ const KpiResumen = ({ label, value, color, detalle, tooltip }) => {
 
 // Resumen de la orden a nivel KIT/PRODUCTO: cuántos armar, cuántos enviar,
 // qué pasa con la diferencia y cuántas etiquetas van.
-const ResumenArmadoKPIs = ({ resumen, kits }) => {
+const ResumenArmadoKPIs = ({ resumen, kits, permitirFull }) => {
     const unidad = (n) => resumen.esKit
         ? `${n} ${n === 1 ? 'Kit' : 'Kits'}`
         : `${n} ${n === 1 ? 'Producto' : 'Productos'}`;
     const armar = Math.round(Number(resumen.cantidad_producto_a_producir) || 0);
     const enviar = Math.round(Number(resumen.cantidad_producto_a_enviar) || 0);
     const diferencia = Math.max(armar - enviar, 0);
-    const esFull = resumen.logistic_type === 'fulfillment';
+    // Excedente si va a FULL (fulfillment o habilitada con permitir_full = 1)
+    const esFull = infoLogistica(resumen.logistic_type, permitirFull).vaAFull;
 
     return (
         <>
@@ -148,11 +273,11 @@ const ResumenArmadoKPIs = ({ resumen, kits }) => {
                 label="Diferencia"
                 value={diferencia > 0 ? unidad(diferencia) : "Sin diferencia"}
                 color={diferencia > 0 ? "warning.main" : "text.secondary"}
-                detalle={diferencia > 0 ? (esFull ? "→ a Excedentes" : "→ guardar en stock ME") : null}
+                detalle={diferencia > 0 ? (esFull ? "→ Excedente" : "→ guardar en ME") : null}
                 tooltip={diferencia > 0
                     ? (esFull
-                        ? "Se arman pero no se envían: se quedan en la localidad de Excedentes."
-                        : "Se arman pero no se envían: se guardan como stock de Mercado Envíos.")
+                        ? "Va a FULL: lo que se arma y no se envía se marca como excedente (localidad de Excedentes)."
+                        : "No va a FULL: lo que se arma y no se envía se guarda como stock de Mercado Envíos.")
                     : undefined}
             />
             {kits && (
@@ -1301,26 +1426,89 @@ const Surtido = () => {
         {
             field: "logistic_type",
             headerName: "Logística",
-            type: "text",
+            type: "string",
             flex: 1,
+            minWidth: 150,
 
             renderCell: (params) => {
-                if (
-                    params.value === "fulfillment" ||
-                    params.row.permitir_full === 1
-                ) {
-                    return "Full";
+                const info = infoLogistica(params.value, params.row.permitir_full);
+                return (
+                    <Stack spacing={0.5} alignItems="center" justifyContent="center" sx={{ height: "100%", width: "100%" }}>
+                        <LogisticaChip logisticType={params.value} permitirFull={params.row.permitir_full} />
+                        <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center", lineHeight: 1.2, fontWeight: 500, whiteSpace: "normal" }}>
+                            {info.esFulfillment
+                                ? "Publicación en FULL"
+                                : info.habilitadoFull
+                                    ? "Hoy en ME · habilitada para FULL"
+                                    : "No va a FULL"}
+                        </Typography>
+                    </Stack>
+                );
+            }
+        },
+
+        {
+            field: "diferencia_envio",
+            headerName: "Diferencia",
+            type: "number",
+            flex: 1,
+            minWidth: 150,
+            headerAlign: "center",
+            align: "center",
+            // Lo que se arma (cantidad_parcial) − lo que se envía (cantidad_a_enviar)
+            valueGetter: (value, row) => {
+                if (row.cantidad_parcial == null) return null;
+                return Math.max(
+                    Math.round(Number(row.cantidad_parcial) || 0) -
+                    Math.round(Number(row.cantidad_producto_a_enviar) || 0),
+                    0
+                );
+            },
+            renderCell: (params) => {
+                if (params.value == null) return "—";
+                const info = infoLogistica(params.row.logistic_type, params.row.permitir_full);
+                const armar = Math.round(Number(params.row.cantidad_parcial) || 0);
+                const enviar = Math.round(Number(params.row.cantidad_producto_a_enviar) || 0);
+
+                if (params.value === 0) {
+                    return (
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", width: "100%" }}>
+                            <Tooltip arrow title={`Se arman ${armar} y se envían ${enviar}: no sobra nada.`}>
+                                <Chip size="small" label="Sin diferencia" />
+                            </Tooltip>
+                        </Box>
+                    );
                 }
 
-                return "Mercado Envíos";
+                return (
+                    <Tooltip
+                        arrow
+                        title={info.vaAFull
+                            ? `Se arman ${armar} y se envían ${enviar}: los ${params.value} restantes se marcan como excedente.`
+                            : `Se arman ${armar} y se envían ${enviar}: los ${params.value} restantes se guardan en ME (no es excedente).`}
+                    >
+                        <Stack spacing={0.5} alignItems="center" justifyContent="center" sx={{ height: "100%", width: "100%" }}>
+                            <Chip
+                                size="small"
+                                color={info.vaAFull ? "warning" : "default"}
+                                label={`+${params.value}`}
+                                sx={{ fontWeight: 700 }}
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                {info.destinoDiferencia}
+                            </Typography>
+                        </Stack>
+                    </Tooltip>
+                );
             }
         },
 
         {
             field: "permitir_full",
             headerName: "Permitir Full",
-            type: "text",
-            flex: 1
+            type: "string",
+            flex: 1,
+            valueFormatter: (value) => (Number(value) === 1 ? "Sí" : "No")
         },
 
         {
@@ -1991,6 +2179,7 @@ const Surtido = () => {
                     </Stack>
                 </Box>
             </Box>
+            {data.length > 0 && <LeyendaLogistica />}
             <DataGrid
                 sx={{
                     fontFamily: "Montserrat",
@@ -2137,7 +2326,7 @@ const Surtido = () => {
 
                                         </Box>
 
-                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} />
+                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} permitirFull={resumenOrden?.permitir_full ?? 1} />
 
                                     </Stack>
 
@@ -2239,6 +2428,9 @@ const Surtido = () => {
 
                         )
                     }
+
+                    {/* ===================== LOGÍSTICA ===================== */}
+                    <AyudaLogisticaOrden resumen={resumenOrden} permitirFull={resumenOrden?.permitir_full ?? 1} />
 
                     {/* ===================== GUÍA DE ARMADO ===================== */}
                     {
@@ -2653,7 +2845,7 @@ const Surtido = () => {
 
                                         </Box>
 
-                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} />
+                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} permitirFull={resumenOrden?.permitir_full ?? 0} />
 
                                     </Stack>
 
@@ -2755,6 +2947,9 @@ const Surtido = () => {
 
                         )
                     }
+
+                    {/* ===================== LOGÍSTICA ===================== */}
+                    <AyudaLogisticaOrden resumen={resumenOrden} permitirFull={resumenOrden?.permitir_full ?? 0} />
 
                     {/* ===================== GUÍA DE ARMADO ===================== */}
                     {
