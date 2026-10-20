@@ -32,16 +32,19 @@ const normalizar = (v) => String(v ?? "").trim().toLowerCase();
 
 // Mismas reglas que el backend (authorizeFresh). El backend es quien valida
 // de verdad; esto solo decide qué botones se muestran.
-export const puedeRegistrarRecepcion = (user) => {
-  const rol = normalizar(user?.rol_descripcion);
-  if (rol === "administrador") return true;
-  return rol === "almacenista" && normalizar(user?.permisos) === "supervisor";
-};
+//   - administrador / Planeador: control total (datos, notas, facturas,
+//     recibir, editar y deshacer recepción, cerrar / reabrir).
+//   - Almacenista: solo recibir notas de entrega y editar esa recepción.
+//   - Cualquier otro rol: solo consulta.
+const rolDe = (user) => normalizar(user?.rol_descripcion);
 
-export const puedeEditarPedido = (user) => {
-  const rol = normalizar(user?.rol_descripcion);
-  return rol === "administrador" || rol === "planeador";
-};
+const esControlTotal = (user) => ["administrador", "planeador"].includes(rolDe(user));
+
+export const puedeRegistrarRecepcion = (user) => esControlTotal(user) || rolDe(user) === "almacenista";
+
+export const puedeDeshacerRecepcion = (user) => esControlTotal(user);
+
+export const puedeEditarPedido = (user) => esControlTotal(user);
 
 export const getUsuarioSesion = () => {
   try {

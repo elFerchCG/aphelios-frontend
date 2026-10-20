@@ -12,6 +12,8 @@ import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import { DanadoDialog, HistorialDanados } from './DanadosSurtido';
 
 // El Swal de "No se puede contar todavía" se dispara mientras el Modal de
 // asignar (FULL o No-FULL) sigue abierto; el Modal de MUI usa z-index 1300
@@ -253,6 +255,7 @@ const ResumenArmadoKPIs = ({ resumen, kits, permitirFull }) => {
     const armar = Math.round(Number(resumen.cantidad_producto_a_producir) || 0);
     const enviar = Math.round(Number(resumen.cantidad_producto_a_enviar) || 0);
     const diferencia = Math.max(armar - enviar, 0);
+    const empacada = Math.round(Number(resumen.cantidad_producto_empacada) || 0);
     // Excedente si va a FULL (fulfillment o habilitada con permitir_full = 1)
     const esFull = infoLogistica(resumen.logistic_type, permitirFull).vaAFull;
 
@@ -287,6 +290,23 @@ const ResumenArmadoKPIs = ({ resumen, kits, permitirFull }) => {
                     color={kits.kitsPendientes > 0 ? "warning.main" : "success.main"}
                     detalle={kits.kitsPendientes > 0 ? `${kits.kitsPendientes} pendiente(s)` : "Completas"}
                 />
+            )}
+            {enviar > 0 && (
+                <Box sx={{ minWidth: 150 }}>
+                    <Typography variant="caption" color="text.secondary">Empacado</Typography>
+                    <Typography fontWeight="bold" color={empacada >= enviar ? "success.main" : "primary"}>
+                        {empacada} de {unidad(enviar)}
+                    </Typography>
+                    <LinearProgress
+                        variant="determinate"
+                        value={Math.min(100, (empacada / enviar) * 100)}
+                        color={empacada >= enviar ? "success" : "primary"}
+                        sx={{ height: 6, borderRadius: 3, my: 0.5 }}
+                    />
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                        {empacada >= enviar ? "Completo" : `${enviar - empacada} por empacar`}
+                    </Typography>
+                </Box>
             )}
         </>
     );
@@ -331,6 +351,8 @@ const Surtido = () => {
     const [loading, setLoading] = useState(false);
     const [resumenOrden, setResumenOrden] = useState(null);
     const [folioInternoEnvio, setFolioInternoEnvio] = useState("");
+    const [danadoComponente, setDanadoComponente] = useState(null);
+    const [historialDanados, setHistorialDanados] = useState([]);
 
     const inputRef = useRef(null);
 
@@ -542,10 +564,10 @@ const Surtido = () => {
             }
         };
 
-        if (openAsignar === true) {
+        if (openAsignar || openSurtirNoFull) {
             fetchUsuarios();
         }
-    }, [apiUrl, openAsignar])
+    }, [apiUrl, openAsignar, openSurtirNoFull])
 
     const handleSelectedUsuario = (e) => {
         const selectedId = e.target.value;
@@ -625,9 +647,11 @@ const Surtido = () => {
     // se enteren solo cuando el backend lo rechace.
     const calcularEstadoEtiquetas = (lista, resumen) => {
         if (!lista || lista.length === 0 || !resumen) return null;
+        // Para etiquetas solo cuentan las piezas buenas: contadas − dañadas
+        const buenas = (c) => Number(c.cantidad_contada || 0) - Number(c.cantidad_danada || 0);
 
         const kitsListos = Math.min(
-            ...lista.map((c) => Math.floor(Number(c.cantidad_contada || 0) / getCantidadPorUnidad(c)))
+            ...lista.map((c) => Math.floor(buenas(c) / getCantidadPorUnidad(c)))
         );
         const kitsYaSurtidos = Math.min(
             ...lista.map((c) => Math.floor(Number(c.cantidad_surtida || 0) / getCantidadPorUnidad(c)))
@@ -641,12 +665,12 @@ const Surtido = () => {
         const faltantes = completo
             ? []
             : lista
-                .filter((c) => Math.floor(Number(c.cantidad_contada || 0) / getCantidadPorUnidad(c)) <= kitsYaSurtidos)
+                .filter((c) => Math.floor(buenas(c) / getCantidadPorUnidad(c)) <= kitsYaSurtidos)
                 .map((c) => ({
                     id: c.id,
                     sku: c.sku,
                     descripcion: c.descripcion,
-                    faltan: (kitsYaSurtidos + 1) * getCantidadPorUnidad(c) - Number(c.cantidad_contada || 0)
+                    faltan: (kitsYaSurtidos + 1) * getCantidadPorUnidad(c) - buenas(c)
                 }));
 
         return { kitsListos, kitsYaSurtidos, kitsNuevos, kitsTotalesPosibles, completo, faltantes };
@@ -716,6 +740,7 @@ const Surtido = () => {
         setOpenSurtirNoFull(false);
         setTimeout(() => inputRef.current?.focus(), 100);
         setSelectedDetalleId(null);
+        setSelectedUsuario("");
         setResumenOrden(null);
     };
 
@@ -820,13 +845,15 @@ const Surtido = () => {
     };
 
     const imprimirEtiquetasNoFULL = async () => {
-        if (loading || !habilitarAsignar) return;
+        if (loading || !habilitarAsignar || !selectedUsuario) return;
         setLoading(true);
         try {
             const data = {
-                orden_id: componentes[0]?.orden_id
+                orden_id: componentes[0]?.orden_id,
+                operador: selectedUsuario.id_usuario
             }
             const response = await axios.post(`${apiUrl}/mrp/imprimirEtiquetasNoFull`, data, {
+                headers: { Authorization: `Bearer ${token}` }
             });
             if (response.data.ok) {
                 if (Number(response.data.cantidadEtiquetas) > 0) {
@@ -1025,7 +1052,28 @@ const Surtido = () => {
         } catch (error) {
             console.log("Ocurrio un error en validarPaquete:", error);
         }
+        fetchHistorialDanados(id);
     }
+
+    const fetchHistorialDanados = async (ordenId) => {
+        if (!ordenId) return;
+        try {
+            const { data } = await axios.get(`${apiUrl}/mrp/danados?orden_id=${ordenId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setHistorialDanados(data.ok ? data.data : []);
+        } catch (error) {
+            setHistorialDanados([]);
+        }
+    };
+
+
+    // Tras registrar dañados se recarga la orden y la búsqueda
+    const handleDanadoRegistrado = async () => {
+        const ordenId = componentes[0]?.orden_id;
+        if (ordenId) await validarPaquete(ordenId);
+        if (sku.trim() !== "") fetchOrdenProduccion(sku);
+    };
 
     // Le pide a almacén que recolecte el stock interno de componentes ya
     // reservado/procesado para esta OPD (cantidad_cubierta_excedente).
@@ -1609,6 +1657,42 @@ const Surtido = () => {
         }
     ]
 
+    const columnaDanadas = {
+        field: "cantidad_danada",
+        headerName: "Dañadas",
+        width: 130,
+        sortable: false,
+        headerAlign: "center",
+        align: "center",
+        renderCell: (params) => {
+            const danadas = Number(params.value || 0);
+            return (
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                    {danadas > 0 && (
+                        <Tooltip arrow title={`${danadas} pieza(s) dañadas: cuentan como procesadas pero no entran a etiquetas ni al envío`}>
+                            <Chip size="small" color="warning" label={danadas} sx={{ fontWeight: 700 }} />
+                        </Tooltip>
+                    )}
+                    <Tooltip arrow title="Marcar piezas dañadas">
+                        <span>
+                            <IconButton
+                                size="small"
+                                color="warning"
+                                disabled={modoSoloLectura}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDanadoComponente(params.row);
+                                }}
+                            >
+                                <ReportProblemOutlinedIcon fontSize="small" />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                </Stack>
+            );
+        }
+    };
+
     const columnsFULLAsignar = [
         { field: "id", headerName: "Folio detalle orden", flex: 1 },
         { field: "orden_id", headerName: "Folio orden", flex: 1 },
@@ -1788,6 +1872,7 @@ const Surtido = () => {
             field: "cantidad_excedente",
             headerName: "Excedente",
             flex: 1,
+            minWidth: 190,
             type: "number",
             renderCell: (params) => {
 
@@ -1809,34 +1894,38 @@ const Surtido = () => {
 
                 }
 
-                // Mostrar el sobrante también en kits: es lo que el
-                // usuario entiende (kits que se arman y no se envían).
+                // Sobrante = facturado + cubierto con stock − dañadas − enviar.
+                // Se separa en kits que van a Excedentes y piezas sueltas.
                 const porKit = piezasPorKit(params.row);
-                const kitsExcedente = kitsDePiezas(excedente, params.row);
+                const kitsDiferencia = Math.max(
+                    0,
+                    Number(resumenOrden?.cantidad_producto_a_producir || 0) - Number(resumenOrden?.cantidad_producto_a_enviar || 0)
+                );
+                const kitsExcedente = Math.min(kitsDePiezas(excedente, params.row), kitsDiferencia);
+                const sueltas = excedente - kitsExcedente * porKit;
+                const unidad = porKit > 1 || componentes.length > 1 ? "kit(s)" : "producto(s)";
+
+                const textoSueltas = `${sueltas} pza(s) sin kit (excedente de componentes)`;
+                const tooltip = [
+                    `${excedente} pza(s) sobrantes de este componente (facturado + stock interno − dañadas − lo que se envía).`,
+                    kitsExcedente > 0 ? `${kitsExcedente * porKit} pza(s) = ${kitsExcedente} ${unidad} que se arman y van a Excedentes.` : null,
+                    sueltas > 0 ? `${textoSueltas}: no completan un ${unidad === "kit(s)" ? "kit" : "producto"}.` : null,
+                ].filter(Boolean).join(" ");
 
                 return (
-
-                    <Tooltip
-                        arrow
-                        title={porKit > 1
-                            ? `${excedente} pzas sobrantes de este componente = ${kitsExcedente} kit(s) que se arman y van a Excedentes`
-                            : `${excedente} producto(s) que se arman y van a Excedentes`}
-                    >
-                        <Chip
-
-                            size="small"
-
-                            color="warning"
-
-                            label={porKit > 1 ? `+${excedente} pzas · ${kitsExcedente} kits` : `+${excedente}`}
-
-                        />
+                    <Tooltip arrow title={tooltip}>
+                        <Stack direction="row" spacing={0.75} alignItems="center" justifyContent="flex-end" sx={{ width: "100%" }}>
+                            <Chip size="small" color="warning" label={`+${excedente}`} sx={{ fontWeight: 700 }} />
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                                = {kitsExcedente} {unidad}{sueltas > 0 ? ` · ${sueltas} sin kit` : ""}
+                            </Typography>
+                        </Stack>
                     </Tooltip>
-
                 );
 
             }
         },
+        columnaDanadas,
     ];
 
     const columnsSurtirNoFull = [
@@ -2009,6 +2098,7 @@ const Surtido = () => {
                 };
             }
         },
+        columnaDanadas,
     ];
 
     const obtenerInfoProforma = async () => {
@@ -2223,6 +2313,14 @@ const Surtido = () => {
                     return 'fila-no-full';
                 }}
             />
+            <DanadoDialog
+                open={Boolean(danadoComponente)}
+                onClose={() => setDanadoComponente(null)}
+                componente={danadoComponente}
+                apiUrl={apiUrl}
+                token={token}
+                onRegistrado={handleDanadoRegistrado}
+            />
             <Modal id={"modal-asignar"} open={openAsignar} onClose={handleCloseAsignar}>
                 <Box sx={styleModalAsignar}>
 
@@ -2255,399 +2353,202 @@ const Surtido = () => {
                             )
                         }
                     </Stack>
+                    {/* CONTENIDO SCROLLEABLE: resumen, logística, tabla y detalles (acordeones cerrados) */}
+                    <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}>
 
-                    {
-                        resumenOrden && (
+                        {
+                            resumenOrden && (
 
-                            <Paper
-                                variant="outlined"
-                                sx={{
-                                    mb: 2,
-                                    p: 2,
-                                    borderRadius: 2,
-                                    bgcolor: "#fafafa"
-                                }}
-                            >
-
-                                <Box
+                                <Paper
+                                    variant="outlined"
                                     sx={{
-                                        display: "grid",
-                                        gridTemplateColumns: { xs: "1fr", lg: "auto 1fr" },
-                                        gap: 3,
-                                        alignItems: "start"
+                                        mb: 2,
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: "#fafafa"
                                     }}
                                 >
 
-                                    {/* ===================== KPIs ===================== */}
-
-                                    <Stack
-                                        direction="row"
-                                        useFlexGap
-                                        flexWrap="wrap"
-                                        columnGap={4}
-                                        rowGap={2}
-                                        alignItems="flex-start"
+                                    <Box
+                                        sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: { xs: "1fr", lg: "auto 1fr" },
+                                            gap: 3,
+                                            alignItems: "start"
+                                        }}
                                     >
 
-                                        <Box>
+                                        {/* ===================== KPIs ===================== */}
 
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Tipo
-                                            </Typography>
+                                        <Stack
+                                            direction="row"
+                                            useFlexGap
+                                            flexWrap="wrap"
+                                            columnGap={4}
+                                            rowGap={2}
+                                            alignItems="flex-start"
+                                        >
 
-                                            <Box sx={{ mt: 0.5 }}>
-                                                <Chip
-                                                    size="small"
-                                                    label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
-                                                    color={resumenOrden.esKit ? "secondary" : "primary"}
-                                                    sx={{ fontWeight: "bold" }}
-                                                />
-                                            </Box>
-
-                                        </Box>
-
-                                        <Box>
-
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Componentes
-                                            </Typography>
-
-                                            <Typography fontWeight="bold">
-
-                                                {resumenOrden.cantidad_componentes}
-
-                                            </Typography>
-
-                                        </Box>
-
-                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} permitirFull={resumenOrden?.permitir_full ?? 1} />
-
-                                    </Stack>
-
-                                    {/* ===================== NOTAS ===================== */}
-
-                                    {
-                                        resumenOrden.notas?.length > 0 && (
-
-                                            <Box
-                                                sx={{
-                                                    border: "1px solid",
-                                                    borderColor: "divider",
-                                                    borderRadius: 2,
-                                                    p: 2,
-                                                    minHeight: 110,
-                                                    bgcolor: "#fff"
-                                                }}
-                                            >
+                                            <Box>
 
                                                 <Typography
-                                                    variant="subtitle2"
-                                                    fontWeight="bold"
-                                                    gutterBottom
+                                                    variant="caption"
+                                                    color="text.secondary"
                                                 >
-                                                    📝 Notas
+                                                    Tipo
                                                 </Typography>
 
-                                                <Box
-                                                    sx={{
-                                                        display: "grid",
-                                                        gridTemplateColumns:
-                                                            "repeat(auto-fit, minmax(280px, 1fr))",
-                                                        gap: 2
-                                                    }}
-                                                >
-
-                                                    {
-                                                        componentes
-                                                            .filter(c => c.notas)
-                                                            .map((c) => (
-
-                                                                <Paper
-                                                                    key={c.id}
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        p: 1.5,
-                                                                        borderColor: "info.main",
-                                                                        bgcolor: "#F8FCFF",
-                                                                        height: "100%"
-                                                                    }}
-                                                                >
-
-                                                                    <Stack
-                                                                        direction="row"
-                                                                        spacing={1}
-                                                                        alignItems="flex-start"
-                                                                    >
-
-                                                                        <InfoOutlinedIcon
-                                                                            color="info"
-                                                                            fontSize="small"
-                                                                            sx={{ mt: .3 }}
-                                                                        />
-
-                                                                        <Box>
-
-                                                                            <Typography
-                                                                                fontWeight="bold"
-                                                                                color="primary.dark"
-                                                                            >
-                                                                                {c.sku}
-                                                                            </Typography>
-
-                                                                            <Typography
-                                                                                variant="body2"
-                                                                            >
-                                                                                {c.notas}
-                                                                            </Typography>
-
-                                                                        </Box>
-
-                                                                    </Stack>
-
-                                                                </Paper>
-
-                                                            ))
-                                                    }
-
+                                                <Box sx={{ mt: 0.5 }}>
+                                                    <Chip
+                                                        size="small"
+                                                        label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
+                                                        color={resumenOrden.esKit ? "secondary" : "primary"}
+                                                        sx={{ fontWeight: "bold" }}
+                                                    />
                                                 </Box>
 
                                             </Box>
 
-                                        )
-                                    }
+                                            <Box>
 
-                                </Box>
-
-                            </Paper>
-
-                        )
-                    }
-
-                    {/* ===================== LOGÍSTICA ===================== */}
-                    <AyudaLogisticaOrden resumen={resumenOrden} permitirFull={resumenOrden?.permitir_full ?? 1} />
-
-                    {/* ===================== GUÍA DE ARMADO ===================== */}
-                    {
-                        resumenOrden && componentes.length > 0 && (
-
-                            <Accordion
-                                variant="outlined"
-                                sx={{
-                                    mb: 2,
-                                    borderRadius: 2,
-                                    bgcolor: "#FFFDF5",
-                                    borderColor: "warning.light",
-                                    '&:before': { display: 'none' }
-                                }}
-                            >
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <BuildOutlinedIcon color="warning" fontSize="small" />
-                                        <Typography variant="subtitle2" fontWeight="bold">
-                                            Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
-                                        </Typography>
-                                    </Stack>
-                                </AccordionSummary>
-
-                                <AccordionDetails>
-                                    <Box
-                                        sx={{
-                                            display: "grid",
-                                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                                            gap: 1.5
-                                        }}
-                                    >
-                                        {
-                                            componentes.map((c) => {
-                                                const porUnidad = getCantidadPorUnidad(c);
-
-                                                return (
-                                                    <Paper
-                                                        key={c.id}
-                                                        variant="outlined"
-                                                        sx={{
-                                                            p: 1,
-                                                            display: "flex",
-                                                            justifyContent: "space-between",
-                                                            alignItems: "center",
-                                                            bgcolor: "#fff"
-                                                        }}
-                                                    >
-                                                        <Box>
-                                                            <Typography variant="body2" fontWeight="bold">
-                                                                {c.sku}
-                                                            </Typography>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {c.descripcion ?? "Sin descripción"}
-                                                            </Typography>
-                                                        </Box>
-
-                                                        <Chip
-                                                            size="small"
-                                                            color={porUnidad > 1 ? "secondary" : "default"}
-                                                            label={`x${porUnidad}`}
-                                                        />
-                                                    </Paper>
-                                                );
-                                            })
-                                        }
-                                    </Box>
-                                </AccordionDetails>
-                            </Accordion>
-
-                        )
-                    }
-
-                    {
-                        estadoEtiquetas && !modoSoloLectura && (
-
-                            <Accordion defaultExpanded sx={{ mb: 2 }}>
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                    <Typography
-                                        variant="subtitle2"
-                                        fontWeight="bold"
-                                        color={estadoEtiquetas.kitsNuevos > 0 ? "success.main" : (estadoEtiquetas.completo ? "info.main" : "warning.main")}
-                                    >
-                                        {estadoEtiquetas.completo
-                                            ? "Etiquetas: ya se imprimieron todas las necesarias"
-                                            : estadoEtiquetas.kitsNuevos > 0
-                                                ? `Etiquetas: ${estadoEtiquetas.kitsNuevos} lista(s) para imprimir`
-                                                : "Etiquetas: faltan componentes por contar"}
-                                    </Typography>
-                                </AccordionSummary>
-                                <AccordionDetails>
-                                    <Alert
-                                        severity={estadoEtiquetas.kitsNuevos > 0 ? "success" : (estadoEtiquetas.completo ? "info" : "warning")}
-                                    >
-                                        {estadoEtiquetas.completo ? (
-                                            "Ya se imprimieron todas las etiquetas necesarias para esta orden."
-                                        ) : estadoEtiquetas.kitsNuevos > 0 ? (
-                                            `Hay ${estadoEtiquetas.kitsNuevos} etiqueta(s) lista(s) para imprimir.`
-                                        ) : (
-                                            <>
-                                                <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
-                                                    Todavía no hay etiquetas listas — faltan por contar:
+                                                <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                >
+                                                    Componentes
                                                 </Typography>
-                                                <Stack spacing={0.5}>
-                                                    {estadoEtiquetas.faltantes.map((f) => (
-                                                        <Typography key={f.id} variant="body2">
-                                                            • {f.sku}{f.descripcion ? ` (${f.descripcion})` : ''}: faltan {f.faltan}
-                                                        </Typography>
-                                                    ))}
-                                                </Stack>
-                                            </>
-                                        )}
-                                    </Alert>
-                                </AccordionDetails>
-                            </Accordion>
 
-                        )
-                    }
+                                                <Typography fontWeight="bold">
 
-                    {
-                        modoSoloLectura && (
+                                                    {resumenOrden.cantidad_componentes}
 
-                            <Alert
-                                severity="info"
-                                sx={{ mb: 2 }}
-                            >
-                                Esta orden ya fue surtida completamente.
-                                Se muestra únicamente para consulta.
-                            </Alert>
+                                                </Typography>
 
-                        )
-                    }
+                                            </Box>
 
-                    {
-                        componentes.filter((c) => Number(c.cantidad_cubierta_excedente) > 0).length > 0 && (
+                                            <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} permitirFull={resumenOrden?.permitir_full ?? 1} />
 
-                            <Alert
-                                severity="warning"
-                                icon={<Inventory2Icon />}
-                                sx={{ mb: 2 }}
-                            >
-                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                                    Esta orden tiene componentes cubiertos con stock interno — hay que recolectarlos en almacén antes de poder surtirlos.
-                                </Typography>
+                                        </Stack>
 
-                                <Stack spacing={1}>
-                                    {
-                                        componentes
-                                            .filter((c) => Number(c.cantidad_cubierta_excedente) > 0)
-                                            .map((c) => {
-                                                const sinSolicitar = Number(c.stock_sin_solicitar || 0) > 0;
-                                                const esperandoEntrega = !sinSolicitar && Number(c.stock_esperando_entrega || 0) > 0;
-                                                const entregado = !sinSolicitar && !esperandoEntrega && Number(c.stock_entregado || 0) > 0;
+                                        {/* ===================== NOTAS ===================== */}
 
-                                                return (
+                                        {
+                                            resumenOrden.notas?.length > 0 && (
+
+                                                <Box
+                                                    sx={{
+                                                        border: "1px solid",
+                                                        borderColor: "divider",
+                                                        borderRadius: 2,
+                                                        p: 2,
+                                                        minHeight: 110,
+                                                        bgcolor: "#fff"
+                                                    }}
+                                                >
+
+                                                    <Typography
+                                                        variant="subtitle2"
+                                                        fontWeight="bold"
+                                                        gutterBottom
+                                                    >
+                                                        📝 Notas
+                                                    </Typography>
+
                                                     <Box
-                                                        key={c.id}
                                                         sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            bgcolor: '#fff',
-                                                            p: 1,
-                                                            borderRadius: 1
+                                                            display: "grid",
+                                                            gridTemplateColumns:
+                                                                "repeat(auto-fit, minmax(280px, 1fr))",
+                                                            gap: 2
                                                         }}
                                                     >
-                                                        <Box>
-                                                            <Typography variant="body2" fontWeight="bold">
-                                                                {c.sku} - {c.descripcion}
-                                                            </Typography>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {Math.round(Number(c.cantidad_cubierta_excedente))} pza(s)
-                                                                {c.ubicacion_stock_componente ? ` — ${c.ubicacion_stock_componente}` : ''}
-                                                            </Typography>
-                                                        </Box>
 
-                                                        {sinSolicitar && (
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                color="warning"
-                                                                disabled={!!solicitandoStock[c.id]}
-                                                                onClick={() => solicitarStockComponente(c.id)}
-                                                            >
-                                                                {solicitandoStock[c.id] ? "Enviando..." : "Solicitar a almacén"}
-                                                            </Button>
-                                                        )}
+                                                        {
+                                                            componentes
+                                                                .filter(c => c.notas)
+                                                                .map((c) => (
 
-                                                        {esperandoEntrega && (
-                                                            <Chip size="small" color="warning" label="Esperando entrega de almacén" />
-                                                        )}
+                                                                    <Paper
+                                                                        key={c.id}
+                                                                        variant="outlined"
+                                                                        sx={{
+                                                                            p: 1.5,
+                                                                            borderColor: "info.main",
+                                                                            bgcolor: "#F8FCFF",
+                                                                            height: "100%"
+                                                                        }}
+                                                                    >
 
-                                                        {entregado && (
-                                                            <Chip size="small" color="success" label="Entregado ✓" />
-                                                        )}
+                                                                        <Stack
+                                                                            direction="row"
+                                                                            spacing={1}
+                                                                            alignItems="flex-start"
+                                                                        >
+
+                                                                            <InfoOutlinedIcon
+                                                                                color="info"
+                                                                                fontSize="small"
+                                                                                sx={{ mt: .3 }}
+                                                                            />
+
+                                                                            <Box>
+
+                                                                                <Typography
+                                                                                    fontWeight="bold"
+                                                                                    color="primary.dark"
+                                                                                >
+                                                                                    {c.sku}
+                                                                                </Typography>
+
+                                                                                <Typography
+                                                                                    variant="body2"
+                                                                                >
+                                                                                    {c.notas}
+                                                                                </Typography>
+
+                                                                            </Box>
+
+                                                                        </Stack>
+
+                                                                    </Paper>
+
+                                                                ))
+                                                        }
+
                                                     </Box>
-                                                );
-                                            })
-                                    }
-                                </Stack>
-                            </Alert>
 
-                        )
-                    }
+                                                </Box>
 
-                    {/* CONTENIDO SCROLLEABLE */}
-                    <Box
-                        sx={{
-                            flex: 1,                 // 🔥 ocupa todo el espacio disponible
-                            overflowY: 'auto',       // 🔥 solo esta parte hace scroll
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 2
-                        }}
-                    >
+                                            )
+                                        }
 
+                                    </Box>
+
+                                </Paper>
+
+                            )
+                        }
+
+                        {/* ===================== LOGÍSTICA ===================== */}
+                        <AyudaLogisticaOrden resumen={resumenOrden} permitirFull={resumenOrden?.permitir_full ?? 1} />
+                        {
+                            modoSoloLectura && (
+
+                                <Alert
+                                    severity="info"
+                                    sx={{ mb: 2 }}
+                                >
+                                    Esta orden ya fue surtida completamente.
+                                    Se muestra únicamente para consulta.
+                                </Alert>
+
+                            )
+                        }
+
+                        {/* TABLA DE CONTEO: justo después de la logística */}
+                        <Box sx={{ mb: 2 }}>
                         <DataGrid
+                            autoHeight
                             rows={componentes}
                             columns={columnsFULLAsignar}
                             getRowId={(row) => row.id}
@@ -2669,9 +2570,200 @@ const Surtido = () => {
                             sx={{
                                 fontFamily: "Montserrat",
                                 fontWeight: "bold",
-                                minHeight: 300,
                             }}
                         />
+                        </Box>
+
+                        {
+                            estadoEtiquetas && !modoSoloLectura && (
+
+                                <Accordion sx={{ mb: 2 }}>
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography
+                                            variant="subtitle2"
+                                            fontWeight="bold"
+                                            color={estadoEtiquetas.kitsNuevos > 0 ? "success.main" : (estadoEtiquetas.completo ? "info.main" : "warning.main")}
+                                        >
+                                            {estadoEtiquetas.completo
+                                                ? "Etiquetas: ya se imprimieron todas las necesarias"
+                                                : estadoEtiquetas.kitsNuevos > 0
+                                                    ? `Etiquetas: ${estadoEtiquetas.kitsNuevos} lista(s) para imprimir`
+                                                    : "Etiquetas: faltan componentes por contar"}
+                                        </Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        <Alert
+                                            severity={estadoEtiquetas.kitsNuevos > 0 ? "success" : (estadoEtiquetas.completo ? "info" : "warning")}
+                                        >
+                                            {estadoEtiquetas.completo ? (
+                                                "Ya se imprimieron todas las etiquetas necesarias para esta orden."
+                                            ) : estadoEtiquetas.kitsNuevos > 0 ? (
+                                                `Hay ${estadoEtiquetas.kitsNuevos} etiqueta(s) lista(s) para imprimir.`
+                                            ) : (
+                                                <>
+                                                    <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                                                        Todavía no hay etiquetas listas — faltan por contar:
+                                                    </Typography>
+                                                    <Stack spacing={0.5}>
+                                                        {estadoEtiquetas.faltantes.map((f) => (
+                                                            <Typography key={f.id} variant="body2">
+                                                                • {f.sku}{f.descripcion ? ` (${f.descripcion})` : ''}: faltan {f.faltan}
+                                                            </Typography>
+                                                        ))}
+                                                    </Stack>
+                                                </>
+                                            )}
+                                        </Alert>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                            )
+                        }
+
+                        {
+                            componentes.filter((c) => Number(c.cantidad_cubierta_excedente) > 0).length > 0 && (
+
+                                <Alert
+                                    severity="warning"
+                                    icon={<Inventory2Icon />}
+                                    sx={{ mb: 2 }}
+                                >
+                                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                                        Esta orden tiene componentes cubiertos con stock interno — hay que recolectarlos en almacén antes de poder surtirlos.
+                                    </Typography>
+
+                                    <Stack spacing={1}>
+                                        {
+                                            componentes
+                                                .filter((c) => Number(c.cantidad_cubierta_excedente) > 0)
+                                                .map((c) => {
+                                                    const sinSolicitar = Number(c.stock_sin_solicitar || 0) > 0;
+                                                    const esperandoEntrega = !sinSolicitar && Number(c.stock_esperando_entrega || 0) > 0;
+                                                    const entregado = !sinSolicitar && !esperandoEntrega && Number(c.stock_entregado || 0) > 0;
+
+                                                    return (
+                                                        <Box
+                                                            key={c.id}
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                bgcolor: '#fff',
+                                                                p: 1,
+                                                                borderRadius: 1
+                                                            }}
+                                                        >
+                                                            <Box>
+                                                                <Typography variant="body2" fontWeight="bold">
+                                                                    {c.sku} - {c.descripcion}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {Math.round(Number(c.cantidad_cubierta_excedente))} pza(s)
+                                                                    {c.ubicacion_stock_componente ? ` — ${c.ubicacion_stock_componente}` : ''}
+                                                                </Typography>
+                                                            </Box>
+
+                                                            {sinSolicitar && (
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="contained"
+                                                                    color="warning"
+                                                                    disabled={!!solicitandoStock[c.id]}
+                                                                    onClick={() => solicitarStockComponente(c.id)}
+                                                                >
+                                                                    {solicitandoStock[c.id] ? "Enviando..." : "Solicitar a almacén"}
+                                                                </Button>
+                                                            )}
+
+                                                            {esperandoEntrega && (
+                                                                <Chip size="small" color="warning" label="Esperando entrega de almacén" />
+                                                            )}
+
+                                                            {entregado && (
+                                                                <Chip size="small" color="success" label="Entregado ✓" />
+                                                            )}
+                                                        </Box>
+                                                    );
+                                                })
+                                        }
+                                    </Stack>
+                                </Alert>
+
+                            )
+                        }
+
+                        <HistorialDanados historial={historialDanados} />
+                        {/* ===================== GUÍA DE ARMADO ===================== */}
+                        {
+                            resumenOrden && componentes.length > 0 && (
+
+                                <Accordion
+                                    variant="outlined"
+                                    sx={{
+                                        mb: 2,
+                                        borderRadius: 2,
+                                        bgcolor: "#FFFDF5",
+                                        borderColor: "warning.light",
+                                        '&:before': { display: 'none' }
+                                    }}
+                                >
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <BuildOutlinedIcon color="warning" fontSize="small" />
+                                            <Typography variant="subtitle2" fontWeight="bold">
+                                                Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                            </Typography>
+                                        </Stack>
+                                    </AccordionSummary>
+
+                                    <AccordionDetails>
+                                        <Box
+                                            sx={{
+                                                display: "grid",
+                                                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                                gap: 1.5
+                                            }}
+                                        >
+                                            {
+                                                componentes.map((c) => {
+                                                    const porUnidad = getCantidadPorUnidad(c);
+
+                                                    return (
+                                                        <Paper
+                                                            key={c.id}
+                                                            variant="outlined"
+                                                            sx={{
+                                                                p: 1,
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                alignItems: "center",
+                                                                bgcolor: "#fff"
+                                                            }}
+                                                        >
+                                                            <Box>
+                                                                <Typography variant="body2" fontWeight="bold">
+                                                                    {c.sku}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {c.descripcion ?? "Sin descripción"}
+                                                                </Typography>
+                                                            </Box>
+
+                                                            <Chip
+                                                                size="small"
+                                                                color={porUnidad > 1 ? "secondary" : "default"}
+                                                                label={`x${porUnidad}`}
+                                                            />
+                                                        </Paper>
+                                                    );
+                                                })
+                                            }
+                                        </Box>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                            )
+                        }
 
                     </Box>
 
@@ -2774,398 +2866,202 @@ const Surtido = () => {
                             )
                         }
                     </Stack>
+                    {/* CONTENIDO SCROLLEABLE: resumen, logística, tabla y detalles (acordeones cerrados) */}
+                    <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.5 }}>
 
-                    {
-                        resumenOrden && (
+                        {
+                            resumenOrden && (
 
-                            <Paper
-                                variant="outlined"
-                                sx={{
-                                    mb: 2,
-                                    p: 2,
-                                    borderRadius: 2,
-                                    bgcolor: "#fafafa"
-                                }}
-                            >
-
-                                <Box
+                                <Paper
+                                    variant="outlined"
                                     sx={{
-                                        display: "grid",
-                                        gridTemplateColumns: { xs: "1fr", lg: "auto 1fr" },
-                                        gap: 3,
-                                        alignItems: "start"
+                                        mb: 2,
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: "#fafafa"
                                     }}
                                 >
 
-                                    {/* ===================== KPIs ===================== */}
-
-                                    <Stack
-                                        direction="row"
-                                        useFlexGap
-                                        flexWrap="wrap"
-                                        columnGap={4}
-                                        rowGap={2}
-                                        alignItems="flex-start"
+                                    <Box
+                                        sx={{
+                                            display: "grid",
+                                            gridTemplateColumns: { xs: "1fr", lg: "auto 1fr" },
+                                            gap: 3,
+                                            alignItems: "start"
+                                        }}
                                     >
 
-                                        <Box>
+                                        {/* ===================== KPIs ===================== */}
 
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Tipo
-                                            </Typography>
+                                        <Stack
+                                            direction="row"
+                                            useFlexGap
+                                            flexWrap="wrap"
+                                            columnGap={4}
+                                            rowGap={2}
+                                            alignItems="flex-start"
+                                        >
 
-                                            <Box sx={{ mt: 0.5 }}>
-                                                <Chip
-                                                    size="small"
-                                                    label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
-                                                    color={resumenOrden.esKit ? "secondary" : "primary"}
-                                                    sx={{ fontWeight: "bold" }}
-                                                />
-                                            </Box>
-
-                                        </Box>
-
-                                        <Box>
-
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                Componentes
-                                            </Typography>
-
-                                            <Typography fontWeight="bold">
-
-                                                {resumenOrden.cantidad_componentes}
-
-                                            </Typography>
-
-                                        </Box>
-
-                                        <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} permitirFull={resumenOrden?.permitir_full ?? 0} />
-
-                                    </Stack>
-
-                                    {/* ===================== NOTAS ===================== */}
-
-                                    {
-                                        resumenOrden.notas?.length > 0 && (
-
-                                            <Box
-                                                sx={{
-                                                    border: "1px solid",
-                                                    borderColor: "divider",
-                                                    borderRadius: 2,
-                                                    p: 2,
-                                                    minHeight: 110,
-                                                    bgcolor: "#fff"
-                                                }}
-                                            >
+                                            <Box>
 
                                                 <Typography
-                                                    variant="subtitle2"
-                                                    fontWeight="bold"
-                                                    gutterBottom
+                                                    variant="caption"
+                                                    color="text.secondary"
                                                 >
-                                                    📝 Notas
+                                                    Tipo
                                                 </Typography>
 
-                                                <Box
-                                                    sx={{
-                                                        display: "grid",
-                                                        gridTemplateColumns:
-                                                            "repeat(auto-fit, minmax(280px, 1fr))",
-                                                        gap: 2
-                                                    }}
-                                                >
-
-                                                    {
-                                                        componentes
-                                                            .filter(c => c.notas)
-                                                            .map((c) => (
-
-                                                                <Paper
-                                                                    key={c.id}
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        p: 1.5,
-                                                                        borderColor: "info.main",
-                                                                        bgcolor: "#F8FCFF",
-                                                                        height: "100%"
-                                                                    }}
-                                                                >
-
-                                                                    <Stack
-                                                                        direction="row"
-                                                                        spacing={1}
-                                                                        alignItems="flex-start"
-                                                                    >
-
-                                                                        <InfoOutlinedIcon
-                                                                            color="info"
-                                                                            fontSize="small"
-                                                                            sx={{ mt: .3 }}
-                                                                        />
-
-                                                                        <Box>
-
-                                                                            <Typography
-                                                                                fontWeight="bold"
-                                                                                color="primary.dark"
-                                                                            >
-                                                                                {c.sku}
-                                                                            </Typography>
-
-                                                                            <Typography
-                                                                                variant="body2"
-                                                                            >
-                                                                                {c.notas}
-                                                                            </Typography>
-
-                                                                        </Box>
-
-                                                                    </Stack>
-
-                                                                </Paper>
-
-                                                            ))
-                                                    }
-
+                                                <Box sx={{ mt: 0.5 }}>
+                                                    <Chip
+                                                        size="small"
+                                                        label={resumenOrden.esKit ? "KIT" : "SIMPLE"}
+                                                        color={resumenOrden.esKit ? "secondary" : "primary"}
+                                                        sx={{ fontWeight: "bold" }}
+                                                    />
                                                 </Box>
 
                                             </Box>
 
-                                        )
-                                    }
+                                            <Box>
 
-                                </Box>
-
-                            </Paper>
-
-                        )
-                    }
-
-                    {/* ===================== LOGÍSTICA ===================== */}
-                    <AyudaLogisticaOrden resumen={resumenOrden} permitirFull={resumenOrden?.permitir_full ?? 0} />
-
-                    {/* ===================== GUÍA DE ARMADO ===================== */}
-                    {
-                        resumenOrden && componentes.length > 0 && (
-
-                            <Accordion
-                                variant="outlined"
-                                sx={{
-                                    mb: 2,
-                                    borderRadius: 2,
-                                    bgcolor: "#FFFDF5",
-                                    borderColor: "warning.light",
-                                    '&:before': { display: 'none' }
-                                }}
-                            >
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <BuildOutlinedIcon color="warning" fontSize="small" />
-                                        <Typography variant="subtitle2" fontWeight="bold">
-                                            Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
-                                        </Typography>
-                                    </Stack>
-                                </AccordionSummary>
-
-                                <AccordionDetails>
-                                    <Box
-                                        sx={{
-                                            display: "grid",
-                                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                                            gap: 1.5
-                                        }}
-                                    >
-                                        {
-                                            componentes.map((c) => {
-                                                const porUnidad = getCantidadPorUnidad(c);
-
-                                                return (
-                                                    <Paper
-                                                        key={c.id}
-                                                        variant="outlined"
-                                                        sx={{
-                                                            p: 1,
-                                                            display: "flex",
-                                                            justifyContent: "space-between",
-                                                            alignItems: "center",
-                                                            bgcolor: "#fff"
-                                                        }}
-                                                    >
-                                                        <Box>
-                                                            <Typography variant="body2" fontWeight="bold">
-                                                                {c.sku}
-                                                            </Typography>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {c.descripcion ?? "Sin descripción"}
-                                                            </Typography>
-                                                        </Box>
-
-                                                        <Chip
-                                                            size="small"
-                                                            color={porUnidad > 1 ? "secondary" : "default"}
-                                                            label={`x${porUnidad}`}
-                                                        />
-                                                    </Paper>
-                                                );
-                                            })
-                                        }
-                                    </Box>
-                                </AccordionDetails>
-                            </Accordion>
-
-                        )
-                    }
-
-                    {
-                        estadoEtiquetas && !modoSoloLectura && (
-
-                            <Accordion defaultExpanded sx={{ mb: 2 }}>
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                    <Typography
-                                        variant="subtitle2"
-                                        fontWeight="bold"
-                                        color={estadoEtiquetas.kitsNuevos > 0 ? "success.main" : (estadoEtiquetas.completo ? "info.main" : "warning.main")}
-                                    >
-                                        {estadoEtiquetas.completo
-                                            ? "Etiquetas: ya se imprimieron todas las necesarias"
-                                            : estadoEtiquetas.kitsNuevos > 0
-                                                ? `Etiquetas: ${estadoEtiquetas.kitsNuevos} lista(s) para imprimir`
-                                                : "Etiquetas: faltan componentes por contar"}
-                                    </Typography>
-                                </AccordionSummary>
-                                <AccordionDetails>
-                                    <Alert
-                                        severity={estadoEtiquetas.kitsNuevos > 0 ? "success" : (estadoEtiquetas.completo ? "info" : "warning")}
-                                    >
-                                        {estadoEtiquetas.completo ? (
-                                            "Ya se imprimieron todas las etiquetas necesarias para esta orden."
-                                        ) : estadoEtiquetas.kitsNuevos > 0 ? (
-                                            `Hay ${estadoEtiquetas.kitsNuevos} etiqueta(s) lista(s) para imprimir.`
-                                        ) : (
-                                            <>
-                                                <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
-                                                    Todavía no hay etiquetas listas — faltan por contar:
+                                                <Typography
+                                                    variant="caption"
+                                                    color="text.secondary"
+                                                >
+                                                    Componentes
                                                 </Typography>
-                                                <Stack spacing={0.5}>
-                                                    {estadoEtiquetas.faltantes.map((f) => (
-                                                        <Typography key={f.id} variant="body2">
-                                                            • {f.sku}{f.descripcion ? ` (${f.descripcion})` : ''}: faltan {f.faltan}
-                                                        </Typography>
-                                                    ))}
-                                                </Stack>
-                                            </>
-                                        )}
-                                    </Alert>
-                                </AccordionDetails>
-                            </Accordion>
 
-                        )
-                    }
+                                                <Typography fontWeight="bold">
 
-                    {
-                        modoSoloLectura && (
+                                                    {resumenOrden.cantidad_componentes}
 
-                            <Alert
-                                severity="info"
-                                sx={{ mb: 2 }}
-                            >
-                                Esta orden ya fue surtida completamente.
-                                Se muestra únicamente para consulta.
-                            </Alert>
+                                                </Typography>
 
-                        )
-                    }
+                                            </Box>
 
-                    {
-                        componentes.filter((c) => Number(c.cantidad_cubierta_excedente) > 0).length > 0 && (
+                                            <ResumenArmadoKPIs resumen={resumenOrden} kits={kitsOrden} permitirFull={resumenOrden?.permitir_full ?? 0} />
 
-                            <Alert
-                                severity="warning"
-                                icon={<Inventory2Icon />}
-                                sx={{ mb: 2 }}
-                            >
-                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                                    Esta orden tiene componentes cubiertos con stock interno — hay que recolectarlos en almacén antes de poder surtirlos.
-                                </Typography>
+                                        </Stack>
 
-                                <Stack spacing={1}>
-                                    {
-                                        componentes
-                                            .filter((c) => Number(c.cantidad_cubierta_excedente) > 0)
-                                            .map((c) => {
-                                                const sinSolicitar = Number(c.stock_sin_solicitar || 0) > 0;
-                                                const esperandoEntrega = !sinSolicitar && Number(c.stock_esperando_entrega || 0) > 0;
-                                                const entregado = !sinSolicitar && !esperandoEntrega && Number(c.stock_entregado || 0) > 0;
+                                        {/* ===================== NOTAS ===================== */}
 
-                                                return (
+                                        {
+                                            resumenOrden.notas?.length > 0 && (
+
+                                                <Box
+                                                    sx={{
+                                                        border: "1px solid",
+                                                        borderColor: "divider",
+                                                        borderRadius: 2,
+                                                        p: 2,
+                                                        minHeight: 110,
+                                                        bgcolor: "#fff"
+                                                    }}
+                                                >
+
+                                                    <Typography
+                                                        variant="subtitle2"
+                                                        fontWeight="bold"
+                                                        gutterBottom
+                                                    >
+                                                        📝 Notas
+                                                    </Typography>
+
                                                     <Box
-                                                        key={c.id}
                                                         sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            bgcolor: '#fff',
-                                                            p: 1,
-                                                            borderRadius: 1
+                                                            display: "grid",
+                                                            gridTemplateColumns:
+                                                                "repeat(auto-fit, minmax(280px, 1fr))",
+                                                            gap: 2
                                                         }}
                                                     >
-                                                        <Box>
-                                                            <Typography variant="body2" fontWeight="bold">
-                                                                {c.sku} - {c.descripcion}
-                                                            </Typography>
-                                                            <Typography variant="caption" color="text.secondary">
-                                                                {Math.round(Number(c.cantidad_cubierta_excedente))} pza(s)
-                                                                {c.ubicacion_stock_componente ? ` — ${c.ubicacion_stock_componente}` : ''}
-                                                            </Typography>
-                                                        </Box>
 
-                                                        {sinSolicitar && (
-                                                            <Button
-                                                                size="small"
-                                                                variant="contained"
-                                                                color="warning"
-                                                                disabled={!!solicitandoStock[c.id]}
-                                                                onClick={() => solicitarStockComponente(c.id)}
-                                                            >
-                                                                {solicitandoStock[c.id] ? "Enviando..." : "Solicitar a almacén"}
-                                                            </Button>
-                                                        )}
+                                                        {
+                                                            componentes
+                                                                .filter(c => c.notas)
+                                                                .map((c) => (
 
-                                                        {esperandoEntrega && (
-                                                            <Chip size="small" color="warning" label="Esperando entrega de almacén" />
-                                                        )}
+                                                                    <Paper
+                                                                        key={c.id}
+                                                                        variant="outlined"
+                                                                        sx={{
+                                                                            p: 1.5,
+                                                                            borderColor: "info.main",
+                                                                            bgcolor: "#F8FCFF",
+                                                                            height: "100%"
+                                                                        }}
+                                                                    >
 
-                                                        {entregado && (
-                                                            <Chip size="small" color="success" label="Entregado ✓" />
-                                                        )}
+                                                                        <Stack
+                                                                            direction="row"
+                                                                            spacing={1}
+                                                                            alignItems="flex-start"
+                                                                        >
+
+                                                                            <InfoOutlinedIcon
+                                                                                color="info"
+                                                                                fontSize="small"
+                                                                                sx={{ mt: .3 }}
+                                                                            />
+
+                                                                            <Box>
+
+                                                                                <Typography
+                                                                                    fontWeight="bold"
+                                                                                    color="primary.dark"
+                                                                                >
+                                                                                    {c.sku}
+                                                                                </Typography>
+
+                                                                                <Typography
+                                                                                    variant="body2"
+                                                                                >
+                                                                                    {c.notas}
+                                                                                </Typography>
+
+                                                                            </Box>
+
+                                                                        </Stack>
+
+                                                                    </Paper>
+
+                                                                ))
+                                                        }
+
                                                     </Box>
-                                                );
-                                            })
-                                    }
-                                </Stack>
-                            </Alert>
 
-                        )
-                    }
+                                                </Box>
 
-                    {/* CONTENIDO SCROLLEABLE */}
-                    <Box
-                        sx={{
-                            flex: 1,
-                            overflowY: 'auto',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 2
-                        }}
-                    >
+                                            )
+                                        }
+
+                                    </Box>
+
+                                </Paper>
+
+                            )
+                        }
+
+                        {/* ===================== LOGÍSTICA ===================== */}
+                        <AyudaLogisticaOrden resumen={resumenOrden} permitirFull={resumenOrden?.permitir_full ?? 0} />
+                        {
+                            modoSoloLectura && (
+
+                                <Alert
+                                    severity="info"
+                                    sx={{ mb: 2 }}
+                                >
+                                    Esta orden ya fue surtida completamente.
+                                    Se muestra únicamente para consulta.
+                                </Alert>
+
+                            )
+                        }
+
+                        {/* TABLA DE CONTEO: justo después de la logística */}
+                        <Box sx={{ mb: 2 }}>
                         <DataGrid
+                            autoHeight
                             rows={componentes}
                             columns={columnsSurtirNoFull}
                             getRowId={(row) => row.id}
@@ -3185,9 +3081,201 @@ const Surtido = () => {
                             sx={{
                                 fontFamily: "Montserrat",
                                 fontWeight: "bold",
-                                minHeight: 300,
                             }}
                         />
+                        </Box>
+
+                        {
+                            estadoEtiquetas && !modoSoloLectura && (
+
+                                <Accordion sx={{ mb: 2 }}>
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography
+                                            variant="subtitle2"
+                                            fontWeight="bold"
+                                            color={estadoEtiquetas.kitsNuevos > 0 ? "success.main" : (estadoEtiquetas.completo ? "info.main" : "warning.main")}
+                                        >
+                                            {estadoEtiquetas.completo
+                                                ? "Etiquetas: ya se imprimieron todas las necesarias"
+                                                : estadoEtiquetas.kitsNuevos > 0
+                                                    ? `Etiquetas: ${estadoEtiquetas.kitsNuevos} lista(s) para imprimir`
+                                                    : "Etiquetas: faltan componentes por contar"}
+                                        </Typography>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                        <Alert
+                                            severity={estadoEtiquetas.kitsNuevos > 0 ? "success" : (estadoEtiquetas.completo ? "info" : "warning")}
+                                        >
+                                            {estadoEtiquetas.completo ? (
+                                                "Ya se imprimieron todas las etiquetas necesarias para esta orden."
+                                            ) : estadoEtiquetas.kitsNuevos > 0 ? (
+                                                `Hay ${estadoEtiquetas.kitsNuevos} etiqueta(s) lista(s) para imprimir.`
+                                            ) : (
+                                                <>
+                                                    <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                                                        Todavía no hay etiquetas listas — faltan por contar:
+                                                    </Typography>
+                                                    <Stack spacing={0.5}>
+                                                        {estadoEtiquetas.faltantes.map((f) => (
+                                                            <Typography key={f.id} variant="body2">
+                                                                • {f.sku}{f.descripcion ? ` (${f.descripcion})` : ''}: faltan {f.faltan}
+                                                            </Typography>
+                                                        ))}
+                                                    </Stack>
+                                                </>
+                                            )}
+                                        </Alert>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                            )
+                        }
+
+                        {
+                            componentes.filter((c) => Number(c.cantidad_cubierta_excedente) > 0).length > 0 && (
+
+                                <Alert
+                                    severity="warning"
+                                    icon={<Inventory2Icon />}
+                                    sx={{ mb: 2 }}
+                                >
+                                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
+                                        Esta orden tiene componentes cubiertos con stock interno — hay que recolectarlos en almacén antes de poder surtirlos.
+                                    </Typography>
+
+                                    <Stack spacing={1}>
+                                        {
+                                            componentes
+                                                .filter((c) => Number(c.cantidad_cubierta_excedente) > 0)
+                                                .map((c) => {
+                                                    const sinSolicitar = Number(c.stock_sin_solicitar || 0) > 0;
+                                                    const esperandoEntrega = !sinSolicitar && Number(c.stock_esperando_entrega || 0) > 0;
+                                                    const entregado = !sinSolicitar && !esperandoEntrega && Number(c.stock_entregado || 0) > 0;
+
+                                                    return (
+                                                        <Box
+                                                            key={c.id}
+                                                            sx={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                bgcolor: '#fff',
+                                                                p: 1,
+                                                                borderRadius: 1
+                                                            }}
+                                                        >
+                                                            <Box>
+                                                                <Typography variant="body2" fontWeight="bold">
+                                                                    {c.sku} - {c.descripcion}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {Math.round(Number(c.cantidad_cubierta_excedente))} pza(s)
+                                                                    {c.ubicacion_stock_componente ? ` — ${c.ubicacion_stock_componente}` : ''}
+                                                                </Typography>
+                                                            </Box>
+
+                                                            {sinSolicitar && (
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="contained"
+                                                                    color="warning"
+                                                                    disabled={!!solicitandoStock[c.id]}
+                                                                    onClick={() => solicitarStockComponente(c.id)}
+                                                                >
+                                                                    {solicitandoStock[c.id] ? "Enviando..." : "Solicitar a almacén"}
+                                                                </Button>
+                                                            )}
+
+                                                            {esperandoEntrega && (
+                                                                <Chip size="small" color="warning" label="Esperando entrega de almacén" />
+                                                            )}
+
+                                                            {entregado && (
+                                                                <Chip size="small" color="success" label="Entregado ✓" />
+                                                            )}
+                                                        </Box>
+                                                    );
+                                                })
+                                        }
+                                    </Stack>
+                                </Alert>
+
+                            )
+                        }
+
+                        <HistorialDanados historial={historialDanados} />
+                        {/* ===================== GUÍA DE ARMADO ===================== */}
+                        {
+                            resumenOrden && componentes.length > 0 && (
+
+                                <Accordion
+                                    variant="outlined"
+                                    sx={{
+                                        mb: 2,
+                                        borderRadius: 2,
+                                        bgcolor: "#FFFDF5",
+                                        borderColor: "warning.light",
+                                        '&:before': { display: 'none' }
+                                    }}
+                                >
+                                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <BuildOutlinedIcon color="warning" fontSize="small" />
+                                            <Typography variant="subtitle2" fontWeight="bold">
+                                                Guía de armado — para 1 {resumenOrden.esKit ? "kit" : "producto"} necesitas:
+                                            </Typography>
+                                        </Stack>
+                                    </AccordionSummary>
+
+                                    <AccordionDetails>
+                                        <Box
+                                            sx={{
+                                                display: "grid",
+                                                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                                gap: 1.5
+                                            }}
+                                        >
+                                            {
+                                                componentes.map((c) => {
+                                                    const porUnidad = getCantidadPorUnidad(c);
+
+                                                    return (
+                                                        <Paper
+                                                            key={c.id}
+                                                            variant="outlined"
+                                                            sx={{
+                                                                p: 1,
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                alignItems: "center",
+                                                                bgcolor: "#fff"
+                                                            }}
+                                                        >
+                                                            <Box>
+                                                                <Typography variant="body2" fontWeight="bold">
+                                                                    {c.sku}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {c.descripcion ?? "Sin descripción"}
+                                                                </Typography>
+                                                            </Box>
+
+                                                            <Chip
+                                                                size="small"
+                                                                color={porUnidad > 1 ? "secondary" : "default"}
+                                                                label={`x${porUnidad}`}
+                                                            />
+                                                        </Paper>
+                                                    );
+                                                })
+                                            }
+                                        </Box>
+                                    </AccordionDetails>
+                                </Accordion>
+
+                            )
+                        }
+
                     </Box>
 
                     {/* FOOTER FIJO */}
@@ -3206,18 +3294,39 @@ const Surtido = () => {
                             Cerrar
                         </Button>
 
-                        <Button
-                            onClick={imprimirEtiquetasNoFULL}
-                            variant="contained"
-                            color="success"
-                            disabled={!habilitarAsignar || modoSoloLectura}
-                            sx={{ width: 200 }}
-                        >
-                            {modoSoloLectura
-                                ? "Orden surtida"
-                                : "Imprimir etiqueta"
-                            }
-                        </Button>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <FormControl sx={{ width: 250 }}>
+                                <InputLabel id="operador-me-label">Operador</InputLabel>
+                                <Select
+                                    labelId="operador-me-label"
+                                    value={selectedUsuario ? selectedUsuario.id_usuario : ''}
+                                    label="Operador"
+                                    onChange={handleSelectedUsuario}
+                                    disabled={!habilitarAsignar || modoSoloLectura}
+                                >
+                                    {usuarios.map((usuario) => (
+                                        <MenuItem key={usuario.id_usuario} value={usuario.id_usuario}>
+                                            {usuario.nombre}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <Button
+                                onClick={imprimirEtiquetasNoFULL}
+                                variant="contained"
+                                color="success"
+                                disabled={!habilitarAsignar || !selectedUsuario || loading || modoSoloLectura}
+                                sx={{ width: 200 }}
+                            >
+                                {modoSoloLectura
+                                    ? "Orden surtida"
+                                    : loading
+                                        ? "Procesando..."
+                                        : "Imprimir etiqueta"
+                                }
+                            </Button>
+                        </Stack>
                     </Box>
 
                 </Box>

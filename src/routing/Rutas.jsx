@@ -51,6 +51,7 @@ import EmpaqueCajaAbierta from "../components/pages/Envios/EmpaqueCajaAbierta";
 import Empaque from "../components/pages/Envios/Empaque";
 import ResumenEnvio from "../components/pages/Envios/ResumenEnvio";
 import EnviosProgresoEmpaque from "../components/pages/Envios/EnviosProgresoEmpaque";
+import BitacoraDanados from "../components/pages/Envios/BitacoraDanados";
 
 // ==============================
 // COMPRAS / FACTURAS
@@ -98,7 +99,6 @@ import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
 
 // [MULTICUENTA-ML]
 import StockCompartido from "../components/multicuentaML/StockCompartido";
-import ColectaSubcuenta from "../components/multicuentaML/ColectaSubcuenta";
 // [/MULTICUENTA-ML]
 
 // ==============================
@@ -423,6 +423,15 @@ const Rutas = () => {
           }
         />
 
+        <Route
+          path="/envios/danados"
+          element={
+            <ProtectedRoute excludedRoles={rolesExcluidosEnvios}>
+              <BitacoraDanados />
+            </ProtectedRoute>
+          }
+        />
+
         {/* =====================================================
             MRP
             Administrador + Planeador
@@ -728,7 +737,8 @@ const Rutas = () => {
           path="/colecta-subcuenta"
           element={
             <ProtectedRoute allowedRoles={rolesInventarioEspecial}>
-              <ColectaSubcuenta />
+              {/* La colecta de subcuenta vive ahora como pestaña de Ventas ME */}
+              <VentasME tabInicial="refa" />
             </ProtectedRoute>
           }
         />

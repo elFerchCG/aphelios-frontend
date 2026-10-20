@@ -109,13 +109,16 @@ const swalSobreModal = {
 };
 
 // Detalle / gestión de un pedido MRP:
-//  - Planeación: # pedidos del proveedor, notas de entrega, facturas, datos y cierre.
-//  - Almacén: marca como recibidas las notas de entrega que capturó planeación.
+//  - administrador / Planeador: control total (# pedidos del proveedor, notas,
+//    facturas, datos, cierre, recibir, editar y deshacer recepción).
+//  - Almacenista: solo recibe notas de entrega y edita esa recepción.
+//  - Resto: solo consulta.
 const DetallePedidoRecepcionDialog = ({
   open,
   pedidoId,
   puedeRegistrar,
   puedeEditarPedido,
+  puedeDeshacer = false,
   onClose,
   onCambio,
 }) => {
@@ -454,7 +457,7 @@ const DetallePedidoRecepcionDialog = ({
                                   {recibida ? "Editar recepción" : "Recibir"}
                                 </Button>
                               )}
-                              {puedeRegistrar && recibida && !enDeshacer && (
+                              {puedeDeshacer && recibida && !enDeshacer && (
                                 <Tooltip title="Deshacer recepción" arrow>
                                   <IconButton
                                     size="small"

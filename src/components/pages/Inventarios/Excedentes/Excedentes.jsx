@@ -53,6 +53,7 @@ import {
     ArrowForward as ArrowForwardIcon,
     PlaylistAddCheck as PlaylistAddCheckIcon,
     Block as BlockIcon,
+    LockOutlined as LockOutlinedIcon,
     ReceiptLong as ReceiptLongIcon,
 } from '@mui/icons-material';
 
@@ -192,10 +193,12 @@ async function postCancelarExcedente(movimientoId, payload, token) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-            throw new Error(data?.message && typeof data.message === 'string'
+        if (res.status === 401 || res.status === 403 || res.status === 429) {
+            const err = new Error(data?.message && typeof data.message === 'string'
                 ? data.message
-                : 'No tienes permisos para cancelar excedentes (administrador o almacenista supervisor).');
+                : 'No tienes permisos para cancelar excedentes (administrador o almacenista).');
+            err.codigo = data?.codigo;
+            throw err;
         }
         const errores = data?.message?.errores || [];
         const detalles = data?.message?.detalles || [];
@@ -334,6 +337,12 @@ export default function ExcedentesMonitor() {
     const [cancelComentario, setCancelComentario] = useState('');
     const [cancelErrors, setCancelErrors] = useState({});
     const [cancelando, setCancelando] = useState(false);
+    const [cancelPin, setCancelPin] = useState('');
+
+    // Admin cancela directo; el almacenista solicita y requiere PIN de un administrador
+    const rolUsuario = String(user?.rol_descripcion || '').trim().toLowerCase();
+    const esAdmin = rolUsuario === 'administrador';
+    const puedeCancelar = esAdmin || rolUsuario === 'almacenista';
 
     // ---- Auditoría (detalle de un cancelado) ----
     const [auditTarget, setAuditTarget] = useState(null);
@@ -532,6 +541,7 @@ export default function ExcedentesMonitor() {
         setCancelCantidad(String(Number(row.existencia_actual) || ''));
         setCancelMotivo('');
         setCancelComentario('');
+        setCancelPin('');
         setCancelErrors({});
     };
 
@@ -564,6 +574,7 @@ export default function ExcedentesMonitor() {
         if (cancelMotivo === 'otro' && !cancelComentario.trim()) {
             errs.comentario = 'Describe el motivo de la cancelación';
         }
+        if (!esAdmin && !cancelPin.trim()) errs.pin = 'Un administrador debe ingresar su PIN';
         setCancelErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -578,20 +589,28 @@ export default function ExcedentesMonitor() {
                     cantidad: cantidadACancelar,
                     motivo: cancelMotivo,
                     comentario: cancelComentario.trim() || null,
+                    ...(esAdmin ? {} : { pin_autorizacion: cancelPin.trim() }),
                 },
                 token
             );
             setSnack({
                 open: true,
                 severity: 'success',
-                message: `${resultado.message}. Orden de salida #${resultado.data.orden_id}.`,
+                message: `${resultado.message}. Orden de salida #${resultado.data.orden_id}.`
+                    + (!esAdmin && resultado.data.autorizado_por ? ` Autorizó: ${resultado.data.autorizado_por}.` : ''),
             });
             setCancelando(false);
             setCancelTarget(null);
             await cargarInicial();
             if (activeTab === 1) await cargarMovimientos();
         } catch (e) {
-            setSnack({ open: true, severity: 'error', message: e.message });
+            // Error de PIN: se muestra en el campo y el diálogo sigue abierto
+            if (['PIN_INVALIDO', 'PIN_REQUERIDO', 'PIN_BLOQUEADO'].includes(e.codigo)) {
+                setCancelErrors((prev) => ({ ...prev, pin: e.message }));
+                setCancelPin('');
+            } else {
+                setSnack({ open: true, severity: 'error', message: e.message });
+            }
             setCancelando(false);
         }
     };
@@ -1098,6 +1117,7 @@ export default function ExcedentesMonitor() {
                                                                 </Button>
                                                             </span>
                                                         </Tooltip>
+                                                        {puedeCancelar && (
                                                         <Tooltip
                                                             title={
                                                                 esCancelable(row)
@@ -1124,6 +1144,7 @@ export default function ExcedentesMonitor() {
                                                                 </Button>
                                                             </span>
                                                         </Tooltip>
+                                                        )}
                                                     </Stack>
                                                 </TableCell>
                                             </TableRow>
@@ -1868,6 +1889,30 @@ export default function ExcedentesMonitor() {
                                 fullWidth
                             />
 
+                            {!esAdmin && (
+                                <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: tokens.amber, bgcolor: tokens.amberBg }}>
+                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.25 }}>
+                                        <LockOutlinedIcon fontSize="small" sx={{ color: tokens.amber }} />
+                                        <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.ink }}>
+                                            Autorización de administrador
+                                        </Typography>
+                                    </Stack>
+                                    <TextField
+                                        label="PIN del administrador *"
+                                        type="password"
+                                        size="small"
+                                        value={cancelPin}
+                                        onChange={(e) => setCancelPin(e.target.value.slice(0, 50))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') confirmarCancelacion(); }}
+                                        error={Boolean(cancelErrors.pin)}
+                                        helperText={cancelErrors.pin || 'Pide a un administrador que escriba su PIN para autorizar la cancelación'}
+                                        inputProps={{ autoComplete: 'new-password', inputMode: 'numeric' }}
+                                        disabled={cancelando}
+                                        fullWidth
+                                    />
+                                </Paper>
+                            )}
+
                             <Alert severity="warning" variant="outlined" sx={{ borderRadius: 2 }}>
                                 Se descontarán <b>{fmtNum(cantidadACancelar)}</b> unidades de existencias en{' '}
                                 <b>{cancelTarget.localidad_descripcion}</b> con una orden de bodega de salida
@@ -1889,7 +1934,9 @@ export default function ExcedentesMonitor() {
                         startIcon={cancelando ? <CircularProgress size={16} color="inherit" /> : <BlockIcon />}
                         sx={{ textTransform: 'none', fontWeight: 600, bgcolor: tokens.danger, '&:hover': { bgcolor: '#962D22' } }}
                     >
-                        {cancelando ? 'Cancelando...' : `Cancelar ${fmtNum(cantidadACancelar)} unidades`}
+                        {cancelando
+                            ? 'Cancelando...'
+                            : `${esAdmin ? 'Cancelar' : 'Autorizar y cancelar'} ${fmtNum(cantidadACancelar)} unidades`}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1931,6 +1978,7 @@ export default function ExcedentesMonitor() {
                             ['Motivo', etiquetaMotivo(auditTarget.motivo_cancelacion)],
                             ['Comentario', auditTarget.comentario_cancelacion || '—'],
                             ['Canceló', auditTarget.cancelado_por || '—'],
+                            ['Autorizó', auditTarget.autorizado_por || '—'],
                             ['Fecha de cancelación', fmtDateTime(auditTarget.fecha_cancelacion)],
                             ['Excedente generado por', `${auditTarget.usuario || '—'} · ${fmtDateTime(auditTarget.fecha_movimiento)}`],
                         ];

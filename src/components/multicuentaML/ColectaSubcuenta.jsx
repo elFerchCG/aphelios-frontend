@@ -1,7 +1,7 @@
 // [MULTICUENTA-ML] Pantalla "Colecta subcuenta": envíos Mercado Envíos de las
 // subcuentas (Refaccionaria AP), etiquetas con el token de su cuenta y
 // "Procesar recolectados" -> orden de salida tipo 28, origen ventas_me_refa.
-// La colecta de la principal (VentasME) no cambia.
+// Se muestra como pestaña "Colecta Refaccionaria" dentro de VentasME (embebido).
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Avatar,
@@ -21,6 +21,7 @@ import {
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import dayjs from "dayjs";
 import Swal from "sweetalert2";
+import { FiltroColecta, claveColecta, formatoFecha } from "../pages/Ventas/colectaUI";
 
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
@@ -29,6 +30,7 @@ import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import LinkOffOutlinedIcon from "@mui/icons-material/LinkOffOutlined";
 
 import { mcDescargar, mcGet, mcPost, mensajeError } from "./multicuentaApi";
 import {
@@ -74,14 +76,47 @@ const FILTROS = {
   todas: { label: "Todas", fn: () => true },
 };
 
-const fecha = (v) => (v ? dayjs(v).format("DD/MM/YYYY HH:mm") : "");
 
-const ColectaSubcuenta = () => {
+// Artículo del mismo paquete que no sale de nuestro almacén (solo informativo)
+const ArticuloInformativo = ({ item }) => (
+  <Stack direction="row" gap={1} alignItems="center" sx={{ p: 0.5, borderRadius: 1.5, border: "1px dashed #bdbdbd", bgcolor: "#fafafa" }}>
+    <Avatar variant="rounded" sx={{ width: 36, height: 36, bgcolor: "#eeeeee", color: "text.secondary" }}>
+      <LinkOffOutlinedIcon fontSize="small" />
+    </Avatar>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: "normal", lineHeight: 1.25, color: "text.secondary" }}>
+        {item.cantidad} × {item.title || item.item_subcuenta}
+      </Typography>
+      <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center">
+        <Tooltip arrow title={item.motivo_detalle || "Se empaca junto con este envío, pero no se surte de nuestro almacén."}>
+          <Chip
+            size="small"
+            label="No es de nuestro almacén"
+            sx={{ height: 20, fontWeight: 600, bgcolor: "#fff3e0", color: "#e65100", border: "1px solid #ffb74d" }}
+          />
+        </Tooltip>
+        <Typography variant="caption" color="text.secondary">
+          {item.motivo} · {item.sku ? `SKU ${item.sku} · ` : ""}
+          {item.permalink ? (
+            <a href={item.permalink} target="_blank" rel="noreferrer">
+              {item.item_subcuenta}
+            </a>
+          ) : (
+            item.item_subcuenta
+          )}
+        </Typography>
+      </Stack>
+    </Box>
+  </Stack>
+);
+
+const ColectaSubcuenta = ({ embebido = false }) => {
   const [envios, setEnvios] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [cuentaId, setCuentaId] = useState("");
   const [filtro, setFiltro] = useState("por_imprimir");
   const [dia, setDia] = useState("todos");
+  const [colecta, setColecta] = useState("todas");
   const [seleccion, setSeleccion] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [trabajando, setTrabajando] = useState(false);
@@ -121,7 +156,11 @@ const ColectaSubcuenta = () => {
     [dia, hoy, manana],
   );
 
-  const visibles = useMemo(() => envios.filter((s) => FILTROS[filtro].fn(s) && pasaDia(s)), [envios, filtro, pasaDia]);
+  const filtrados = useMemo(() => envios.filter((s) => FILTROS[filtro].fn(s) && pasaDia(s)), [envios, filtro, pasaDia]);
+  const visibles = useMemo(
+    () => (colecta === "todas" ? filtrados : filtrados.filter((s) => claveColecta(s.expected_date) === colecta)),
+    [filtrados, colecta],
+  );
 
   const kpi = useMemo(
     () => ({
@@ -131,11 +170,17 @@ const ColectaSubcuenta = () => {
       atrasadas: envios.filter((s) => s.pendiente_procesar_bodega).length,
       sinStock: envios.filter((s) => s.estado_operativo_interno === "sin_stock" && s.estado_operativo !== "cancelado").length,
       piezas: envios.filter((s) => s.estado_operativo !== "cancelado").reduce((t, s) => t + Number(s.cantidad_piezas || 0), 0),
+      piezasExternas: envios.filter((s) => s.estado_operativo !== "cancelado").reduce((t, s) => t + Number(s.piezas_externas || 0), 0),
     }),
     [envios],
   );
 
-  useEffect(() => setSeleccion([]), [filtro, dia, cuentaId]);
+  useEffect(() => {
+    setSeleccion([]);
+    setColecta("todas");
+  }, [filtro, dia, cuentaId]);
+
+  useEffect(() => setSeleccion([]), [colecta]);
 
   const objetivo = (predicado) => {
     const base = seleccion.length ? visibles.filter((s) => seleccion.includes(s.shipment_id)) : visibles;
@@ -217,12 +262,12 @@ const ColectaSubcuenta = () => {
       field: "items",
       headerName: "Producto",
       flex: 1,
-      minWidth: 320,
+      minWidth: 360,
       sortable: false,
       valueGetter: (v) => (v || []).map((i) => `${i.sku} ${i.title}`).join(" | "),
       renderCell: (p) => (
         <Stack gap={0.75} sx={{ py: 0.75 }}>
-          {p.row.items.map((i) => (
+          {p.row.items.map((i) => i.informativo ? <ArticuloInformativo key={i.venta_operativa_id} item={i} /> : (
             <Stack key={i.venta_operativa_id} direction="row" gap={1} alignItems="center">
               <Avatar variant="rounded" src={i.thumbnail || undefined} sx={{ width: 36, height: 36 }}>
                 <Inventory2OutlinedIcon fontSize="small" />
@@ -264,60 +309,69 @@ const ColectaSubcuenta = () => {
     {
       field: "fecha_colecta_key",
       headerName: "Colecta",
-      width: 120,
+      width: 190,
+      valueFormatter: (v, row) => formatoFecha(row.expected_date, true),
       renderCell: (p) => (
         <Box sx={{ py: 0.5 }}>
-          <Typography variant="body2">{p.row.expected_date ? dayjs(p.row.expected_date).format("DD/MM HH:mm") : "—"}</Typography>
+          <Typography variant="body2">{p.row.expected_date ? formatoFecha(p.row.expected_date, true) : "—"}</Typography>
           {p.row.pendiente_procesar_bodega && <Chip size="small" color="error" label="Atrasado" sx={{ height: 18, fontWeight: 600 }} />}
         </Box>
       ),
     },
     { field: "estado_operativo", headerName: "Estado ML", width: 160, renderCell: (p) => <EstadoChip valor={p.value} mapa={ESTADO_ML} /> },
     { field: "estado_operativo_interno", headerName: "Reserva", width: 140, renderCell: (p) => <EstadoChip valor={p.value} mapa={ESTADO_RESERVA} /> },
-    { field: "fecha_venta", headerName: "Venta", width: 140, valueFormatter: (v) => fecha(v) },
+    { field: "fecha_venta", headerName: "Venta", width: 180, valueFormatter: (v) => formatoFecha(v, true) },
   ];
 
+  const controlesCuenta = (
+    <>
+      <TextField
+        select
+        size="small"
+        label="Cuenta"
+        value={cuentaId}
+        onChange={(e) => setCuentaId(e.target.value)}
+        SelectProps={{ displayEmpty: true }}
+        InputLabelProps={{ shrink: true }}
+        sx={{ minWidth: 190 }}
+      >
+        <MenuItem value="">Todas las subcuentas</MenuItem>
+        {cuentas.map((c) => (
+          <MenuItem key={c.id} value={c.id}>
+            {c.nombre}
+          </MenuItem>
+        ))}
+      </TextField>
+      <Tooltip arrow title="Actualizar">
+        <span>
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} sx={botonSx} disabled={cargando} onClick={cargar}>
+            Actualizar
+          </Button>
+        </span>
+      </Tooltip>
+    </>
+  );
+
   return (
-    <Box sx={{ p: { xs: 1, sm: 2 }, display: "flex", flexDirection: "column", gap: 2.5 }}>
+    <Box sx={{ p: embebido ? 0 : { xs: 1, sm: 2 }, display: "flex", flexDirection: "column", gap: 2.5 }}>
       <GlobalStyles styles={(theme) => ({ ".MuiDataGrid-panel": { zIndex: theme.zIndex.modal + 100 } })} />
 
-      <Paper elevation={2} sx={{ p: 1.5, borderRadius: 3, display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "center", justifyContent: "space-between" }}>
-        <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, display: "flex", gap: 1, alignItems: "center" }}>
-            <LocalShippingOutlinedIcon color="primary" /> Colecta subcuenta
-            <Chip size="small" label="Mercado Envíos" sx={{ bgcolor: "#e3f2fd", color: "primary.main", fontWeight: 700 }} />
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 4 }}>
-            Ventas de subcuentas surtidas desde nuestro almacén. La colecta de la cuenta principal sigue en su pantalla.
-          </Typography>
-        </Box>
-        <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
-          <TextField
-            select
-            size="small"
-            label="Cuenta"
-            value={cuentaId}
-            onChange={(e) => setCuentaId(e.target.value)}
-            SelectProps={{ displayEmpty: true }}
-            InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 190 }}
-          >
-            <MenuItem value="">Todas las subcuentas</MenuItem>
-            {cuentas.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.nombre}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Tooltip arrow title="Actualizar">
-            <span>
-              <Button variant="outlined" size="small" startIcon={<RefreshIcon />} sx={botonSx} disabled={cargando} onClick={cargar}>
-                Actualizar
-              </Button>
-            </span>
-          </Tooltip>
-        </Stack>
-      </Paper>
+      {!embebido && (
+        <Paper elevation={2} sx={{ p: 1.5, borderRadius: 3, display: "flex", flexWrap: "wrap", gap: 1.5, alignItems: "center", justifyContent: "space-between" }}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, display: "flex", gap: 1, alignItems: "center" }}>
+              <LocalShippingOutlinedIcon color="primary" /> Colecta subcuenta
+              <Chip size="small" label="Mercado Envíos" sx={{ bgcolor: "#e3f2fd", color: "primary.main", fontWeight: 700 }} />
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 4 }}>
+              Ventas de subcuentas surtidas desde nuestro almacén.
+            </Typography>
+          </Box>
+          <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+            {controlesCuenta}
+          </Stack>
+        </Paper>
+      )}
 
       <Box sx={kpiGridSx}>
         <KpiCard icon={PrintOutlinedIcon} color="#ed6c02" label="Etiquetas por imprimir">
@@ -330,7 +384,10 @@ const ColectaSubcuenta = () => {
           <KpiValor valor={kpi.sinStock} detalle="Revisar existencias del producto" />
         </KpiCard>
         <KpiCard icon={Inventory2OutlinedIcon} color="#1976d2" label="Piezas en la lista">
-          <KpiValor valor={kpi.piezas} detalle={`${envios.length} envíos`} />
+          <KpiValor
+            valor={kpi.piezas}
+            detalle={`${envios.length} envíos${kpi.piezasExternas ? ` · +${kpi.piezasExternas} de otras publicaciones` : ""}`}
+          />
         </KpiCard>
       </Box>
 
@@ -375,9 +432,11 @@ const ColectaSubcuenta = () => {
                 </Button>
               </span>
             </Tooltip>
+            {embebido && controlesCuenta}
           </>
         }
       >
+        <FiltroColecta envios={filtrados} etiquetaEstado={FILTROS[filtro].label} valor={colecta} onChange={setColecta} />
         <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
           <DataGrid
             rows={visibles}

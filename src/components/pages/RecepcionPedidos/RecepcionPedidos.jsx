@@ -40,6 +40,7 @@ import {
   getEstatusInfo,
   getUsuarioSesion,
   hoyISO,
+  puedeDeshacerRecepcion,
   puedeEditarPedido as puedeEditarPedidoFn,
   puedeRegistrarRecepcion,
   TIPOS_DOCUMENTO,
@@ -74,6 +75,7 @@ const RecepcionPedidos = () => {
   const usuario = getUsuarioSesion();
   const puedeRegistrar = puedeRegistrarRecepcion(usuario);
   const puedeEditarPedido = puedeEditarPedidoFn(usuario);
+  const puedeDeshacer = puedeDeshacerRecepcion(usuario);
   const hoy = hoyISO();
 
   const fetchPedidos = useCallback(async (filtrosConsulta, paginaSolicitada, acumular) => {
@@ -537,6 +539,7 @@ const RecepcionPedidos = () => {
         pedidoId={pedidoDetalleId}
         puedeRegistrar={puedeRegistrar}
         puedeEditarPedido={puedeEditarPedido}
+        puedeDeshacer={puedeDeshacer}
         onClose={() => setPedidoDetalleId(null)}
         onCambio={recargar}
       />

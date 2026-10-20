@@ -1,5 +1,6 @@
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
@@ -52,7 +53,6 @@ import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
 
 // [MULTICUENTA-ML]
 import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
-import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
 // [/MULTICUENTA-ML]
 
 export const navigationConfig = [
@@ -76,8 +76,19 @@ export const navigationConfig = [
   {
     label: "Envíos",
     icon: LocalShippingOutlinedIcon,
-    path: "/envios",
     excludeRoles: ["Marketing", "Coordinador Comercial", "Lider Marketing", "Desarrollador"],
+    children: [
+      {
+        label: "Envíos",
+        icon: LocalShippingOutlinedIcon,
+        path: "/envios",
+      },
+      {
+        label: "Bitácora de dañados",
+        icon: ReportProblemOutlinedIcon,
+        path: "/envios/danados",
+      },
+    ],
   },
   {
     label: "Publicaciones",
@@ -145,14 +156,7 @@ export const navigationConfig = [
         path: "/stock-componentes",
         roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
       },
-      // [MULTICUENTA-ML]
-      {
-        label: "Colecta subcuenta",
-        icon: AssignmentReturnOutlinedIcon,
-        path: "/colecta-subcuenta",
-        roles: ["administrador", "Planeador", "Almacenista", "Desarrollador"],
-      },
-      // [/MULTICUENTA-ML]
+      // [MULTICUENTA-ML] "Colecta subcuenta" se movió a la pestaña "Colecta Refaccionaria" de Ventas ME
     ],
   },
   {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useMemo, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
 import {
@@ -60,6 +60,8 @@ import PrecisionManufacturingOutlinedIcon from "@mui/icons-material/PrecisionMan
 import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
+import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
+import { ESTATUS_DANADO, motivoTexto } from "../Inventarios/Surtido/DanadosSurtido";
 
 // ============================================================
 // Constantes de layout compartidas por los DataGrids del dashboard
@@ -139,6 +141,8 @@ const EnviosProgresoEmpaque = () => {
 
     const { envioId } = useParams();
     const location = useLocation();
+    const navigate = useNavigate();
+    const [danadosEnvio, setDanadosEnvio] = useState([]);
 
     const [descripcionEnvio, setDescripcionEnvio] = useState(location.state?.descripcionEnvio || '');
     const [folioInternoEnvio, setFolioInternoEnvio] = useState(location.state?.folioInternoEnvio || '');
@@ -259,9 +263,22 @@ const EnviosProgresoEmpaque = () => {
         }
     };
 
+    // Piezas marcadas como dañadas en surtido para este envío
+    const fetchDanadosEnvio = async () => {
+        try {
+            const { data } = await axios.get(`${apiUrl}/mrp/danados?envio_id=${envioId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            });
+            setDanadosEnvio(data.ok ? data.data : []);
+        } catch (error) {
+            setDanadosEnvio([]);
+        }
+    };
+
     useEffect(() => {
         fetchPiezasYFacturas();
         fetchAgrupaciones();
+        fetchDanadosEnvio();
     }, [envioId]);
 
     // Obtenemos la lista de proformas únicas presentes en los datos para llenar el Select
@@ -560,6 +577,16 @@ const EnviosProgresoEmpaque = () => {
         { field: "cantidad_contada", headerName: "Contada", flex: 1, type: "number" },
         { field: "cantidad_surtida", headerName: "Surtida", flex: 1, type: "number" },
         {
+            field: "cantidad_danada", headerName: "Dañadas", flex: 1, type: "number", headerAlign: "center", align: "center",
+            renderCell: (params) => Number(params.value || 0) > 0
+                ? (
+                    <Tooltip arrow title="Piezas marcadas como dañadas en surtido: cuentan como procesadas pero no entran a etiquetas.">
+                        <Chip size="small" color="warning" label={Number(params.value)} sx={{ fontWeight: 700 }} />
+                    </Tooltip>
+                )
+                : "—"
+        },
+        {
             field: "cantidad_cubierta_excedente",
             headerName: "Cubierto Stock",
             flex: 1.5,
@@ -766,6 +793,19 @@ const EnviosProgresoEmpaque = () => {
             ),
         },
         { field: "cantidad_empacada", headerName: "Empacada", flex: 1, type: "number", valueFormatter: (value) => Math.round(Number(value ?? 0)), },
+        {
+            field: "piezas_danadas", headerName: "Dañadas", flex: 1, type: "number", headerAlign: "center", align: "center",
+            renderCell: (params) => {
+                const piezas = Number(params.value || 0);
+                if (piezas <= 0) return "—";
+                const pendientes = Number(params.row.danados_pendientes || 0);
+                return (
+                    <Tooltip arrow title={`${piezas} pieza(s) de componentes marcadas como dañadas: no entran a etiquetas, por eso puede haber menos por empacar. ${pendientes > 0 ? `${pendientes} registro(s) pendientes de ajuste por el supervisor.` : "Ya atendidas."}`}>
+                        <Chip size="small" color={pendientes > 0 ? "warning" : "default"} icon={<ReportProblemOutlinedIcon />} label={piezas} sx={{ fontWeight: 700 }} />
+                    </Tooltip>
+                );
+            }
+        },
         {
             field: "avance",
             headerName: "Avance",
@@ -1472,6 +1512,7 @@ const EnviosProgresoEmpaque = () => {
     const handleActualizarTodo = () => {
         fetchPiezasYFacturas();
         fetchAgrupaciones();
+        fetchDanadosEnvio();
     };
 
     // Resumen de lo cargado en el envío (productos, proformas, facturas,
@@ -1554,6 +1595,20 @@ const EnviosProgresoEmpaque = () => {
                             </Button>
                         </span>
                     </Tooltip>
+                    <Tooltip title="Piezas marcadas como dañadas en surtido para este envío." arrow>
+                        <span>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                color="warning"
+                                startIcon={<ReportProblemOutlinedIcon />}
+                                onClick={() => navigate(`/envios/danados?envio_id=${envioId}`)}
+                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Bitácora de dañados
+                            </Button>
+                        </span>
+                    </Tooltip>
                 </Stack>
             </Paper>
 
@@ -1629,6 +1684,55 @@ const EnviosProgresoEmpaque = () => {
                 folioInternoEnvio={folioInternoEnvio}
                 retiroInicial={retiroConsolidadoInicial}
             />
+
+            {/* ---------- Piezas dañadas del envío ---------- */}
+            {danadosEnvio.length > 0 && (
+                <SectionCard
+                    icon={ReportProblemOutlinedIcon}
+                    title="Piezas dañadas en surtido"
+                    subtitle={`${danadosEnvio.reduce((s, d) => s + Number(d.cantidad || 0), 0)} pieza(s) no entran a etiquetas: por eso puede haber menos por procesar o empacar. ${danadosEnvio.filter((d) => d.estatus === 'pendiente').length} registro(s) pendientes de ajuste.`}
+                    count={danadosEnvio.length}
+                    actions={
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            onClick={() => navigate(`/envios/danados?envio_id=${envioId}`)}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Ver en bitácora
+                        </Button>
+                    }
+                >
+                    <AppDataGrid
+                        {...gridCompactoProps}
+                        rows={danadosEnvio}
+                        getRowId={(row) => row.id}
+                        height={Math.min(320, 110 + danadosEnvio.length * 44)}
+                        pageSize={GRID_PAGE_SIZE}
+                        pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
+                        showToolbar={false}
+                        localeText={localeSinRegistros('Sin piezas dañadas.')}
+                        columns={[
+                            { field: "fecha_registro", headerName: "Fecha", width: 130, valueFormatter: (value) => value ? dayjs(value).format("DD/MM/YYYY HH:mm") : "" },
+                            { field: "orden_id", headerName: "Orden", width: 90 },
+                            { field: "proforma_titulo", headerName: "Proforma", width: 150, valueGetter: (value, row) => value || (row.proforma_id ? `#${row.proforma_id}` : "—") },
+                            { field: "producto_sku", headerName: "Producto", flex: 1, minWidth: 140 },
+                            { field: "componente_sku", headerName: "Componente", flex: 1, minWidth: 140 },
+                            { field: "cantidad", headerName: "Piezas", width: 80, type: "number" },
+                            { field: "motivo", headerName: "Motivo", width: 140, valueFormatter: (value) => motivoTexto(value) },
+                            { field: "registrado_por", headerName: "Marcó", width: 120 },
+                            {
+                                field: "estatus", headerName: "Estatus", width: 160,
+                                renderCell: (params) => {
+                                    const e = ESTATUS_DANADO[params.value] || ESTATUS_DANADO.pendiente;
+                                    return <Chip size="small" color={e.color} label={e.label} sx={{ fontWeight: 600 }} />;
+                                }
+                            },
+                        ]}
+                    />
+                </SectionCard>
+            )}
 
             {/* ---------- Órdenes de Producción - Facturas ---------- */}
             <SectionCard
@@ -1853,7 +1957,7 @@ const EnviosProgresoEmpaque = () => {
                                         )}
 
                                         <Typography variant="body2" color="text.secondary" mb={2}>
-                                            Máximo de kits (producto_id) que se pueden armar y enviar con lo facturado + lo cubierto con stock interno, por componente:
+                                            Máximo de kits (producto_id) que se pueden armar con lo facturado + lo cubierto con stock interno, dividido entre las piezas que pide el billete por kit. "Sobran" son piezas sueltas que no completan un kit:
                                         </Typography>
 
                                         <Box sx={{ mb: 2, overflowX: 'auto' }}>
@@ -1861,16 +1965,25 @@ const EnviosProgresoEmpaque = () => {
                                                 <thead>
                                                     <tr style={{ backgroundColor: '#f5f7fa' }}>
                                                         <th style={{ textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Componente</th>
+                                                        <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Por kit</th>
                                                         <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Factura</th>
                                                         <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Cubierto Stock</th>
                                                         <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Disponible</th>
                                                         <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Máx. kits</th>
+                                                        <th style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #eee' }}>Sobran</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {maximoArmable.componentes.map((c) => (
-                                                        <tr key={c.opd_id}>
-                                                            <td style={{ padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>{c.sku} - {c.descripcion}</td>
+                                                        <tr key={c.componente_id}>
+                                                            <td style={{ padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>
+                                                                {c.sku} - {c.descripcion}
+                                                                {c.sin_detalle && <Chip size="small" color="error" label="Sin detalle en la orden" sx={{ ml: 1 }} />}
+                                                                {c.fuera_de_billete && <Chip size="small" variant="outlined" label="No está en el billete" sx={{ ml: 1 }} />}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>
+                                                                {c.por_kit > 0 ? `x${c.por_kit}` : '—'}
+                                                            </td>
                                                             <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>{Math.round(c.cantidad_facturada)}</td>
                                                             <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>
                                                                 {c.cantidad_cubierta_excedente > 0 ? (
@@ -1879,7 +1992,12 @@ const EnviosProgresoEmpaque = () => {
                                                             </td>
                                                             <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>{Math.round(c.disponible)}</td>
                                                             <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5', fontWeight: c.maximo_armable_componente === maximoArmable.maximo_armable ? 700 : 400 }}>
-                                                                {c.maximo_armable_componente}
+                                                                {c.fuera_de_billete ? '—' : c.maximo_armable_componente}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', padding: '6px 8px', borderBottom: '1px solid #f5f5f5' }}>
+                                                                {Number(c.sobrante) > 0 ? (
+                                                                    <Chip size="small" variant="outlined" color="warning" label={`${Math.round(c.sobrante)} pza(s)`} />
+                                                                ) : '—'}
                                                             </td>
                                                         </tr>
                                                     ))}
