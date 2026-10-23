@@ -8,6 +8,7 @@ import AddLinkOutlinedIcon from "@mui/icons-material/AddLinkOutlined";
 import LinkOutlinedIcon from "@mui/icons-material/LinkOutlined";
 import SyncOutlinedIcon from "@mui/icons-material/SyncOutlined";
 import PublishOutlinedIcon from "@mui/icons-material/PublishOutlined";
+import DynamicFeedOutlinedIcon from "@mui/icons-material/DynamicFeedOutlined";
 
 import { swalError } from "../../helpers/sweetAlert";
 
@@ -18,6 +19,7 @@ import { swalError } from "../../helpers/sweetAlert";
 import ConectarMercadoLibreModal from "./ConectarMercadoLibreModal";
 import SincronizacionMercadoLibreModal from "./components/SincronizacionMercadoLibreModal";
 import PublicarEnCuentaDialog from "../multicuentaML/PublicarEnCuentaDialog";
+import PublicadorMasivoDialog from "../multicuentaML/PublicadorMasivoDialog";
 
 // =====================================================
 // COMPONENTES COMUNES APHELIOS
@@ -53,6 +55,7 @@ const CuentasEcommerce = () => {
   const [openMercadoLibre, setOpenMercadoLibre] = useState(false);
 
   const [openPublicar, setOpenPublicar] = useState(false);
+  const [openMasivo, setOpenMasivo] = useState(false);
 
   // ===================================================
   // ESTADOS SINCRONIZACIÓN INDIVIDUAL
@@ -494,6 +497,20 @@ const CuentasEcommerce = () => {
           >
             Publicar en otra cuenta
           </Button>
+
+          {/* =============================================
+              PUBLICADOR MASIVO
+          ============================================= */}
+
+          <Button
+            variant="outlined"
+            startIcon={<DynamicFeedOutlinedIcon />}
+            sx={toolbarButtonSx}
+            disabled={sincronizando}
+            onClick={() => setOpenMasivo(true)}
+          >
+            Publicador masivo
+          </Button>
         </div>
       </PageToolbarCard>
 
@@ -533,6 +550,15 @@ const CuentasEcommerce = () => {
       <PublicarEnCuentaDialog
         open={openPublicar}
         onClose={() => setOpenPublicar(false)}
+      />
+
+      {/* =================================================
+          PUBLICADOR MASIVO
+      ================================================= */}
+
+      <PublicadorMasivoDialog
+        open={openMasivo}
+        onClose={() => setOpenMasivo(false)}
       />
 
       {/* =================================================

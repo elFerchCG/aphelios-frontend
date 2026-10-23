@@ -1,7 +1,8 @@
 import React from "react";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { Avatar, Box, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Avatar, Box, Chip, Paper, Stack, Tooltip, Typography, useMediaQuery, useTheme } from "@mui/material";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 
 // Mismo helper que DataGridTInventario.jsx / Excedentes.jsx: si `thumbnail`
 // ya es URL completa se usa tal cual; si es un ID corto de Mercado Libre se
@@ -18,12 +19,17 @@ const toNumber = (v) => {
 };
 
 // Ancho fijo de "Producto": la columna va fija por CSS (sticky) y ese truco
-// depende de que su ancho no cambie.
+// depende de que su ancho no cambie. En celular se angosta para que se vean
+// las demás columnas al desplazar.
 const PRODUCTO_WIDTH = 700;
+const PRODUCTO_WIDTH_MOVIL = 230;
 
 // Grid puramente presentacional: filas y estado de carga los resuelve
 // Existencias.jsx (contenedor con filtros y fetch paginado).
-const DataGridE = ({ rows, loading, columnVisibilityModel, onColumnVisibilityModelChange }) => {
+// onVerReservas(row): abre el panel con el origen de lo reservado.
+const DataGridE = ({ rows, loading, columnVisibilityModel, onColumnVisibilityModelChange, onVerReservas }) => {
+  const theme = useTheme();
+  const esMovil = useMediaQuery(theme.breakpoints.down("sm"));
   const numberCol = {
     type: "number",
     headerAlign: "center",
@@ -35,7 +41,7 @@ const DataGridE = ({ rows, loading, columnVisibilityModel, onColumnVisibilityMod
     {
       field: "title",
       headerName: "Producto",
-      width: PRODUCTO_WIDTH,
+      width: esMovil ? PRODUCTO_WIDTH_MOVIL : PRODUCTO_WIDTH,
       resizable: false,
       disableReorder: true,
       renderCell: (params) => {
@@ -94,7 +100,33 @@ const DataGridE = ({ rows, loading, columnVisibilityModel, onColumnVisibilityMod
         </Box>
       ),
     },
-    { field: "total_reservado", headerName: "Reservada", flex: 1, ...numberCol },
+    {
+      field: "total_reservado",
+      headerName: "Reservada",
+      flex: 1,
+      minWidth: 110,
+      ...numberCol,
+      renderCell: (params) => {
+        const valor = toNumber(params.value);
+        if (valor <= 0) return <Typography variant="body2" sx={{ color: "text.disabled" }}>0</Typography>;
+        const row = params.row;
+        return (
+          <Tooltip
+            arrow
+            title={`Ventas ML ${toNumber(row.reservado_ml)} · Órdenes de bodega ${toNumber(row.reservado_ordenes)} — clic para ver el detalle`}
+          >
+            <Chip
+              label={valor}
+              size="small"
+              clickable
+              icon={<VisibilityOutlinedIcon sx={{ fontSize: 16 }} />}
+              onClick={() => onVerReservas && onVerReservas(row)}
+              sx={{ bgcolor: "#fff3e0", color: "#e65100", fontWeight: 700, border: "1px solid #ed6c02", "& .MuiChip-icon": { color: "#e65100" } }}
+            />
+          </Tooltip>
+        );
+      },
+    },
     { field: "total_por_recibir", headerName: "Por Ingresar", flex: 1, ...numberCol },
     {
       field: "disponible",
@@ -117,6 +149,36 @@ const DataGridE = ({ rows, loading, columnVisibilityModel, onColumnVisibilityMod
               minWidth: 48,
             }}
           />
+        );
+      },
+    },
+    {
+      field: "disponible_total_producto",
+      headerName: "Disponible total",
+      width: 130,
+      ...numberCol,
+      renderHeader: () => (
+        <Box sx={{ lineHeight: 1.2, textAlign: "center", fontWeight: 500 }}>
+          Disponible
+          <br />
+          total
+        </Box>
+      ),
+      renderCell: (params) => {
+        const valor = toNumber(params.value);
+        const row = params.row;
+        const color = valor <= 0 ? "#d32f2f" : "#1976d2";
+        return (
+          <Tooltip
+            arrow
+            title={`Suma del disponible del producto en sus ${toNumber(row.ubicaciones_producto)} ubicación(es) · Existencia total ${toNumber(row.existencia_total_producto)}`}
+          >
+            <Chip
+              label={valor}
+              size="small"
+              sx={{ bgcolor: valor <= 0 ? "#ffebee" : "#e3f2fd", color, fontWeight: 700, border: `1px solid ${color}`, minWidth: 48 }}
+            />
+          </Tooltip>
         );
       },
     },

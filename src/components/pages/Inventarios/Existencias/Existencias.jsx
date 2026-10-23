@@ -8,6 +8,8 @@ import {
   GlobalStyles,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -17,7 +19,10 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import LockClockOutlinedIcon from '@mui/icons-material/LockClockOutlined';
 import DataGridE from './DataGridE';
+import ReservasExistencias, { ReservasDrawer } from './ReservasExistencias';
 import CircularProgressWithLabel from './circularProgress';
 import useAuthStore from '../../../../store/authStore';
 import apiUrl from '../../../../config';
@@ -41,6 +46,17 @@ const sanearEntero = (valor) => {
   const soloDigitos = String(valor).replace(/\D/g, '');
   if (soloDigitos === '') return '';
   return soloDigitos.replace(/^0+(?=\d)/, '');
+};
+
+const OCULTO_MONTADO = {
+  position: 'absolute',
+  left: -10000,
+  top: 0,
+  height: 0,
+  overflow: 'hidden',
+  width: '100%',
+  visibility: 'hidden',
+  pointerEvents: 'none',
 };
 
 const overlayStyle = {
@@ -68,6 +84,12 @@ const Existencias = () => {
   const [subiendoArchivo, setSubiendoArchivo] = useState(false);
   const [progress, setProgress] = useState(0);
   const fileInputRef = useRef(null);
+  // Pestañas: 0 = Existencias, 1 = Reservas (se monta al visitarla la 1a vez).
+  const [tab, setTab] = useState(0);
+  const [reservasVisitada, setReservasVisitada] = useState(false);
+  const [filtroReservas, setFiltroReservas] = useState(null);
+  const [recargaReservas, setRecargaReservas] = useState(0);
+  const [filaReservas, setFilaReservas] = useState(null);
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({
     id: false,
     producto_id: false,
@@ -153,7 +175,22 @@ const Existencias = () => {
     fetchExistencias(FILTROS_INICIALES, 1, false);
   };
 
-  const handleActualizar = () => fetchExistencias(filtrosAplicados, 1, false);
+  const handleActualizar = () => {
+    fetchExistencias(filtrosAplicados, 1, false);
+    if (reservasVisitada) setRecargaReservas((n) => n + 1);
+  };
+
+  const cambiarTab = (nuevo) => {
+    setTab(nuevo);
+    if (nuevo === 1) setReservasVisitada(true);
+  };
+
+  // Desde el panel lateral: ver todas las reservas del producto en la pestaña.
+  const verReservasProducto = (fila) => {
+    setFilaReservas(null);
+    setFiltroReservas({ producto_id: fila.producto_id, title: fila.title });
+    cambiarTab(1);
+  };
 
   const handleCargarMas = () => fetchExistencias(filtrosAplicados, page + 1, true);
 
@@ -251,15 +288,26 @@ const Existencias = () => {
           >
             <WarehouseOutlinedIcon color="primary" /> Existencias
           </Typography>
+          <Tabs
+            value={tab}
+            onChange={(e, v) => cambiarTab(v)}
+            sx={{
+              minHeight: 36,
+              '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 600, py: 0.5 },
+            }}
+          >
+            <Tab icon={<Inventory2OutlinedIcon fontSize="small" />} iconPosition="start" label="Existencias" />
+            <Tab icon={<LockClockOutlinedIcon fontSize="small" />} iconPosition="start" label="Reservas" />
+          </Tabs>
         </Stack>
 
         <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
-          <Typography variant="caption" sx={{ color: 'text.secondary', mr: 1 }}>
+          {tab === 0 && <Typography variant="caption" sx={{ color: 'text.secondary', mr: 1 }}>
             {modoFiltrado
               ? `${total} resultado(s) para tu búsqueda`
               : `${total} existencias en total`}
-          </Typography>
-          {esAdministrador && (
+          </Typography>}
+          {esAdministrador && tab === 0 && (
             <>
               <input
                 ref={fileInputRef}
@@ -300,6 +348,9 @@ const Existencias = () => {
         </Stack>
       </Paper>
 
+      {/* ---------- Pestaña Existencias (los datos viven en este componente) ---------- */}
+      {tab === 0 && (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* ---------- Filtros ---------- */}
       <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2.5 }, borderRadius: 3 }}>
         <Stack spacing={2}>
@@ -385,6 +436,7 @@ const Existencias = () => {
         loading={loading}
         columnVisibilityModel={columnVisibilityModel}
         onColumnVisibilityModelChange={setColumnVisibilityModel}
+        onVerReservas={setFilaReservas}
       />
 
       {hayMasResultados && (
@@ -399,6 +451,28 @@ const Existencias = () => {
           </Button>
         </Box>
       )}
+      </Box>
+      )}
+
+      {/* ---------- Pestaña Reservas (queda montada para no perder filtros; se
+          oculta sin display:none para que el DataGrid conserve su tamaño) ---------- */}
+      {reservasVisitada && (
+        <Box sx={tab === 1 ? undefined : OCULTO_MONTADO} aria-hidden={tab !== 1}>
+          <ReservasExistencias
+            key={filtroReservas ? `p-${filtroReservas.producto_id}` : 'todas'}
+            localidades={localidades}
+            filtroProducto={filtroReservas}
+            onQuitarFiltroProducto={() => setFiltroReservas(null)}
+            recarga={recargaReservas}
+          />
+        </Box>
+      )}
+
+      <ReservasDrawer
+        fila={filaReservas}
+        onClose={() => setFilaReservas(null)}
+        onVerTodas={verReservasProducto}
+      />
 
       {subiendoArchivo && (
         <div style={overlayStyle}>

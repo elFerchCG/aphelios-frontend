@@ -176,6 +176,7 @@ const StockCompartido = () => {
   const sincronizar = (productoIds) =>
     ejecutar("Stock sincronizado", () => mcPost("/stock/sincronizar", { productoIds }), (r) => {
       const x = r.resultado;
+      if (r.en_curso) return x.error;
       return `Modo <b>${x.modo}</b> · revisados ${x.revisados} · actualizados ${x.actualizado} · simulados ${x.simulado} · sin cambio ${x.sin_cambio} · errores ${x.error}`;
     });
 
@@ -242,7 +243,7 @@ const StockCompartido = () => {
             placement="top"
             title={
               p.row.calculo
-                ? `Existencias ${p.row.calculo.existencias} − reservas ML ${p.row.calculo.reservado_ml} − órdenes ${p.row.calculo.reservado_bodega} − sin reserva ${p.row.calculo.operativas_sin_reserva} − cobradas sin operativa ${p.row.calculo.vendido_sin_operativa} · ${p.row.calculo.opciones?.length || 1} opción(es) de venta`
+                ? `Existencias ${p.row.calculo.existencias} − reservas ML ${p.row.calculo.reservado_ml} − órdenes ${p.row.calculo.reservado_bodega} · ${p.row.calculo.opciones?.length || 1} opción(es) de venta`
                 : ""
             }
           >
@@ -380,6 +381,17 @@ const StockCompartido = () => {
                 color={cfg.stock_modo === "real" ? "success" : "info"}
                 sx={{ fontWeight: 700 }}
               />
+            )}
+            {cfg && cfg.principal_todos && cfg.principal_todos !== "off" && (
+              <Tooltip arrow title="Publicaciones de la principal sin vínculo con subcuenta que también se sincronizan con el almacén (Full se excluye)">
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={`Principal sin vínculo: ${cfg.principal_todos === "on" ? "activo" : "simulación"} (${Number(resumen?.productos_sincronizados?.principal_sin_vinculo || 0).toLocaleString("es-MX")})`}
+                  color={cfg.principal_todos === "on" ? "success" : "info"}
+                  sx={{ fontWeight: 700 }}
+                />
+              </Tooltip>
             )}
             {cfg && !cfg.multicuenta_activo && <Chip size="small" label="Crons apagados" color="warning" sx={{ fontWeight: 700 }} />}
           </Typography>
