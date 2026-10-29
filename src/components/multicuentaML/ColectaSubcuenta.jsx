@@ -21,13 +21,12 @@ import {
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import dayjs from "dayjs";
 import Swal from "sweetalert2";
-import { FiltroColecta, claveColecta, formatoFecha } from "../pages/Ventas/colectaUI";
+import { FiltroColecta, asignarColectas, formatoFecha, useHorariosColecta } from "../pages/Ventas/colectaUI";
 
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
-import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import LinkOffOutlinedIcon from "@mui/icons-material/LinkOffOutlined";
@@ -41,9 +40,6 @@ import {
   gridSx,
   botonSx,
   SectionCard,
-  KpiCard,
-  KpiValor,
-  kpiGridSx,
   EstadoChip,
   CuentaChip,
 } from "./uiMulticuenta";
@@ -156,23 +152,15 @@ const ColectaSubcuenta = ({ embebido = false }) => {
     [dia, hoy, manana],
   );
 
-  const filtrados = useMemo(() => envios.filter((s) => FILTROS[filtro].fn(s) && pasaDia(s)), [envios, filtro, pasaDia]);
+  // [MULTICUENTA-ML] Colectas según el horario programado de cada subcuenta (como en ML)
+  const cuentasEnvios = useMemo(() => [...new Set(envios.map((s) => s.cuenta_ml_id).filter(Boolean))], [envios]);
+  const horarios = useHorariosColecta(cuentasEnvios);
+  const delDia = useMemo(() => envios.filter(pasaDia), [envios, pasaDia]);
+  const asignacion = useMemo(() => asignarColectas(delDia, horarios, (s) => s.cuenta_ml_id), [delDia, horarios]);
+  const filtrados = useMemo(() => delDia.filter((s) => FILTROS[filtro].fn(s)), [delDia, filtro]);
   const visibles = useMemo(
-    () => (colecta === "todas" ? filtrados : filtrados.filter((s) => claveColecta(s.expected_date) === colecta)),
-    [filtrados, colecta],
-  );
-
-  const kpi = useMemo(
-    () => ({
-      porImprimir: envios.filter(FILTROS.por_imprimir.fn).length,
-      listas: envios.filter(FILTROS.listas.fn).length,
-      recolectadas: envios.filter(FILTROS.recolectadas.fn).length,
-      atrasadas: envios.filter((s) => s.pendiente_procesar_bodega).length,
-      sinStock: envios.filter((s) => s.estado_operativo_interno === "sin_stock" && s.estado_operativo !== "cancelado").length,
-      piezas: envios.filter((s) => s.estado_operativo !== "cancelado").reduce((t, s) => t + Number(s.cantidad_piezas || 0), 0),
-      piezasExternas: envios.filter((s) => s.estado_operativo !== "cancelado").reduce((t, s) => t + Number(s.piezas_externas || 0), 0),
-    }),
-    [envios],
+    () => (colecta === "todas" ? filtrados : filtrados.filter((s) => asignacion.get(s.shipment_id)?.clave === colecta)),
+    [filtrados, colecta, asignacion],
   );
 
   useEffect(() => {
@@ -373,24 +361,6 @@ const ColectaSubcuenta = ({ embebido = false }) => {
         </Paper>
       )}
 
-      <Box sx={kpiGridSx}>
-        <KpiCard icon={PrintOutlinedIcon} color="#ed6c02" label="Etiquetas por imprimir">
-          <KpiValor valor={kpi.porImprimir} detalle={`${kpi.listas} listas para enviar`} />
-        </KpiCard>
-        <KpiCard icon={AssignmentReturnOutlinedIcon} color="#2e7d32" label="Recolectadas por procesar">
-          <KpiValor valor={kpi.recolectadas} detalle={`${kpi.atrasadas} de colectas anteriores`} />
-        </KpiCard>
-        <KpiCard icon={ReportProblemOutlinedIcon} color="#d32f2f" label="Sin reserva de stock">
-          <KpiValor valor={kpi.sinStock} detalle="Revisar existencias del producto" />
-        </KpiCard>
-        <KpiCard icon={Inventory2OutlinedIcon} color="#1976d2" label="Piezas en la lista">
-          <KpiValor
-            valor={kpi.piezas}
-            detalle={`${envios.length} envíos${kpi.piezasExternas ? ` · +${kpi.piezasExternas} de otras publicaciones` : ""}`}
-          />
-        </KpiCard>
-      </Box>
-
       <SectionCard
         icon={TaskAltOutlinedIcon}
         title={FILTROS[filtro].label}
@@ -436,7 +406,14 @@ const ColectaSubcuenta = ({ embebido = false }) => {
           </>
         }
       >
-        <FiltroColecta envios={filtrados} etiquetaEstado={FILTROS[filtro].label} valor={colecta} onChange={setColecta} />
+        <FiltroColecta
+          envios={filtrados}
+          todos={delDia}
+          asignacion={asignacion}
+          etiquetaEstado={FILTROS[filtro].label}
+          valor={colecta}
+          onChange={setColecta}
+        />
         <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
           <DataGrid
             rows={visibles}

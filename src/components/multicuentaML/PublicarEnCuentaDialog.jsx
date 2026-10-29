@@ -99,7 +99,8 @@ const EstadoDestino = ({ variante, cuenta }) => {
   );
 };
 
-const PublicarEnCuentaDialog = ({ open, onClose }) => {
+// itemIdInicial / cuentaDestinoInicial: el publicador masivo lo abre directo en la revisión completa de una familia
+const PublicarEnCuentaDialog = ({ open, onClose, itemIdInicial = null, cuentaDestinoInicial = null }) => {
   const [cuentas, setCuentas] = useState([]);
   const [origen, setOrigen] = useState("");
   const [destino, setDestino] = useState("");
@@ -130,11 +131,13 @@ const PublicarEnCuentaDialog = ({ open, onClose }) => {
         const filas = r.filas || [];
         setCuentas(filas);
         const principal = filas.find((c) => c.tipo === "principal");
-        const sub = filas.find((c) => c.tipo !== "principal");
+        const sub = filas.find((c) => (cuentaDestinoInicial ? String(c.id) === String(cuentaDestinoInicial) : c.tipo !== "principal"));
         if (principal) setOrigen(String(principal.id));
         if (sub) setDestino(String(sub.id));
+        if (itemIdInicial && principal && sub) verPrevia(itemIdInicial, { cuentas: { origen: principal.id, destino: sub.id } });
       })
       .catch(async (e) => setError(await mensajeError(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const nombreCuenta = (id) => cuentas.find((c) => String(c.id) === String(id))?.nombre || "";
@@ -157,7 +160,7 @@ const PublicarEnCuentaDialog = ({ open, onClose }) => {
   };
 
   // Vista previa: precio y tipo vacíos = los toma del origen
-  const verPrevia = async (id = itemId, { conservarPrecio = false } = {}) => {
+  const verPrevia = async (id = itemId, { conservarPrecio = false, cuentas: forzadas = null } = {}) => {
     if (!id) return;
     setItemId(id);
     setCargando("Leyendo la familia en Mercado Libre…");
@@ -165,8 +168,8 @@ const PublicarEnCuentaDialog = ({ open, onClose }) => {
     setCreado(null);
     try {
       const r = await mcPost("/publicador/vista-previa", {
-        cuentaOrigenId: origen,
-        cuentaDestinoId: destino,
+        cuentaOrigenId: forzadas?.origen ?? origen,
+        cuentaDestinoId: forzadas?.destino ?? destino,
         itemId: id,
         precio: conservarPrecio && precio ? precio : undefined,
         tipoPublicacion: conservarPrecio && tipo ? tipo : undefined,
@@ -392,8 +395,16 @@ const PublicarEnCuentaDialog = ({ open, onClose }) => {
                             size="small"
                             label="Tipo de publicación"
                             value={tipo}
-                            onChange={(e) => setTipo(e.target.value)}
-                            helperText={previa.modo === "condicion" ? "Solo los tipos que la variante aún no tiene" : " "}
+                            onChange={(e) => {
+                              setTipo(e.target.value);
+                              // Precio de Aphelios para ese mismo tipo, si existe
+                              const actual = previa.familia.variantes.find((v) => v.actual);
+                              const mismo = (actual?.items_origen || []).find(
+                                (i) => i.listing_type_id === e.target.value && i.status !== "closed" && Number(i.price) > 0,
+                              );
+                              if (mismo) setPrecio(String(mismo.price));
+                            }}
+                            helperText={previa.modo === "condicion" ? "Solo los tipos que la variante aún no tiene" : "El precio cambia al de Aphelios para ese tipo, si existe"}
                             fullWidth
                           >
                             {Object.keys(TIPOS).map((t) => (
@@ -414,7 +425,11 @@ const PublicarEnCuentaDialog = ({ open, onClose }) => {
                       <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: "1fr 1fr" }}>
                         <Dato label="SELLER_SKU">{previa.seller_sku || "—"}</Dato>
                         <Dato label={previa.modo === "condicion" ? "Stock (compartido)" : "Piezas a publicar"}>
-                          {previa.modo === "condicion" ? "El de la variante" : previa.disponible}
+                          {previa.modo === "condicion"
+                            ? "El de la variante"
+                            : previa.stock_forzado
+                              ? `${previa.cantidad_publicar} (sin stock; luego queda en 0)`
+                              : previa.disponible}
                         </Dato>
                         <Dato label="Fotos / atributos">
                           {previa.resumen_payload?.fotos != null
@@ -616,6 +631,7 @@ const Resultado = ({ creado, previa, cuenta }) => (
         <Dato label="Piezas">{creado.available_quantity ?? "—"}</Dato>
         <Dato label="Descripción">{creado.descripcion}</Dato>
         <Dato label="Stock compartido">{creado.vinculo === "registrado" ? "Vinculado" : creado.vinculo}</Dato>
+        {creado.stock_forzado && <Dato label="Sin stock">{creado.stock_ajustado || "se pone en 0 en el siguiente ciclo"}</Dato>}
       </Box>
     </Paper>
 

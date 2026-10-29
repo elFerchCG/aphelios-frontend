@@ -29,14 +29,12 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import axios from "axios";
 import dayjs from "dayjs";
 import Swal from "sweetalert2";
-import { FiltroColecta, claveColecta, formatoFecha } from "./colectaUI";
+import { FiltroColecta, asignarColectas, formatoFecha, useHorariosColecta } from "./colectaUI";
 
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
-import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
 import AssignmentReturnOutlinedIcon from "@mui/icons-material/AssignmentReturnOutlined";
-import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -91,26 +89,6 @@ const SectionCard = ({ icon: Icon, title, subtitle, count, actions, children }) 
   </Paper>
 );
 
-const KpiCard = ({ icon: Icon, color, label, valor, detalle }) => (
-  <Paper elevation={2} sx={{ p: 2, borderRadius: 3, display: "flex", gap: 1.5, alignItems: "flex-start" }}>
-    <Box sx={{ width: 42, height: 42, borderRadius: 2, bgcolor: `${color}1A`, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <Icon />
-    </Box>
-    <Box sx={{ minWidth: 0, flex: 1 }}>
-      <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-        {label}
-      </Typography>
-      <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
-        {valor}
-      </Typography>
-      {detalle && (
-        <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
-          {detalle}
-        </Typography>
-      )}
-    </Box>
-  </Paper>
-);
 
 const EstadoChip = ({ valor, mapa }) => {
   const e = mapa[valor] || { label: valor || "—", color: "default" };
@@ -146,7 +124,6 @@ const FILTROS = {
 };
 
 const ESTADOS_IMPRIMIBLES = ["ready_to_print", "etiqueta_impresa", "listo_para_recolectar"];
-const ESTADOS_COLECTA = ["ready_to_print", "etiqueta_impresa", "listo_para_recolectar", "recolectado", "en_camino", "entregado"];
 
 const apiUrl = process.env.NODE_ENV === "production" ? process.env.REACT_APP_API_URL : process.env.REACT_APP_API_URL_LOCAL;
 
@@ -207,37 +184,16 @@ const ColectaPrincipal = () => {
     [dia, hoy, manana],
   );
 
-  const filtrados = useMemo(() => envios.filter((s) => FILTROS[filtro].fn(s) && pasaDia(s)), [envios, filtro, pasaDia]);
+  // [MULTICUENTA-ML] Colectas según el horario programado de la cuenta (como en ML)
+  const horarios = useHorariosColecta(["principal"]);
+  const delDia = useMemo(() => envios.filter(pasaDia), [envios, pasaDia]);
+  const asignacion = useMemo(() => asignarColectas(delDia, horarios), [delDia, horarios]);
+  const filtrados = useMemo(() => delDia.filter((s) => FILTROS[filtro].fn(s)), [delDia, filtro]);
   const visibles = useMemo(
-    () => (colecta === "todas" ? filtrados : filtrados.filter((s) => claveColecta(s.expected_date) === colecta)),
-    [filtrados, colecta],
+    () => (colecta === "todas" ? filtrados : filtrados.filter((s) => asignacion.get(s.shipment_id)?.clave === colecta)),
+    [filtrados, colecta, asignacion],
   );
 
-  const kpi = useMemo(() => {
-    const r = { imprimirHoy: 0, imprimirManana: 0, listasHoy: 0, listasManana: 0, recolectadas: 0, atrasadas: 0, sinStock: 0, piezas: 0 };
-    for (const s of envios) {
-      if (s.estado_operativo !== "cancelado") {
-        r.piezas += (s.items || []).reduce((t, i) => t + Number(i.cantidad || 0), 0);
-        if (s.estado_operativo_interno === "sin_stock") r.sinStock++;
-      }
-      if (s.mostrar_en_recolectados === true) {
-        r.recolectadas++;
-        if (s.pendiente_procesar_bodega === true) r.atrasadas++;
-        continue;
-      }
-      const k = claveDia(s.expected_date);
-      if (!ESTADOS_COLECTA.includes(s.estado_operativo) || !k) continue;
-      const lista = ["etiqueta_impresa", "listo_para_recolectar"].includes(s.estado_operativo);
-      if (k <= hoy) {
-        if (s.estado_operativo === "ready_to_print") r.imprimirHoy++;
-        if (lista) r.listasHoy++;
-      } else if (k === manana) {
-        if (s.estado_operativo === "ready_to_print") r.imprimirManana++;
-        if (lista) r.listasManana++;
-      }
-    }
-    return r;
-  }, [envios, hoy, manana]);
 
   useEffect(() => {
     setSeleccion([]);
@@ -482,13 +438,6 @@ const ColectaPrincipal = () => {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       <GlobalStyles styles={(theme) => ({ ".MuiDataGrid-panel": { zIndex: theme.zIndex.modal + 100 } })} />
 
-      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" } }}>
-        <KpiCard icon={PrintOutlinedIcon} color="#ed6c02" label="Etiquetas por imprimir" valor={kpi.imprimirHoy} detalle={`Hoy y atrasadas · ${kpi.imprimirManana} para mañana`} />
-        <KpiCard icon={LocalShippingOutlinedIcon} color="#0288d1" label="Listas para enviar" valor={kpi.listasHoy} detalle={`Hoy y atrasadas · ${kpi.listasManana} para mañana`} />
-        <KpiCard icon={AssignmentReturnOutlinedIcon} color="#2e7d32" label="Recolectadas por procesar" valor={kpi.recolectadas} detalle={`${kpi.atrasadas} de colectas anteriores`} />
-        <KpiCard icon={ReportProblemOutlinedIcon} color="#d32f2f" label="Sin stock reservado" valor={kpi.sinStock} detalle={`${kpi.piezas} piezas en ${envios.length} envíos`} />
-      </Box>
-
       <SectionCard
         icon={TaskAltOutlinedIcon}
         title={FILTROS[filtro].label}
@@ -540,7 +489,14 @@ const ColectaPrincipal = () => {
           </>
         }
       >
-        <FiltroColecta envios={filtrados} etiquetaEstado={FILTROS[filtro].label} valor={colecta} onChange={setColecta} />
+        <FiltroColecta
+          envios={filtrados}
+          todos={delDia}
+          asignacion={asignacion}
+          etiquetaEstado={FILTROS[filtro].label}
+          valor={colecta}
+          onChange={setColecta}
+        />
         <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
           <DataGrid
             rows={visibles}

@@ -1,7 +1,8 @@
-// [MULTICUENTA-ML] Publicador masivo (dentro de Cuentas Ecommerce).
-// Se marcan varias opciones de venta de la principal y se mandan como un
-// lote: el backend las publica en segundo plano (unas pocas por minuto) con
-// el precio de la principal, SELLER_SKU = MLMU y omite las que ya existen.
+// [MULTICUENTA-ML] Publicador masivo por familias (dentro de Cuentas Ecommerce).
+// Se marcan familias (User Products) de la principal —se pueden quitar
+// variantes— y se mandan como un lote: el backend las publica en segundo plano
+// (unas pocas por minuto) como familia nueva, variante agregada a la familia
+// o nueva condición de venta, con el precio de Aphelios para ese tipo.
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import dayjs from "dayjs";
@@ -13,6 +14,7 @@ import {
   Avatar,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -51,9 +53,12 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CloseIcon from "@mui/icons-material/Close";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 
 import apiUrl from "../../config";
 import { mcGet, mcPost, mensajeError } from "./multicuentaApi";
+import PublicarEnCuentaDialog from "./PublicarEnCuentaDialog";
 import {
   GRID_HEIGHT,
   LOCALE_TEXT_GRID,
@@ -67,15 +72,16 @@ import {
 } from "./uiMulticuenta";
 
 const PAGE_SIZE = 100;
+const PAGE_SIZE_FAMILIAS = 50;
 const REFRESCO_MS = 5000;
 
+// Tipos de lote (los "origen" son de lotes anteriores)
 const TIPOS = [
   { value: "origen", label: "Igual a la principal" },
-  { value: "gold_special", label: "Clásica (gold_special)" },
-  { value: "gold_pro", label: "Premium (gold_pro)" },
+  { value: "gold_special", label: "Clásica" },
+  { value: "gold_pro", label: "Premium" },
+  { value: "ambas", label: "Clásica y Premium" },
 ];
-
-const FILTROS_INICIALES = { q: "", proveedor: null, logistica: "todas", estado: "active", ocultarPublicadas: true };
 
 const ESTADOS_LOTE = {
   pendiente: { label: "En cola", color: "default" },
@@ -93,6 +99,16 @@ const ESTADOS_ITEM = {
   cancelado: { label: "Cancelada", color: "secondary" },
 };
 
+/** Palabras iniciales que comparten los títulos de una familia. */
+const nombreFamiliaCliente = (titulos) => {
+  const lista = titulos.filter(Boolean);
+  if (lista.length < 2) return lista[0] || "";
+  const ws = lista.map((t) => t.split(/\s+/));
+  let n = 0;
+  while (ws.every((w) => w[n] && w[n].toLowerCase() === ws[0][n].toLowerCase())) n++;
+  return n >= 2 ? ws[0].slice(0, n).join(" ") : lista[0];
+};
+
 const formatoFecha = (v) => (v ? dayjs(v).format("DD/MM/YYYY HH:mm") : "");
 const dinero = (v) =>
   v == null || v === "" ? "" : Number(v).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -101,16 +117,6 @@ const getThumbnailUrl = (url) => {
   if (!url) return null;
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   return `https://http2.mlstatic.com/D_${url}-I.jpg`;
-};
-
-// Fila seleccionable: no existe en destino, no está en un lote y tiene stock
-const esSeleccionable = (r) => !r.item_destino && !r.lote_activo && Number(r.disponible) > 0;
-
-const motivoNoSeleccionable = (r) => {
-  if (r.item_destino) return `Ya existe en la cuenta destino (${r.item_destino}).`;
-  if (r.lote_activo) return `Ya está en el lote #${r.lote_activo}.`;
-  if (!(Number(r.disponible) > 0)) return "Sin piezas disponibles.";
-  return "";
 };
 
 const ProductoCell = ({ row, titulo, sub }) => (
@@ -152,9 +158,218 @@ const ProgresoLote = ({ lote }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Pestaña 1: seleccionar
+// Plan de una familia (mismas reglas que el backend; el backend decide al final)
 // ---------------------------------------------------------------------------
-const Seleccion = ({ destino, onLoteCreado, avisar }) => {
+const TIPOS_LOTE = {
+  gold_special: ["gold_special"],
+  gold_pro: ["gold_pro"],
+  ambas: ["gold_special", "gold_pro"],
+};
+const NOMBRE_TIPO = { gold_special: "Clásica", gold_pro: "Premium" };
+
+const ACCIONES = {
+  nueva_familia: { label: "Familia nueva", color: "#1565c0", bg: "#e3f2fd" },
+  agregar_a_familia: { label: "Agregar a la familia", color: "#2e7d32", bg: "#e8f5e9" },
+  nueva_condicion: { label: "Condición de venta", color: "#6a1b9a", bg: "#f3e5f5" },
+};
+
+/** Por variante: qué pasa con cada tipo ('nueva', 'condicion', 'existe', 'en_lote', 'excluida', 'cerrada'). */
+function planFamilia(fam, tipos, seleccion) {
+  let familiaEnDestino = fam.variantes.some((v) => v.destino);
+  const porVariante = new Map();
+  const conteo = { nueva_familia: 0, agregar_a_familia: 0, nueva_condicion: 0, omitidas: 0 };
+  for (const v of fam.variantes) {
+    const lineas = [];
+    const elegida = !seleccion || seleccion.has(v.user_product_id);
+    if (v.excluida) lineas.push({ tipo: null, estado: "excluida", texto: "Excluida de la sincronización (no la operamos)" });
+    else if (v.logistica === "cerrada") lineas.push({ tipo: null, estado: "cerrada", texto: "Cerrada en Aphelios" });
+    else {
+      const tiposDest = new Set((v.destino?.items || []).map((i) => i.listing_type_id).filter(Boolean));
+      let existe = Boolean(v.destino);
+      for (const t of tipos) {
+        const lote = (v.en_lote || []).find((l) => l.tipo === t || !NOMBRE_TIPO[l.tipo]);
+        if (lote) lineas.push({ tipo: t, estado: "en_lote", texto: `Ya va en el lote #${lote.lote_id}` });
+        else if (tiposDest.has(t)) lineas.push({ tipo: t, estado: "existe", texto: `Ya existe como ${NOMBRE_TIPO[t]}` });
+        else if (existe) lineas.push({ tipo: t, estado: "condicion", accion: "nueva_condicion" });
+        else {
+          // Solo una variante elegida puede "crear" la familia para las demás
+          const accion = familiaEnDestino ? "agregar_a_familia" : "nueva_familia";
+          lineas.push({ tipo: t, estado: "nueva", accion });
+          if (elegida) familiaEnDestino = true;
+          existe = true;
+        }
+      }
+    }
+    const accionables = lineas.filter((l) => l.accion);
+    if (elegida) {
+      for (const l of accionables) conteo[l.accion]++;
+      if (!accionables.length) conteo.omitidas++;
+    }
+    porVariante.set(v.user_product_id, { lineas, publicable: accionables.length > 0 });
+  }
+  return { porVariante, conteo, publicaciones: conteo.nueva_familia + conteo.agregar_a_familia + conteo.nueva_condicion };
+}
+
+const ChipAccion = ({ accion, n, tipo }) => {
+  const a = ACCIONES[accion];
+  if (!a) return null;
+  return (
+    <Chip
+      size="small"
+      label={`${n != null ? `${n} · ` : ""}${a.label}${tipo ? ` (${NOMBRE_TIPO[tipo]})` : ""}`}
+      sx={{ fontWeight: 600, bgcolor: a.bg, color: a.color, border: `1px solid ${a.color}33`, height: 22 }}
+    />
+  );
+};
+
+const ChipLogistica = ({ valor }) => {
+  const m = {
+    full: { label: "Full", bg: "#fff3e0", color: "#e65100" },
+    me: { label: "Mercado Envíos", bg: "#e3f2fd", color: "#1565c0" },
+    mixta: { label: "Mixta", bg: "#fffde7", color: "#8d6e00" },
+    cerrada: { label: "Cerrada", bg: "#f5f5f5", color: "#757575" },
+  }[valor] || { label: valor, bg: "#f5f5f5", color: "#616161" };
+  return <Chip size="small" label={m.label} sx={{ fontWeight: 600, bgcolor: m.bg, color: m.color, height: 22 }} />;
+};
+
+const ChipStock = ({ v }) => {
+  const n = Number(v || 0);
+  const color = n > 0 ? "#2e7d32" : "#d32f2f";
+  return (
+    <Tooltip arrow title={n > 0 ? "Disponible en almacén" : "Sin stock: se publica con 1 y el sincronizador la deja en 0 (pausada)"}>
+      <Chip size="small" label={n} sx={{ fontWeight: 700, minWidth: 40, height: 22, bgcolor: n > 0 ? "#e8f5e9" : "#ffebee", color, border: `1px solid ${color}` }} />
+    </Tooltip>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Ventana de variantes de una familia (desmarcar, ver estado, revisión completa)
+// ---------------------------------------------------------------------------
+const VariantesFamilia = ({ fam, tipos, seleccion, onCambiar, onCerrar, onRevisionCompleta, destinoNombre }) => {
+  const plan = planFamilia(fam, tipos, seleccion);
+  const publicables = fam.variantes.filter((v) => plan.porVariante.get(v.user_product_id)?.publicable);
+  const marcar = (ids) => onCambiar(new Set(ids));
+  return (
+    <Dialog open onClose={onCerrar} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+        <AccountTreeOutlinedIcon color="primary" />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }} noWrap title={fam.titulo}>
+            {fam.titulo}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Familia {fam.family_id} · {fam.total_variantes} variante(s) · {fam.en_destino} ya en {destinoNombre}
+          </Typography>
+        </Box>
+      </DialogTitle>
+      <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
+          <Button size="small" sx={botonSx} onClick={() => marcar(publicables.map((v) => v.user_product_id))}>
+            Marcar todas ({publicables.length})
+          </Button>
+          <Button size="small" color="inherit" sx={botonSx} onClick={() => marcar([])}>
+            Ninguna
+          </Button>
+          <Box sx={{ flex: 1 }} />
+          {plan.conteo.nueva_familia > 0 && <ChipAccion accion="nueva_familia" n={plan.conteo.nueva_familia} />}
+          {plan.conteo.agregar_a_familia > 0 && <ChipAccion accion="agregar_a_familia" n={plan.conteo.agregar_a_familia} />}
+          {plan.conteo.nueva_condicion > 0 && <ChipAccion accion="nueva_condicion" n={plan.conteo.nueva_condicion} />}
+        </Stack>
+
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+          {fam.variantes.map((v) => {
+            const pv = plan.porVariante.get(v.user_product_id);
+            const elegida = seleccion.has(v.user_product_id);
+            return (
+              <Stack
+                key={v.user_product_id}
+                direction="row"
+                gap={1.5}
+                alignItems="flex-start"
+                sx={{ px: 1.5, py: 1, borderBottom: "1px solid #eee", opacity: pv.publicable ? 1 : 0.6, bgcolor: elegida ? "#f5faff" : "inherit" }}
+              >
+                <Checkbox
+                  size="small"
+                  checked={elegida}
+                  disabled={!pv.publicable}
+                  onChange={(e) => {
+                    const s = new Set(seleccion);
+                    if (e.target.checked) s.add(v.user_product_id);
+                    else s.delete(v.user_product_id);
+                    onCambiar(s);
+                  }}
+                />
+                <Avatar variant="rounded" src={getThumbnailUrl(v.thumbnail) || undefined} sx={{ width: 40, height: 40, bgcolor: "#f5f5f5" }}>
+                  <Inventory2OutlinedIcon sx={{ fontSize: 18, color: "#9e9e9e" }} />
+                </Avatar>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Stack direction="row" gap={1} alignItems="center" flexWrap="wrap">
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {v.variacion || v.titulo}
+                    </Typography>
+                    <ChipLogistica valor={v.logistica} />
+                    <ChipStock v={v.disponible} />
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                    {v.user_product_id} · {v.opciones.map((o) => `${o.item_id} ${NOMBRE_TIPO[o.listing_type_id] || o.listing_type_id || ""}`).join(" · ")}
+                  </Typography>
+                  <Stack direction="row" gap={0.75} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                    {(v.destino?.items || []).map((i) => (
+                      <Chip
+                        key={i.item_id}
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                        label={`En ${destinoNombre}: ${NOMBRE_TIPO[i.listing_type_id] || "tipo por confirmar"} · ${i.item_id}`}
+                        sx={{ height: 22 }}
+                      />
+                    ))}
+                    {pv.lineas.map((l, k) =>
+                      l.accion ? (
+                        <ChipAccion key={k} accion={l.accion} tipo={l.tipo} />
+                      ) : (
+                        <Chip key={k} size="small" label={l.texto} sx={{ height: 22 }} />
+                      ),
+                    )}
+                  </Stack>
+                </Box>
+                <Tooltip arrow title="Revisión completa con Mercado Libre (atributos, fotos, precio mínimo) y publicación individual">
+                  <span>
+                    <Button size="small" sx={botonSx} disabled={!v.opciones.length} onClick={() => onRevisionCompleta(v)}>
+                      Revisar
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Stack>
+            );
+          })}
+        </Paper>
+        <Typography variant="caption" color="text.secondary">
+          Esta es la revisión rápida (con los datos del sistema). Con «Revisar» se abre la revisión completa con Mercado Libre de esa variante.
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button variant="contained" onClick={onCerrar} sx={botonSx}>
+          Listo ({seleccion.size} seleccionada{seleccion.size === 1 ? "" : "s"})
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Pestaña 1: seleccionar familias
+// ---------------------------------------------------------------------------
+const FILTROS_INICIALES = {
+  q: "",
+  proveedor: null,
+  logistica: "todas",
+  estado: "active",
+  multiVariante: false,
+  ocultarCompletas: true,
+};
+
+const Seleccion = ({ destino, destinoNombre, onLoteCreado, avisar }) => {
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [aplicados, setAplicados] = useState(FILTROS_INICIALES);
   const [proveedores, setProveedores] = useState([]);
@@ -163,11 +378,16 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [cargandoMas, setCargandoMas] = useState(false);
-  // Selección por id de publicación; se conserva entre "Cargar más"
-  const [seleccion, setSeleccion] = useState([]);
-  const [tipo, setTipo] = useState("origen");
-  const [confirmar, setConfirmar] = useState(false);
+  // family_id -> Set(MLMU elegidos); se conserva entre "Cargar más"
+  const [seleccion, setSeleccion] = useState(new Map());
+  const [tipo, setTipo] = useState("gold_special");
+  const [abierta, setAbierta] = useState(null);
+  const [revisionItem, setRevisionItem] = useState(null);
+  const [revision, setRevision] = useState(null);
+  const [revisando, setRevisando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  const tipos = TIPOS_LOTE[tipo];
 
   useEffect(() => {
     axios
@@ -188,22 +408,23 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
         const params = {
           cuentaDestinoId: destino,
           page: pagina,
-          pageSize: PAGE_SIZE,
+          pageSize: PAGE_SIZE_FAMILIAS,
           logistica: f.logistica,
           estado: f.estado,
-          ocultarPublicadas: f.ocultarPublicadas ? 1 : 0,
+          minVariantes: f.multiVariante ? 2 : 1,
+          ocultarCompletas: f.ocultarCompletas ? 1 : 0,
         };
         if (f.q.trim()) params.q = f.q.trim();
         if (f.proveedor) params.proveedorId = f.proveedor.id_proveedor;
         const r = await mcGet("/publicador/masivo/candidatos", params);
         const lista = r.filas || [];
-        setRows((prev) => (acumular ? [...prev, ...lista.filter((x) => !prev.some((p) => p.item_id === x.item_id))] : lista));
+        setRows((prev) => (acumular ? [...prev, ...lista.filter((x) => !prev.some((p) => p.family_id === x.family_id))] : lista));
         setTotal(Number(r.total) || 0);
         setPage(pagina);
         setAplicados(f);
-        if (!acumular) setSeleccion([]);
+        if (!acumular) setSeleccion(new Map());
       } catch (e) {
-        avisar("error", await mensajeError(e, "No se pudieron buscar las publicaciones."));
+        avisar("error", await mensajeError(e, "No se pudieron buscar las familias."));
       } finally {
         setLoading(false);
         setCargandoMas(false);
@@ -217,32 +438,91 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
     setFiltros(FILTROS_INICIALES);
   }, [buscar]);
 
-  const porId = useMemo(() => new Map(rows.map((r) => [r.item_id, r])), [rows]);
-  const elegidas = useMemo(() => seleccion.map((id) => porId.get(id)).filter(Boolean), [seleccion, porId]);
-  const mlmuRepetidos = useMemo(() => {
-    const vistos = new Set();
-    let n = 0;
-    for (const r of elegidas) {
-      if (vistos.has(r.user_product_id)) n++;
-      vistos.add(r.user_product_id);
+  // Plan de cada familia con el tipo elegido y su selección
+  const planes = useMemo(() => {
+    const m = new Map();
+    for (const fam of rows) m.set(fam.family_id, planFamilia(fam, tipos, seleccion.get(fam.family_id) || null));
+    return m;
+  }, [rows, tipos, seleccion]);
+
+  // Al cambiar el tipo, se quitan de la selección las variantes que ya no tengan nada que publicar
+  useEffect(() => {
+    setSeleccion((prev) => {
+      let cambio = false;
+      const nueva = new Map();
+      for (const [fid, set] of prev) {
+        const fam = rows.find((r) => r.family_id === fid);
+        if (!fam) {
+          nueva.set(fid, set);
+          continue;
+        }
+        const plan = planFamilia(fam, tipos, null);
+        const filtrado = new Set([...set].filter((id) => plan.porVariante.get(id)?.publicable));
+        if (filtrado.size !== set.size) cambio = true;
+        if (filtrado.size) nueva.set(fid, filtrado);
+        else cambio = true;
+      }
+      return cambio ? nueva : prev;
+    });
+  }, [tipo, rows, tipos]);
+
+  const publicablesDe = (fam) => {
+    const plan = planFamilia(fam, tipos, null);
+    return fam.variantes.filter((v) => plan.porVariante.get(v.user_product_id)?.publicable).map((v) => v.user_product_id);
+  };
+  const famSeleccionable = (fam) => publicablesDe(fam).length > 0;
+
+  const cambiarFamilias = (ids) => {
+    const nuevo = new Map();
+    for (const fid of ids) {
+      const previo = seleccion.get(fid);
+      if (previo) nuevo.set(fid, previo);
+      else {
+        const fam = rows.find((r) => r.family_id === fid);
+        if (fam) nuevo.set(fid, new Set(publicablesDe(fam)));
+      }
     }
-    return n;
-  }, [elegidas]);
-  // El stock es por MLMU: opciones del mismo MLMU no se suman dos veces
-  const piezas = [...new Map(elegidas.map((r) => [r.user_product_id, Number(r.disponible || 0)])).values()].reduce((a, n) => a + n, 0);
+    setSeleccion(nuevo);
+  };
+
+  const totales = useMemo(() => {
+    let variantes = 0;
+    let publicaciones = 0;
+    const porAccion = { nueva_familia: 0, agregar_a_familia: 0, nueva_condicion: 0 };
+    for (const [fid, set] of seleccion) {
+      variantes += set.size;
+      const p = planes.get(fid);
+      if (!p) continue;
+      publicaciones += p.publicaciones;
+      for (const k of Object.keys(porAccion)) porAccion[k] += p.conteo[k];
+    }
+    return { familias: seleccion.size, variantes, publicaciones, porAccion };
+  }, [seleccion, planes]);
+
+  const mlmusElegidos = () => [...seleccion.values()].flatMap((s) => [...s]);
+
+  const revisar = async () => {
+    setRevisando(true);
+    try {
+      setRevision(await mcPost("/publicador/masivo/revisar", { cuentaDestinoId: destino, userProductIds: mlmusElegidos(), tipoPublicacion: tipo }));
+    } catch (e) {
+      avisar("error", await mensajeError(e, "No se pudo revisar el lote."));
+    } finally {
+      setRevisando(false);
+    }
+  };
 
   const enviar = async () => {
     setEnviando(true);
     try {
-      const r = await mcPost("/publicador/masivo/lotes", { cuentaDestinoId: destino, itemIds: seleccion, tipoPublicacion: tipo });
-      setConfirmar(false);
+      const r = await mcPost("/publicador/masivo/lotes", { cuentaDestinoId: destino, userProductIds: mlmusElegidos(), tipoPublicacion: tipo });
+      setRevision(null);
       if (!r.lote_id) {
-        avisar("warning", `No se creó el lote: ${r.rechazados?.[0]?.motivo || "ninguna publicación era válida."}`);
+        avisar("warning", `No se creó el lote: ${r.omitidos?.[0]?.motivo || "no hay nada que publicar."}`);
         return;
       }
-      const extra = r.rechazados?.length ? ` · ${r.rechazados.length} no entraron (ya existen o se repiten).` : "";
-      avisar("success", `Lote #${r.lote_id} en cola con ${r.aceptados} publicación(es)${extra}`);
-      setSeleccion([]);
+      avisar("success", `Lote #${r.lote_id} en cola: ${r.resumen.familias} familia(s), ${r.resumen.publicaciones} publicación(es).`);
+      setSeleccion(new Map());
       onLoteCreado(r.lote_id);
       buscar(aplicados, 1, false);
     } catch (e) {
@@ -255,107 +535,114 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
   const columns = useMemo(
     () => [
       {
-        field: "title",
-        headerName: "Publicación de la principal",
+        field: "titulo",
+        headerName: "Familia",
         minWidth: 320,
         flex: 1.6,
         renderCell: (p) => (
-          <Tooltip arrow title={motivoNoSeleccionable(p.row)} placement="top-start">
-            <Box sx={{ width: "100%", opacity: esSeleccionable(p.row) ? 1 : 0.55 }}>
-              <ProductoCell
-                row={p.row}
-                titulo={p.row.title}
-                sub={`${p.row.item_id} · SKU ${p.row.sku || "N/A"} · ML ${p.row.inventory_id || "N/A"}`}
-              />
+          <Tooltip arrow placement="top-start" title={famSeleccionable(p.row) ? "" : "No hay nada que publicar en esta familia con el tipo elegido."}>
+            <Box sx={{ width: "100%", opacity: famSeleccionable(p.row) ? 1 : 0.55 }}>
+              <ProductoCell row={p.row} titulo={p.row.titulo} sub={`Familia ${p.row.family_id}`} />
             </Box>
           </Tooltip>
         ),
       },
       {
-        field: "user_product_id",
-        headerName: "MLMU",
-        width: 150,
-        renderCell: (p) => (
-          <Stack direction="row" gap={0.5} alignItems="center">
-            <Typography variant="body2">{p.value}</Typography>
-            {p.row.opciones > 1 && (
-              <Tooltip arrow title={`${p.row.opciones} opciones de venta comparten este MLMU; en la subcuenta se publica una.`}>
-                <Chip size="small" label={`×${p.row.opciones}`} sx={{ height: 20, fontWeight: 700 }} />
-              </Tooltip>
-            )}
-          </Stack>
-        ),
-      },
-      {
-        field: "logistic_type",
-        headerName: "Logística",
-        width: 150,
-        renderCell: (p) =>
-          p.value === "fulfillment" ? (
-            <Tooltip arrow title="En la subcuenta se publica con Mercado Envíos y stock de almacén.">
-              <Chip size="small" label="Full" sx={{ fontWeight: 600, bgcolor: "#fff3e0", color: "#e65100" }} />
-            </Tooltip>
-          ) : (
-            <Chip size="small" label="Mercado Envíos" sx={{ fontWeight: 600, bgcolor: "#e3f2fd", color: "#1565c0" }} />
-          ),
-      },
-      { field: "status", headerName: "Estado ML", width: 100 },
-      {
-        field: "disponible",
-        headerName: "Disponible",
-        width: 105,
-        type: "number",
-        headerAlign: "center",
-        align: "center",
+        field: "total_variantes",
+        headerName: "Variantes",
+        width: 170,
         renderCell: (p) => {
-          const v = Number(p.value || 0);
-          const color = v > 0 ? "#2e7d32" : "#d32f2f";
+          const pct = p.row.total_variantes ? Math.round((p.row.en_destino / p.row.total_variantes) * 100) : 0;
           return (
-            <Chip
-              size="small"
-              label={v}
-              sx={{ fontWeight: 700, minWidth: 44, bgcolor: v > 0 ? "#e8f5e9" : "#ffebee", color, border: `1px solid ${color}` }}
-            />
+            <Box sx={{ width: "100%" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                {p.row.en_destino} de {p.row.total_variantes} en {destinoNombre}
+              </Typography>
+              <LinearProgress variant="determinate" value={pct} color={pct === 100 ? "success" : "primary"} sx={{ height: 6, borderRadius: 3 }} />
+            </Box>
           );
         },
       },
       {
-        field: "item_destino",
-        headerName: "En destino",
-        width: 170,
-        valueGetter: (value, row) => row.item_destino || (row.lote_activo ? `Lote #${row.lote_activo}` : ""),
-        renderCell: (p) =>
-          p.row.item_destino ? (
-            <Chip size="small" color="success" variant="outlined" label={p.row.item_destino} sx={{ fontWeight: 600 }} />
-          ) : p.row.lote_activo ? (
-            <Chip size="small" color="warning" variant="outlined" label={`En lote #${p.row.lote_activo}`} sx={{ fontWeight: 600 }} />
-          ) : (
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Nueva
-            </Typography>
-          ),
+        field: "disponible",
+        headerName: "Stock",
+        width: 80,
+        type: "number",
+        headerAlign: "center",
+        align: "center",
+        renderCell: (p) => <ChipStock v={p.value} />,
+      },
+      {
+        field: "logisticas",
+        headerName: "Logística",
+        width: 150,
+        sortable: false,
+        renderCell: (p) => (
+          <Stack direction="row" gap={0.5} flexWrap="wrap">
+            {(p.value || []).map((l) => (
+              <ChipLogistica key={l} valor={l} />
+            ))}
+          </Stack>
+        ),
+      },
+      {
+        field: "plan",
+        headerName: "Qué va a pasar",
+        minWidth: 250,
+        flex: 1.2,
+        sortable: false,
+        renderCell: (p) => {
+          const plan = planes.get(p.row.family_id);
+          if (!plan) return null;
+          const c = planFamilia(p.row, tipos, null).conteo;
+          if (!c.nueva_familia && !c.agregar_a_familia && !c.nueva_condicion) {
+            return <Chip size="small" color="success" variant="outlined" label="Nada que publicar" sx={{ height: 22 }} />;
+          }
+          return (
+            <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ py: 0.5 }}>
+              {c.nueva_familia > 0 && <ChipAccion accion="nueva_familia" />}
+              {c.agregar_a_familia > 0 && <ChipAccion accion="agregar_a_familia" n={c.agregar_a_familia} />}
+              {c.nueva_condicion > 0 && <ChipAccion accion="nueva_condicion" n={c.nueva_condicion} />}
+            </Stack>
+          );
+        },
+      },
+      {
+        field: "seleccion",
+        headerName: "Selección",
+        width: 150,
+        sortable: false,
+        renderCell: (p) => {
+          const set = seleccion.get(p.row.family_id);
+          return (
+            <Button size="small" sx={botonSx} startIcon={<AccountTreeOutlinedIcon />} onClick={(e) => { e.stopPropagation(); setAbierta(p.row.family_id); }}>
+              {set ? `${set.size} de ${p.row.total_variantes}` : "Ver familia"}
+            </Button>
+          );
+        },
       },
     ],
-    [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [planes, seleccion, tipos, destinoNombre],
   );
 
-  const tipoLabel = TIPOS.find((t) => t.value === tipo)?.label;
+  const famAbierta = rows.find((r) => r.family_id === abierta);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       <SectionCard
         icon={FilterAltOutlinedIcon}
         title="Filtros"
-        subtitle="Publicaciones de la cuenta principal. Por defecto se ocultan las que ya existen en la cuenta destino."
+        subtitle="Familias de la cuenta principal. Una familia aparece si alguna de sus variantes cumple el filtro."
       >
         <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center">
           <TextField
             size="small"
-            label="MLM, MLMU, SKU, ML o título"
+            label="Familia, MLM, MLMU, SKU, ML o título"
             value={filtros.q}
             onChange={(e) => setFiltros((f) => ({ ...f, q: e.target.value }))}
             onKeyDown={(e) => e.key === "Enter" && buscar(filtros, 1, false)}
-            sx={{ minWidth: 240, flex: 1 }}
+            sx={{ minWidth: 260, flex: 1 }}
           />
           <Autocomplete
             size="small"
@@ -391,13 +678,12 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
             <MenuItem value="todas">Todas</MenuItem>
           </TextField>
           <FormControlLabel
-            control={
-              <Switch
-                checked={filtros.ocultarPublicadas}
-                onChange={(e) => setFiltros((f) => ({ ...f, ocultarPublicadas: e.target.checked }))}
-              />
-            }
-            label={<Typography variant="body2">Ocultar las que ya existen</Typography>}
+            control={<Switch checked={filtros.multiVariante} onChange={(e) => setFiltros((f) => ({ ...f, multiVariante: e.target.checked }))} />}
+            label={<Typography variant="body2">Solo familias con 2 o más variantes</Typography>}
+          />
+          <FormControlLabel
+            control={<Switch checked={filtros.ocultarCompletas} onChange={(e) => setFiltros((f) => ({ ...f, ocultarCompletas: e.target.checked }))} />}
+            label={<Typography variant="body2">Ocultar familias ya completas en {destinoNombre}</Typography>}
           />
           <Stack direction="row" gap={1} sx={{ ml: { sm: "auto" } }}>
             <Button
@@ -421,38 +707,52 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
       </SectionCard>
 
       <SectionCard
-        icon={ListAltOutlinedIcon}
-        title="Publicaciones"
-        subtitle="Marca las que quieres publicar. Las atenuadas no se pueden elegir (pasa el mouse para ver por qué)."
+        icon={AccountTreeOutlinedIcon}
+        title="Familias"
+        subtitle="Marca familias completas o entra a «Ver familia» para quitar variantes. Las atenuadas no tienen nada que publicar con el tipo elegido."
         count={total}
+        actions={
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={tipo}
+            onChange={(e, v) => v && setTipo(v)}
+            sx={{ "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 600, px: 1.5 } }}
+          >
+            <ToggleButton value="gold_special">Clásica</ToggleButton>
+            <ToggleButton value="gold_pro">Premium</ToggleButton>
+            <ToggleButton value="ambas">Ambas</ToggleButton>
+          </ToggleButtonGroup>
+        }
       >
         <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
           <DataGrid
             sx={gridSx}
             rows={rows}
             columns={columns}
-            getRowId={(r) => r.item_id}
+            getRowId={(r) => r.family_id}
             getRowHeight={() => "auto"}
             loading={loading}
             checkboxSelection
             keepNonExistentRowsSelected
-            isRowSelectable={(p) => esSeleccionable(p.row)}
-            rowSelectionModel={seleccion}
-            onRowSelectionModelChange={(m) => setSeleccion(m)}
+            disableRowSelectionOnClick
+            isRowSelectable={(p) => famSeleccionable(p.row)}
+            rowSelectionModel={[...seleccion.keys()]}
+            onRowSelectionModelChange={(m) => cambiarFamilias(m)}
             showCellVerticalBorder
             showColumnVerticalBorder
             density="compact"
-            pageSizeOptions={[PAGE_SIZE]}
-            initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE, page: 0 } } }}
+            pageSizeOptions={[PAGE_SIZE_FAMILIAS]}
+            initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE_FAMILIAS, page: 0 } } }}
             slots={{ toolbar: GridToolbar }}
             slotProps={{
-              toolbar: { csvOptions: { fileName: "publicador_masivo", utf8WithBom: true } },
+              toolbar: { csvOptions: { fileName: "publicador_masivo_familias", utf8WithBom: true } },
               loadingOverlay: { variant: "skeleton", noRowsVariant: "skeleton" },
             }}
             localeText={{
               ...LOCALE_TEXT_GRID,
-              noRowsLabel: "No hay publicaciones con estos filtros (o ya existen todas en la cuenta destino).",
-              footerRowSelected: (n) => `${n} seleccionada(s)`,
+              noRowsLabel: "No hay familias con estos filtros (o ya están completas en la cuenta destino).",
+              footerRowSelected: (n) => `${n} familia(s) seleccionada(s)`,
             }}
           />
         </Box>
@@ -479,73 +779,178 @@ const Seleccion = ({ destino, onLoteCreado, avisar }) => {
           gap: 1.5,
           alignItems: "center",
           justifyContent: "space-between",
-          border: seleccion.length ? "1px solid #1976d2" : "1px solid transparent",
+          border: seleccion.size ? "1px solid #1976d2" : "1px solid transparent",
         }}
       >
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {seleccion.length ? `${seleccion.length} publicación(es) seleccionada(s)` : "Ninguna publicación seleccionada"}
+            {seleccion.size
+              ? `${totales.familias} familia(s) · ${totales.variantes} variante(s) · ${totales.publicaciones} publicación(es) ${
+                  tipo === "ambas" ? "(Clásica y Premium)" : `(${NOMBRE_TIPO[tipo]})`
+                }`
+              : "Ninguna familia seleccionada"}
           </Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary", display: { xs: "none", sm: "block" } }}>
-            Precio = el de la principal al publicar · stock = disponible compartido ({piezas} pzas en total)
-          </Typography>
-          {mlmuRepetidos > 0 && (
-            <Typography variant="caption" sx={{ color: "warning.main", display: "block" }}>
-              {mlmuRepetidos} comparten MLMU con otra seleccionada: solo se publicará la primera de cada MLMU.
-            </Typography>
+          {seleccion.size > 0 && (
+            <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+              {totales.porAccion.nueva_familia > 0 && <ChipAccion accion="nueva_familia" n={totales.porAccion.nueva_familia} />}
+              {totales.porAccion.agregar_a_familia > 0 && <ChipAccion accion="agregar_a_familia" n={totales.porAccion.agregar_a_familia} />}
+              {totales.porAccion.nueva_condicion > 0 && <ChipAccion accion="nueva_condicion" n={totales.porAccion.nueva_condicion} />}
+            </Stack>
           )}
+          <Typography variant="caption" sx={{ color: "text.secondary", display: { xs: "none", sm: "block" } }}>
+            Precio = el de Aphelios para ese tipo · sin stock se publica con 1 y queda en 0 · dentro de cada familia se crean primero las variantes
+          </Typography>
         </Box>
         <Stack direction="row" gap={1.5} alignItems="center" flexWrap="wrap">
-          <TextField select size="small" label="Tipo de publicación" value={tipo} onChange={(e) => setTipo(e.target.value)} sx={{ width: 230 }}>
-            {TIPOS.map((t) => (
-              <MenuItem key={t.value} value={t.value}>
-                {t.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          {seleccion.length > 0 && (
-            <Button size="small" color="inherit" onClick={() => setSeleccion([])} sx={botonSx}>
+          {seleccion.size > 0 && (
+            <Button size="small" color="inherit" onClick={() => setSeleccion(new Map())} sx={botonSx}>
               Quitar selección
             </Button>
           )}
           <Button
             variant="contained"
-            startIcon={<PublishOutlinedIcon />}
-            disabled={!seleccion.length || enviando}
-            onClick={() => setConfirmar(true)}
+            startIcon={<FactCheckOutlinedIcon />}
+            disabled={!totales.publicaciones || revisando}
+            onClick={revisar}
             sx={botonSx}
           >
-            Publicar {seleccion.length || ""}
+            {revisando ? "Revisando…" : `Revisar y publicar ${totales.publicaciones || ""}`}
           </Button>
         </Stack>
       </Paper>
 
-      <Dialog open={confirmar} onClose={() => !enviando && setConfirmar(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>¿Publicar {seleccion.length} en la cuenta destino?</DialogTitle>
-        <DialogContent>
-          <Stack gap={1}>
-            <Typography variant="body2">
-              Se crean publicaciones nuevas en Mercado Libre, en segundo plano. Puedes cerrar esta ventana y seguir el avance
-              en la pestaña <b>Lotes</b>.
-            </Typography>
-            <Typography variant="body2">
-              Tipo: <b>{tipoLabel}</b> · precio de la principal · {piezas} piezas en total.
-            </Typography>
-            <Alert severity="info" sx={{ py: 0 }}>
-              Las que ya existan en la cuenta destino o no tengan piezas disponibles se omiten solas.
-            </Alert>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmar(false)} disabled={enviando} sx={botonSx}>
-            Cancelar
-          </Button>
-          <Button variant="contained" onClick={enviar} disabled={enviando} startIcon={<PublishOutlinedIcon />} sx={botonSx}>
-            {enviando ? "Enviando…" : "Sí, publicar"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {famAbierta && (
+        <VariantesFamilia
+          fam={famAbierta}
+          tipos={tipos}
+          destinoNombre={destinoNombre}
+          seleccion={seleccion.get(famAbierta.family_id) || new Set()}
+          onCambiar={(set) =>
+            setSeleccion((prev) => {
+              const m = new Map(prev);
+              if (set.size) m.set(famAbierta.family_id, set);
+              else m.delete(famAbierta.family_id);
+              return m;
+            })
+          }
+          onCerrar={() => setAbierta(null)}
+          onRevisionCompleta={(v) => {
+            const ref = v.opciones.find((o) => o.status === "active") || v.opciones.find((o) => o.status !== "closed") || v.opciones[0];
+            setRevisionItem(ref?.item_id || null);
+          }}
+        />
+      )}
+
+      <PublicarEnCuentaDialog
+        open={Boolean(revisionItem)}
+        itemIdInicial={revisionItem}
+        cuentaDestinoInicial={destino}
+        onClose={() => {
+          setRevisionItem(null);
+          buscar(aplicados, 1, false);
+        }}
+      />
+
+      <ConfirmarLote revision={revision} enviando={enviando} onCancelar={() => setRevision(null)} onConfirmar={enviar} />
     </Box>
+  );
+};
+
+/** Resumen de la revisión rápida antes de crear el lote. */
+const ConfirmarLote = ({ revision, enviando, onCancelar, onConfirmar }) => {
+  const [verOmitidos, setVerOmitidos] = useState(false);
+  if (!revision) return null;
+  const r = revision.resumen;
+  const tipoTexto = revision.tipo === "ambas" ? "Clásica y Premium" : NOMBRE_TIPO[revision.tipo];
+  // Familias del plan, en el orden en que se publican
+  const familias = [];
+  for (const f of revision.filas) {
+    let g = familias.find((x) => x.clave === f.clave);
+    if (!g) familias.push((g = { clave: f.clave, titulo: f.familia, filas: [] }));
+    g.filas.push(f);
+  }
+  return (
+    <Dialog open onClose={() => !enviando && onCancelar()} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        ¿Publicar {r.publicaciones} en {revision.destino.nombre}?
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack gap={1.5}>
+          <Typography variant="body2">
+            <b>{r.familias}</b> familia(s) · <b>{r.variantes}</b> variante(s) · tipo <b>{tipoTexto}</b>. Se publican en segundo plano, unas
+            pocas por minuto; puedes seguir el avance en la pestaña <b>Lotes</b>.
+          </Typography>
+          <Stack direction="row" gap={0.75} flexWrap="wrap">
+            {r.por_accion.nueva_familia > 0 && <ChipAccion accion="nueva_familia" n={r.por_accion.nueva_familia} />}
+            {r.por_accion.agregar_a_familia > 0 && <ChipAccion accion="agregar_a_familia" n={r.por_accion.agregar_a_familia} />}
+            {r.por_accion.nueva_condicion > 0 && <ChipAccion accion="nueva_condicion" n={r.por_accion.nueva_condicion} />}
+          </Stack>
+          {r.sin_stock > 0 && (
+            <Alert severity="info" sx={{ py: 0 }}>
+              {r.sin_stock} variante(s) sin stock: se publican con 1 y el sincronizador las deja en 0 enseguida (Mercado Libre las pausa hasta que
+              haya stock).
+            </Alert>
+          )}
+          {revision.excede && (
+            <Alert severity="error" sx={{ py: 0 }}>
+              El lote tendría {r.publicaciones} publicaciones y el máximo es {revision.maximo}. Quita algunas familias.
+            </Alert>
+          )}
+          <Paper variant="outlined" sx={{ maxHeight: 260, overflow: "auto", borderRadius: 2, p: 1 }}>
+            {familias.map((g) => (
+              <Box key={g.clave} sx={{ mb: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }}>
+                  {g.titulo}
+                </Typography>
+                {g.filas.map((f, k) => (
+                  <Stack key={k} direction="row" gap={1} alignItems="center" sx={{ pl: 1 }}>
+                    <Typography variant="caption" sx={{ minWidth: 0, flex: 1 }} noWrap title={f.titulo}>
+                      {k + 1}. {(f.familia && f.titulo?.startsWith(f.familia) && f.titulo.slice(f.familia.length).trim()) || f.titulo}
+                    </Typography>
+                    <ChipAccion accion={f.accion} tipo={f.tipo} />
+                  </Stack>
+                ))}
+              </Box>
+            ))}
+          </Paper>
+          {revision.omitidos.length > 0 && (
+            <Box>
+              <Button size="small" sx={botonSx} onClick={() => setVerOmitidos((x) => !x)}>
+                {verOmitidos ? "Ocultar" : "Ver"} {revision.omitidos.length} que no entran
+              </Button>
+              {verOmitidos && (
+                <Paper variant="outlined" sx={{ maxHeight: 180, overflow: "auto", borderRadius: 2, p: 1 }}>
+                  {revision.omitidos.map((o, k) => (
+                    <Typography key={k} variant="caption" sx={{ display: "block" }}>
+                      • {o.titulo || o.user_product_id}
+                      {o.tipo ? ` (${NOMBRE_TIPO[o.tipo]})` : ""}: {o.motivo}
+                    </Typography>
+                  ))}
+                </Paper>
+              )}
+            </Box>
+          )}
+          <Typography variant="caption" color="text.secondary">
+            Revisión rápida con los datos del sistema. Atributos, fotos y precio mínimo los valida Mercado Libre al publicar; si algo falla, la
+            fila queda con error y el motivo.
+          </Typography>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onCancelar} disabled={enviando} sx={botonSx}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          onClick={onConfirmar}
+          disabled={enviando || revision.excede || !r.publicaciones}
+          startIcon={<PublishOutlinedIcon />}
+          sx={botonSx}
+        >
+          {enviando ? "Creando lote…" : "Sí, crear el lote"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
@@ -627,6 +1032,7 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
       { field: "id", headerName: "Lote", width: 80, renderCell: (p) => <b>#{p.value}</b> },
       { field: "estado", headerName: "Estado", width: 120, renderCell: (p) => <EstadoChip valor={p.value} mapa={ESTADOS_LOTE} /> },
       { field: "cuenta_destino", headerName: "Destino", width: 160 },
+      { field: "familias", headerName: "Familias", width: 90, type: "number" },
       { field: "avance", headerName: "Avance", minWidth: 160, flex: 1, sortable: false, renderCell: (p) => <ProgresoLote lote={p.row} /> },
       { field: "publicados", headerName: "Publicadas", width: 100, type: "number" },
       { field: "omitidos", headerName: "Omitidas", width: 95, type: "number" },
@@ -642,10 +1048,22 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
       { field: "estado", headerName: "Estado", width: 115, renderCell: (p) => <EstadoChip valor={p.value} mapa={ESTADOS_ITEM} /> },
       {
         field: "titulo",
-        headerName: "Origen",
+        headerName: "Variante (origen)",
         minWidth: 280,
         flex: 1.4,
         renderCell: (p) => <ProductoCell row={p.row} titulo={p.row.titulo} sub={`${p.row.item_id_origen} · MLMU ${p.row.user_product_id || ""}`} />,
+      },
+      {
+        field: "tipo_publicacion",
+        headerName: "Tipo",
+        width: 90,
+        valueFormatter: (v) => NOMBRE_TIPO[v] || v || "",
+      },
+      {
+        field: "accion",
+        headerName: "Acción",
+        width: 200,
+        renderCell: (p) => (p.value ? <ChipAccion accion={p.value} /> : ""),
       },
       {
         field: "item_id_destino",
@@ -679,6 +1097,27 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
 
   const l = detalle?.lote;
   const activo = l && ["pendiente", "procesando"].includes(l.estado);
+
+  // Avance por familia
+  const [familiaFiltro, setFamiliaFiltro] = useState(null);
+  useEffect(() => setFamiliaFiltro(null), [loteId]);
+  const familias = useMemo(() => {
+    const m = new Map();
+    for (const it of detalle?.items || []) {
+      const k = it.family_id || `#${it.user_product_id}`;
+      if (!m.has(k)) m.set(k, { clave: k, titulos: [], total: 0, publicados: 0, omitidos: 0, errores: 0 });
+      const g = m.get(k);
+      g.titulos.push(it.titulo);
+      g.total++;
+      if (it.estado === "publicado") g.publicados++;
+      if (it.estado === "omitido") g.omitidos++;
+      if (it.estado === "error") g.errores++;
+    }
+    return [...m.values()].map((g) => ({ ...g, titulo: nombreFamiliaCliente(g.titulos) }));
+  }, [detalle]);
+  const itemsVisibles = (detalle?.items || []).filter(
+    (it) => !familiaFiltro || (it.family_id || `#${it.user_product_id}`) === familiaFiltro,
+  );
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
@@ -717,7 +1156,7 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
               <KpiValor valor={l.publicados} detalle={`de ${l.total} en el lote`} />
             </KpiCard>
             <KpiCard icon={DoNotDisturbOnOutlinedIcon} color="#0288d1" label="Omitidas">
-              <KpiValor valor={l.omitidos} detalle="Ya existían o sin disponible" />
+              <KpiValor valor={l.omitidos} detalle="Ya existían en la cuenta destino" />
             </KpiCard>
             <KpiCard icon={ErrorOutlineIcon} color="#d32f2f" label="Con error">
               <KpiValor valor={l.errores} detalle="Ver el detalle de cada una" />
@@ -751,10 +1190,41 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
             }
           >
             {activo && <LinearProgress sx={{ mb: 1.5, borderRadius: 4 }} />}
+            {familias.length > 1 && (
+              <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, mb: 1.5 }}>
+                {familias.map((g) => {
+                  const hechos = g.publicados + g.omitidos + g.errores;
+                  const sel = familiaFiltro === g.clave;
+                  return (
+                    <Paper
+                      key={g.clave}
+                      variant="outlined"
+                      onClick={() => setFamiliaFiltro(sel ? null : g.clave)}
+                      sx={{ p: 1, borderRadius: 2, cursor: "pointer", borderColor: sel ? "primary.main" : undefined, bgcolor: sel ? "#f5faff" : undefined }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }} noWrap title={g.titulo}>
+                        {g.titulo}
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={1}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={g.total ? Math.round((hechos / g.total) * 100) : 0}
+                          color={g.errores ? "warning" : "success"}
+                          sx={{ height: 6, borderRadius: 3, flex: 1 }}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                          {g.publicados} de {g.total} publicadas{g.errores ? ` · ${g.errores} error` : ""}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Box>
+            )}
             <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
               <DataGrid
                 sx={gridSx}
-                rows={detalle.items || []}
+                rows={itemsVisibles}
                 columns={colItems}
                 getRowHeight={() => "auto"}
                 density="compact"
@@ -845,6 +1315,7 @@ const PublicadorMasivoDialog = ({ open, onClose }) => {
               <Seleccion
                 key={destino}
                 destino={destino}
+                destinoNombre={cuentas.find((c) => String(c.id) === String(destino))?.nombre || "destino"}
                 avisar={avisar}
                 onLoteCreado={(id) => {
                   setLoteNuevo(id);
