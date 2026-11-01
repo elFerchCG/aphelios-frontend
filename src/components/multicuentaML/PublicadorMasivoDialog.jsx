@@ -99,16 +99,6 @@ const ESTADOS_ITEM = {
   cancelado: { label: "Cancelada", color: "secondary" },
 };
 
-/** Palabras iniciales que comparten los títulos de una familia. */
-const nombreFamiliaCliente = (titulos) => {
-  const lista = titulos.filter(Boolean);
-  if (lista.length < 2) return lista[0] || "";
-  const ws = lista.map((t) => t.split(/\s+/));
-  let n = 0;
-  while (ws.every((w) => w[n] && w[n].toLowerCase() === ws[0][n].toLowerCase())) n++;
-  return n >= 2 ? ws[0].slice(0, n).join(" ") : lista[0];
-};
-
 const formatoFecha = (v) => (v ? dayjs(v).format("DD/MM/YYYY HH:mm") : "");
 const dinero = (v) =>
   v == null || v === "" ? "" : Number(v).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -183,6 +173,9 @@ function planFamilia(fam, tipos, seleccion) {
     const elegida = !seleccion || seleccion.has(v.user_product_id);
     if (v.excluida) lineas.push({ tipo: null, estado: "excluida", texto: "Excluida de la sincronización (no la operamos)" });
     else if (v.logistica === "cerrada") lineas.push({ tipo: null, estado: "cerrada", texto: "Cerrada en Aphelios" });
+    // [MULTICUENTA-ML] La cuenta destino ya la vende con su propio SKU (la opera su almacén)
+    else if (!v.destino && v.en_refa?.length)
+      lineas.push({ tipo: null, estado: "en_refa", texto: `Ya la vende con su propio SKU: ${v.en_refa[0].seller_sku} · ${v.en_refa[0].item_id}` });
     else {
       const tiposDest = new Set((v.destino?.items || []).map((i) => i.listing_type_id).filter(Boolean));
       let existe = Boolean(v.destino);
@@ -328,7 +321,7 @@ const VariantesFamilia = ({ fam, tipos, seleccion, onCambiar, onCerrar, onRevisi
                       l.accion ? (
                         <ChipAccion key={k} accion={l.accion} tipo={l.tipo} />
                       ) : (
-                        <Chip key={k} size="small" label={l.texto} sx={{ height: 22 }} />
+                        <Chip key={k} size="small" label={l.texto} color={l.estado === "en_refa" ? "warning" : "default"} variant={l.estado === "en_refa" ? "outlined" : "filled"} sx={{ height: 22 }} />
                       ),
                     )}
                   </Stack>
@@ -367,6 +360,7 @@ const FILTROS_INICIALES = {
   estado: "active",
   multiVariante: false,
   ocultarCompletas: true,
+  verEnRefa: false, // [MULTICUENTA-ML] por defecto se ocultan las que la cuenta destino ya vende con su SKU
 };
 
 const Seleccion = ({ destino, destinoNombre, onLoteCreado, avisar }) => {
@@ -413,6 +407,7 @@ const Seleccion = ({ destino, destinoNombre, onLoteCreado, avisar }) => {
           estado: f.estado,
           minVariantes: f.multiVariante ? 2 : 1,
           ocultarCompletas: f.ocultarCompletas ? 1 : 0,
+          enRefa: f.verEnRefa ? "todas" : "ocultar",
         };
         if (f.q.trim()) params.q = f.q.trim();
         if (f.proveedor) params.proveedorId = f.proveedor.id_proveedor;
@@ -557,6 +552,9 @@ const Seleccion = ({ destino, destinoNombre, onLoteCreado, avisar }) => {
             <Box sx={{ width: "100%" }}>
               <Typography variant="caption" sx={{ fontWeight: 700 }}>
                 {p.row.en_destino} de {p.row.total_variantes} en {destinoNombre}
+                {p.row.en_refa > 0 && (
+                  <Box component="span" sx={{ color: "warning.main" }}>{` · ${p.row.en_refa} con su SKU`}</Box>
+                )}
               </Typography>
               <LinearProgress variant="determinate" value={pct} color={pct === 100 ? "success" : "primary"} sx={{ height: 6, borderRadius: 3 }} />
             </Box>
@@ -685,6 +683,12 @@ const Seleccion = ({ destino, destinoNombre, onLoteCreado, avisar }) => {
             control={<Switch checked={filtros.ocultarCompletas} onChange={(e) => setFiltros((f) => ({ ...f, ocultarCompletas: e.target.checked }))} />}
             label={<Typography variant="body2">Ocultar familias ya completas en {destinoNombre}</Typography>}
           />
+          <Tooltip arrow title={`Productos nuestros que ${destinoNombre} ya vende con su propio SKU y su propio stock. Se muestran marcados y no se publican.`}>
+            <FormControlLabel
+              control={<Switch checked={filtros.verEnRefa} onChange={(e) => setFiltros((f) => ({ ...f, verEnRefa: e.target.checked }))} />}
+              label={<Typography variant="body2">Mostrar las que {destinoNombre} ya vende con su SKU</Typography>}
+            />
+          </Tooltip>
           <Stack direction="row" gap={1} sx={{ ml: { sm: "auto" } }}>
             <Button
               variant="outlined"
@@ -1098,27 +1102,6 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
   const l = detalle?.lote;
   const activo = l && ["pendiente", "procesando"].includes(l.estado);
 
-  // Avance por familia
-  const [familiaFiltro, setFamiliaFiltro] = useState(null);
-  useEffect(() => setFamiliaFiltro(null), [loteId]);
-  const familias = useMemo(() => {
-    const m = new Map();
-    for (const it of detalle?.items || []) {
-      const k = it.family_id || `#${it.user_product_id}`;
-      if (!m.has(k)) m.set(k, { clave: k, titulos: [], total: 0, publicados: 0, omitidos: 0, errores: 0 });
-      const g = m.get(k);
-      g.titulos.push(it.titulo);
-      g.total++;
-      if (it.estado === "publicado") g.publicados++;
-      if (it.estado === "omitido") g.omitidos++;
-      if (it.estado === "error") g.errores++;
-    }
-    return [...m.values()].map((g) => ({ ...g, titulo: nombreFamiliaCliente(g.titulos) }));
-  }, [detalle]);
-  const itemsVisibles = (detalle?.items || []).filter(
-    (it) => !familiaFiltro || (it.family_id || `#${it.user_product_id}`) === familiaFiltro,
-  );
-
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       <SectionCard
@@ -1190,41 +1173,10 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
             }
           >
             {activo && <LinearProgress sx={{ mb: 1.5, borderRadius: 4 }} />}
-            {familias.length > 1 && (
-              <Box sx={{ display: "grid", gap: 1, gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" }, mb: 1.5 }}>
-                {familias.map((g) => {
-                  const hechos = g.publicados + g.omitidos + g.errores;
-                  const sel = familiaFiltro === g.clave;
-                  return (
-                    <Paper
-                      key={g.clave}
-                      variant="outlined"
-                      onClick={() => setFamiliaFiltro(sel ? null : g.clave)}
-                      sx={{ p: 1, borderRadius: 2, cursor: "pointer", borderColor: sel ? "primary.main" : undefined, bgcolor: sel ? "#f5faff" : undefined }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }} noWrap title={g.titulo}>
-                        {g.titulo}
-                      </Typography>
-                      <Stack direction="row" alignItems="center" gap={1}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={g.total ? Math.round((hechos / g.total) * 100) : 0}
-                          color={g.errores ? "warning" : "success"}
-                          sx={{ height: 6, borderRadius: 3, flex: 1 }}
-                        />
-                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-                          {g.publicados} de {g.total} publicadas{g.errores ? ` · ${g.errores} error` : ""}
-                        </Typography>
-                      </Stack>
-                    </Paper>
-                  );
-                })}
-              </Box>
-            )}
             <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
               <DataGrid
                 sx={gridSx}
-                rows={itemsVisibles}
+                rows={detalle?.items || []}
                 columns={colItems}
                 getRowHeight={() => "auto"}
                 density="compact"
