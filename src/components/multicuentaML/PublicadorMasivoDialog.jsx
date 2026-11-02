@@ -53,12 +53,14 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CloseIcon from "@mui/icons-material/Close";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
 import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
 
 import apiUrl from "../../config";
 import { mcGet, mcPost, mensajeError } from "./multicuentaApi";
 import PublicarEnCuentaDialog from "./PublicarEnCuentaDialog";
+import PortadasRefa from "./PortadasRefa"; // [MULTICUENTA-ML]
 import {
   GRID_HEIGHT,
   LOCALE_TEXT_GRID,
@@ -967,6 +969,7 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
   const [loteId, setLoteId] = useState(loteInicial || null);
   const [detalle, setDetalle] = useState(null);
   const [cancelando, setCancelando] = useState(false);
+  const [reintentando, setReintentando] = useState(false);
 
   useEffect(() => {
     if (loteInicial) setLoteId(loteInicial);
@@ -1028,6 +1031,21 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
       avisar("error", await mensajeError(e, "No se pudo cancelar el lote."));
     } finally {
       setCancelando(false);
+    }
+  };
+
+  // [MULTICUENTA-ML] Regresa a la cola las filas con error (con los ajustes automáticos nuevos)
+  const reintentar = async () => {
+    setReintentando(true);
+    try {
+      const r = await mcPost(`/publicador/masivo/lotes/${loteId}/reintentar`);
+      avisar(r.reintentos ? "success" : "info", r.reintentos ? `${r.reintentos} publicación(es) del lote #${loteId} regresaron a la cola.` : "Este lote no tiene errores por reintentar.");
+      cargar(true);
+      cargarDetalle(loteId);
+    } catch (e) {
+      avisar("error", await mensajeError(e, "No se pudo reintentar el lote."));
+    } finally {
+      setReintentando(false);
     }
   };
 
@@ -1157,19 +1175,30 @@ const Lotes = ({ visible, loteInicial, avisar }) => {
             }`}
             count={l.total}
             actions={
-              activo && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  startIcon={<CancelOutlinedIcon />}
-                  onClick={cancelar}
-                  disabled={cancelando}
-                  sx={botonSx}
-                >
-                  Cancelar pendientes
-                </Button>
-              )
+              <Stack direction="row" gap={1}>
+                {l.errores > 0 && l.estado !== "cancelado" && (
+                  <Tooltip arrow title="Vuelve a intentar las que fallaron, con los ajustes automáticos de atributos.">
+                    <span>
+                      <Button variant="outlined" size="small" startIcon={<ReplayOutlinedIcon />} onClick={reintentar} disabled={reintentando} sx={botonSx}>
+                        Reintentar errores ({l.errores})
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )}
+                {activo && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<CancelOutlinedIcon />}
+                    onClick={cancelar}
+                    disabled={cancelando}
+                    sx={botonSx}
+                  >
+                    Cancelar pendientes
+                  </Button>
+                )}
+              </Stack>
             }
           >
             {activo && <LinearProgress sx={{ mb: 1.5, borderRadius: 4 }} />}
@@ -1250,6 +1279,7 @@ const PublicadorMasivoDialog = ({ open, onClose }) => {
           >
             <Tab label="Seleccionar" />
             <Tab label="Lotes" />
+            <Tab label="Portadas" />
           </Tabs>
           <Box sx={{ flex: 1 }} />
           <IconButton onClick={onClose} aria-label="Cerrar">
@@ -1276,6 +1306,15 @@ const PublicadorMasivoDialog = ({ open, onClose }) => {
               />
             )}
             {tab === 1 && <Lotes visible={open && tab === 1} loteInicial={loteNuevo} avisar={avisar} />}
+            {tab === 2 && destino && (
+              <PortadasRefa
+                key={destino}
+                destino={destino}
+                destinoNombre={cuentas.find((c) => String(c.id) === String(destino))?.nombre || "destino"}
+                visible={open && tab === 2}
+                avisar={avisar}
+              />
+            )}
           </>
         )}
       </Box>
