@@ -7,7 +7,7 @@ import {
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { API_PREGUNTAS, authHeaders, formatearFecha, mensajeError } from './preguntasUI';
+import { API_PREGUNTAS, authHeaders, formatearFecha, mensajeError, nombreCliente } from './preguntasUI';
 import { getThumbnailUrl } from '../Envios/tablaCompacta';
 
 const ESTATUS_PREGUNTA = {
@@ -56,6 +56,7 @@ const HistorialPreguntasDialog = ({ open, onClose, pregunta, historialCliente })
     const finRef = useRef(null);
 
     const fromId = pregunta?.from?.id;
+    const clienteActual = nombreCliente(fromId, pregunta?.from?.nickname);
     const itemId = pregunta?.item_id;
 
     const cargar = async (alcance, forzar = false) => {
@@ -114,7 +115,7 @@ const HistorialPreguntasDialog = ({ open, onClose, pregunta, historialCliente })
             )}
 
             <Tabs value={tab} onChange={cambiarTab} sx={{ px: 2, borderBottom: '1px solid #eee', minHeight: 40, '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 600 } }}>
-                <Tab value="cliente" label={`Este cliente${fromId ? ` (#${fromId})` : ''}`} disabled={!fromId} />
+                <Tab value="cliente" label={`Este cliente${fromId ? ` (${clienteActual})` : ''}`} disabled={!fromId} />
                 <Tab value="item" label="Todo el artículo" />
             </Tabs>
 
@@ -141,7 +142,7 @@ const HistorialPreguntasDialog = ({ open, onClose, pregunta, historialCliente })
                                         extra={
                                             <>
                                                 {tab === 'item' && q.from_id && (
-                                                    <Chip size="small" label={q.from_id === fromId ? 'Este cliente' : `Cliente #${q.from_id}`} sx={{ height: 18, fontSize: 11 }} />
+                                                    <Chip size="small" label={q.from_id === fromId ? 'Este cliente' : `Cliente ${nombreCliente(q.from_id, q.from_nickname)}`} sx={{ height: 18, fontSize: 11 }} />
                                                 )}
                                                 {esActual && <Chip size="small" color="primary" label="Actual" sx={{ height: 18, fontSize: 11, fontWeight: 700 }} />}
                                                 {estatus && !esActual && <Chip size="small" color={estatus.color} variant="outlined" label={estatus.label} sx={{ height: 18, fontSize: 11 }} />}

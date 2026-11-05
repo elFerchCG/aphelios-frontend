@@ -26,7 +26,7 @@ import { DATA_GRID_LOCALE_ES } from '../../../config/dataGridLocale';
 import { gridCompactoProps, gridCompactoSx, getThumbnailUrl } from '../Envios/tablaCompacta';
 import {
     API_PREGUNTAS, MAX_CARACTERES, PLACEHOLDER, ChipAntiguedad, SectionCard,
-    antiguedad, authHeaders, esInactiva, formatearFecha, mensajeError, registrarEvento,
+    antiguedad, authHeaders, esInactiva, formatearFecha, mensajeError, nombreCliente, registrarEvento,
 } from './preguntasUI';
 
 // Tabla con el estándar AppDataGrid + formato compacto (igual que EnviosProgresoEmpaque.jsx).
@@ -139,7 +139,7 @@ const Preguntas = () => {
         return preguntas
             .filter((p) => {
                 const fecha = new Date(p.date_created);
-                const coincide = !termino || [p.item_id, p.text, p.publicacion?.title, p.publicacion?.sku]
+                const coincide = !termino || [p.item_id, p.text, p.publicacion?.title, p.publicacion?.sku, p.from?.nickname]
                     .some((v) => v && String(v).toLowerCase().includes(termino));
                 return coincide
                     && (!filtros.ocultarInactivas || !esInactiva(p))
@@ -288,9 +288,13 @@ const Preguntas = () => {
             renderCell: ({ row }) => <ChipAntiguedad fecha={row.date_created} />,
         },
         {
-            field: 'cliente', headerName: 'Cliente', width: 95,
-            valueGetter: (value, row) => row.from?.id ?? '',
-            renderCell: ({ value }) => (value ? <Typography variant="caption">#{value}</Typography> : '—'),
+            field: 'cliente', headerName: 'Cliente', width: 150,
+            valueGetter: (value, row) => nombreCliente(row.from?.id, row.from?.nickname),
+            renderCell: ({ value, row }) => (value ? (
+                <Tooltip arrow title={row.from?.id ? `ID ${row.from.id}` : ''}>
+                    <Typography variant="caption" noWrap>{value}</Typography>
+                </Tooltip>
+            ) : '—'),
         },
         {
             field: 'estado', headerName: 'Estado', width: 105,
@@ -375,7 +379,7 @@ const Preguntas = () => {
                     count={filtradas.length}
                     actions={
                         <>
-                            <TextField size="small" placeholder="Item, título, SKU o pregunta" value={filtros.busqueda} sx={{ width: { xs: '100%', sm: 240 } }}
+                            <TextField size="small" placeholder="Item, título, SKU, cliente o pregunta" value={filtros.busqueda} sx={{ width: { xs: '100%', sm: 240 } }}
                                 onChange={(e) => setFiltros({ ...filtros, busqueda: e.target.value })}
                                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }} />
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -445,7 +449,7 @@ const Preguntas = () => {
                             <Box sx={{ border: '1px solid #64b5f6', borderRadius: 1.5, p: 1.25, bgcolor: '#f5faff' }}>
                                 <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 0.5 }}>
                                     <Typography variant="caption" sx={{ fontStyle: 'italic', color: 'text.secondary', flex: 1 }}>
-                                        {formatearFecha(seleccionada.date_created)}{seleccionada.from?.id ? ` · Cliente #${seleccionada.from.id}` : ''}
+                                        {formatearFecha(seleccionada.date_created)}{seleccionada.from?.id ? ` · Cliente ${nombreCliente(seleccionada.from.id, seleccionada.from.nickname)}` : ''}
                                     </Typography>
                                     <ChipAntiguedad fecha={seleccionada.date_created} />
                                 </Stack>

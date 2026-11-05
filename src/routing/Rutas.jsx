@@ -61,6 +61,7 @@ import Facturas from "../components/pages/Facturas/Facturas";
 import DetalleFactura from "../components/pages/Facturas/DetalleFactura";
 import VistaPedidos from "../components/pages/Pedidos/Pedidos";
 import RecepcionPedidos from "../components/pages/RecepcionPedidos/RecepcionPedidos";
+import CuentasPorPagar from "../components/pages/CuentasPorPagar/CuentasPorPagar";
 
 // ==============================
 // MRP
@@ -86,6 +87,8 @@ import AnalisisVentas from "../components/pages/Analisi Ventas/AnalisisVentas";
 import ReCharts from "../components/pages/Analisi Ventas/ReCharts";
 import ChartPronostico from "../components/pages/Analisi Ventas/ChartPronostico";
 import Graficas from "../components/pages/Graficas/DashboardAphelios";
+import ResumenEjecutivo from "../components/pages/Direccion/ResumenEjecutivo";
+import AtencionCliente from "../components/pages/Direccion/AtencionCliente";
 
 // ==============================
 // Productos
@@ -488,6 +491,15 @@ const Rutas = () => {
         />
 
         <Route
+          path="/cuentas-por-pagar"
+          element={
+            <ProtectedRoute allowedRoles={["administrador", "contabilidad", "Desarrollador"]}>
+              <CuentasPorPagar />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/detalleFacturas/factura/:facturaId"
           element={
             <ProtectedRoute allowedRoles={["administrador"]}>
@@ -565,7 +577,30 @@ const Rutas = () => {
         />
 
         {/* =====================================================
-            GRÁFICAS
+            DIRECCIÓN (tableros para directivos)
+            administrador y Desarrollador
+        ====================================================== */}
+
+        <Route
+          path="/direccion"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <ResumenEjecutivo />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/direccion/atencion-cliente"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <AtencionCliente />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* =====================================================
+            GRÁFICAS (ahora dentro del menú Dirección)
             Solo administrador
         ====================================================== */}
 

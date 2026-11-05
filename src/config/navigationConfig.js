@@ -19,6 +19,7 @@ import SettingsSuggestOutlinedIcon from "@mui/icons-material/SettingsSuggestOutl
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 
 import CampaignOutlinedIcon from "@mui/icons-material/CampaignOutlined";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
@@ -31,6 +32,8 @@ import InsertChartOutlinedIcon from "@mui/icons-material/InsertChartOutlined";
 import BarChartOutlinedIcon from "@mui/icons-material/BarChartOutlined";
 import ShowChartOutlinedIcon from "@mui/icons-material/ShowChartOutlined";
 import ScoreOutlinedIcon from "@mui/icons-material/ScoreOutlined";
+import SpaceDashboardOutlinedIcon from "@mui/icons-material/SpaceDashboardOutlined";
+import QuestionAnswerOutlinedIcon from "@mui/icons-material/QuestionAnswerOutlined";
 
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import SyncAltOutlinedIcon from "@mui/icons-material/SyncAltOutlined";
@@ -187,22 +190,31 @@ export const navigationConfig = [
   {
     label: "Compras",
     icon: ShoppingCartOutlinedIcon,
-    roles: ["administrador", "Desarrollador"],
+    roles: ["administrador", "contabilidad", "Desarrollador"],
     children: [
       {
         label: "Pedidos",
         icon: AssignmentOutlinedIcon,
         path: "/pedidos",
+        roles: ["administrador", "Desarrollador"],
       },
       {
         label: "Cargar Facturas",
         icon: UploadFileOutlinedIcon,
         path: "/cargaFacturas",
+        roles: ["administrador", "Desarrollador"],
       },
       {
         label: "Ver Facturas",
         icon: ReceiptLongOutlinedIcon,
         path: "/facturas",
+        roles: ["administrador", "Desarrollador"],
+      },
+      {
+        label: "Cuentas por pagar",
+        icon: AccountBalanceWalletOutlinedIcon,
+        path: "/cuentas-por-pagar",
+        roles: ["administrador", "contabilidad", "Desarrollador"],
       },
     ],
   },
@@ -281,10 +293,20 @@ export const navigationConfig = [
     ],
   },
   {
-    label: "Gráficas",
+    label: "Dirección",
     icon: InsertChartOutlinedIcon,
     roles: ["administrador", "Desarrollador"],
     children: [
+      {
+        label: "Resumen ejecutivo",
+        icon: SpaceDashboardOutlinedIcon,
+        path: "/direccion",
+      },
+      {
+        label: "Atención al cliente",
+        icon: QuestionAnswerOutlinedIcon,
+        path: "/direccion/atencion-cliente",
+      },
       {
         label: "Ventas",
         icon: BarChartOutlinedIcon,

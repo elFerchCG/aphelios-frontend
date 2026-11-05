@@ -57,6 +57,9 @@ export const ChipAntiguedad = ({ fecha }) => {
 export const registrarEvento = (tipo, pregunta, detalle) =>
     axios.post(`${API_PREGUNTAS}/eventos`, { tipo, question_id: pregunta?.id, item_id: pregunta?.item_id, detalle }, authHeaders()).catch(() => {});
 
+// Cliente de ML: nickname si el backend lo resolvió; si no, el id.
+export const nombreCliente = (id, nickname) => (nickname || (id ? `#${id}` : ''));
+
 export const esInactiva = (pregunta) => Boolean(pregunta?.publicacion && pregunta.publicacion.status !== 'active');
 
 export const mensajeError = (err, porDefecto) =>
