@@ -675,6 +675,7 @@ const Seleccion = ({ destino, destinoNombre, onLoteCreado, avisar }) => {
           >
             <MenuItem value="active">Activas</MenuItem>
             <MenuItem value="paused">Pausadas</MenuItem>
+            <MenuItem value="inactive">Inactivas</MenuItem>
             <MenuItem value="todas">Todas</MenuItem>
           </TextField>
           <FormControlLabel
