@@ -826,7 +826,7 @@ const Surtido = () => {
             ^FO22,165^A0N,25,25^FDSKU:${sku}^FS
             ^FB350,2,2
             ^FO22,105^A0N,20,20^FD${title}^FS
-            ^FT385,105^A0B,22,22^FH^FD${user.nombre}:/${folio_interno}^FS
+            ^FT385,190^A0B,22,22^FH^FD${user.nombre}:/${folio_interno}^FS
 
             ${bloqueInventory}
 

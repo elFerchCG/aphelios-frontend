@@ -39,7 +39,8 @@ import {
   getAuthHeaders,
   getEstatusPago,
   nombreFactura,
-  TIPOS_MOVIMIENTO,
+  etiquetaMovimiento,
+  getMetodoPago,
 } from "./cxpUtils";
 
 const Dato = ({ label, children }) => (
@@ -113,12 +114,24 @@ const DetallePagoDialog = ({ open, pagoId, puedeEscribir, onClose, onCancelado }
             <Stack direction="row" flexWrap="wrap" gap={2.5}>
               <Dato label="Proveedor">{pago.proveedor}</Dato>
               <Dato label="Fecha de pago">{fmtFecha(pago.fecha_pago)}</Dato>
-              <Dato label="Referencia">{pago.referencia}</Dato>
-              <Dato label="Transferido">{fmtMoneda(pago.monto_total)}</Dato>
-              {pago.monto_descuento > 0 && <Dato label="Descuento pronto pago">{fmtMoneda(pago.monto_descuento)}</Dato>}
-              <Dato label="Cuenta destino">
-                {pago.banco_destino || "—"} · {pago.clabe_destino || "—"}
+              {pago.metodo_pago !== "nota_credito" && <Dato label="Referencia">{pago.referencia}</Dato>}
+              <Dato label={pago.metodo_pago === "nota_credito" ? "Aplicado de la nota" : "Transferido"}>
+                {fmtMoneda(pago.monto_total)}
               </Dato>
+              {pago.monto_descuento > 0 && <Dato label="Descuento pronto pago">{fmtMoneda(pago.monto_descuento)}</Dato>}
+              <Dato label="Método">{getMetodoPago(pago.metodo_pago).label}</Dato>
+              {pago.metodo_pago === "nota_credito" ? (
+                <Dato label="Nota de crédito">
+                  {pago.nota_folio || "—"}
+                  {pago.nota_concepto ? ` · ${pago.nota_concepto}` : ""}
+                </Dato>
+              ) : (
+                <Dato label="Cuenta destino">
+                  {[pago.banco_destino, pago.clabe_destino && `CLABE ${pago.clabe_destino}`, pago.cuenta_destino && `Cuenta ${pago.cuenta_destino}`]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </Dato>
+              )}
               <Dato label="Registró">
                 {pago.creado_por_nombre || "—"} · {fmtFechaHora(pago.creado_en)}
               </Dato>
@@ -155,7 +168,7 @@ const DetallePagoDialog = ({ open, pagoId, puedeEscribir, onClose, onCancelado }
                       <TableCell sx={{ fontWeight: 600 }}>{nombreFactura({ ...a, id: a.factura_id })}</TableCell>
                       <TableCell>{fmtFecha(a.fecha_factura)}</TableCell>
                       <TableCell sx={{ color: a.tipo === "descuento_pronto_pago" ? "#2e7d32" : "inherit" }}>
-                        {TIPOS_MOVIMIENTO[a.tipo] || a.tipo}
+                        {etiquetaMovimiento(a.tipo, pago.metodo_pago)}
                       </TableCell>
                       <TableCell align="right">{fmtMoneda(a.saldo_anterior)}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{fmtMoneda(a.monto)}</TableCell>
@@ -172,7 +185,8 @@ const DetallePagoDialog = ({ open, pagoId, puedeEscribir, onClose, onCancelado }
                   Cancelar pago
                 </Typography>
                 <Typography variant="body2" sx={{ color: "text.secondary", mb: 1.5 }}>
-                  El pago no se borra: queda como cancelado y se repone el saldo de cada factura.
+                  El pago no se borra: queda como cancelado y se repone el saldo de cada factura
+                  {pago.metodo_pago === "nota_credito" ? " y de la nota de crédito." : "."}
                 </Typography>
                 <Stack direction="row" flexWrap="wrap" gap={1.5} alignItems="flex-start">
                   <TextField

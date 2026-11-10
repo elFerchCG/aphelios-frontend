@@ -1,84 +1,127 @@
-import { Button, CircularProgress, FormControl, Input, InputAdornment, InputLabel, Modal, TextField, Tooltip, Typography } from '@mui/material';
-import { GridActionsCellItem, GridEditInputCell, GridToolbarDensitySelector, GridToolbarExport, GridToolbarFilterButton } from '@mui/x-data-grid';
-import { DataGrid, GridToolbarColumnsButton, GridToolbarContainer } from '@mui/x-data-grid'
-import React, { useEffect, useMemo, useState, useRef } from 'react'
-import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
-import { Box } from '@mui/system';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
-import { useNavigate } from 'react-router-dom';
-import '../Inventarios/estilosPrueba.css'
-import { useParams } from 'react-router-dom';
+import {
+    Alert,
+    Box,
+    Button,
+    Chip,
+    CircularProgress,
+    Dialog,
+    FormControl,
+    InputLabel,
+    MenuItem,
+    Select,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    GlobalStyles,
+    IconButton,
+    InputAdornment,
+    Paper,
+    Stack,
+    TextField,
+    ToggleButton,
+    ToggleButtonGroup,
+    Tooltip,
+    Typography,
+} from '@mui/material';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
-import { ToggleButton, ToggleButtonGroup } from '@mui/material';
-import ReceiptIcon from '@mui/icons-material/Receipt';
-import StoreIcon from '@mui/icons-material/Store';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import AssignmentReturnOutlinedIcon from '@mui/icons-material/AssignmentReturnOutlined';
+import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
+import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
+import FormatListBulletedOutlinedIcon from '@mui/icons-material/FormatListBulletedOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import PanToolOutlinedIcon from '@mui/icons-material/PanToolOutlined';
+import AppDataGrid from '../../common/AppDataGrid';
+import { DATA_GRID_LOCALE_ES } from '../../../config/dataGridLocale';
+import { COLOR_APOYO, esResponsableCaja, folioCaja, tomarCajaConAutorizacion } from './tomarCaja';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 
+// ============================================================
+// Constantes y piezas de layout (estilo aphelios-ui-style)
+// ============================================================
+const GRID_HEIGHT = 520;
+const GRID_PAGE_SIZE = 100;
+const GRID_PAGE_SIZE_OPTIONS = [100];
+
+const ESTATUS_CAJA = {
+    abierta: { label: 'Abierta', color: 'warning' },
+    cerrada: { label: 'Cerrada', color: 'success' },
+};
+
+const SectionCard = ({ icon: Icon, title, subtitle, count, actions, children }) => (
+    <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3, minWidth: 0 }}>
+        <Stack direction="row" flexWrap="wrap" gap={1.5} alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <Box sx={{ minWidth: 0 }}>
+                <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700 }}>
+                    <Icon color="primary" /> {title}
+                    {count != null && (
+                        <Chip size="small" label={count} sx={{ fontWeight: 700, bgcolor: '#e3f2fd', color: 'primary.main', height: 22 }} />
+                    )}
+                </Typography>
+                {subtitle && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', ml: 4 }}>{subtitle}</Typography>
+                )}
+            </Box>
+            {actions && <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">{actions}</Stack>}
+        </Stack>
+        {children}
+    </Paper>
+);
+
+const botonSx = { borderRadius: 2, textTransform: 'none', fontWeight: 600 };
+
+// Tabla compacta: filas bajas y letra chica. AppDataGrid mezcla su sx de forma
+// superficial, por eso se repite el centrado vertical de la celda.
+const ROW_HEIGHT_COMPACTA = 34;
+const HEADER_HEIGHT_COMPACTO = 42;
+const gridCompactoSx = {
+    '& .MuiDataGrid-cell': { fontSize: 13, display: 'flex', alignItems: 'center' },
+    '& .MuiDataGrid-columnHeaderTitle': { fontSize: 13, fontWeight: 600 },
+};
+
+// Medidas: solo números positivos con hasta 2 decimales
+const REGEX_MEDIDA = /^\d*\.?\d{0,2}$/;
 
 const EmpaqueCajaAbierta = () => {
-    const { envioId, cajaId, visualIdCaja } = useParams();  // Aquí obtienes ambos parámetros
+    const { envioId, cajaId, visualIdCaja } = useParams();
+    const navigate = useNavigate();
+
     const [data, setData] = useState([]);
-    const [openCerrarCaja, setOpenCerrarCaja] = useState(false);
+    const [loadingEscaneos, setLoadingEscaneos] = useState(false);
+    const [infoCaja, setInfoCaja] = useState(null);
     const [inventoryId, setInventoryId] = useState('');
-    const [pesoCaja, setPesoCaja] = useState('');
+    const [tipoEmpaque, setTipoEmpaque] = useState('factura');
+    const [isScanning, setIsScanning] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [openCerrarCaja, setOpenCerrarCaja] = useState(false);
     const [largoCaja, setLargoCaja] = useState('');
     const [anchoCaja, setAnchoCaja] = useState('');
     const [altoCaja, setAltoCaja] = useState('');
-    const [errors, setErrors] = useState({
-        largo: false,
-        ancho: false,
-        alto: false,
-        peso: false
-    });
-    const [tipoEmpaque, setTipoEmpaque] = useState("factura");
+    const [pesoCaja, setPesoCaja] = useState('');
+    const [errors, setErrors] = useState({ largo: false, ancho: false, alto: false, peso: false });
+    const [tarimasAbiertas, setTarimasAbiertas] = useState([]);
+    const [tarimaDestino, setTarimaDestino] = useState('');
     const inputRef = useRef(null);
-    const [isScanning, setIsScanning] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const soundError = new Audio("/sounds/sound-error-scan.mp3");
-    soundError.volume = 1;
-
-    const soundBusy = new Audio("/sounds/beep.mp3");
-    soundBusy.volume = 1;
-
-    const navigate = useNavigate();
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')))
+    const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
 
-    const [columnVisibilityModel, setColumnVisibilityModel] = useState({
-        id: false,
-        inventory_id: true,
-        orden: false,
-        cantidad: true,
-        sku: true,
-        title: true,
-    });
-
-    useEffect(() => {
-        console.log('🟢 Montado Escaneos');
-        return () => {
-            console.log('🔴 Desmontado Escaneos');
-
-            // Llamar metodo de elimicación caja si es necesario
-            // (async () => {
-            //     await eliminarCajaAutomatico();
-            // })();
-        };
+    const soundError = useMemo(() => {
+        const audio = new Audio('/sounds/sound-error-scan.mp3');
+        audio.volume = 1;
+        return audio;
     }, []);
-
-    useEffect(() => {
-        const handleStorageChange = () => {
-            setToken(localStorage.getItem('token'));
-            setUser(JSON.parse(localStorage.getItem('user')));
-        };
-
-        // Añadir un listener para el evento `storage`
-        window.addEventListener('storage', handleStorageChange);
-
-        // Limpieza al desmontar el componente
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-        };
+    const soundBusy = useMemo(() => {
+        const audio = new Audio('/sounds/beep.mp3');
+        audio.volume = 1;
+        return audio;
     }, []);
 
     const apiUrl =
@@ -86,171 +129,193 @@ const EmpaqueCajaAbierta = () => {
             ? process.env.REACT_APP_API_URL
             : process.env.REACT_APP_API_URL_LOCAL;
 
-    // Estilos del modal
-    const styleModalCerrarCaja = {
-        position: "absolute",
-        width: "52%",
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        bgcolor: 'white',
-        borderRadius: 4,
-        boxShadow: 24,
-        p: 4,
+    const authHeaders = useMemo(() => ({ headers: { Authorization: `Bearer ${token}` } }), [token]);
+
+    useEffect(() => {
+        const handleStorageChange = () => {
+            setToken(localStorage.getItem('token'));
+            setUser(JSON.parse(localStorage.getItem('user')));
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    // ---------- Datos ----------
+    const fetchEscaneos = useCallback(async () => {
+        setLoadingEscaneos(true);
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosAbierta/${cajaId}`);
+            const result = response.data.data;
+            setData(Array.isArray(result) ? [...result].sort((a, b) => b.id - a.id) : []);
+        } catch (error) {
+            // 404 = caja sin escaneos
+            setData([]);
+        } finally {
+            setLoadingEscaneos(false);
+        }
+    }, [apiUrl, cajaId]);
+
+    const fetchInfoCaja = useCallback(async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/consultarCaja/caja/${cajaId}`);
+            const result = response.data.cajaCheck;
+            const caja = Array.isArray(result) && result.length > 0 ? result[0] : null;
+            setInfoCaja(caja);
+            return caja;
+        } catch (error) {
+            setInfoCaja(null);
+            return null;
+        }
+    }, [apiUrl, cajaId]);
+
+    useEffect(() => {
+        if (cajaId) {
+            fetchEscaneos();
+            fetchInfoCaja();
+        }
+    }, [cajaId, fetchEscaneos, fetchInfoCaja]);
+
+    const enfocarEscaner = () => {
+        setTimeout(() => {
+            if (inputRef.current) inputRef.current.focus();
+        }, 50);
     };
 
-    const CustomToolbar = () => (
-        <GridToolbarContainer>
-            {/* Mantener solo los botones necesarios */}
-            <GridToolbarColumnsButton />  {/* Botón de Columnas */}
-            <GridToolbarFilterButton />   {/* Botón de Filtros */}
-            <GridToolbarDensitySelector />{/* Botón de Densidad */}
-            <GridToolbarExport
-                csvOptions={{
-                    fileName: "exported_data",
-                    utf8WithBom: true, // 👈 Esto garantiza que la codificación sea UTF-8
-                }}
-            />
-        </GridToolbarContainer>
-    );
+    const handleActualizar = async () => {
+        await Promise.all([fetchEscaneos(), fetchInfoCaja()]);
+        enfocarEscaner();
+    };
 
-    const handleAbrirModalCaja = () => {
-        setOpenCerrarCaja(true);
-        consultarDimensiones();
-    }
+    // ---------- Responsable ----------
+    const cajaAbierta = infoCaja ? infoCaja.estatus === 'abierta' : true;
+    const esResponsable = infoCaja ? esResponsableCaja(infoCaja, user) : true;
+    const puedeEscanear = cajaAbierta && esResponsable;
 
-    const handleCloseCerrarCaja = () => {
-        setOpenCerrarCaja(false);
-        setLargoCaja("");
-        setAnchoCaja("");
-        setAltoCaja("");
-        setPesoCaja("");
-        setErrors({
-            largo: "",
-            ancho: "",
-            alto: "",
-            peso: ""
+    // Caja del equipo de apoyo: folio APOYO-###, acento morado y regreso a su pestaña
+    const esApoyo = infoCaja?.tipo === 'apoyo' || String(visualIdCaja || '').startsWith('APOYO-');
+    const folioMostrar = infoCaja ? folioCaja(infoCaja) : (esApoyo ? visualIdCaja : `#${visualIdCaja}`);
+    const rutaDetalle = `/empaque/${envioId}/detalle${esApoyo ? '?tab=apoyo' : ''}`;
+    const colorAcento = esApoyo ? COLOR_APOYO : '#1976d2';
+
+    const handleTomarCaja = async () => {
+        if (!infoCaja) return;
+        const respuesta = await tomarCajaConAutorizacion({ apiUrl, token, user, caja: { ...infoCaja, id: cajaId } });
+        if (respuesta) {
+            await fetchInfoCaja();
+            enfocarEscaner();
+        }
+    };
+
+    // ---------- Escaneo ----------
+    const mostrarErrorEscaneo = (mensaje) => {
+        soundError.currentTime = 0;
+        soundError.play().catch(() => { });
+        Swal.fire({
+            title: 'Error',
+            text: mensaje,
+            icon: 'error',
+            confirmButtonText: 'Revisado',
+            showCloseButton: false,
+            allowEscapeKey: false,
+            allowOutsideClick: false,
         });
-    }
-
-    const handleDetailCaja = (e) => {
-        let value = e.target.value;
-
-        // Permite solo números positivos con hasta 2 decimales
-        const regex = /^\d*\.?\d{0,2}$/;
-
-        if (regex.test(value)) {
-            setPesoCaja(value);
-        }
-    }
-
-    const handleDetailAnchoCaja = (e) => {
-        let value = e.target.value;
-
-        // Permite solo números positivos con hasta 2 decimales
-        const regex = /^\d*\.?\d{0,2}$/;
-
-        if (regex.test(value)) {
-            setAnchoCaja(value);
-        }
-    }
-
-    const handleDetailAltoCaja = (e) => {
-        let value = e.target.value;
-
-        // Permite solo números positivos con hasta 2 decimales
-        const regex = /^\d*\.?\d{0,2}$/;
-
-        if (regex.test(value)) {
-            setAltoCaja(value);
-        }
-    }
+    };
 
     const handleScan = async () => {
-        // 1. Guardamos el ID actual en una constante local y vaciamos el input INMEDIATAMENTE
+        // Se toma el código y se limpia el campo de inmediato
         const idAProcesar = inventoryId.trim();
-        setInventoryId("");
+        setInventoryId('');
 
-        if (!idAProcesar) return;
-        if (isScanning) return;
+        if (!idAProcesar || isScanning) return;
 
         try {
             setIsScanning(true);
-
             const response = await axios.post(
                 `${apiUrl}/empaque/agregarEscaneo/inventory_id/${idAProcesar}/caja/${cajaId}/envio/${envioId}/tipo/${tipoEmpaque}`,
-                {}
+                {},
+                authHeaders
             );
 
-            console.log(response.data);
-
-            // Creamos el nuevo registro de escaneo de forma simple
             const newRow = {
                 id: response.data.id,
                 producto_id: response.data.producto_id,
                 inventory_id: idAProcesar,
                 cantidad: 1,
                 sku: response.data.sku,
-                title: response.data.title
-                // Ya no es necesario 'total_producto_caja' aquí, valueGetter lo calculará
+                title: response.data.title,
             };
-
-            // Simplemente agregamos el nuevo escaneo al principio del array anterior
             setData((prevData) => [newRow, ...prevData]);
-
         } catch (error) {
-            const errorMessage = error.response?.data?.message || "Error al procesar el escaneo";
-
-            soundError.currentTime = 0;
-            soundError.play();
-
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                confirmButtonText: 'Revisado',
-                showCloseButton: false,
-                allowEscapeKey: false,
-                allowOutsideClick: false
-            });
+            const status = error.response?.status;
+            let mensaje = error.response?.data?.message;
+            if (!mensaje && (status === 401 || status === 403)) {
+                mensaje = 'Tu sesión expiró. Vuelve a iniciar sesión para seguir escaneando.';
+            }
+            mostrarErrorEscaneo(mensaje || 'Error al procesar el escaneo');
+            // Si la caja ya no es suya o se cerró, se actualiza el aviso en pantalla
+            if (error.response?.data?.cajaAjena || status === 400) {
+                fetchInfoCaja();
+            }
         } finally {
-            setIsScanning(false); // 🔓 Liberamos el candado
-            // 🎯 Forzamos que el foco regrese al input automáticamente para el siguiente código de barras
-            setTimeout(() => {
-                if (inputRef.current) inputRef.current.focus();
-            }, 50);
+            setIsScanning(false);
+            enfocarEscaner();
         }
     };
 
     const handleKeyDown = (e) => {
         // La mayoría de los escáneres mandan 'Enter' al final
-        if (e.key === 'Enter') {
-            e.preventDefault(); // Evita recargas o comportamientos raros
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
 
-            // 🚨 CAPA SENSORIAL: Si el usuario escanea mientras el sistema está ocupado
-            if (isScanning) {
-                soundBusy.currentTime = 0;
-                soundBusy.play(); // 🔊 ¡Bip! Sonido inmediato de "espera" sin mirar la pantalla
-                setInventoryId(""); // Limpia lo que sea que la lectora alcanzó a escribir prematuramente
-                return;
-            }
+        // Escaneo mientras se procesa el anterior: bip de espera y se descarta
+        if (isScanning) {
+            soundBusy.currentTime = 0;
+            soundBusy.play().catch(() => { });
+            setInventoryId('');
+            return;
+        }
+        if (inventoryId.trim()) handleScan();
+    };
 
-            // Si no está ocupado, procesa normalmente
-            if (inventoryId.trim()) {
-                handleScan();
-            }
+    const eliminarEscaneo = async (id) => {
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: '¡No podrás revertir esto!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminarlo',
+            cancelButtonText: 'Cancelar',
+        });
+        if (!result.isConfirmed) return;
+
+        try {
+            const response = await axios.delete(`${apiUrl}/empaque/eliminarEscaneo/${id}`, authHeaders);
+            await fetchEscaneos();
+            Swal.fire({ title: '¡Eliminado!', text: response.data.message, icon: 'success', timer: 2000, showConfirmButton: false });
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: error.response?.data?.message || 'No se pudo eliminar el escaneo',
+                icon: 'error',
+                timer: 5000,
+                showCloseButton: true,
+                allowEscapeKey: true,
+            });
+            if (error.response?.data?.cajaAjena) fetchInfoCaja();
+        } finally {
+            enfocarEscaner();
         }
     };
 
-    const generarYDescargarTXT = async (data) => {
-        const { envio, numeroCaja } = data; // Extrae los valores desde la respuesta
-
-        // Estructura del contenido del TXT con los valores reemplazados
+    // ---------- Cerrar caja ----------
+    const generarYDescargarTXT = async ({ envio, numeroCaja, textoGrande = numeroCaja }) => {
         const contenido =
             `^XA	
             ^CI28	 
             ^LH0,0	 
-            ^FO50,105^A0N,90,90^FD${numeroCaja}^FS
+            ^FO50,105^A0N,90,90^FD${textoGrande}^FS
             ^FO50,105^A0N,25,25^FD^FS	 
             ^FB350,2,2	 
             ^FO22,145^A0N,18,18^FD^FS
@@ -263,23 +328,59 @@ const EmpaqueCajaAbierta = () => {
             ^FT206,105^A0N,30,30^FH\^FDENVIO:${envio}/${numeroCaja}
             ^PQ1,0,1,Y^XZ`;
 
-        // Crear un Blob con el contenido del archivo
-        const blob = new Blob([contenido], { type: "text/plain" });
-
-        // Crear un enlace de descarga
-        const link = document.createElement("a");
+        const blob = new Blob([contenido], { type: 'text/plain' });
+        const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `archivo_caja_numero:${numeroCaja}.txt`;
-
-        // Simular clic para iniciar la descarga
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    const handleOpenCerrarCaja = async () => {
+    const consultarDimensiones = async () => {
+        const caja = await fetchInfoCaja();
+        if (caja) {
+            setLargoCaja(caja.largo ?? '');
+            setAnchoCaja(caja.ancho ?? '');
+            setAltoCaja(caja.alto ?? '');
+            setPesoCaja(caja.peso ?? '');
+        }
+    };
+
+    const consultarTarimasAbiertas = async () => {
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/fetchTarimas/${envioId}`);
+            const abiertas = (response.data.data || []).filter((t) => t.estatus === 'abierta');
+            setTarimasAbiertas(abiertas);
+            setTarimaDestino(abiertas.length === 1 ? abiertas[0].id : '');
+        } catch (error) {
+            setTarimasAbiertas([]);
+            setTarimaDestino('');
+        }
+    };
+
+    const handleAbrirModalCaja = () => {
+        setOpenCerrarCaja(true);
+        consultarDimensiones();
+        if (esApoyo) consultarTarimasAbiertas();
+    };
+
+    const handleCloseCerrarCaja = () => {
+        setOpenCerrarCaja(false);
+        setLargoCaja('');
+        setAnchoCaja('');
+        setAltoCaja('');
+        setPesoCaja('');
+        setErrors({ largo: false, ancho: false, alto: false, peso: false });
+        enfocarEscaner();
+    };
+
+    const handleMedida = (setter) => (e) => {
+        if (REGEX_MEDIDA.test(e.target.value)) setter(e.target.value);
+    };
+
+    const handleGuardarCerrarCaja = async () => {
         if (isSubmitting) return;
-        // Validación de campos vacíos o cero
         const newErrors = {
             largo: !largoCaja || parseFloat(largoCaja) <= 0,
             ancho: !anchoCaja || parseFloat(anchoCaja) <= 0,
@@ -287,451 +388,400 @@ const EmpaqueCajaAbierta = () => {
             peso: !pesoCaja || parseFloat(pesoCaja) <= 0,
         };
 
-        // Si hay algún error, no continuar
-        if (Object.values(newErrors).some(error => error)) {
+        if (Object.values(newErrors).some(Boolean)) {
             setErrors(newErrors);
             Swal.fire({
                 title: 'Campos incompletos',
                 text: 'Completa todos los campos con valores mayores a cero.',
                 icon: 'warning',
-                target: document.getElementById("modal-details"),
+                target: document.getElementById('modal-details'),
             });
             return;
         }
 
-        // Si no hay errores, continuar con la petición
         try {
             setIsSubmitting(true);
-            const response = await axios.post(`${apiUrl}/empaque/consolidar/caja/${cajaId}`,
+            const response = await axios.post(
+                `${apiUrl}/empaque/consolidar/caja/${cajaId}`,
                 {
                     largo: largoCaja,
                     ancho: anchoCaja,
                     alto: altoCaja,
-                    peso: pesoCaja
+                    peso: pesoCaja,
+                    ...(esApoyo && tarimaDestino ? { tarima_id: Number(tarimaDestino) } : {}),
                 },
+                authHeaders
             );
             if (response.data.ok) {
-                await generarYDescargarTXT({
-                    envio: envioId,
-                    numeroCaja: visualIdCaja
-                })
+                if (esApoyo) {
+                    const numero = String(infoCaja?.visual_id ?? '').padStart(3, '0');
+                    await generarYDescargarTXT({ envio: envioId, numeroCaja: folioMostrar, textoGrande: `A-${numero}` });
+                } else {
+                    await generarYDescargarTXT({ envio: envioId, numeroCaja: visualIdCaja });
+                }
                 handleCloseCerrarCaja();
-                navigate(`/empaque/${envioId}/detalle`)
+                if (esApoyo) {
+                    Swal.fire({ icon: 'success', title: 'Caja cerrada', text: response.data.message, timer: 2500, showConfirmButton: false });
+                }
+                navigate(rutaDetalle);
             }
         } catch (error) {
             console.error(error);
-            const errorMessage = error.response.data.message;
             Swal.fire({
                 title: 'Error',
-                text: errorMessage,
+                text: error.response?.data?.message || 'No se pudo cerrar la caja',
                 icon: 'error',
                 timer: 5000,
                 showCloseButton: true,
                 allowEscapeKey: true,
             });
             handleCloseCerrarCaja();
+            if (error.response?.data?.cajaAjena) fetchInfoCaja();
         } finally {
-            setIsSubmitting(false); // 🔓 Liberamos el estado
-        }
-    }
-
-    const fetchEscaneos = async () => {
-        try {
-            const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosAbierta/${cajaId}`);
-            const result = response.data.data;
-            if (Array.isArray(result) && result.length > 0) {
-
-                const ordenados = result.sort((a, b) => b.id - a.id);
-
-                const conteoProductos = {};
-
-                ordenados.forEach((item) => {
-                    const productoId = item.producto_id;
-
-                    conteoProductos[productoId] =
-                        (conteoProductos[productoId] || 0) + Number(item.cantidad || 0);
-                });
-
-                const dataConTotales = ordenados.map((item) => ({
-                    ...item,
-                    total_producto_caja: conteoProductos[item.producto_id]
-                }));
-
-                setData(dataConTotales);
-            }
-        } catch (error) {
-            setData([]);
+            setIsSubmitting(false);
         }
     };
 
-    useEffect(() => {
-        const fetchEscaneos = async () => {
-            try {
-                const response = await axios.get(`${apiUrl}/empaque/fetchEscaneosAbierta/${cajaId}`);
-                const result = response.data.data;
-                if (Array.isArray(result) && result.length > 0) {
-
-                    const ordenados = result.sort((a, b) => b.id - a.id);
-
-                    const conteoProductos = {};
-
-                    ordenados.forEach((item) => {
-                        const productoId = item.producto_id;
-
-                        conteoProductos[productoId] =
-                            (conteoProductos[productoId] || 0) + Number(item.cantidad || 0);
-                    });
-
-                    const dataConTotales = ordenados.map((item) => ({
-                        ...item,
-                        total_producto_caja: conteoProductos[item.producto_id]
-                    }));
-
-                    setData(dataConTotales);
-                }
-            } catch (error) {
-                setData([]);
-            }
-        };
-
-        if (cajaId) {
-            fetchEscaneos(); // Se ejecuta al montar con el cajaId
-        }
-    }, [cajaId]);
-
-    const consultarDimensiones = async () => {
-        try {
-            const response = await axios.get(`${apiUrl}/empaque/consultarCaja/caja/${cajaId}`);
-            const result = response.data.cajaCheck;
-            if (Array.isArray(result) && result.length > 0) {
-                const datosCaja = result[0];
-                setLargoCaja(datosCaja.largo);
-                setAnchoCaja(datosCaja.ancho);
-                setAltoCaja(datosCaja.alto);
-                setPesoCaja(datosCaja.peso);
-            }
-        } catch (error) {
-            console.error(error);
-            const errorMessage = error.response.data.message;
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true,
-                target: document.getElementById("modal-details"),
-            });
-        }
-    }
-
-    const eliminarEscaneo = async (id) => {
-        try {
-            Swal.fire({
-                title: '¿Estás seguro?',
-                text: '¡No podrás revertir esto!',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Sí, eliminarlo'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    try {
-                        const response = await axios.delete(`${apiUrl}/empaque/eliminarEscaneo/${id}`)
-                        fetchEscaneos();
-                        const message = response.data.message;
-                        Swal.fire({
-                            title: '¡Eliminado!',
-                            text: message,
-                            icon: 'success'
-                        });
-                    } catch (error) {
-                        const errorMessage = error.response.data.message;
-                        Swal.fire({
-                            title: 'Error',
-                            text: errorMessage,
-                            icon: 'error',
-                            timer: 5000,
-                            showCloseButton: true,
-                            allowEscapeKey: true
-                        });
-                    }
-                } else if (result.isDenied) {
-                    Swal.fire("¡No se ha eliminado el componente!", "", "info");
-                }
-            })
-
-        } catch (error) {
-            const errorMessage = error.response.data.message;
-            Swal.fire({
-                title: 'Error',
-                text: errorMessage,
-                icon: 'error',
-                timer: 5000,
-                showCloseButton: true,
-                allowEscapeKey: true
-            });
-        }
-    }
-
-    // const eliminarCajaAutomatico = async () => {
-    //     try {
-    //         await axios.delete(`${apiUrl}/empaque/eliminarCaja/${cajaId}`)
-    //     } catch (error) {
-    //         console.log("No se pudo eliminar la caja automaticamente");
-    //     }
-    // }
-
-    const columns = useMemo(() => [
-        { field: "id", headerName: "# Escaneo", type: "number", flex: 1 },
-        { field: "inventory_id", headerName: "ML", type: "text", flex: 1 },
-        { field: "orden", headerName: "# Orden", type: "text", flex: 1 },
-        { field: "cantidad", headerName: "Cantidad", type: "number", flex: 1, headerAlign: 'center' },
-        {
-            field: "total_producto_caja",
-            headerName: "Suma producto",
-            type: "number",
-            flex: 1,
-            headerAlign: 'center',
-            align: 'center',
-            valueGetter: (value, row) => {
-                const rowData = row || value;
-                if (!rowData) return 0;
-
-                // Filtramos el estado 'data' (que ahora se actualiza gracias a la dependencia del useMemo)
-                return data
-                    .filter(item => String(item.producto_id) === String(rowData.producto_id))
-                    .reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
-            }
-        },
-        { field: "sku", headerName: "SKU", type: "text", flex: 3 },
-        { field: "title", headerName: "Descripción", type: "text", flex: 5 },
-        {
-            field: "actions",
-            headerName: "Acciones",
-            type: "actions",
-            getActions: (params) => [
-                <Tooltip title="Eliminar escaneo" key={`escaneos-${params.row.id}`}>
-                    <GridActionsCellItem
-                        icon={<DeleteForeverRoundedIcon />}
-                        sx={{ color: "red" }}
-                        label="Eliminar escaneo"
-                        onClick={() => eliminarEscaneo(params.row.id)}
-                    />
-                </Tooltip>
-            ],
-        }
-    ], [data]); // 👈 CRUCIAL: Cada vez que 'data' cambie, las columnas se refrescan con el nuevo conteo.
-
-    const handleDetailLargoCaja = (e) => {
-        let value = e.target.value;
-
-        // Permite solo números positivos con hasta 2 decimales
-        const regex = /^\d*\.?\d{0,2}$/;
-
-        if (regex.test(value)) {
-            setLargoCaja(value);
-        }
-    };
+    // ---------- Tabla ----------
+    const totalesPorProducto = useMemo(() => {
+        const totales = {};
+        data.forEach((item) => {
+            totales[item.producto_id] = (totales[item.producto_id] || 0) + Number(item.cantidad || 0);
+        });
+        return totales;
+    }, [data]);
 
     const totalCantidad = data.reduce((acc, row) => acc + Number(row.cantidad || 0), 0);
 
+    // Se arma en cada render: depende de los totales y de si el usuario puede escanear
+    const columns = [
+        { field: 'id', headerName: '# Escaneo', type: 'number', flex: 0.6, minWidth: 100, headerAlign: 'left', align: 'left' },
+        { field: 'inventory_id', headerName: 'ML', flex: 0.9, minWidth: 120 },
+        { field: 'sku', headerName: 'SKU', flex: 1.2, minWidth: 140 },
+        { field: 'title', headerName: 'Descripción', flex: 1.6, minWidth: 180 },
+        { field: 'cantidad', headerName: 'Cantidad', type: 'number', flex: 0.5, minWidth: 90, headerAlign: 'center', align: 'center' },
+        {
+            field: 'total_producto_caja',
+            headerName: 'Suma producto',
+            renderHeader: () => (
+                <Box sx={{ lineHeight: 1.15, textAlign: 'center', fontWeight: 600, fontSize: 13, whiteSpace: 'normal' }}>
+                    Suma<br />producto
+                </Box>
+            ),
+            type: 'number',
+            flex: 0.6,
+            minWidth: 120,
+            headerAlign: 'center',
+            align: 'center',
+            valueGetter: (value, row) => totalesPorProducto[row?.producto_id] || 0,
+        },
+        {
+            field: 'actions',
+            headerName: 'Acciones',
+            minWidth: 90,
+            flex: 0.4,
+            sortable: false,
+            filterable: false,
+            disableExport: true,
+            headerAlign: 'center',
+            align: 'center',
+            renderCell: (params) => (
+                <Tooltip arrow title={puedeEscanear ? 'Eliminar escaneo' : 'Solo el responsable de la caja puede eliminar escaneos'}>
+                    <span>
+                        <IconButton size="small" color="error" disabled={!puedeEscanear} onClick={() => eliminarEscaneo(params.row.id)}>
+                            <DeleteForeverRoundedIcon fontSize="small" />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            ),
+        },
+    ];
+
+    // ---------- Render ----------
+    const estatusInfo = ESTATUS_CAJA[infoCaja?.estatus] || null;
+    const folioEnvio = infoCaja?.folio_interno || envioId;
+    const nombreResponsable = infoCaja?.nombre_responsable || '—';
+
     return (
-        <div>
-            <Box
+        <Box
+            sx={{
+                p: { xs: 1, sm: 2 },
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                minHeight: '100vh',
+                // Durante el escaneo se tiñe el fondo para la visión periférica
+                backgroundColor: isScanning ? '#fff9c4' : 'transparent',
+                transition: 'background-color 0.15s ease',
+            }}
+        >
+            <GlobalStyles styles={(theme) => ({ '.MuiDataGrid-panel': { zIndex: theme.zIndex.modal + 100 } })} />
+
+            {/* ---------- Encabezado ---------- */}
+            <Paper
+                elevation={2}
                 sx={{
-                    // Si está escaneando, tiñe sutilmente el fondo para la visión periférica
-                    backgroundColor: isScanning ? '#fff9c4' : 'transparent',
-                    transition: 'background-color 0.15s ease',
-                    minHeight: '100vh',
-                    p: 3
+                    p: 1.5,
+                    borderRadius: 3,
+                    borderLeft: esApoyo ? `6px solid ${COLOR_APOYO}` : undefined,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                 }}
             >
-                <div className='DataG' style={{ height: 500, width: "90%", position: "relative" }}>
-                    <div style={{ display: "flex", justifyContent: "center", fontFamily: "Montserrat", fontWeight: "bold", marginTop: "-10px" }}>
-                        <h1>Empaque</h1>
-                    </div>
-                    <div style={{
-                        position: "absolute",
-                        top: "20px",
-                        right: "0",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-end",
-                        gap: "5px",
-                        fontFamily: "Montserrat",
-                        fontWeight: "bold"
-                    }}
-                    >
-                        <div style={{ display: "flex", gap: "10px" }}>
-                            <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold" }}># Envio:</Typography>
-                            <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "red" }}>{envioId}</Typography>
-                        </div>
-                        <div style={{ display: "flex", gap: "10px" }}>
-                            <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", marginTop: "5px" }}># Caja:</Typography>
-                            <Typography variant='h6' sx={{ fontFamily: "Montserrat", fontWeight: "bold", color: "blue", marginTop: "5px" }}>{visualIdCaja}</Typography>
-                        </div>
-                        <ToggleButtonGroup
-                            value={tipoEmpaque}
-                            exclusive
-                            onChange={(e, newValue) => {
-                                if (newValue !== null) setTipoEmpaque(newValue);
-                            }}
-                            size="small"
-                        >
-                            <ToggleButton value="factura" >
-                                <ReceiptIcon color="success" sx={{ mr: 1 }} />
-                                Factura
-                            </ToggleButton>
-                            <ToggleButton value="retiro">
-                                <StoreIcon color="primary" sx={{ mr: 1 }} />
-                                Retiro
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                    </div>
-                    <div style={{ position: "absolute", display: "flex", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold", zIndex: 10 }}>
-                        <FormControl variant='outlined'>
-                            <InputLabel shrink={isScanning || !!inventoryId}>
-                                {isScanning ? "Procesando código..." : "Escanear..."}
-                            </InputLabel>
-                            <Input
-                                autoFocus
-                                inputRef={inputRef} // 🎯 Referencia para el auto-foco reactivo
-                                disabled={isScanning} // 🔒 Se deshabilita por completo durante el viaje del API
-                                value={inventoryId}
-                                onChange={(e) => setInventoryId(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                endAdornment={
-                                    <InputAdornment position='end'>
-                                        {isScanning ? (
-                                            <CircularProgress size={20} color="inherit" /> // Cambia el icono por un loader
-                                        ) : (
-                                            <QrCodeScannerIcon />
-                                        )}
-                                    </InputAdornment>
-                                }
-                            />
-                        </FormControl>
-                    </div>
-                    <DataGrid sx={{ marginTop: 8, borderRadius: 4, boxShadow: 24, borderWidth: 3, borderColor: "#1e88e5", fontFamily: "Montserrat", fontWeight: "bold" }}
-                        rows={data}
-                        columns={columns}
-                        showCellVerticalBorder
-                        showColumnVerticalBorder
-                        getRowId={(row) => row.id}
-                        columnVisibilityModel={columnVisibilityModel}
-                        onColumnVisibilityModelChange={(newModel) => setColumnVisibilityModel(newModel)}
-                        experimentalFeatures={{ newEditingApi: true }}
-                        density="compact" // Establece el tamaño de las filas en compacto por defecto
-                        slots={{ toolbar: CustomToolbar }}
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700, mr: 1 }}>
+                        {esApoyo
+                            ? <><GroupsOutlinedIcon sx={{ color: COLOR_APOYO }} /> Equipo de apoyo</>
+                            : <><ViewInArOutlinedIcon color="primary" /> Empaque de caja</>}
+                    </Typography>
+                    <Chip
+                        size="small"
+                        label={`Caja ${folioMostrar}`}
+                        sx={{ fontWeight: 700, bgcolor: `${colorAcento}1A`, color: colorAcento, border: esApoyo ? `1px solid ${COLOR_APOYO}` : undefined }}
                     />
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontFamily: "Montserrat", fontWeight: "bold" }}>
-                        <h3>TOTAL CAJA: {totalCantidad}</h3>
-                        <Button
-                            variant='contained'
-                            disabled={isScanning}
-                            sx={{
-                                width: "150px",
-                                height: "40px",
-                                marginTop: "10px",
-                                backgroundColor: "blue", "&:hover": { backgroundColor: "darkblue" }
-                            }}
-                            onClick={handleAbrirModalCaja}
-                        >Cerrar Caja</Button>
-                    </div>
-                </div>
-                {/* Ventana Modal Cerrar Caja*/}
-                <Modal id="modal-details" open={openCerrarCaja} onClose={isSubmitting ? null : handleCloseCerrarCaja}>
-                    <Box sx={styleModalCerrarCaja}>
-                        <Typography sx={{ fontFamily: 'Montserrat', fontWeight: "bold", textAlign: "center", marginBottom: "10px" }}>
-                            Caja
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'row', flexWrap: "wrap", gap: 2 }}>
-                            <TextField
-                                className='input'
-                                label="Largo"
-                                variant='outlined'
-                                type='number'
-                                disabled={isSubmitting}
-                                value={largoCaja}
-                                onChange={handleDetailLargoCaja}
-                                error={errors.largo}
-                                helperText={errors.largo ? 'Requerido (> 0)' : ''}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position='end'>cm</InputAdornment>
-                                }}
-                                inputProps={{
-                                    min: 0,
-                                    step: 0.1
-                                }}
+                    <Chip size="small" variant="outlined" label={`Envío ${folioEnvio}`} sx={{ fontWeight: 600 }} />
+                    {infoCaja?.tarima_visual_id != null && (
+                        <Chip size="small" variant="outlined" label={`Tarima #${infoCaja.tarima_visual_id}`} sx={{ fontWeight: 600 }} />
+                    )}
+                    {esApoyo && infoCaja && infoCaja.tarima_visual_id == null && (
+                        <Tooltip arrow title="Las cajas de apoyo se asignan a una tarima al cerrarlas">
+                            <Chip size="small" variant="outlined" label="Sin tarima" sx={{ fontWeight: 600 }} />
+                        </Tooltip>
+                    )}
+                    {estatusInfo && <Chip size="small" label={estatusInfo.label} color={estatusInfo.color} sx={{ fontWeight: 600 }} />}
+                    {infoCaja && (
+                        <Tooltip arrow title={`Creada por ${infoCaja.nombre_usuario || '—'}`}>
+                            <Chip
+                                size="small"
+                                icon={<PersonOutlineOutlinedIcon />}
+                                label={esResponsable ? `${nombreResponsable} (tú)` : nombreResponsable}
+                                color={esResponsable ? 'success' : 'warning'}
+                                variant="outlined"
+                                sx={{ fontWeight: 600 }}
                             />
-                            <TextField
-                                className='input'
-                                label="Ancho"
-                                variant='outlined'
-                                type='number'
-                                disabled={isSubmitting}
-                                value={anchoCaja}
-                                onChange={handleDetailAnchoCaja}
-                                error={errors.ancho}
-                                helperText={errors.ancho ? 'Requerido (> 0)' : ''}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position='end'>cm</InputAdornment>
-                                }}
-                                inputProps={{
-                                    min: 0,
-                                    step: 0.1
-                                }}
-                            />
-                            <TextField
-                                className='input'
-                                label="Alto"
-                                variant='outlined'
-                                type='number'
-                                disabled={isSubmitting}
-                                value={altoCaja}
-                                onChange={handleDetailAltoCaja}
-                                error={errors.alto}
-                                helperText={errors.alto ? 'Requerido (> 0)' : ''}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position='end'>cm</InputAdornment>
-                                }}
-                                inputProps={{
-                                    min: 0,
-                                    step: 0.1
-                                }}
-                            />
-                        </Box>
-                        <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "center", mt: 4, ml: "-10px", gap: 2 }}>
-                            <TextField
-                                className='input'
-                                label="Peso"
-                                variant='outlined'
-                                type='number'
-                                disabled={isSubmitting}
-                                value={pesoCaja}
-                                onChange={handleDetailCaja}
-                                error={errors.peso}
-                                helperText={errors.peso ? 'Requerido (> 0)' : ''}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position='end'>Kg</InputAdornment>
-                                }}
-                                inputProps={{
-                                    min: 0,
-                                    step: 0.1
-                                }}
-                            />
-                        </Box>
-                        <Box sx={{ display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
-                            <Button onClick={handleCloseCerrarCaja} variant="contained" color="primary" disabled={isSubmitting}>Cerrar</Button>
-                            <Button onClick={handleOpenCerrarCaja} variant="contained" color="success" disabled={isSubmitting}>{isSubmitting ? "Guardando..." : "Guardar"}</Button>
-                        </Box>
-                    </Box>
-                </Modal>
-            </Box>
-        </div>
-    )
-}
+                        </Tooltip>
+                    )}
+                </Stack>
 
-export default EmpaqueCajaAbierta
+                <Stack direction="row" flexWrap="wrap" gap={1} alignItems="center">
+                    <Tooltip title="Regresa a las tarimas y cajas del envío." arrow>
+                        <span>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<ArrowBackIcon />}
+                                onClick={() => navigate(rutaDetalle)}
+                                disabled={isScanning || isSubmitting}
+                                sx={botonSx}
+                            >
+                                Regresar al envío
+                            </Button>
+                        </span>
+                    </Tooltip>
+                    <Tooltip title="Vuelve a consultar los escaneos y el responsable de la caja." arrow>
+                        <span>
+                            <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={handleActualizar} disabled={isScanning} sx={botonSx}>
+                                Actualizar
+                            </Button>
+                        </span>
+                    </Tooltip>
+                    {cajaAbierta && !esResponsable && (
+                        <Tooltip title="Pasa la caja a tu cargo. Se necesita autorización de un administrador o supervisor." arrow>
+                            <span>
+                                <Button variant="outlined" size="small" color="warning" startIcon={<PanToolOutlinedIcon />} onClick={handleTomarCaja} sx={botonSx}>
+                                    Tomar caja
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    )}
+                    <Tooltip title={puedeEscanear ? 'Captura medidas y peso, cierra la caja y descarga su etiqueta.' : 'Solo el responsable puede cerrar la caja.'} arrow>
+                        <span>
+                            <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<TaskAltOutlinedIcon />}
+                                onClick={handleAbrirModalCaja}
+                                disabled={isScanning || !puedeEscanear}
+                                sx={esApoyo ? { ...botonSx, bgcolor: COLOR_APOYO, '&:hover': { bgcolor: '#4a148c' } } : botonSx}
+                            >
+                                Cerrar caja
+                            </Button>
+                        </span>
+                    </Tooltip>
+                </Stack>
+            </Paper>
+
+            {/* ---------- Avisos de responsable / estatus ---------- */}
+            {infoCaja && !cajaAbierta && (
+                <Alert severity="info" variant="outlined" sx={{ borderRadius: 3 }}>
+                    Esta caja está cerrada. Para agregar o quitar piezas, reábrela desde el detalle del envío.
+                </Alert>
+            )}
+            {infoCaja && cajaAbierta && !esResponsable && (
+                <Alert
+                    severity="warning"
+                    variant="outlined"
+                    sx={{ borderRadius: 3, alignItems: 'center' }}
+                    action={
+                        <Button color="warning" size="small" variant="outlined" startIcon={<PanToolOutlinedIcon />} onClick={handleTomarCaja} sx={botonSx}>
+                            Tomar caja
+                        </Button>
+                    }
+                >
+                    Esta caja está a cargo de <b>{nombreResponsable}</b>. Solo esa persona puede escanear, borrar escaneos o cerrarla.
+                    Si vas a continuarla tú, usa <b>Tomar caja</b>; si no, regresa al envío y abre una caja nueva.
+                </Alert>
+            )}
+
+            {/* ---------- Escanear ---------- */}
+            <SectionCard
+                icon={QrCodeScannerIcon}
+                title="Escanear"
+                subtitle="Elige si lo que empacas viene de factura o de retiro y escanea el código ML de cada pieza."
+                actions={
+                    <ToggleButtonGroup
+                        value={tipoEmpaque}
+                        exclusive
+                        size="small"
+                        onChange={(e, newValue) => {
+                            if (newValue !== null) setTipoEmpaque(newValue);
+                            enfocarEscaner();
+                        }}
+                    >
+                        <ToggleButton value="factura" sx={{ textTransform: 'none', fontWeight: 600, px: 1.5 }}>
+                            <ReceiptLongOutlinedIcon color="success" fontSize="small" sx={{ mr: 0.75 }} /> Factura
+                        </ToggleButton>
+                        <ToggleButton value="retiro" sx={{ textTransform: 'none', fontWeight: 600, px: 1.5 }}>
+                            <AssignmentReturnOutlinedIcon color="primary" fontSize="small" sx={{ mr: 0.75 }} /> Retiro
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                }
+            >
+                <TextField
+                    fullWidth
+                    autoFocus
+                    inputRef={inputRef}
+                    label={isScanning ? 'Procesando código...' : puedeEscanear ? 'Escanear código ML' : 'Escaneo bloqueado'}
+                    placeholder={puedeEscanear ? 'Escanea o escribe el código y presiona Enter' : ''}
+                    value={inventoryId}
+                    onChange={(e) => setInventoryId(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isScanning || !puedeEscanear}
+                    sx={esApoyo ? {
+                        '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: COLOR_APOYO },
+                        '& .MuiInputLabel-root.Mui-focused': { color: COLOR_APOYO },
+                    } : undefined}
+                    InputProps={{
+                        sx: { fontSize: 20, fontWeight: 600 },
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                {isScanning ? <CircularProgress size={22} color="inherit" /> : <QrCodeScannerIcon color={puedeEscanear ? 'primary' : 'disabled'} />}
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+            </SectionCard>
+
+            {/* ---------- Escaneos ---------- */}
+            <SectionCard
+                icon={FormatListBulletedOutlinedIcon}
+                title="Escaneos de la caja"
+                count={data.length}
+                subtitle={`Total en la caja: ${totalCantidad} pieza(s)`}
+            >
+                <AppDataGrid
+                    rows={data}
+                    columns={columns}
+                    getRowId={(row) => row.id}
+                    loading={loadingEscaneos}
+                    height={GRID_HEIGHT}
+                    rowHeight={ROW_HEIGHT_COMPACTA}
+                    columnHeaderHeight={HEADER_HEIGHT_COMPACTO}
+                    sx={gridCompactoSx}
+                    pageSize={GRID_PAGE_SIZE}
+                    pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
+                    exportFileName={`envio_${folioEnvio}_caja_${visualIdCaja}_escaneos`}
+                    initialColumnVisibilityModel={{ id: false }}
+                    localeText={{ ...DATA_GRID_LOCALE_ES, noRowsLabel: 'Aún no hay escaneos en esta caja.' }}
+                />
+            </SectionCard>
+
+            {/* ---------- Cerrar caja ---------- */}
+            <Dialog
+                id="modal-details"
+                open={openCerrarCaja}
+                onClose={isSubmitting ? undefined : handleCloseCerrarCaja}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 3 } }}
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 700 }}>
+                    <TaskAltOutlinedIcon sx={{ color: colorAcento }} /> Cerrar caja {folioMostrar}
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                        Captura las medidas y el peso. Al guardar se cierra la caja con {totalCantidad} pieza(s) y se descarga su etiqueta.
+                    </Typography>
+                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' } }}>
+                        {[
+                            { key: 'largo', label: 'Largo', value: largoCaja, setter: setLargoCaja, unidad: 'cm' },
+                            { key: 'ancho', label: 'Ancho', value: anchoCaja, setter: setAnchoCaja, unidad: 'cm' },
+                            { key: 'alto', label: 'Alto', value: altoCaja, setter: setAltoCaja, unidad: 'cm' },
+                            { key: 'peso', label: 'Peso', value: pesoCaja, setter: setPesoCaja, unidad: 'kg' },
+                        ].map((campo) => (
+                            <TextField
+                                key={campo.key}
+                                label={campo.label}
+                                type="number"
+                                size="small"
+                                disabled={isSubmitting}
+                                value={campo.value}
+                                onChange={handleMedida(campo.setter)}
+                                error={!!errors[campo.key]}
+                                helperText={errors[campo.key] ? 'Requerido (> 0)' : ' '}
+                                InputProps={{ endAdornment: <InputAdornment position="end">{campo.unidad}</InputAdornment> }}
+                                inputProps={{ min: 0, step: 0.1 }}
+                            />
+                        ))}
+                    </Box>
+                    {esApoyo && (
+                        <Box sx={{ mt: 1, p: 1.5, borderRadius: 2, bgcolor: `${COLOR_APOYO}0D`, border: `1px solid ${COLOR_APOYO}33` }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: COLOR_APOYO }}>¿A qué tarima va esta caja?</Typography>
+                            <FormControl fullWidth size="small" disabled={isSubmitting}>
+                                <InputLabel id="tarima-destino-cierre">Tarima destino</InputLabel>
+                                <Select
+                                    labelId="tarima-destino-cierre"
+                                    label="Tarima destino"
+                                    value={tarimaDestino}
+                                    onChange={(e) => setTarimaDestino(e.target.value)}
+                                    displayEmpty
+                                >
+                                    <MenuItem value="">Asignar después (queda en "Cerradas sin tarima")</MenuItem>
+                                    {tarimasAbiertas.map((t) => (
+                                        <MenuItem key={t.id} value={t.id}>Tarima #{t.visual_id}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            {tarimasAbiertas.length === 0 && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
+                                    No hay tarimas abiertas en este envío; podrás asignarla después desde la pestaña Equipo de apoyo.
+                                </Typography>
+                            )}
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, py: 1.5 }}>
+                    <Button onClick={handleCloseCerrarCaja} disabled={isSubmitting} sx={botonSx}>Cancelar</Button>
+                    <Button onClick={handleGuardarCerrarCaja} variant="contained" color="success" disabled={isSubmitting} sx={botonSx}>
+                        {isSubmitting ? 'Guardando...' : 'Guardar y cerrar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
+    );
+};
+
+export default EmpaqueCajaAbierta;

@@ -42,6 +42,7 @@ const TerminosProveedorDialog = ({ open, proveedor, onClose, onGuardado }) => {
       descuento_pronto_pago: aTexto(proveedor.descuento_pronto_pago || 0),
       banco: proveedor.banco || "",
       clabe: proveedor.clabe || "",
+      numero_cuenta: proveedor.numero_cuenta || "",
     });
   }, [open, proveedor]);
 
@@ -54,6 +55,7 @@ const TerminosProveedorDialog = ({ open, proveedor, onClose, onGuardado }) => {
   const prontoPago = form.dias_pronto_pago === "" ? 0 : Number(form.dias_pronto_pago);
   const descuento = form.descuento_pronto_pago === "" ? 0 : Number(form.descuento_pronto_pago);
   const clabe = String(form.clabe || "").replace(/\s/g, "");
+  const numeroCuenta = String(form.numero_cuenta || "").replace(/\s/g, "");
 
   const errores = {
     dias_credito: credito === null ? "Obligatorio" : credito > 365 ? "Máximo 365" : "",
@@ -65,6 +67,7 @@ const TerminosProveedorDialog = ({ open, proveedor, onClose, onGuardado }) => {
           ? "Captura los días de pronto pago"
           : "",
     clabe: clabe && !clabeValida(clabe) ? "CLABE inválida (18 dígitos con dígito verificador)" : "",
+    numero_cuenta: numeroCuenta && !/^\d{7,20}$/.test(numeroCuenta) ? "Debe tener entre 7 y 20 dígitos" : "",
   };
   const hayErrores = Object.values(errores).some(Boolean);
 
@@ -82,6 +85,7 @@ const TerminosProveedorDialog = ({ open, proveedor, onClose, onGuardado }) => {
           descuento_pronto_pago: descuento,
           banco: form.banco.trim() || null,
           clabe: clabe || null,
+          numero_cuenta: numeroCuenta || null,
         },
         getAuthHeaders()
       );
@@ -161,10 +165,23 @@ const TerminosProveedorDialog = ({ open, proveedor, onClose, onGuardado }) => {
               value={form.clabe ?? ""}
               onChange={(e) => /^[\d\s]{0,22}$/.test(e.target.value) && set("clabe")(e)}
               error={Boolean(errores.clabe)}
-              helperText={errores.clabe || "Cuenta a la que se transfieren los pagos"}
+              helperText={errores.clabe || "18 dígitos"}
               sx={{ flex: 1.4, minWidth: 240 }}
             />
+            <TextField
+              label="Número de cuenta"
+              size="small"
+              value={form.numero_cuenta ?? ""}
+              onChange={(e) => /^[\d\s]{0,24}$/.test(e.target.value) && set("numero_cuenta")(e)}
+              error={Boolean(errores.numero_cuenta)}
+              helperText={errores.numero_cuenta || "Opcional · 7 a 20 dígitos"}
+              sx={{ flex: 1.2, minWidth: 200 }}
+            />
           </Stack>
+
+          <Typography variant="caption" sx={{ color: "text.secondary", mt: -1 }}>
+            Captura al menos la CLABE o el número de cuenta para poder registrar pagos a este proveedor.
+          </Typography>
 
           {error && <Alert severity="warning">{error}</Alert>}
         </Stack>

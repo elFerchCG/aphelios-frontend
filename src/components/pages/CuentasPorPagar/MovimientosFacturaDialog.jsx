@@ -24,7 +24,7 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 
 import { modalActionsSx, modalContentSx, modalSecondaryButtonSx, modalTitleSx } from "../../common/modalStyles";
 import apiUrl from "../../../config";
-import { fmtFecha, fmtFechaHora, fmtMoneda, getAuthHeaders, nombreFactura, TIPOS_MOVIMIENTO } from "./cxpUtils";
+import { etiquetaMovimiento, fmtFecha, fmtFechaHora, fmtMoneda, getAuthHeaders, nombreFactura } from "./cxpUtils";
 
 // Estado de cuenta de una factura: alta, pagos, descuentos y cancelaciones.
 const MovimientosFacturaDialog = ({ open, facturaId, onClose, onVerPago }) => {
@@ -95,7 +95,7 @@ const MovimientosFacturaDialog = ({ open, facturaId, onClose, onVerPago }) => {
                         <TableCell>{fmtFecha(m.fecha_pago)}</TableCell>
                         <TableCell>
                           <Box component="span" sx={{ textDecoration: cancelado ? "line-through" : "none" }}>
-                            {TIPOS_MOVIMIENTO[m.tipo] || m.tipo}
+                            {etiquetaMovimiento(m.tipo, m.metodo_pago)}
                           </Box>
                           {cancelado && (
                             <Chip

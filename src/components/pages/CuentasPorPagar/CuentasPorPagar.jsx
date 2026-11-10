@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import {
   Alert,
@@ -29,6 +29,8 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
+import AddIcon from "@mui/icons-material/Add";
 
 import { handleApiError } from "../../../helpers/apiErrorHandler";
 import { swalSuccess } from "../../../helpers/sweetAlert";
@@ -37,17 +39,23 @@ import RegistrarPagoDialog from "./RegistrarPagoDialog";
 import DetallePagoDialog from "./DetallePagoDialog";
 import MovimientosFacturaDialog from "./MovimientosFacturaDialog";
 import TerminosProveedorDialog from "./TerminosProveedorDialog";
+import NotaCreditoDialog from "./NotaCreditoDialog";
+import DetalleNotaDialog from "./DetalleNotaDialog";
 import {
   chipSuaveSx,
   ESTATUS_PAGO,
   FILTROS_FACTURA,
+  FILTROS_NOTAS,
   fmtFecha,
   fmtFechaHora,
   fmtMoneda,
   getAuthHeaders,
   getEstadoFactura,
+  getEstatusNota,
   getEstatusPago,
+  getMetodoPago,
   getUsuarioSesion,
+  METODOS_PAGO,
   hoyMexico,
   nombreFactura,
   puedeEscribirCxP,
@@ -97,7 +105,7 @@ const slotPropsGrid = (archivo) => ({
 });
 const botonSx = { borderRadius: 2, textTransform: "none", fontWeight: 600 };
 
-const KPI_COLORES = { azul: "#1976d2", rojo: "#d32f2f", naranja: "#ed6c02", verde: "#2e7d32" };
+const KPI_COLORES = { azul: "#1976d2", rojo: "#d32f2f", naranja: "#ed6c02", verde: "#2e7d32", morado: "#6a1b9a" };
 
 // ---------------------------------------------------------------------
 // Componentes de presentación
@@ -206,7 +214,7 @@ const CuentasPorPagar = () => {
   const [cargandoFacturas, setCargandoFacturas] = useState(true);
   const [seleccion, setSeleccion] = useState([]);
 
-  const [filtrosPagos, setFiltrosPagos] = useState({ desde: sumarDias(hoyMexico(), -90), hasta: hoyMexico(), estatus: "" });
+  const [filtrosPagos, setFiltrosPagos] = useState({ desde: sumarDias(hoyMexico(), -90), hasta: hoyMexico(), estatus: "", metodo: "" });
   const [pagos, setPagos] = useState([]);
   const [cargandoPagos, setCargandoPagos] = useState(true);
   const [cargandoProveedores, setCargandoProveedores] = useState(true);
@@ -215,6 +223,13 @@ const CuentasPorPagar = () => {
   const [pagoDetalleId, setPagoDetalleId] = useState(null);
   const [facturaMovId, setFacturaMovId] = useState(null);
   const [proveedorTerminos, setProveedorTerminos] = useState(null);
+
+  const [estatusNotas, setEstatusNotas] = useState("disponibles");
+  const [notas, setNotas] = useState([]);
+  const [cargandoNotas, setCargandoNotas] = useState(true);
+  const [dialogoNota, setDialogoNota] = useState(false);
+  const [notaDetalleId, setNotaDetalleId] = useState(null);
+  const seccionNotasRef = useRef(null);
 
   const proveedorId = proveedorFiltro?.id_proveedor || null;
 
@@ -259,6 +274,7 @@ const CuentasPorPagar = () => {
           desde: filtrosPagos.desde || undefined,
           hasta: filtrosPagos.hasta || undefined,
           estatus: filtrosPagos.estatus || undefined,
+          metodo: filtrosPagos.metodo || undefined,
         },
       });
       setPagos(Array.isArray(data?.pagos) ? data.pagos : []);
@@ -285,13 +301,36 @@ const CuentasPorPagar = () => {
   useEffect(() => { cargarResumen(); }, [cargarResumen]);
   useEffect(() => { cargarFacturas(); }, [cargarFacturas]);
   useEffect(() => { cargarPagos(); }, [cargarPagos]);
+  const cargarNotas = useCallback(async () => {
+    setCargandoNotas(true);
+    try {
+      const { data } = await axios.get(`${apiUrl}/cuentasPorPagar/notas-credito`, {
+        ...getAuthHeaders(),
+        params: { estatus: estatusNotas, proveedor_id: proveedorId || undefined },
+      });
+      setNotas(Array.isArray(data?.notas) ? data.notas : []);
+    } catch (error) {
+      setNotas([]);
+      handleApiError(error, { defaultMessage: "No se pudieron consultar las notas de crédito." });
+    } finally {
+      setCargandoNotas(false);
+    }
+  }, [estatusNotas, proveedorId]);
+
   useEffect(() => { cargarProveedores(); }, [cargarProveedores]);
+  useEffect(() => { cargarNotas(); }, [cargarNotas]);
 
   const recargarTodo = () => {
     cargarResumen();
     cargarFacturas();
     cargarPagos();
     cargarProveedores();
+    cargarNotas();
+  };
+
+  const irANotas = () => {
+    setEstatusNotas("disponibles");
+    seccionNotasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // ---------------- KPIs como filtro ----------------
@@ -459,9 +498,19 @@ const CuentasPorPagar = () => {
       },
       { field: "fecha_pago", headerName: "Fecha de pago", width: 120, valueFormatter: (value) => fmtFecha(value) },
       { field: "proveedor", headerName: "Proveedor", flex: 1, minWidth: 180 },
-      { field: "referencia", headerName: "Referencia", width: 170 },
+      {
+        field: "metodo_pago",
+        headerName: "Método",
+        width: 140,
+        valueGetter: (value) => getMetodoPago(value).label,
+        renderCell: (params) => {
+          const info = getMetodoPago(params.row.metodo_pago);
+          return <Chip size="small" label={info.label} sx={chipSuaveSx(info)} />;
+        },
+      },
+      { field: "referencia", headerName: "Referencia / nota", width: 170 },
       { field: "facturas", headerName: "Facturas", flex: 1, minWidth: 160 },
-      { field: "monto_total", headerName: "Transferido", width: 125, type: "number", valueFormatter: (value) => fmtMoneda(value) },
+      { field: "monto_total", headerName: "Monto", width: 125, type: "number", valueFormatter: (value) => fmtMoneda(value) },
       {
         field: "monto_descuento",
         headerName: "Descuento",
@@ -519,7 +568,7 @@ const CuentasPorPagar = () => {
       {
         field: "dias_credito",
         headerName: "Días crédito",
-        width: 110,
+        width: 130,
         type: "number",
         renderCell: (params) =>
           params.value == null ? (
@@ -541,10 +590,24 @@ const CuentasPorPagar = () => {
         headerName: "CLABE",
         width: 190,
         renderCell: (params) =>
-          params.value || <Chip size="small" label="Sin CLABE" sx={chipSuaveSx({ color: "#d32f2f", bg: "#ffebee" })} />,
+          params.value ||
+          (params.row.numero_cuenta ? <Vacio /> : <Chip size="small" label="Sin cuenta" sx={chipSuaveSx({ color: "#d32f2f", bg: "#ffebee" })} />),
       },
+      { field: "numero_cuenta", headerName: "No. cuenta", width: 140, valueFormatter: (value) => value || "—" },
       { field: "facturas_abiertas", headerName: "Facturas abiertas", width: 135, type: "number" },
       { field: "saldo_abierto", headerName: "Saldo abierto", width: 135, type: "number", valueFormatter: (value) => fmtMoneda(value) },
+      {
+        field: "saldo_favor",
+        headerName: "Saldo a favor",
+        width: 130,
+        type: "number",
+        renderCell: (params) =>
+          params.value > 0 ? (
+            <Typography variant="body2" sx={{ color: "#6a1b9a", fontWeight: 700 }}>{fmtMoneda(params.value)}</Typography>
+          ) : (
+            <Vacio />
+          ),
+      },
       ...(puedeEscribir
         ? [
           {
@@ -566,6 +629,61 @@ const CuentasPorPagar = () => {
     [puedeEscribir]
   );
 
+  const columnasNotas = useMemo(
+    () => [
+      {
+        field: "folio",
+        headerName: "Folio",
+        width: 130,
+        renderCell: (params) => (
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "#1a237e" }} noWrap title={params.value}>
+            {params.value}
+          </Typography>
+        ),
+      },
+      { field: "fecha_nota", headerName: "Fecha", width: 105, valueFormatter: (value) => fmtFecha(value) },
+      { field: "proveedor", headerName: "Proveedor", flex: 1, minWidth: 180 },
+      { field: "concepto", headerName: "Concepto", flex: 1.2, minWidth: 200 },
+      { field: "monto", headerName: "Monto", width: 120, type: "number", valueFormatter: (value) => fmtMoneda(value) },
+      { field: "usado", headerName: "Usado", width: 120, type: "number", valueFormatter: (value) => fmtMoneda(value) },
+      {
+        field: "saldo",
+        headerName: "Disponible",
+        width: 125,
+        type: "number",
+        renderCell: (params) => (
+          <Typography variant="body2" sx={{ fontWeight: 700, color: params.value > 0 ? "#6a1b9a" : "text.disabled" }}>
+            {fmtMoneda(params.value)}
+          </Typography>
+        ),
+      },
+      {
+        field: "estatus",
+        headerName: "Estatus",
+        width: 150,
+        valueGetter: (value, row) => getEstatusNota(row).label,
+        renderCell: (params) => {
+          const info = getEstatusNota(params.row);
+          return <Chip size="small" label={info.label} sx={chipSuaveSx(info)} />;
+        },
+      },
+      {
+        field: "acciones",
+        headerName: "Detalle",
+        width: 95,
+        sortable: false,
+        filterable: false,
+        disableExport: true,
+        renderCell: (params) => (
+          <Button size="small" startIcon={<VisibilityIcon />} onClick={() => setNotaDetalleId(params.row.id)} sx={botonSx}>
+            Ver
+          </Button>
+        ),
+      },
+    ],
+    []
+  );
+
   const proveedoresVisibles = useMemo(
     () => (proveedorId ? proveedores.filter((p) => p.id_proveedor === proveedorId) : proveedores),
     [proveedores, proveedorId]
@@ -581,6 +699,18 @@ const CuentasPorPagar = () => {
   const alCancelarPago = (data) => {
     setPagoDetalleId(null);
     swalSuccess("Pago cancelado", data?.message);
+    recargarTodo();
+  };
+
+  const alGuardarNota = (data) => {
+    setDialogoNota(false);
+    swalSuccess("Nota de crédito registrada", data?.message);
+    recargarTodo();
+  };
+
+  const alCancelarNota = (data) => {
+    setNotaDetalleId(null);
+    swalSuccess("Nota de crédito cancelada", data?.message);
     recargarTodo();
   };
 
@@ -631,7 +761,7 @@ const CuentasPorPagar = () => {
       </Paper>
 
       {/* ---------- KPIs (filtran la tabla de facturas) ---------- */}
-      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" } }}>
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)", lg: "repeat(5, 1fr)" } }}>
         <KpiCard icon={AccountBalanceWalletOutlinedIcon} color={KPI_COLORES.azul} label="Total por pagar" activo={estadoFacturas === "abiertas"} onClick={() => setEstadoFacturas("abiertas")}>
           <ValorKpi valor={fmtMoneda(r.saldo_abierto)} detalle={`${r.abiertas ?? 0} factura(s) abiertas`} />
         </KpiCard>
@@ -643,6 +773,9 @@ const CuentasPorPagar = () => {
         </KpiCard>
         <KpiCard icon={SavingsOutlinedIcon} color={KPI_COLORES.verde} label="Ahorro por pronto pago" activo={estadoFacturas === "pronto_pago"} onClick={() => filtrarPorKpi("pronto_pago")}>
           <ValorKpi valor={fmtMoneda(r.ahorro_pronto_pago)} detalle={`${r.pronto_pago ?? 0} factura(s) aún con descuento`} />
+        </KpiCard>
+        <KpiCard icon={RequestQuoteOutlinedIcon} color={KPI_COLORES.morado} label="Saldo a favor (notas)" activo={false} onClick={irANotas}>
+          <ValorKpi valor={fmtMoneda(r.saldo_favor)} detalle={`${r.notas_con_saldo ?? 0} nota(s) de crédito con saldo`} />
         </KpiCard>
       </Box>
 
@@ -769,14 +902,28 @@ const CuentasPorPagar = () => {
                 ))}
               </Select>
             </FormControl>
-            <Tooltip title="Últimos 90 días, todos los estatus" arrow>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel id="cxp-metodo-pago-label">Método</InputLabel>
+              <Select
+                labelId="cxp-metodo-pago-label"
+                label="Método"
+                value={filtrosPagos.metodo}
+                onChange={(e) => setFiltrosPagos((p) => ({ ...p, metodo: e.target.value }))}
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {Object.entries(METODOS_PAGO).map(([valor, info]) => (
+                  <MenuItem key={valor} value={valor}>{info.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Tooltip title="Últimos 90 días, todos los estatus y métodos" arrow>
               <span>
                 <Button
                   variant="outlined"
                   color="inherit"
                   size="small"
                   startIcon={<RestartAltIcon />}
-                  onClick={() => setFiltrosPagos({ desde: sumarDias(hoy, -90), hasta: hoy, estatus: "" })}
+                  onClick={() => setFiltrosPagos({ desde: sumarDias(hoy, -90), hasta: hoy, estatus: "", metodo: "" })}
                   sx={botonSx}
                 >
                   Limpiar
@@ -800,11 +947,61 @@ const CuentasPorPagar = () => {
         </Box>
       </SectionCard>
 
+      {/* ---------- Notas de crédito ---------- */}
+      <Box ref={seccionNotasRef} sx={{ scrollMarginTop: 16 }}>
+        <SectionCard
+          icon={RequestQuoteOutlinedIcon}
+          title="Notas de crédito"
+          subtitle="Saldo a favor con proveedores, sin vencimiento. Se aplica a facturas desde “Registrar pago” con el método Nota de crédito."
+          count={notas.length}
+          actions={
+            <>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel id="cxp-notas-label">Mostrar</InputLabel>
+                <Select labelId="cxp-notas-label" label="Mostrar" value={estatusNotas} onChange={(e) => setEstatusNotas(e.target.value)}>
+                  {FILTROS_NOTAS.map((f) => (
+                    <MenuItem key={f.value} value={f.value}>{f.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {puedeEscribir && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  disabled={cargandoProveedores}
+                  onClick={() => setDialogoNota(true)}
+                  sx={botonSx}
+                >
+                  Registrar nota
+                </Button>
+              )}
+            </>
+          }
+        >
+          <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
+            <DataGrid
+              {...gridComunProps}
+              rows={notas}
+              columns={columnasNotas}
+              loading={cargandoNotas}
+              getRowClassName={(params) => (params.row.estatus === "cancelada" ? "fila-cancelada" : "")}
+              sx={{ ...gridSx, "& .fila-cancelada": { color: "text.disabled" } }}
+              slotProps={slotPropsGrid("cuentas_por_pagar_notas_credito")}
+              localeText={{
+                ...LOCALE_TEXT_GRID,
+                noRowsLabel: `No hay notas de crédito en “${FILTROS_NOTAS.find((f) => f.value === estatusNotas)?.label}”.`,
+              }}
+            />
+          </Box>
+        </SectionCard>
+      </Box>
+
       {/* ---------- Términos y cuenta de proveedores ---------- */}
       <SectionCard
         icon={AccountBalanceOutlinedIcon}
         title="Términos y cuenta de proveedores"
-        subtitle="Días contados desde la emisión de la factura. Sin CLABE no se pueden registrar pagos."
+        subtitle="Días contados desde la emisión de la factura. Sin CLABE ni número de cuenta no se pueden registrar pagos."
         count={proveedoresVisibles.length}
       >
         <Box sx={{ height: GRID_HEIGHT, width: "100%" }}>
@@ -844,6 +1041,27 @@ const CuentasPorPagar = () => {
         onClose={() => setFacturaMovId(null)}
         onVerPago={(id) => {
           setFacturaMovId(null);
+          setPagoDetalleId(id);
+        }}
+      />
+      {puedeEscribir && (
+        <NotaCreditoDialog
+          open={dialogoNota}
+          proveedores={proveedores}
+          proveedorInicial={proveedorFiltro}
+          hoy={hoy}
+          onClose={() => setDialogoNota(false)}
+          onGuardado={alGuardarNota}
+        />
+      )}
+      <DetalleNotaDialog
+        open={Boolean(notaDetalleId)}
+        notaId={notaDetalleId}
+        puedeEscribir={puedeEscribir}
+        onClose={() => setNotaDetalleId(null)}
+        onCancelada={alCancelarNota}
+        onVerPago={(id) => {
+          setNotaDetalleId(null);
           setPagoDetalleId(id);
         }}
       />

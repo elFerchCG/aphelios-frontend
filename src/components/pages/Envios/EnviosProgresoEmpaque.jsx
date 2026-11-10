@@ -1351,8 +1351,11 @@ const EnviosProgresoEmpaque = () => {
             headerName: '# Caja',
             flex: 1,
             minWidth: 120,
+            // Las cajas del equipo de apoyo se muestran con su folio (APOYO-###)
             renderCell: (params) => (
-                <Chip label={`📦 Caja #${params.value}`} color="primary" variant="outlined" size="small" />
+                params.row.caja_tipo === 'apoyo'
+                    ? <Chip label={`📦 ${params.row.caja_folio}`} variant="outlined" size="small" sx={{ color: '#6a1b9a', borderColor: '#6a1b9a', fontWeight: 600 }} />
+                    : <Chip label={`📦 Caja #${params.value}`} color="primary" variant="outlined" size="small" />
             )
         },
         {

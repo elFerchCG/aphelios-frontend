@@ -1,5 +1,6 @@
 import React, { useRef } from 'react'
 import { useParams } from "react-router-dom";
+import { useCallback } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { GridActionsCellItem } from "@mui/x-data-grid";
 import AppDataGrid from '../../common/AppDataGrid';
@@ -20,6 +21,7 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import LayersOutlinedIcon from '@mui/icons-material/LayersOutlined';
 import ViewInArOutlinedIcon from '@mui/icons-material/ViewInArOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import PanToolOutlinedIcon from '@mui/icons-material/PanToolOutlined';
 import {
     Button,
     Box,
@@ -31,8 +33,13 @@ import {
     Chip,
     Stack,
     GlobalStyles,
+    Tabs,
+    Tab,
 } from '@mui/material';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import EnvioKpis, { calcularContenidoEnvio } from './EnvioKpis';
+import { COLOR_APOYO, esResponsableCaja, folioCaja, tomarCajaConAutorizacion } from './tomarCaja';
+import EquipoApoyoPanel from './EquipoApoyoPanel';
 
 // ============================================================
 // Constantes y piezas de layout (estilo aphelios-ui-style)
@@ -146,6 +153,33 @@ const EnvioDetalle = () => {
     const [totalPiezas, setTotalPiezas] = useState(0);
     const [totalPiezasEmpacadas, setTotalPiezasEmpacadas] = useState(0);
     const [loading, setLoading] = useState(true);
+
+    // Pestaña activa en la URL (?tab=apoyo) para regresar a ella desde una caja
+    const tabActiva = new URLSearchParams(location.search).get('tab') === 'apoyo' ? 'apoyo' : 'general';
+    const cambiarTab = (valor) => navigate(
+        { pathname: location.pathname, search: valor === 'apoyo' ? '?tab=apoyo' : '' },
+        { replace: true, state: location.state }
+    );
+
+    // Cajas del equipo de apoyo (APOYO-###)
+    const [cajasApoyo, setCajasApoyo] = useState([]);
+    const [loadingApoyo, setLoadingApoyo] = useState(false);
+    const fetchCajasApoyo = useCallback(async () => {
+        if (!envioId || !apiUrl) return;
+        setLoadingApoyo(true);
+        try {
+            const response = await axios.get(`${apiUrl}/empaque/fetchCajasApoyo/${envioId}`);
+            setCajasApoyo(Array.isArray(response.data.data) ? response.data.data : []);
+        } catch (error) {
+            setCajasApoyo([]);
+        } finally {
+            setLoadingApoyo(false);
+        }
+    }, [apiUrl, envioId]);
+
+    useEffect(() => {
+        fetchCajasApoyo();
+    }, [fetchCajasApoyo]);
 
     const formatFecha = (fechaISO) => {
         if (!fechaISO) return '';
@@ -458,6 +492,16 @@ const EnvioDetalle = () => {
         navigate(`/empaqueCajaAbierta/envio/${envioId}/caja/${cajaId}/visual/${cajaIdVisual}`)
     }
 
+    // Tomar caja: pasa a cargo del usuario en sesión y entra a escanear
+    const handleTomarCaja = async (caja, tarimaId) => {
+        if (loading) return;
+        const respuesta = await tomarCajaConAutorizacion({ apiUrl, token, user, caja });
+        if (respuesta) {
+            await fetchCajas(tarimaId);
+            handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id);
+        }
+    };
+
     const fetchCajas = async (tarimaId) => {
         try {
             const response = await axios.get(`${apiUrl}/empaque/fetchCajas/${tarimaId}`);
@@ -513,7 +557,23 @@ const EnvioDetalle = () => {
     const columns = [
         { field: "id", headerName: "# Tarima", type: "number", flex: 0.2, justifyContent: "start" },
         { field: "visual_id", headerName: "# Tarima", type: "number", flex: 0.25, minWidth: 80, headerAlign: "left", align: "left" },
-        { field: "cajas_ids", headerName: "Cajas", type: "string", flex: 0.5, minWidth: 100 },
+        {
+            field: "cajas_ids",
+            headerName: "Cajas",
+            type: "string",
+            flex: 0.5,
+            minWidth: 110,
+            renderCell: ({ row }) => (
+                <Stack direction="row" gap={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Typography noWrap sx={{ fontSize: 'inherit' }}>{row.cajas_ids || (row.cajas_apoyo ? '' : '—')}</Typography>
+                    {row.cajas_apoyo > 0 && (
+                        <Tooltip arrow title={`${row.cajas_apoyo} caja(s) del equipo de apoyo en esta tarima`}>
+                            <Chip size="small" label={`+${row.cajas_apoyo} apoyo`} sx={{ height: 20, fontWeight: 700, bgcolor: `${COLOR_APOYO}1A`, color: COLOR_APOYO }} />
+                        </Tooltip>
+                    )}
+                </Stack>
+            ),
+        },
         {
             field: "estatus",
             headerName: "Estatus",
@@ -637,6 +697,13 @@ const EnvioDetalle = () => {
         fetchPiezasYFacturas();
         fetchAgrupaciones();
         if (expandedRowId) fetchCajas(expandedRowId);
+        fetchCajasApoyo();
+    };
+
+    // Recarga usada por la pestaña de apoyo (sus cajas, tarimas y la tarima abierta)
+    const recargarApoyo = async () => {
+        await Promise.all([fetchCajasApoyo(), fetchTarimas()]);
+        if (expandedRowId) fetchCajas(expandedRowId);
     };
 
     const contenidoEnvio = useMemo(() => calcularContenidoEnvio({
@@ -650,7 +717,8 @@ const EnvioDetalle = () => {
 
     // Copia antes de ordenar: .sort() sobre el arreglo del estado lo mutaba.
     const cajasTarimaExpandida = tarimaExpandida
-        ? [...(cajas[tarimaExpandida.id] || [])].sort((a, b) => Number(b.visual_id) - Number(a.visual_id))
+        ? [...(cajas[tarimaExpandida.id] || [])].sort((a, b) =>
+            (a.tipo === 'apoyo') - (b.tipo === 'apoyo') || Number(b.visual_id) - Number(a.visual_id))
         : [];
 
     const piezasTarimaExpandida = cajasTarimaExpandida.reduce(
@@ -662,16 +730,43 @@ const EnvioDetalle = () => {
     // Escanear) llaman a los mismos handlers y con las mismas condiciones
     // de habilitado que la tabla anterior.
     const columnasCajas = [
-        { field: "visual_id", headerName: "# Caja", type: "number", flex: 0.4, minWidth: 80, headerAlign: "left", align: "left" },
+        {
+            field: "visual_id",
+            headerName: "# Caja",
+            type: "number",
+            flex: 0.5,
+            minWidth: 118,
+            headerAlign: "left",
+            align: "left",
+            renderCell: ({ row }) => row.tipo === 'apoyo'
+                ? <Chip size="small" label={folioCaja(row)} sx={{ fontWeight: 700, bgcolor: `${COLOR_APOYO}1A`, color: COLOR_APOYO, border: `1px solid ${COLOR_APOYO}` }} />
+                : row.visual_id,
+        },
         { field: "nombre_usuario", headerName: "Creado Por", flex: 1, minWidth: 130 },
+        {
+            field: "nombre_responsable",
+            headerName: "Responsable",
+            flex: 1,
+            minWidth: 140,
+            renderCell: ({ row: caja }) => (
+                <Stack direction="row" gap={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Typography noWrap title={caja.nombre_responsable || ''} sx={{ fontSize: 'inherit' }}>
+                        {caja.nombre_responsable || '—'}
+                    </Typography>
+                    {caja.estatus === 'abierta' && esResponsableCaja(caja, user) && (
+                        <Chip size="small" label="Tú" color="success" sx={{ fontWeight: 700, height: 20 }} />
+                    )}
+                </Stack>
+            ),
+        },
         {
             field: "fecha_recepcion",
             headerName: "Fecha Creación",
             flex: 0.9,
-            minWidth: 150,
+            minWidth: 130,
             valueFormatter: (value) => formatFecha(value),
         },
-        { field: "total_cantidad", headerName: "Piezas", type: "number", flex: 0.5, minWidth: 80, headerAlign: "center", align: "center" },
+        { field: "total_cantidad", headerName: "Piezas", type: "number", flex: 0.5, minWidth: 70, headerAlign: "center", align: "center" },
         {
             field: "estatus",
             headerName: "Estatus",
@@ -682,15 +777,28 @@ const EnvioDetalle = () => {
         {
             field: "acciones",
             headerName: "Acciones",
-            flex: 1.2,
-            minWidth: 240,
+            flex: 1.5,
+            minWidth: 290,
             sortable: false,
             filterable: false,
             disableExport: true,
             headerAlign: "center",
             align: "center",
-            renderCell: ({ row: caja }) => (
-                <Box display="flex" flexDirection="row" justifyContent="center" gap={1.5} sx={{ width: '100%' }}>
+            renderCell: ({ row: caja }) => caja.tipo === 'apoyo' ? (
+                // Caja del equipo de apoyo ya asignada: aquí solo se consulta
+                <Stack direction="row" gap={1.5} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                        <IconButton color="primary" size="small" onClick={() => handleEntrarCajaCerrada(envioId, caja.id, folioCaja(caja))} disabled={loading}>
+                            <ListAltIcon sx={{ fontSize: "1.8rem" }} />
+                        </IconButton>
+                        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>Registros</Typography>
+                    </Box>
+                    <Button size="small" variant="text" onClick={() => cambiarTab('apoyo')} sx={{ textTransform: 'none', fontWeight: 600, color: COLOR_APOYO }}>
+                        Ver en Apoyo
+                    </Button>
+                </Stack>
+            ) : (
+                <Box display="flex" flexDirection="row" justifyContent="center" gap={1} sx={{ width: '100%' }}>
                     <Box display="flex" flexDirection="column" alignItems="center">
                         <IconButton
                             color="primary"
@@ -722,18 +830,42 @@ const EnvioDetalle = () => {
                             Reabrir
                         </Typography>
                     </Box>
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                        <IconButton
-                            size="small"
-                            onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
-                            disabled={tarimaExpandida.estatus === 'cerrada' || caja.estatus === 'cerrada' || loading}
-                        >
-                            <QrCodeScannerIcon sx={{ color: caja.estatus === 'abierta' && !loading ? "rebeccapurple" : 'gray', fontSize: "1.8rem" }} />
-                        </IconButton>
-                        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
-                            Escanear
-                        </Typography>
-                    </Box>
+                    {(() => {
+                        // Solo el responsable escanea; los demás pueden tomar la caja
+                        const esMia = esResponsableCaja(caja, user);
+                        const puedeEscanear = tarimaExpandida.estatus !== 'cerrada' && caja.estatus === 'abierta' && esMia && !loading;
+                        const puedeTomar = tarimaExpandida.estatus !== 'cerrada' && caja.estatus === 'abierta' && !esMia && !loading;
+                        return (
+                            <>
+                                <Tooltip arrow title={caja.estatus === 'abierta' && !esMia ? `A cargo de ${caja.nombre_responsable || 'otra persona'}` : ''}>
+                                    <Box display="flex" flexDirection="column" alignItems="center">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => handleEntrarCajaAbierta(envioId, caja.id, caja.visual_id)}
+                                            disabled={!puedeEscanear}
+                                        >
+                                            <QrCodeScannerIcon sx={{ color: puedeEscanear ? "rebeccapurple" : 'gray', fontSize: "1.8rem" }} />
+                                        </IconButton>
+                                        <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
+                                            Escanear
+                                        </Typography>
+                                    </Box>
+                                </Tooltip>
+                                <Box display="flex" flexDirection="column" alignItems="center">
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => handleTomarCaja(caja, tarimaExpandida.id)}
+                                        disabled={!puedeTomar}
+                                    >
+                                        <PanToolOutlinedIcon sx={{ color: puedeTomar ? "#ed6c02" : 'gray', fontSize: "1.6rem" }} />
+                                    </IconButton>
+                                    <Typography variant='caption' sx={{ fontSize: "0.75rem", fontWeight: "bold", lineHeight: 1.1 }}>
+                                        Tomar
+                                    </Typography>
+                                </Box>
+                            </>
+                        );
+                    })()}
                 </Box>
             ),
         },
@@ -830,7 +962,54 @@ const EnvioDetalle = () => {
                 contenido={contenidoEnvio}
             />
 
-            {/* ---------- Tarimas | Cajas ---------- */}
+            {/* ---------- Pestañas: Escaneo general | Equipo de apoyo ---------- */}
+            <Paper elevation={2} sx={{ borderRadius: 3, px: 1 }}>
+                <Tabs
+                    value={tabActiva}
+                    onChange={(e, valor) => cambiarTab(valor)}
+                    sx={{
+                        minHeight: 48,
+                        '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 48 },
+                        '& .MuiTabs-indicator': { height: 3, borderRadius: 3, backgroundColor: tabActiva === 'apoyo' ? COLOR_APOYO : undefined },
+                        '& .Mui-selected.tab-apoyo': { color: COLOR_APOYO },
+                    }}
+                >
+                    <Tab value="general" icon={<LayersOutlinedIcon />} iconPosition="start" label="Escaneo general" />
+                    <Tab
+                        value="apoyo"
+                        className="tab-apoyo"
+                        icon={<GroupsOutlinedIcon />}
+                        iconPosition="start"
+                        label={
+                            <Stack direction="row" gap={1} alignItems="center">
+                                Equipo de apoyo
+                                {cajasApoyo.some((c) => c.estatus === 'abierta' || !c.tarima_id) && (
+                                    <Chip
+                                        size="small"
+                                        label={`${cajasApoyo.filter((c) => c.estatus === 'abierta').length} abierta(s)`}
+                                        sx={{ height: 20, fontWeight: 700, bgcolor: `${COLOR_APOYO}1A`, color: COLOR_APOYO }}
+                                    />
+                                )}
+                            </Stack>
+                        }
+                    />
+                </Tabs>
+            </Paper>
+
+            {tabActiva === 'apoyo' ? (
+                <EquipoApoyoPanel
+                    apiUrl={apiUrl}
+                    token={token}
+                    user={user}
+                    envioId={envioId}
+                    folioEnvio={folioInternoEnvio}
+                    estatusEnvio={estatusEnvio}
+                    tarimas={tarimas}
+                    cajasApoyo={cajasApoyo}
+                    loading={loadingApoyo}
+                    onRecargar={recargarApoyo}
+                />
+            ) : (
             <Box
                 sx={{
                     display: 'grid',
@@ -936,11 +1115,13 @@ const EnvioDetalle = () => {
                             pageSize={GRID_PAGE_SIZE}
                             pageSizeOptions={GRID_PAGE_SIZE_OPTIONS}
                             exportFileName={`envio_${folioInternoEnvio || envioId}_tarima_${tarimaExpandida.visual_id}_cajas`}
+                            initialColumnVisibilityModel={{ nombre_usuario: false }}
                             localeText={localeSinRegistros('Esta tarima aún no tiene cajas.')}
                         />
                     )}
                 </SectionCard>
             </Box>
+            )}
         </Box>
     )
 }

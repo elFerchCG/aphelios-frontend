@@ -99,6 +99,31 @@ export const TIPOS_MOVIMIENTO = {
   descuento_pronto_pago: "Descuento pronto pago",
 };
 
+// Etiqueta del movimiento considerando el método con el que se pagó.
+export const etiquetaMovimiento = (tipo, metodoPago) =>
+  tipo === "pago" && metodoPago === "nota_credito" ? "Pago con nota de crédito" : TIPOS_MOVIMIENTO[tipo] || tipo;
+
+export const METODOS_PAGO = {
+  transferencia: { label: "Transferencia", color: "#1976d2", bg: "#e3f2fd" },
+  nota_credito: { label: "Nota de crédito", color: "#6a1b9a", bg: "#f3e5f5" },
+};
+
+export const getMetodoPago = (metodo) => METODOS_PAGO[metodo] || METODOS_PAGO.transferencia;
+
+export const FILTROS_NOTAS = [
+  { value: "disponibles", label: "Con saldo disponible" },
+  { value: "activas", label: "Activas" },
+  { value: "canceladas", label: "Canceladas" },
+  { value: "todas", label: "Todas" },
+];
+
+export const getEstatusNota = (nota) => {
+  if (nota?.estatus === "cancelada") return { label: "Cancelada", color: "#d32f2f", bg: "#ffebee" };
+  if (Number(nota?.saldo) <= 0) return { label: "Agotada", color: "#616161", bg: "#f5f5f5" };
+  if (Number(nota?.saldo) < Number(nota?.monto)) return { label: "Con saldo parcial", color: "#ed6c02", bg: "#fff3e0" };
+  return { label: "Disponible", color: "#2e7d32", bg: "#e8f5e9" };
+};
+
 export const chipSuaveSx = (info, extra = {}) => ({
   bgcolor: info.bg,
   color: info.color,

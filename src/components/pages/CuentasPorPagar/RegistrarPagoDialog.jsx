@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  MenuItem,
   Paper,
   Stack,
   Table,
@@ -20,9 +21,14 @@ import {
   TableHead,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
+import RequestQuoteOutlinedIcon from "@mui/icons-material/RequestQuoteOutlined";
 
 import {
   modalActionsSx,
@@ -53,8 +59,12 @@ const lineaInicial = (factura, fechaPago) => {
   };
 };
 
-// Registro de una transferencia que liquida o abona una o varias facturas del mismo proveedor.
+// Registro de un pago (transferencia o nota de crédito) que liquida o abona facturas del mismo proveedor.
 const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuardado }) => {
+  const [metodo, setMetodo] = useState("transferencia");
+  const [notas, setNotas] = useState([]);
+  const [notaId, setNotaId] = useState("");
+  const [cargandoNotas, setCargandoNotas] = useState(false);
   const [fechaPago, setFechaPago] = useState(hoy);
   const [referencia, setReferencia] = useState("");
   const [comentario, setComentario] = useState("");
@@ -68,8 +78,25 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
     setReferencia("");
     setComentario("");
     setError("");
+    setMetodo("transferencia");
+    setNotaId("");
     setLineas(Object.fromEntries(facturas.map((f) => [f.id, lineaInicial(f, hoy)])));
   }, [open, facturas, hoy]);
+
+  // Notas de crédito del proveedor con saldo disponible.
+  useEffect(() => {
+    if (!open || !proveedor?.id_proveedor) return;
+    setNotas([]);
+    setCargandoNotas(true);
+    axios
+      .get(`${apiUrl}/cuentasPorPagar/notas-credito`, {
+        ...getAuthHeaders(),
+        params: { proveedor_id: proveedor.id_proveedor, estatus: "disponibles" },
+      })
+      .then(({ data }) => setNotas(Array.isArray(data?.notas) ? data.notas : []))
+      .catch(() => setNotas([]))
+      .finally(() => setCargandoNotas(false));
+  }, [open, proveedor?.id_proveedor]);
 
   // Si cambia la fecha, se quita el descuento a las facturas que ya no califican.
   const cambiarFecha = (valor) => {
@@ -120,11 +147,21 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
     [facturas, lineas, fechaPago]
   );
 
+  const esNota = metodo === "nota_credito";
+  const nota = notas.find((n) => n.id === notaId) || null;
   const totalTransferir = detalle.reduce((s, d) => s + d.monto, 0);
   const totalDescuento = detalle.reduce((s, d) => s + d.descuento, 0);
   const hayErrores = detalle.some((d) => d.errorLinea);
-  const sinClabe = !proveedor?.clabe;
-  const puedeGuardar = !guardando && !hayErrores && !sinClabe && referencia.trim() && fechaPago && facturas.length;
+  const sinCuenta = !proveedor?.clabe && !proveedor?.numero_cuenta;
+
+  let errorNota = "";
+  if (esNota && nota) {
+    if (totalTransferir > aCentavos(nota.saldo)) errorNota = `La nota solo tiene ${fmtMoneda(nota.saldo)} disponibles.`;
+    else if (fechaPago && fechaPago < nota.fecha_nota) errorNota = `La fecha de aplicación es anterior a la nota (${fmtFecha(nota.fecha_nota)}).`;
+  }
+
+  const metodoListo = esNota ? Boolean(nota) && !errorNota : !sinCuenta && referencia.trim();
+  const puedeGuardar = !guardando && !hayErrores && metodoListo && fechaPago && facturas.length;
 
   const guardar = async () => {
     setError("");
@@ -133,7 +170,9 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
       const payload = {
         proveedor_id: proveedor.id_proveedor,
         fecha_pago: fechaPago,
-        referencia: referencia.trim(),
+        metodo_pago: metodo,
+        nota_credito_id: esNota ? nota.id : null,
+        referencia: esNota ? null : referencia.trim(),
         comentario: comentario.trim() || null,
         facturas: detalle.map((d) => ({
           factura_id: d.factura.id,
@@ -158,20 +197,72 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
 
       <DialogContent sx={modalContentSx}>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          {sinClabe ? (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            color="primary"
+            value={metodo}
+            onChange={(e, v) => v && setMetodo(v)}
+            sx={{ "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 600, px: 2, gap: 1 } }}
+          >
+            <ToggleButton value="transferencia">
+              <AccountBalanceOutlinedIcon fontSize="small" /> Transferencia
+            </ToggleButton>
+            <Tooltip title={!cargandoNotas && !notas.length ? "Este proveedor no tiene notas de crédito con saldo" : ""} arrow>
+              <span>
+                <ToggleButton value="nota_credito" disabled={cargandoNotas || !notas.length} selected={esNota} onChange={() => setMetodo("nota_credito")}>
+                  <RequestQuoteOutlinedIcon fontSize="small" /> Nota de crédito
+                  {notas.length > 0 && ` (${notas.length})`}
+                </ToggleButton>
+              </span>
+            </Tooltip>
+          </ToggleButtonGroup>
+
+          {esNota ? (
+            <Stack direction="row" flexWrap="wrap" gap={2} alignItems="flex-start">
+              <TextField
+                select
+                label="Nota de crédito"
+                size="small"
+                value={notaId}
+                onChange={(e) => setNotaId(e.target.value)}
+                helperText={nota ? nota.concepto : "Elige la nota a aplicar"}
+                sx={{ minWidth: 320, flex: 1 }}
+              >
+                {notas.map((n) => (
+                  <MenuItem key={n.id} value={n.id}>
+                    {n.folio} · {fmtFecha(n.fecha_nota)} · disponible {fmtMoneda(n.saldo)}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {nota && (
+                <Alert severity={errorNota ? "error" : "success"} icon={false} sx={{ flex: 1, minWidth: 280, py: 0.5 }}>
+                  {errorNota || (
+                    <>
+                      Disponible <strong>{fmtMoneda(nota.saldo)}</strong> · se aplica{" "}
+                      <strong>{fmtMoneda(aPesos(totalTransferir))}</strong> · le quedan{" "}
+                      <strong>{fmtMoneda(aPesos(aCentavos(nota.saldo) - totalTransferir))}</strong>
+                    </>
+                  )}
+                </Alert>
+              )}
+            </Stack>
+          ) : sinCuenta ? (
             <Alert severity="error">
-              Este proveedor no tiene CLABE registrada. Captúrala en “Términos y cuenta de proveedores” antes de pagar.
+              Este proveedor no tiene CLABE ni número de cuenta. Captúralos en “Términos y cuenta de proveedores” antes de
+              pagar.
             </Alert>
           ) : (
             <Alert severity="info" icon={false}>
-              Transferencia a <strong>{proveedor.banco || "banco sin capturar"}</strong> · CLABE{" "}
-              <strong>{proveedor.clabe}</strong>
+              Transferencia a <strong>{proveedor.banco || "banco sin capturar"}</strong>
+              {proveedor.clabe && <> · CLABE <strong>{proveedor.clabe}</strong></>}
+              {proveedor.numero_cuenta && <> · Cuenta <strong>{proveedor.numero_cuenta}</strong></>}
             </Alert>
           )}
 
           <Stack direction="row" flexWrap="wrap" gap={2}>
             <TextField
-              label="Fecha de pago"
+              label={esNota ? "Fecha de aplicación" : "Fecha de pago"}
               type="date"
               size="small"
               value={fechaPago}
@@ -181,15 +272,17 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
               helperText={fmtFecha(fechaPago)}
               sx={{ width: 190 }}
             />
-            <TextField
-              label="Referencia / clave de rastreo"
-              size="small"
-              required
-              value={referencia}
-              onChange={(e) => setReferencia(e.target.value)}
-              inputProps={{ maxLength: 60 }}
-              sx={{ minWidth: 260, flex: 1 }}
-            />
+            {!esNota && (
+              <TextField
+                label="Referencia / clave de rastreo"
+                size="small"
+                required
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                inputProps={{ maxLength: 60 }}
+                sx={{ minWidth: 260, flex: 1 }}
+              />
+            )}
             <TextField
               label="Comentario (opcional)"
               size="small"
@@ -209,7 +302,7 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
                   <TableCell>Vence</TableCell>
                   <TableCell align="right">Saldo</TableCell>
                   <TableCell>Descuento pronto pago</TableCell>
-                  <TableCell align="right" sx={{ width: 170 }}>A transferir</TableCell>
+                  <TableCell align="right" sx={{ width: 170 }}>{esNota ? "A aplicar" : "A transferir"}</TableCell>
                   <TableCell align="right">Saldo restante</TableCell>
                 </TableRow>
               </TableHead>
@@ -288,7 +381,7 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
             )}
             <Box sx={{ textAlign: "right" }}>
               <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, textTransform: "uppercase" }}>
-                Total a transferir
+                {esNota ? "Total de la nota a aplicar" : "Total a transferir"}
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main", lineHeight: 1.3 }}>
                 {fmtMoneda(aPesos(totalTransferir))}
@@ -311,7 +404,7 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
           startIcon={guardando ? <CircularProgress size={18} color="inherit" /> : null}
           sx={modalPrimaryButtonSx}
         >
-          Registrar pago de {fmtMoneda(aPesos(totalTransferir))}
+          {esNota ? "Aplicar nota por" : "Registrar pago de"} {fmtMoneda(aPesos(totalTransferir))}
         </Button>
       </DialogActions>
     </Dialog>

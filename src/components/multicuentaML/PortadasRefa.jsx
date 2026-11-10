@@ -13,8 +13,10 @@ import ScienceOutlinedIcon from "@mui/icons-material/ScienceOutlined";
 import UndoOutlinedIcon from "@mui/icons-material/UndoOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 
-import { mcGet, mcPost, mensajeError } from "./multicuentaApi";
+import { mcDescargar, mcGet, mcPost, mensajeError } from "./multicuentaApi";
 import { GRID_HEIGHT, LOCALE_TEXT_GRID, gridSx, botonSx, SectionCard, EstadoChip } from "./uiMulticuenta";
 
 const REFRESCO_MS = 5000;
@@ -76,6 +78,60 @@ const PortadasRefa = ({ destino, destinoNombre, visible, avisar }) => {
   const [subida, setSubida] = useState(null); // { total, hechos, resultado: {cargada, error, sin_producto}, problemas: [] }
   const [trabajando, setTrabajando] = useState(false);
   const inputRef = useRef(null);
+  // [MULTICUENTA-ML] Fotos base (2ª foto de la principal) en ZIPs por partes
+  const [base, setBase] = useState(null); // { total, corte, por_parte, partes: [] }
+  const [baseEstado, setBaseEstado] = useState({}); // parte -> "bajando" | "lista" | "error"
+  const [calculando, setCalculando] = useState(false);
+  const bajandoTodas = useRef(false);
+
+  useEffect(() => {
+    setBase(null);
+    setBaseEstado({});
+  }, [destino]);
+
+  const calcularBase = async () => {
+    setCalculando(true);
+    try {
+      const r = await mcGet("/portadas/fotos-base/resumen", { cuentaMlId: destino });
+      setBase(r);
+      setBaseEstado({});
+      if (!r.total) avisar("info", `Todas las variantes vinculadas en ${destinoNombre} ya tienen portada cargada.`);
+    } catch (e) {
+      avisar("error", await mensajeError(e, "No se pudieron calcular las fotos base."));
+    } finally {
+      setCalculando(false);
+    }
+  };
+
+  const bajarParte = async (p) => {
+    setBaseEstado((s) => ({ ...s, [p.parte]: "bajando" }));
+    try {
+      await mcDescargar(
+        "/portadas/fotos-base/descargar",
+        { cuentaMlId: destino, parte: p.parte, porParte: base.por_parte, corte: base.corte },
+        `fotos_base_${destinoNombre}_parte_${String(p.parte).padStart(2, "0")}_de_${base.partes.length}.zip`,
+      );
+      setBaseEstado((s) => ({ ...s, [p.parte]: "lista" }));
+      return true;
+    } catch (e) {
+      setBaseEstado((s) => ({ ...s, [p.parte]: "error" }));
+      avisar("error", `Parte ${p.parte}: ${await mensajeError(e, "no se pudo descargar.")}`);
+      return false;
+    }
+  };
+
+  // Una tras otra; si una falla se detiene para repetir solo esa
+  const bajarTodas = async () => {
+    bajandoTodas.current = true;
+    for (const p of base.partes) {
+      if (!bajandoTodas.current) break;
+      if (baseEstado[p.parte] === "lista") continue;
+      if (!(await bajarParte(p))) break;
+    }
+    bajandoTodas.current = false;
+  };
+  const bajando = Object.values(baseEstado).includes("bajando");
+  const listas = Object.values(baseEstado).filter((x) => x === "lista").length;
 
   const cargar = useCallback(
     async (silencioso = false) => {
@@ -246,6 +302,65 @@ const PortadasRefa = ({ destino, destinoNombre, visible, avisar }) => {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+      <SectionCard
+        icon={DownloadOutlinedIcon}
+        title="Descargar fotos base"
+        subtitle={`La 2ª foto (la que va después de la portada) de cada variante vinculada en ${destinoNombre} que aún no tiene portada, tomada de la cuenta principal. Cada archivo se llama con su MLMU, listo para Photoroom y para subirlo aquí abajo.`}
+        actions={
+          <Stack direction="row" gap={1}>
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={calcularBase} disabled={calculando || bajando} sx={botonSx}>
+              {base ? "Recalcular" : "Calcular partes"}
+            </Button>
+            {base?.partes?.length > 0 && (
+              <Button size="small" variant="contained" startIcon={<DownloadOutlinedIcon />} onClick={bajarTodas} disabled={bajando || listas === base.partes.length} sx={botonSx}>
+                Descargar todas ({base.partes.length - listas})
+              </Button>
+            )}
+          </Stack>
+        }
+      >
+        {calculando && <LinearProgress sx={{ mb: 1 }} />}
+        {!base ? (
+          <Typography variant="body2" color="text.secondary">
+            Se descargan en ZIPs de {500} fotos (≈100 MB, 1–3 min cada uno). Si una publicación tiene solo una foto se usa esa, y cada ZIP trae un reporte CSV.
+          </Typography>
+        ) : (
+          <Stack gap={1.5}>
+            <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
+              <Chip size="small" color="primary" label={`Variantes sin portada: ${base.total}`} />
+              <Chip size="small" variant="outlined" label={`Partes: ${base.partes.length}`} />
+              {listas > 0 && <Chip size="small" color="success" variant="outlined" label={`Descargadas: ${listas}`} />}
+              <Typography variant="caption" color="text.secondary">
+                Calculado el {formatoFecha(base.corte)}; las partes no cambian aunque subas portadas mientras descargas.
+              </Typography>
+            </Stack>
+            {bajando && <LinearProgress />}
+            <Stack direction="row" gap={1} flexWrap="wrap">
+              {base.partes.map((p) => {
+                const est = baseEstado[p.parte];
+                return (
+                  <Tooltip key={p.parte} arrow title={`${p.primero} … ${p.ultimo}`}>
+                    <span>
+                      <Button
+                        size="small"
+                        variant={est === "lista" ? "contained" : "outlined"}
+                        color={est === "lista" ? "success" : est === "error" ? "error" : "primary"}
+                        startIcon={est === "lista" ? <CheckCircleOutlineIcon /> : <DownloadOutlinedIcon />}
+                        disabled={bajando}
+                        onClick={() => bajarParte(p)}
+                        sx={botonSx}
+                      >
+                        {est === "bajando" ? "Armando…" : `Parte ${p.parte}`} ({p.desde}–{p.hasta})
+                      </Button>
+                    </span>
+                  </Tooltip>
+                );
+              })}
+            </Stack>
+          </Stack>
+        )}
+      </SectionCard>
+
       <SectionCard
         icon={CloudUploadOutlinedIcon}
         title="Subir portadas"
