@@ -58,6 +58,10 @@ import AnalyticsOutlinedIcon from "@mui/icons-material/AnalyticsOutlined";
 import CloudSyncOutlinedIcon from "@mui/icons-material/CloudSyncOutlined";
 // [/MULTICUENTA-ML]
 
+// [FULL-CROSSDOCK]
+import SmartToyOutlinedIcon from "@mui/icons-material/SmartToyOutlined";
+// [/FULL-CROSSDOCK]
+
 export const navigationConfig = [
   {
     label: "Inicio",
@@ -114,6 +118,14 @@ export const navigationConfig = [
         icon: StorefrontOutlinedIcon,
         path: "/publicaciones",
       },
+      // [FULL-CROSSDOCK]
+      {
+        label: "Full a Cross Docking",
+        icon: SmartToyOutlinedIcon,
+        path: "/full-cross-docking",
+        roles: ["administrador", "Desarrollador"],
+      },
+      // [/FULL-CROSSDOCK]
     ],
   },
   {

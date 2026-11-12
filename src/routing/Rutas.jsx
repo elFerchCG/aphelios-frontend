@@ -104,6 +104,10 @@ import CuentasEcommerce from "../components/ecommerce/CuentasEcommerce";
 import StockCompartido from "../components/multicuentaML/StockCompartido";
 // [/MULTICUENTA-ML]
 
+// [FULL-CROSSDOCK]
+import RpaFullCrossDocking from "../components/pages/RpaFull/RpaFullCrossDocking";
+// [/FULL-CROSSDOCK]
+
 // ==============================
 // SOPORTE
 // ==============================
@@ -764,6 +768,16 @@ const Rutas = () => {
           element={
             <ProtectedRoute allowedRoles={rolesAdministracion}>
               <StockCompartido />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* [FULL-CROSSDOCK] Panel del RPA Full -> cross docking (administrador) */}
+        <Route
+          path="/full-cross-docking"
+          element={
+            <ProtectedRoute allowedRoles={rolesAdministracion}>
+              <RpaFullCrossDocking />
             </ProtectedRoute>
           }
         />
