@@ -40,6 +40,7 @@ import DetallePagoDialog from "./DetallePagoDialog";
 import MovimientosFacturaDialog from "./MovimientosFacturaDialog";
 import TerminosProveedorDialog from "./TerminosProveedorDialog";
 import NotaCreditoDialog from "./NotaCreditoDialog";
+import ComplementoPagoDialog from "./ComplementoPagoDialog";
 import DetalleNotaDialog from "./DetalleNotaDialog";
 import {
   chipSuaveSx,
@@ -214,13 +215,14 @@ const CuentasPorPagar = () => {
   const [cargandoFacturas, setCargandoFacturas] = useState(true);
   const [seleccion, setSeleccion] = useState([]);
 
-  const [filtrosPagos, setFiltrosPagos] = useState({ desde: sumarDias(hoyMexico(), -90), hasta: hoyMexico(), estatus: "", metodo: "" });
+  const [filtrosPagos, setFiltrosPagos] = useState({ desde: sumarDias(hoyMexico(), -90), hasta: hoyMexico(), estatus: "", metodo: "", complemento: "" });
   const [pagos, setPagos] = useState([]);
   const [cargandoPagos, setCargandoPagos] = useState(true);
   const [cargandoProveedores, setCargandoProveedores] = useState(true);
 
   const [dialogoPago, setDialogoPago] = useState(false);
   const [pagoDetalleId, setPagoDetalleId] = useState(null);
+  const [pagoComplemento, setPagoComplemento] = useState(null);
   const [facturaMovId, setFacturaMovId] = useState(null);
   const [proveedorTerminos, setProveedorTerminos] = useState(null);
 
@@ -275,6 +277,7 @@ const CuentasPorPagar = () => {
           hasta: filtrosPagos.hasta || undefined,
           estatus: filtrosPagos.estatus || undefined,
           metodo: filtrosPagos.metodo || undefined,
+          complemento: filtrosPagos.complemento || undefined,
         },
       });
       setPagos(Array.isArray(data?.pagos) ? data.pagos : []);
@@ -509,6 +512,44 @@ const CuentasPorPagar = () => {
         },
       },
       { field: "referencia", headerName: "Referencia / nota", width: 170 },
+      {
+        field: "complemento",
+        headerName: "Complemento",
+        width: 240,
+        valueGetter: (value, row) =>
+          row.metodo_pago === "nota_credito" ? "No aplica" : value || (row.estatus === "cancelado" ? "" : "Sin registrar"),
+        renderCell: (params) => {
+          const row = params.row;
+          if (row.metodo_pago === "nota_credito") {
+            return <Typography variant="caption" sx={{ color: "text.disabled" }}>No aplica</Typography>;
+          }
+          const editable = puedeEscribir && row.estatus === "aplicado";
+          return (
+            <Stack direction="row" alignItems="center" gap={0.5} sx={{ minWidth: 0, width: "100%" }}>
+              {row.complemento ? (
+                <Typography variant="body2" noWrap title={row.complemento} sx={{ flex: 1, minWidth: 0 }}>
+                  {row.complemento}
+                </Typography>
+              ) : row.estatus === "cancelado" ? (
+                <Vacio />
+              ) : (
+                <Chip size="small" label="Sin registrar" sx={chipSuaveSx({ color: "#ed6c02", bg: "#fff3e0" })} />
+              )}
+              {editable && (
+                <Tooltip title={row.complemento ? "Editar complemento" : "Agregar complemento"} arrow>
+                  <Button
+                    size="small"
+                    onClick={() => setPagoComplemento(row)}
+                    sx={{ ...botonSx, minWidth: 0, px: 0.75, ml: "auto", flexShrink: 0 }}
+                  >
+                    {row.complemento ? <EditOutlinedIcon fontSize="small" /> : <AddIcon fontSize="small" />}
+                  </Button>
+                </Tooltip>
+              )}
+            </Stack>
+          );
+        },
+      },
       { field: "facturas", headerName: "Facturas", flex: 1, minWidth: 160 },
       { field: "monto_total", headerName: "Monto", width: 125, type: "number", valueFormatter: (value) => fmtMoneda(value) },
       {
@@ -552,7 +593,7 @@ const CuentasPorPagar = () => {
         ),
       },
     ],
-    []
+    [puedeEscribir]
   );
 
   const columnasProveedores = useMemo(
@@ -694,6 +735,12 @@ const CuentasPorPagar = () => {
     setDialogoPago(false);
     swalSuccess("Pago registrado", data?.message);
     recargarTodo();
+  };
+
+  const alGuardarComplemento = (data) => {
+    setPagoComplemento(null);
+    swalSuccess("Complemento actualizado", data?.message);
+    cargarPagos();
   };
 
   const alCancelarPago = (data) => {
@@ -916,14 +963,27 @@ const CuentasPorPagar = () => {
                 ))}
               </Select>
             </FormControl>
-            <Tooltip title="Últimos 90 días, todos los estatus y métodos" arrow>
+            <FormControl size="small" sx={{ minWidth: 170 }}>
+              <InputLabel id="cxp-complemento-label">Complemento</InputLabel>
+              <Select
+                labelId="cxp-complemento-label"
+                label="Complemento"
+                value={filtrosPagos.complemento}
+                onChange={(e) => setFiltrosPagos((p) => ({ ...p, complemento: e.target.value }))}
+              >
+                <MenuItem value="">Todos</MenuItem>
+                <MenuItem value="sin">Sin registrar</MenuItem>
+                <MenuItem value="con">Registrado</MenuItem>
+              </Select>
+            </FormControl>
+            <Tooltip title="Últimos 90 días, todos los estatus, métodos y complementos" arrow>
               <span>
                 <Button
                   variant="outlined"
                   color="inherit"
                   size="small"
                   startIcon={<RestartAltIcon />}
-                  onClick={() => setFiltrosPagos({ desde: sumarDias(hoy, -90), hasta: hoy, estatus: "", metodo: "" })}
+                  onClick={() => setFiltrosPagos({ desde: sumarDias(hoy, -90), hasta: hoy, estatus: "", metodo: "", complemento: "" })}
                   sx={botonSx}
                 >
                   Limpiar
@@ -1026,6 +1086,14 @@ const CuentasPorPagar = () => {
           hoy={hoy}
           onClose={() => setDialogoPago(false)}
           onGuardado={alGuardarPago}
+        />
+      )}
+      {puedeEscribir && (
+        <ComplementoPagoDialog
+          open={Boolean(pagoComplemento)}
+          pago={pagoComplemento}
+          onClose={() => setPagoComplemento(null)}
+          onGuardado={alGuardarComplemento}
         />
       )}
       <DetallePagoDialog

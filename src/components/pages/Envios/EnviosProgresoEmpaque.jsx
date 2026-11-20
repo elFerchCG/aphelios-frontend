@@ -748,15 +748,13 @@ const EnviosProgresoEmpaque = () => {
                 let color = "default";
                 let labelText = logisticType; // Variable local para almacenar el texto sin mutar params
 
-                if (logisticType === "fulfillment") {
-                    color = "success";
-                    labelText = "FULL";
-                } else if (logisticType !== "fulfillment" && permitir_full === 1) {
-                    color = "error"; // o "secondary" según tu configuración en la otra columna
-                    labelText = "ME > FULL";
-                } else if (logisticType !== "fulfillment" && permitir_full === 0) {
+                // Manda el interruptor FULL de Publicaciones (permitir_full)
+                if (Number(permitir_full) === 1) {
+                    color = logisticType === "fulfillment" ? "success" : "error";
+                    labelText = logisticType === "fulfillment" ? "FULL" : "ME > FULL";
+                } else {
                     color = "warning";
-                    labelText = "ME";
+                    labelText = logisticType === "fulfillment" ? "FULL deshab." : "ME";
                 }
 
                 // Usamos labelText en lugar de params.value
@@ -946,15 +944,13 @@ const EnviosProgresoEmpaque = () => {
                 let color = "default";
                 let labelText = logisticType; // Variable local para almacenar el texto sin mutar params
 
-                if (logisticType === "fulfillment") {
-                    color = "success";
-                    labelText = "FULL";
-                } else if (logisticType !== "fulfillment" && permitir_full === 1) {
-                    color = "error"; // o "secondary" según tu configuración en la otra columna
-                    labelText = "ME > FULL";
-                } else if (logisticType !== "fulfillment" && permitir_full === 0) {
+                // Manda el interruptor FULL de Publicaciones (permitir_full)
+                if (Number(permitir_full) === 1) {
+                    color = logisticType === "fulfillment" ? "success" : "error";
+                    labelText = logisticType === "fulfillment" ? "FULL" : "ME > FULL";
+                } else {
                     color = "warning";
-                    labelText = "ME";
+                    labelText = logisticType === "fulfillment" ? "FULL deshab." : "ME";
                 }
 
                 // Usamos labelText en lugar de params.value

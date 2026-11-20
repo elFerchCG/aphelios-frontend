@@ -107,10 +107,12 @@ const columnaPorKit = {
 // ============================================================
 // Logística: ¿a dónde va la orden y qué pasa con lo que sobra?
 //
-//  - logistic_type = 'fulfillment'            -> FULL.
-//  - otra logística con permitir_full = 1     -> hoy está en Mercado
-//    Envíos, pero está habilitada para enviarse a FULL (ME > FULL).
-//  - otra logística con permitir_full = 0     -> Mercado Envíos.
+// Manda el interruptor FULL de Publicaciones (permitir_full), no el
+// logistic_type de ML:
+//  - permitir_full = 1 y fulfillment         -> FULL.
+//  - permitir_full = 1 y otra logística      -> ME > FULL (se envía a FULL).
+//  - permitir_full = 0 y fulfillment         -> FULL deshabilitado (como ME).
+//  - permitir_full = 0 y otra logística      -> Mercado Envíos.
 //
 // Diferencia = lo que se arma (cantidad_parcial) − lo que se envía
 // (cantidad_a_enviar). Si va a FULL esa diferencia es EXCEDENTE; si no,
@@ -118,11 +120,13 @@ const columnaPorKit = {
 // ============================================================
 const infoLogistica = (logisticType, permitirFull) => {
     const esFulfillment = logisticType === 'fulfillment';
-    const habilitadoFull = !esFulfillment && Number(permitirFull) === 1;
-    const vaAFull = esFulfillment || habilitadoFull;
+    const vaAFull = Number(permitirFull) === 1;
+    const habilitadoFull = vaAFull && !esFulfillment;
+    const fullDeshabilitado = esFulfillment && !vaAFull;
     return {
         esFulfillment,
         habilitadoFull,
+        fullDeshabilitado,
         vaAFull,
         logisticaActual: esFulfillment ? 'FULL' : 'Mercado Envíos',
         destinoDiferencia: vaAFull ? 'Excedente' : 'Guardar en ME',
@@ -140,6 +144,11 @@ const LOGISTICA_UI = {
         color: 'info',
         ayuda: 'La publicación hoy está en Mercado Envíos, pero está habilitada para enviarse a FULL. Lo que se arme de más se marca como excedente.',
     },
+    fullOff: {
+        label: 'FULL deshabilitado',
+        color: 'warning',
+        ayuda: 'La publicación es FULL en Mercado Libre, pero el FULL está deshabilitado en Publicaciones: se trata como Mercado Envíos y no se envía. Lo que se arme se guarda en ME (no es excedente).',
+    },
     me: {
         label: 'Mercado Envíos',
         color: 'warning',
@@ -147,7 +156,9 @@ const LOGISTICA_UI = {
     },
 };
 
-const claveLogistica = (info) => (info.esFulfillment ? 'full' : info.habilitadoFull ? 'meFull' : 'me');
+const claveLogistica = (info) => (info.vaAFull
+    ? (info.esFulfillment ? 'full' : 'meFull')
+    : (info.esFulfillment ? 'fullOff' : 'me'));
 
 const LogisticaChip = ({ logisticType, permitirFull, size = 'small' }) => {
     const ui = LOGISTICA_UI[claveLogistica(infoLogistica(logisticType, permitirFull))];
@@ -218,6 +229,7 @@ const AyudaLogisticaOrden = ({ resumen, permitirFull }) => {
                 <Typography variant="body2" color="text.secondary">
                     Logística actual de la publicación: <b>{info.logisticaActual}</b>
                     {info.habilitadoFull && ' · habilitada para enviarse a FULL'}
+                    {info.fullDeshabilitado && ' · FULL deshabilitado en Publicaciones'}
                 </Typography>
             </Stack>
             <Typography variant="body2">
@@ -256,7 +268,7 @@ const ResumenArmadoKPIs = ({ resumen, kits, permitirFull }) => {
     const enviar = Math.round(Number(resumen.cantidad_producto_a_enviar) || 0);
     const diferencia = Math.max(armar - enviar, 0);
     const empacada = Math.round(Number(resumen.cantidad_producto_empacada) || 0);
-    // Excedente si va a FULL (fulfillment o habilitada con permitir_full = 1)
+    // Excedente si va a FULL (interruptor permitir_full = 1)
     const esFull = infoLogistica(resumen.logistic_type, permitirFull).vaAFull;
 
     return (
@@ -1484,11 +1496,9 @@ const Surtido = () => {
                     <Stack spacing={0.5} alignItems="center" justifyContent="center" sx={{ height: "100%", width: "100%" }}>
                         <LogisticaChip logisticType={params.value} permitirFull={params.row.permitir_full} />
                         <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center", lineHeight: 1.2, fontWeight: 500, whiteSpace: "normal" }}>
-                            {info.esFulfillment
-                                ? "Publicación en FULL"
-                                : info.habilitadoFull
-                                    ? "Hoy en ME · habilitada para FULL"
-                                    : "No va a FULL"}
+                            {info.vaAFull
+                                ? (info.esFulfillment ? "Publicación en FULL" : "Hoy en ME · habilitada para FULL")
+                                : (info.esFulfillment ? "FULL deshabilitado · no se envía" : "No va a FULL")}
                         </Typography>
                     </Stack>
                 );
@@ -1587,9 +1597,7 @@ const Surtido = () => {
                     return [];
                 }
 
-                const esFull =
-                    params.row.logistic_type === "fulfillment" ||
-                    params.row.permitir_full === 1;
+                const esFull = Number(params.row.permitir_full) === 1;
 
                 return [
                     <Tooltip
@@ -2307,7 +2315,7 @@ const Surtido = () => {
                 experimentalFeatures={{ newEditingApi: true }}
                 slots={{ toolbar: CustomToolbar }}
                 getRowClassName={(params) => {
-                    if (params.row.logistic_type === 'fulfillment' || params.row.permitir_full === 1) {
+                    if (Number(params.row.permitir_full) === 1) {
                         return 'fila-full';
                     }
                     return 'fila-no-full';

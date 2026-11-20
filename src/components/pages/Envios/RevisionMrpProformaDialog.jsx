@@ -253,9 +253,13 @@ export default function RevisionMrpProformaDialog({ open, onClose, apiUrl, envio
         {
             field: "logistic_type",
             headerName: "Logística",
-            width: 85,
-            valueGetter: (value, row) =>
-                value === "fulfillment" ? "FULL" : value ? (row.permitir_full ? "ME + FULL" : "ME") : "—",
+            width: 105,
+            // Manda el interruptor FULL de Publicaciones (permitir_full)
+            valueGetter: (value, row) => {
+                if (!value) return "—";
+                if (Number(row.permitir_full) === 1) return value === "fulfillment" ? "FULL" : "ME + FULL";
+                return value === "fulfillment" ? "FULL deshab." : "ME";
+            },
         },
         {
             field: "pronostico",

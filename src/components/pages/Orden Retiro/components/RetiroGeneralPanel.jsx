@@ -213,7 +213,9 @@ const RetiroGeneralPanel = ({ onFinalizado }) => {
       title: "¿Generar retiro general?",
       html:
         "Se recalculará el MRP de <b>todas</b> las publicaciones y se generará una orden de retiro " +
-        "con el excedente de bodega de todos los productos FULL.<br/><br/>" +
+        "con el excedente de bodega de todos los productos FULL (y de los cross docking habilitados para Full).<br/><br/>" +
+        "En cada producto se deja en almacén una reserva de al menos 1 semana de venta (o su colchón), " +
+        "para que la publicación siga activa mientras el envío llega a Full.<br/><br/>" +
         "Puede tardar varios minutos. Si algo falla, no se guarda ningún cambio.",
       icon: "question",
       showCancelButton: true,
@@ -292,6 +294,35 @@ const RetiroGeneralPanel = ({ onFinalizado }) => {
       { field: "inventory_id", headerName: "ML", minWidth: 110, flex: 0.7 },
       { field: "pedido_calculado", headerName: "Pedido", type: "number", width: 100, valueFormatter: (v) => fmtNum(v) },
       { field: "excedente_calculado", headerName: "Excedente", type: "number", width: 110, valueFormatter: (v) => fmtNum(v) },
+      {
+        field: "logistica",
+        headerName: "Logística",
+        width: 120,
+        renderCell: (params) =>
+          params.value === "cross_docking" ? (
+            <Chip label="Cross > FULL" size="small" color="info" variant="outlined" />
+          ) : params.value === "fulfillment" ? (
+            "FULL"
+          ) : (
+            "—"
+          ),
+      },
+      {
+        field: "pronostico_semanal",
+        headerName: "Pronóstico sem.",
+        description: "Pronóstico de venta semanal (cantidad a vender) sumando todas las opciones del MLMU.",
+        type: "number",
+        width: 120,
+        valueFormatter: (v) => (v == null ? "—" : Number(v).toLocaleString("es-MX", { maximumFractionDigits: 2 })),
+      },
+      {
+        field: "reserva_almacen",
+        headerName: "Reserva",
+        description: "Piezas que se dejan en almacén: máx(1 semana de pronóstico, colchón, 1).",
+        type: "number",
+        width: 100,
+        valueFormatter: (v) => (v == null ? "—" : fmtNum(v)),
+      },
       { field: "cantidad_retirada", headerName: "Retirado", type: "number", width: 110, valueFormatter: (v) => fmtNum(v) },
       {
         field: "faltante_sin_cubrir",
@@ -466,7 +497,8 @@ const RetiroGeneralPanel = ({ onFinalizado }) => {
               )}
               {ejecucionSeguida.estado === "SIN_EXCEDENTES" && (
                 <Alert severity="info">
-                  No hay productos FULL con excedente disponible en bodega. No se generó orden de retiro.
+                  No hay productos FULL con excedente en bodega descontando la reserva que se deja en almacén.
+                  No se generó orden de retiro.
                 </Alert>
               )}
               {["COMPLETADO", "COMPLETADO_CON_ADVERTENCIAS"].includes(ejecucionSeguida.estado) &&
@@ -480,6 +512,12 @@ const RetiroGeneralPanel = ({ onFinalizado }) => {
                         {fmtNum(ejecucionSeguida.resumen.productosConFaltante)} producto(s) no se cubrieron
                         completos con el excedente ({fmtNum(ejecucionSeguida.resumen.piezasFaltantes)} piezas);
                         ese faltante se pedirá al proveedor en el MRP manual.
+                      </Box>
+                    )}
+                    {ejecucionSeguida.resumen.piezasEnReserva > 0 && (
+                      <Box sx={{ mt: 0.5 }}>
+                        Se dejaron {fmtNum(ejecucionSeguida.resumen.piezasEnReserva)} pieza(s) de reserva en almacén
+                        en {fmtNum(ejecucionSeguida.resumen.productosLimitadosPorReserva)} producto(s).
                       </Box>
                     )}
                   </Alert>

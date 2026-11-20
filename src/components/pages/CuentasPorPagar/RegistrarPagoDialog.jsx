@@ -68,6 +68,7 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
   const [fechaPago, setFechaPago] = useState(hoy);
   const [referencia, setReferencia] = useState("");
   const [comentario, setComentario] = useState("");
+  const [complemento, setComplemento] = useState("");
   const [lineas, setLineas] = useState({});
   const [error, setError] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -77,6 +78,7 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
     setFechaPago(hoy);
     setReferencia("");
     setComentario("");
+    setComplemento("");
     setError("");
     setMetodo("transferencia");
     setNotaId("");
@@ -173,6 +175,7 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
         metodo_pago: metodo,
         nota_credito_id: esNota ? nota.id : null,
         referencia: esNota ? null : referencia.trim(),
+        complemento: esNota ? null : complemento.trim() || null,
         comentario: comentario.trim() || null,
         facturas: detalle.map((d) => ({
           factura_id: d.factura.id,
@@ -280,7 +283,18 @@ const RegistrarPagoDialog = ({ open, facturas, proveedor, hoy, onClose, onGuarda
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
                 inputProps={{ maxLength: 60 }}
-                sx={{ minWidth: 260, flex: 1 }}
+                sx={{ minWidth: 240, flex: 1 }}
+              />
+            )}
+            {!esNota && (
+              <TextField
+                label="# Complemento"
+                size="small"
+                value={complemento}
+                onChange={(e) => setComplemento(e.target.value)}
+                inputProps={{ maxLength: 60 }}
+                helperText="Opcional"
+                sx={{ minWidth: 200, flex: 0.8 }}
               />
             )}
             <TextField

@@ -966,11 +966,8 @@ const MrpSimple = () => {
       headerName: "Logística",
       minWidth: 100,
       renderCell: (params) => {
-        if (params.value !== "fulfillment" && params.row.permitir_full === 0) {
-          return "ME";
-        } else {
-          return "FULL";
-        }
+        // Manda el interruptor FULL de Publicaciones (permitir_full)
+        return Number(params.row.permitir_full) === 1 ? "FULL" : "ME";
       },
     },
     {

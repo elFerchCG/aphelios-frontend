@@ -120,6 +120,13 @@ const DetallePagoDialog = ({ open, pagoId, puedeEscribir, onClose, onCancelado }
               </Dato>
               {pago.monto_descuento > 0 && <Dato label="Descuento pronto pago">{fmtMoneda(pago.monto_descuento)}</Dato>}
               <Dato label="Método">{getMetodoPago(pago.metodo_pago).label}</Dato>
+              {pago.metodo_pago !== "nota_credito" && (
+                <Dato label="Complemento">
+                  {pago.complemento || (
+                    <Box component="span" sx={{ color: "#ed6c02" }}>Sin registrar</Box>
+                  )}
+                </Dato>
+              )}
               {pago.metodo_pago === "nota_credito" ? (
                 <Dato label="Nota de crédito">
                   {pago.nota_folio || "—"}
